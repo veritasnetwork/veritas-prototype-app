@@ -19,6 +19,8 @@ import {
 const VeritasNavbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { theme, toggleTheme, isDark } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
@@ -31,6 +33,17 @@ const VeritasNavbar = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Handle mobile detection and hydration
+  useEffect(() => {
+    setMounted(true);
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const navItems = [
@@ -58,9 +71,30 @@ const VeritasNavbar = () => {
     setIsMobileMenuOpen(false);
   };
 
+  // Prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <nav className="hidden md:block fixed top-0 left-0 right-0 z-50 w-full">
+        <div className="bg-gradient-to-r from-slate-50/95 to-blue-50/95 dark:from-slate-900/95 dark:to-slate-800/95 backdrop-blur-xl">
+          <div className="relative flex items-center justify-between px-12 py-6">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#0C1D51] to-[#B9D9EB] rounded-2xl flex items-center justify-center">
+                <span className="font-black text-white text-xl">V</span>
+              </div>
+              <span className="ml-3 text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#0C1D51] to-[#B9D9EB]">
+                Veritas
+              </span>
+            </div>
+            <div className="w-10 h-10"></div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
   return (
     <>
-      {/* Desktop Navbar - Premium center transition */}
+      {/* Desktop Navbar - Unchanged premium center transition */}
       <nav
         className={`hidden md:block fixed z-50 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isScrolled
@@ -164,80 +198,115 @@ const VeritasNavbar = () => {
               >
                 Submit Belief
               </button>
-
-              {/* Mobile Menu Button */}
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden p-3 rounded-2xl bg-gradient-to-br from-[#B9D9EB]/20 to-[#0C1D51]/10 hover:from-[#B9D9EB]/30 hover:to-[#0C1D51]/20 transition-all duration-300"
-              >
-                {isMobileMenuOpen ? (
-                  <X className="w-5 h-5 text-[#0C1D51] dark:text-[#B9D9EB]" />
-                ) : (
-                  <Menu className="w-5 h-5 text-[#0C1D51] dark:text-[#B9D9EB]" />
-                )}
-              </button>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Mobile Bottom Dock */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 p-4">
-        <div className="relative max-w-md mx-auto">
-          {/* Glassmorphism container */}
-          <div className="relative bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 rounded-3xl shadow-2xl shadow-blue-500/10">
-            {/* Premium gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-indigo-500/5 rounded-3xl" />
-            
-            <div className="relative flex items-center justify-around px-6 py-4">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = isActiveRoute(item.href);
-                
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleNavigation(item.href)}
-                    className={`relative flex flex-col items-center p-3 rounded-2xl transition-all duration-300 ${
-                      isActive 
-                        ? 'transform scale-110' 
-                        : 'hover:scale-105'
-                    }`}
-                  >
-                    {/* Active indicator background */}
-                    {isActive && (
-                      <div className="absolute inset-0 bg-gradient-to-br from-[#B9D9EB]/30 to-[#0C1D51]/20 rounded-2xl" />
-                    )}
-                    
-                    {/* Icon */}
-                    <Icon 
-                      className={`w-6 h-6 transition-colors duration-300 ${
+      {/* NEW: Mobile Top Bar - Minimal (Logo + Theme Toggle only) */}
+      {isMobile && (
+        <nav className="md:hidden fixed top-0 left-0 right-0 z-50 pointer-events-none">
+          <div className="p-4">
+            <div
+              className={`pointer-events-auto flex items-center justify-between max-w-md mx-auto rounded-3xl px-6 py-3 transition-all duration-500 ${
+                isScrolled
+                  ? 'bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-blue-500/10'
+                  : 'bg-white/5 dark:bg-slate-900/5 backdrop-blur-xl'
+              }`}
+            >
+              {/* Mobile Logo */}
+              <div 
+                className="flex items-center cursor-pointer group"
+                onClick={() => handleNavigation('/')}
+              >
+                <div className="relative w-8 h-8">
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#0C1D51] to-[#B9D9EB] rounded-xl transform group-hover:scale-110 transition-transform duration-300" />
+                  <div className="absolute inset-[2px] bg-white dark:bg-slate-900 rounded-[10px] flex items-center justify-center">
+                    <span className="font-black text-transparent bg-clip-text bg-gradient-to-br from-[#0C1D51] to-[#B9D9EB] text-sm">
+                      V
+                    </span>
+                  </div>
+                </div>
+                <span className="ml-2 text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#0C1D51] to-[#B9D9EB]">
+                  Veritas
+                </span>
+              </div>
+
+              {/* Mobile Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-xl bg-gradient-to-br from-[#B9D9EB]/20 to-[#0C1D51]/10 hover:from-[#B9D9EB]/30 hover:to-[#0C1D51]/20 transition-all duration-300 group"
+              >
+                {isDark ? (
+                  <Sun className="w-4 h-4 text-[#B9D9EB] group-hover:rotate-12 transition-transform duration-300" />
+                ) : (
+                  <Moon className="w-4 h-4 text-[#0C1D51] group-hover:-rotate-12 transition-transform duration-300" />
+                )}
+              </button>
+            </div>
+          </div>
+        </nav>
+      )}
+
+      {/* Mobile Bottom Dock - Unchanged */}
+      {isMobile && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 p-4">
+          <div className="relative max-w-md mx-auto">
+            {/* Glassmorphism container */}
+            <div className="relative bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 rounded-3xl shadow-2xl shadow-blue-500/10">
+              {/* Premium gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-indigo-500/5 rounded-3xl" />
+              
+              <div className="relative flex items-center justify-around px-6 py-4">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = isActiveRoute(item.href);
+                  
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleNavigation(item.href)}
+                      className={`relative flex flex-col items-center p-3 rounded-2xl transition-all duration-300 ${
                         isActive 
-                          ? 'text-[#0C1D51] dark:text-[#B9D9EB]' 
-                          : 'text-slate-500 dark:text-slate-400'
-                      }`} 
-                    />
-                    
-                    {/* Label */}
-                    <span
-                      className={`text-xs font-medium mt-1 transition-colors duration-300 ${
-                        isActive 
-                          ? 'text-[#0C1D51] dark:text-[#B9D9EB]' 
-                          : 'text-slate-500 dark:text-slate-400'
+                          ? 'transform scale-110' 
+                          : 'hover:scale-105'
                       }`}
                     >
-                      {item.label}
-                    </span>
-                  </button>
-                );
-              })}
+                      {/* Active indicator background */}
+                      {isActive && (
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#B9D9EB]/30 to-[#0C1D51]/20 rounded-2xl" />
+                      )}
+                      
+                      {/* Icon */}
+                      <Icon 
+                        className={`w-6 h-6 transition-colors duration-300 ${
+                          isActive 
+                            ? 'text-[#0C1D51] dark:text-[#B9D9EB]' 
+                            : 'text-slate-500 dark:text-slate-400'
+                        }`} 
+                      />
+                      
+                      {/* Label */}
+                      <span
+                        className={`text-xs font-medium mt-1 transition-colors duration-300 ${
+                          isActive 
+                            ? 'text-[#0C1D51] dark:text-[#B9D9EB]' 
+                            : 'text-slate-500 dark:text-slate-400'
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Mobile menu overlay */}
-      {isMobileMenuOpen && (
+      {/* Mobile menu overlay - Only show on mobile when menu is open */}
+      {isMobile && isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm">
           <div className="absolute top-24 left-4 right-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/30">
             <div className="p-6 space-y-4">
@@ -246,14 +315,10 @@ const VeritasNavbar = () => {
                   Navigation
                 </h3>
                 <button
-                  onClick={toggleTheme}
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className="p-2 rounded-xl bg-gradient-to-br from-[#B9D9EB]/20 to-[#0C1D51]/10"
                 >
-                  {isDark ? (
-                    <Sun className="w-5 h-5 text-[#B9D9EB]" />
-                  ) : (
-                    <Moon className="w-5 h-5 text-[#0C1D51]" />
-                  )}
+                  <X className="w-5 h-5 text-[#0C1D51] dark:text-[#B9D9EB]" />
                 </button>
               </div>
               
