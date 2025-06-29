@@ -14,8 +14,15 @@ const config: Config = {
     extend: {
       // Veritas Color Scheme
       colors: {
-        'veritas-primary': '#0C1D51',
-        'veritas-secondary': '#B9D9EB',
+        veritas: {
+          primary: '#1B365D',      // Deep Navy
+          secondary: '#FFB800',    // Vibrant Yellow
+          'slate-blue': '#2D4A6B',
+          'golden-yellow': '#F5A623',
+          'muted-gold': '#D4A574',
+        },
+        'veritas-primary': '#1B365D',
+        'veritas-secondary': '#FFB800',
         'veritas-light-blue': '#E8F4FD',
         'veritas-dark-blue': '#051225',
         background: 'var(--background)',
@@ -60,11 +67,11 @@ const config: Config = {
       
       // Premium Shadows
       boxShadow: {
-        'premium': '0 10px 40px -10px rgba(185, 217, 235, 0.3)',
-        'premium-dark': '0 10px 40px -10px rgba(12, 29, 81, 0.3)',
+        'premium': '0 10px 40px -10px rgba(255, 184, 0, 0.3)',
+        'premium-dark': '0 10px 40px -10px rgba(27, 54, 93, 0.3)',
         'glassmorphism': '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-        'glow': '0 0 20px rgba(185, 217, 235, 0.5)',
-        'glow-strong': '0 0 40px rgba(185, 217, 235, 0.8)',
+        'glow': '0 0 20px rgba(255, 184, 0, 0.5)',
+        'glow-strong': '0 0 40px rgba(255, 184, 0, 0.8)',
       },
       
       // Premium Animations
@@ -84,8 +91,8 @@ const config: Config = {
           '50%': { transform: 'translateY(-10px)' },
         },
         glow: {
-          'from': { boxShadow: '0 0 20px -10px rgba(185, 217, 235, 0.5)' },
-          'to': { boxShadow: '0 0 20px 5px rgba(185, 217, 235, 0.8)' },
+          'from': { boxShadow: '0 0 20px -10px rgba(255, 184, 0, 0.5)' },
+          'to': { boxShadow: '0 0 20px 5px rgba(255, 184, 0, 0.8)' },
         },
         fadeIn: {
           'from': { opacity: '0' },
@@ -105,8 +112,8 @@ const config: Config = {
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        'veritas-gradient': 'linear-gradient(135deg, #0C1D51 0%, #B9D9EB 100%)',
-        'veritas-gradient-reverse': 'linear-gradient(135deg, #B9D9EB 0%, #0C1D51 100%)',
+        'veritas-gradient': 'linear-gradient(135deg, #1B365D 0%, #FFB800 100%)',
+        'veritas-gradient-reverse': 'linear-gradient(135deg, #FFB800 0%, #1B365D 100%)',
         'glass-gradient': 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
       },
       

@@ -1,46 +1,62 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Belief } from '@/types/belief.types';
+import { useState, useEffect, useMemo } from 'react';
+import { SortOption, FilterStatus } from '@/types/belief.types';
 import { BeliefCard } from './BeliefCard';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { useRouter } from 'next/navigation';
+import { getAllBeliefs, getBeliefsByCategory, getBeliefsByStatus, searchBeliefs, sortBeliefs } from '@/lib/data';
 
-export const BeliefCardGrid: React.FC = () => {
-  const [beliefs, setBeliefs] = useState<Belief[]>([]);
+interface BeliefCardGridProps {
+  searchQuery?: string;
+  selectedCategory?: string;
+  sortBy?: SortOption;
+  filterStatus?: FilterStatus;
+}
+
+export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
+  searchQuery = '',
+  selectedCategory = '',
+  sortBy = 'recent',
+  filterStatus = 'all'
+}) => {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    // TODO: Replace with actual API call
-    const fetchBeliefs = async () => {
-      // Mock data for now
-      const mockBeliefs: Belief[] = [
-        {
-          id: '1',
-          type: 'continuous',
-          title: 'Bitcoin Price Prediction',
-          description: 'What will Bitcoin be worth next month?',
-          category: 'Finance',
-          createdAt: new Date().toISOString(),
-          status: 'active',
-          totalStake: 10000,
-          participantCount: 45,
-          consensusLevel: 0.7,
-          entropy: 0.3,
-          distribution: {
-            mean: 50000,
-            variance: 1000000
-          },
-          unit: 'USD'
-        }
-      ];
-      
-      setBeliefs(mockBeliefs);
-      setIsLoading(false);
-    };
+  // Get and filter beliefs using our data utilities
+  const beliefs = useMemo(() => {
+    let filteredBeliefs = getAllBeliefs();
 
-    fetchBeliefs();
+    // Apply search first
+    if (searchQuery) {
+      filteredBeliefs = searchBeliefs(searchQuery);
+    }
+
+    // Apply category filter
+    if (selectedCategory && selectedCategory !== 'all') {
+      filteredBeliefs = filteredBeliefs.filter(belief => 
+        getBeliefsByCategory(selectedCategory).includes(belief)
+      );
+    }
+
+    // Apply status filter
+    if (filterStatus !== 'all') {
+      filteredBeliefs = filteredBeliefs.filter(belief =>
+        getBeliefsByStatus(filterStatus).includes(belief)
+      );
+    }
+
+    // Apply sorting
+    return sortBeliefs(filteredBeliefs, sortBy);
+  }, [searchQuery, selectedCategory, sortBy, filterStatus]);
+
+  useEffect(() => {
+    // Simulate loading
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const handleCardClick = (beliefId: string) => {
@@ -55,12 +71,28 @@ export const BeliefCardGrid: React.FC = () => {
     );
   }
 
+  if (beliefs.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-slate-600 dark:text-slate-400">
+          No beliefs found matching your criteria.
+        </p>
+        {(searchQuery || selectedCategory || filterStatus !== 'all') && (
+          <p className="text-sm text-slate-500 dark:text-slate-500 mt-2">
+            Try adjusting your search or filters.
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {beliefs.map((belief) => (
         <BeliefCard
           key={belief.id}
           belief={belief}
+          displayMode={belief.layoutType === 'minimal' ? 'minimal' : 'balanced'}
           onCardClick={handleCardClick}
         />
       ))}

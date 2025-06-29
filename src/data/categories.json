@@ -1,0 +1,50 @@
+[
+  {
+    "id": "finance",
+    "name": "Finance",
+    "description": "Market predictions, cryptocurrency, stocks, and economic indicators",
+    "icon": "TrendingUp",
+    "color": "#1B365D",
+    "subCategories": ["Cryptocurrency", "Stocks", "Economics", "Trading"]
+  },
+  {
+    "id": "politics",
+    "name": "Politics",
+    "description": "Elections, policy outcomes, approval ratings, and political events",
+    "icon": "Vote",
+    "color": "#FFB800",
+    "subCategories": ["Elections", "Policy", "International", "Local"]
+  },
+  {
+    "id": "sports",
+    "name": "Sports",
+    "description": "Championship predictions, playoff outcomes, and athletic competitions",
+    "icon": "Trophy",
+    "color": "#22C55E",
+    "subCategories": ["Football", "Soccer", "Basketball", "Baseball", "Olympics"]
+  },
+  {
+    "id": "technology",
+    "name": "Technology",
+    "description": "AI developments, product launches, and innovation milestones",
+    "icon": "Cpu",
+    "color": "#8B5CF6",
+    "subCategories": ["Artificial Intelligence", "Consumer Electronics", "Software", "Space"]
+  },
+  {
+    "id": "climate",
+    "name": "Climate",
+    "description": "Environmental predictions, weather patterns, and climate change metrics",
+    "icon": "Thermometer",
+    "color": "#06B6D4",
+    "subCategories": ["Temperature", "Weather Events", "Environmental Policy", "Sustainability"]
+  },
+  {
+    "id": "entertainment",
+    "name": "Entertainment",
+    "description": "Media predictions, award shows, box office, and streaming metrics",
+    "icon": "Film",
+    "color": "#F59E0B",
+    "subCategories": ["Awards", "Streaming", "Box Office", "Gaming"]
+  }
+] 

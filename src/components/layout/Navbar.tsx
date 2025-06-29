@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
@@ -78,10 +79,10 @@ const VeritasNavbar = () => {
         <div className="bg-gradient-to-r from-slate-50/95 to-blue-50/95 dark:from-slate-900/95 dark:to-slate-800/95 backdrop-blur-xl">
           <div className="relative flex items-center justify-between px-12 py-6">
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-[#0C1D51] to-[#B9D9EB] rounded-2xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#1B365D] to-[#FFB800] rounded-2xl flex items-center justify-center">
                 <span className="font-black text-white text-xl">V</span>
               </div>
-              <span className="ml-3 text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#0C1D51] to-[#B9D9EB]">
+              <span className="ml-3 text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#1B365D] to-[#FFB800]">
                 Veritas
               </span>
             </div>
@@ -111,7 +112,7 @@ const VeritasNavbar = () => {
         <div
           className={`relative transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             isScrolled
-              ? 'bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 rounded-3xl shadow-2xl shadow-blue-500/10'
+              ? 'bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 rounded-3xl shadow-2xl shadow-yellow-500/10'
               : 'bg-gradient-to-r from-slate-50/95 to-blue-50/95 dark:from-slate-900/95 dark:to-slate-800/95 backdrop-blur-xl'
           }`}
         >
@@ -119,8 +120,8 @@ const VeritasNavbar = () => {
           <div
             className={`absolute inset-0 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               isScrolled
-                ? 'bg-gradient-to-r from-blue-500/5 to-indigo-500/5 rounded-3xl'
-                : 'bg-gradient-to-r from-white/20 to-blue-100/20 dark:from-slate-800/20 dark:to-slate-700/20'
+                ? 'bg-gradient-to-r from-yellow-500/5 to-orange-500/5 rounded-3xl'
+                : 'bg-gradient-to-r from-white/20 to-yellow-100/20 dark:from-slate-800/20 dark:to-slate-700/20'
             }`}
           />
           
@@ -139,17 +140,22 @@ const VeritasNavbar = () => {
                   isScrolled ? 'w-10 h-10' : 'w-12 h-12'
                 }`}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#0C1D51] to-[#B9D9EB] rounded-2xl transform group-hover:scale-110 transition-transform duration-300" />
-                <div className="absolute inset-[2px] bg-white dark:bg-slate-900 rounded-[14px] flex items-center justify-center">
-                  <span className={`font-black text-transparent bg-clip-text bg-gradient-to-br from-[#0C1D51] to-[#B9D9EB] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                    isScrolled ? 'text-lg' : 'text-xl'
-                  }`}>
-                    V
-                  </span>
+                <div className="w-full h-full bg-[#1B365D] rounded-2xl flex items-center justify-center p-2 group-hover:scale-110 transition-transform duration-300">
+                  <div className="w-full h-full rounded-full bg-white/20 flex items-center justify-center">
+                    <Image
+                      src="/icons/veritas-logo.png"
+                      alt="Veritas"
+                      width={isScrolled ? 20 : 24}
+                      height={isScrolled ? 20 : 24}
+                      className="w-full h-full object-contain rounded-full"
+                      priority
+                      unoptimized
+                    />
+                  </div>
                 </div>
               </div>
               <span
-                className={`ml-3 font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#0C1D51] to-[#B9D9EB] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                className={`ml-3 font-bold text-[#1B365D] dark:text-[#D4A574] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                   isScrolled ? 'text-xl' : 'text-2xl'
                 }`}
               >
@@ -165,12 +171,12 @@ const VeritasNavbar = () => {
                   onClick={() => handleNavigation(item.href)}
                   className={`relative px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
                     isActiveRoute(item.href)
-                      ? 'text-[#0C1D51] dark:text-[#B9D9EB]'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-[#0C1D51] dark:hover:text-[#B9D9EB]'
+                      ? 'text-[#1B365D] dark:text-[#D4A574]'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-[#1B365D] dark:hover:text-[#D4A574]'
                   }`}
                 >
                   {isActiveRoute(item.href) && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-[#B9D9EB]/20 to-[#0C1D51]/10 rounded-xl transition-all duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#FFB800]/20 to-[#1B365D]/10 rounded-xl transition-all duration-300" />
                   )}
                   <span className="relative">{item.label}</span>
                 </button>
@@ -182,19 +188,19 @@ const VeritasNavbar = () => {
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-3 rounded-2xl bg-gradient-to-br from-[#B9D9EB]/20 to-[#0C1D51]/10 hover:from-[#B9D9EB]/30 hover:to-[#0C1D51]/20 transition-all duration-300 group"
+                className="p-3 rounded-2xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10 hover:from-[#FFB800]/30 hover:to-[#1B365D]/20 transition-all duration-300 group"
               >
                 {isDark ? (
-                  <Sun className="w-5 h-5 text-[#B9D9EB] group-hover:rotate-12 transition-transform duration-300" />
+                  <Sun className="w-5 h-5 text-[#D4A574] group-hover:rotate-12 transition-transform duration-300" />
                 ) : (
-                  <Moon className="w-5 h-5 text-[#0C1D51] group-hover:-rotate-12 transition-transform duration-300" />
+                  <Moon className="w-5 h-5 text-[#1B365D] group-hover:-rotate-12 transition-transform duration-300" />
                 )}
               </button>
 
               {/* Submit Button */}
               <button
                 onClick={() => handleNavigation('/submit')}
-                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#0C1D51] to-[#B9D9EB] text-white font-semibold hover:shadow-2xl hover:shadow-blue-500/25 transform hover:scale-105 transition-all duration-300"
+                className="px-6 py-3 rounded-2xl bg-[#1B365D] hover:bg-[#2D4A6B] text-white font-semibold shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300"
               >
                 Submit Belief
               </button>
@@ -210,7 +216,7 @@ const VeritasNavbar = () => {
             <div
               className={`pointer-events-auto flex items-center justify-between max-w-md mx-auto rounded-3xl px-6 py-3 transition-all duration-500 ${
                 isScrolled
-                  ? 'bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-blue-500/10'
+                  ? 'bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-yellow-500/10'
                   : 'bg-white/5 dark:bg-slate-900/5 backdrop-blur-xl'
               }`}
             >
@@ -220,14 +226,21 @@ const VeritasNavbar = () => {
                 onClick={() => handleNavigation('/')}
               >
                 <div className="relative w-8 h-8">
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#0C1D51] to-[#B9D9EB] rounded-xl transform group-hover:scale-110 transition-transform duration-300" />
-                  <div className="absolute inset-[2px] bg-white dark:bg-slate-900 rounded-[10px] flex items-center justify-center">
-                    <span className="font-black text-transparent bg-clip-text bg-gradient-to-br from-[#0C1D51] to-[#B9D9EB] text-sm">
-                      V
-                    </span>
+                  <div className="w-full h-full bg-[#1B365D] rounded-xl flex items-center justify-center p-1.5 group-hover:scale-110 transition-transform duration-300">
+                    <div className="w-full h-full rounded-full bg-white/20 flex items-center justify-center">
+                      <Image
+                        src="/icons/veritas-logo.png"
+                        alt="Veritas"
+                        width={16}
+                        height={16}
+                        className="w-full h-full object-contain rounded-full"
+                        priority
+                        unoptimized
+                      />
+                    </div>
                   </div>
                 </div>
-                <span className="ml-2 text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#0C1D51] to-[#B9D9EB]">
+                <span className="ml-2 text-lg font-bold text-[#1B365D] dark:text-[#D4A574]">
                   Veritas
                 </span>
               </div>
@@ -235,12 +248,12 @@ const VeritasNavbar = () => {
               {/* Mobile Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-2 rounded-xl bg-gradient-to-br from-[#B9D9EB]/20 to-[#0C1D51]/10 hover:from-[#B9D9EB]/30 hover:to-[#0C1D51]/20 transition-all duration-300 group"
+                className="p-2 rounded-xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10 hover:from-[#FFB800]/30 hover:to-[#1B365D]/20 transition-all duration-300 group"
               >
                 {isDark ? (
-                  <Sun className="w-4 h-4 text-[#B9D9EB] group-hover:rotate-12 transition-transform duration-300" />
+                  <Sun className="w-4 h-4 text-[#D4A574] group-hover:rotate-12 transition-transform duration-300" />
                 ) : (
-                  <Moon className="w-4 h-4 text-[#0C1D51] group-hover:-rotate-12 transition-transform duration-300" />
+                  <Moon className="w-4 h-4 text-[#1B365D] group-hover:-rotate-12 transition-transform duration-300" />
                 )}
               </button>
             </div>
@@ -253,9 +266,9 @@ const VeritasNavbar = () => {
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 p-4">
           <div className="relative max-w-md mx-auto">
             {/* Glassmorphism container */}
-            <div className="relative bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 rounded-3xl shadow-2xl shadow-blue-500/10">
+            <div className="relative bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 rounded-3xl shadow-2xl shadow-yellow-500/10">
               {/* Premium gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-indigo-500/5 rounded-3xl" />
+              <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 rounded-3xl" />
               
               <div className="relative flex items-center justify-around px-6 py-4">
                 {navItems.map((item) => {
@@ -274,14 +287,14 @@ const VeritasNavbar = () => {
                     >
                       {/* Active indicator background */}
                       {isActive && (
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#B9D9EB]/30 to-[#0C1D51]/20 rounded-2xl" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/30 to-[#1B365D]/20 rounded-2xl" />
                       )}
                       
                       {/* Icon */}
                       <Icon 
                         className={`w-6 h-6 transition-colors duration-300 ${
                           isActive 
-                            ? 'text-[#0C1D51] dark:text-[#B9D9EB]' 
+                            ? 'text-[#1B365D] dark:text-[#D4A574]' 
                             : 'text-slate-500 dark:text-slate-400'
                         }`} 
                       />
@@ -290,7 +303,7 @@ const VeritasNavbar = () => {
                       <span
                         className={`text-xs font-medium mt-1 transition-colors duration-300 ${
                           isActive 
-                            ? 'text-[#0C1D51] dark:text-[#B9D9EB]' 
+                            ? 'text-[#1B365D] dark:text-[#D4A574]' 
                             : 'text-slate-500 dark:text-slate-400'
                         }`}
                       >
@@ -311,14 +324,14 @@ const VeritasNavbar = () => {
           <div className="absolute top-24 left-4 right-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/30">
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-[#0C1D51] dark:text-[#B9D9EB]">
+                <h3 className="text-lg font-semibold text-[#1B365D] dark:text-[#D4A574]">
                   Navigation
                 </h3>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-xl bg-gradient-to-br from-[#B9D9EB]/20 to-[#0C1D51]/10"
+                  className="p-2 rounded-xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10"
                 >
-                  <X className="w-5 h-5 text-[#0C1D51] dark:text-[#B9D9EB]" />
+                  <X className="w-5 h-5 text-[#1B365D] dark:text-[#D4A574]" />
                 </button>
               </div>
               
@@ -328,7 +341,7 @@ const VeritasNavbar = () => {
                   onClick={() => handleNavigation(item.href)}
                   className={`w-full text-left p-4 rounded-2xl transition-all duration-300 ${
                     isActiveRoute(item.href)
-                      ? 'bg-gradient-to-r from-[#B9D9EB]/20 to-[#0C1D51]/10 text-[#0C1D51] dark:text-[#B9D9EB]'
+                      ? 'bg-gradient-to-r from-[#FFB800]/20 to-[#1B365D]/10 text-[#1B365D] dark:text-[#D4A574]'
                       : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
@@ -338,7 +351,7 @@ const VeritasNavbar = () => {
               
               <button
                 onClick={() => handleNavigation('/submit')}
-                className="w-full p-4 rounded-2xl bg-gradient-to-r from-[#0C1D51] to-[#B9D9EB] text-white font-semibold"
+                className="w-full p-4 rounded-2xl bg-[#1B365D] hover:bg-[#2D4A6B] text-white font-semibold transition-all duration-300"
               >
                 Submit Belief
               </button>

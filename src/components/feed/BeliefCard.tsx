@@ -23,7 +23,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
       onClick={() => onCardClick(belief.id)}
     >
       {/* Premium gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#B9D9EB]/5 to-[#0C1D51]/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/5 to-[#1B365D]/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       
       {/* Content */}
       <div className="relative z-10">
@@ -40,7 +40,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
       <div className="absolute top-4 right-4">
         <div className={`w-3 h-3 rounded-full ${
           belief.status === 'active' 
-            ? 'bg-green-500 animate-pulse' 
+            ? 'bg-yellow-500 animate-pulse' 
             : belief.status === 'resolved'
             ? 'bg-blue-500'
             : 'bg-gray-400'
@@ -49,7 +49,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
 
       {/* Category tag */}
       <div className="absolute top-4 left-4">
-        <span className="px-3 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-[#B9D9EB]/20 to-[#0C1D51]/10 text-[#0C1D51] dark:text-[#B9D9EB] border border-[#B9D9EB]/30">
+        <span className="px-3 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-[#FFB800]/20 to-[#1B365D]/10 text-[#1B365D] dark:text-[#D4A574] border border-[#FFB800]/30">
           {belief.category}
         </span>
       </div>

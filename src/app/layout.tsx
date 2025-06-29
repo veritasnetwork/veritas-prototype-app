@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   authors: [{ name: 'Veritas Team' }],
   viewport: 'width=device-width, initial-scale=1',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#B9D9EB' },
-    { media: '(prefers-color-scheme: dark)', color: '#0C1D51' }
+    { media: '(prefers-color-scheme: light)', color: '#FFB800' },
+    { media: '(prefers-color-scheme: dark)', color: '#1B365D' }
   ],
   manifest: '/manifest.json',
   icons: {
