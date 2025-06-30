@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -11,7 +11,18 @@ const inter = Inter({
   variable: '--font-inter'
 });
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#FFB800' },
+    { media: '(prefers-color-scheme: dark)', color: '#1B365D' }
+  ],
+};
+
 export const metadata: Metadata = {
+  metadataBase: new URL('https://app.veritas.computer'),
   title: 'Veritas - Decentralized Truth Finding',
   description: 'Aggregate information into truth signals through collective intelligence and economic incentives.',
   
@@ -56,15 +67,10 @@ export const metadata: Metadata = {
   
   // PWA configuration
   manifest: '/manifest.json',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#FFB800' },
-    { media: '(prefers-color-scheme: dark)', color: '#1B365D' }
-  ],
   
   // Additional SEO
   keywords: ['veritas', 'truth', 'decentralized', 'prediction markets', 'consensus', 'collective intelligence'],
   authors: [{ name: 'Veritas Team' }],
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
   robots: 'index, follow',
 };
 
