@@ -1,0 +1,82 @@
+{
+  "btc-price-jan-2025": [
+    {
+      "id": "c1",
+      "author": "CryptoAnalyst_anonymous",
+      "timestamp": "2024-12-17T14:30:00Z",
+      "content": "Technical indicators suggest strong support above $95K. The institutional demand continues to grow with recent ETF inflows.",
+      "sentiment": "bullish",
+      "likes": 23,
+      "isExpert": true
+    },
+    {
+      "id": "c2", 
+      "author": "MarketWatcher_anon",
+      "timestamp": "2024-12-17T16:45:00Z",
+      "content": "Regulatory uncertainty in multiple jurisdictions could create downward pressure. Worth watching the next Fed meeting.",
+      "sentiment": "bearish",
+      "likes": 18,
+      "isExpert": false
+    },
+    {
+      "id": "c3",
+      "author": "TechAnalysis_user",
+      "timestamp": "2024-12-17T19:20:00Z", 
+      "content": "The consensus is tightening around the $95-100K range. This suggests the market is finding equilibrium.",
+      "sentiment": "neutral",
+      "likes": 31,
+      "isExpert": true
+    }
+  ],
+  "us-election-2024-result": [
+    {
+      "id": "c4",
+      "author": "PoliticalExpert_anon",
+      "timestamp": "2024-11-05T22:15:00Z",
+      "content": "Final polling data shows tight race but market sentiment has been remarkably stable. The prediction market accuracy is impressive.",
+      "sentiment": "neutral",
+      "likes": 87,
+      "isExpert": true
+    },
+    {
+      "id": "c5",
+      "author": "DataScientist_user",
+      "timestamp": "2024-11-06T01:30:00Z",
+      "content": "The entropy levels decreased significantly in the final 48 hours. This indicates strong consensus formation.",
+      "sentiment": "neutral",
+      "likes": 45,
+      "isExpert": true
+    }
+  ],
+  "tesla-q4-2024-deliveries": [
+    {
+      "id": "c6",
+      "author": "AutoIndustry_analyst",
+      "timestamp": "2024-12-28T10:15:00Z",
+      "content": "Production ramp in Shanghai has exceeded expectations. Q4 delivery numbers should beat consensus estimates.",
+      "sentiment": "bullish",
+      "likes": 34,
+      "isExpert": true
+    }
+  ],
+  "superbowl-2025-winner": [
+    {
+      "id": "c7",
+      "author": "SportsAnalytics_pro",
+      "timestamp": "2024-12-15T18:00:00Z",
+      "content": "Chiefs' playoff experience gives them an edge, but Lions' home-field advantage through NFC playoffs is significant.",
+      "sentiment": "neutral",
+      "likes": 67,
+      "isExpert": true
+    },
+    {
+      "id": "c8",
+      "author": "NFLFan_anonymous",
+      "timestamp": "2024-12-16T12:30:00Z",
+      "content": "Bills have the most complete roster this season. Their offensive line improvements have been game-changing.",
+      "sentiment": "bullish",
+      "likes": 29,
+      "isExpert": false
+    }
+  ]
+} 

@@ -129,4 +129,60 @@ export const getCategoryStats = () => {
   }));
   
   return categoryStats;
+};
+
+// New utility functions for belief details page
+export const getRelatedBeliefs = (currentBeliefId: string, category: string, tags?: string[]): Belief[] => {
+  const allBeliefs = getAllBeliefs();
+  
+  // Filter out current belief and get beliefs from same category
+  let relatedBeliefs = allBeliefs.filter(b => 
+    b.id !== currentBeliefId && 
+    b.category === category
+  );
+  
+  // If we have tags, prioritize beliefs with matching tags
+  if (tags && tags.length > 0) {
+    const tagMatches = relatedBeliefs.filter(b => 
+      b.tags?.some(tag => tags.includes(tag))
+    );
+    const nonTagMatches = relatedBeliefs.filter(b => 
+      !b.tags?.some(tag => tags.includes(tag))
+    );
+    relatedBeliefs = [...tagMatches, ...nonTagMatches];
+  }
+  
+  // If we don't have enough from same category, add others
+  if (relatedBeliefs.length < 4) {
+    const others = allBeliefs.filter(b => 
+      b.id !== currentBeliefId && 
+      b.category !== category
+    );
+    relatedBeliefs = [...relatedBeliefs, ...others];
+  }
+  
+  return relatedBeliefs
+    .sort((a, b) => b.consensusLevel - a.consensusLevel)
+    .slice(0, 4);
+};
+
+export const getCategoryGradient = (category: string): string => {
+  switch (category.toLowerCase()) {
+    case 'finance':
+      return 'from-[#FFB800]/20 to-[#F5A623]/10';
+    case 'politics':
+      return 'from-[#1B365D]/20 to-[#2D4A6B]/10';
+    case 'sports':
+      return 'from-green-500/20 to-emerald-400/10';
+    case 'technology':
+      return 'from-purple-500/20 to-violet-400/10';
+    default:
+      return 'from-slate-500/20 to-slate-600/10';
+  }
+};
+
+export const getEntropyLevel = (entropy: number): string => {
+  if (entropy < 0.3) return 'High Consensus';
+  if (entropy < 0.6) return 'Moderate Consensus';
+  return 'Low Consensus';
 }; 
