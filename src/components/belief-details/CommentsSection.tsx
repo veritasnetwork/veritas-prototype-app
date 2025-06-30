@@ -13,7 +13,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({ belief }) => {
 
   if (comments.length === 0) {
     return (
-      <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-8 shadow-2xl shadow-yellow-500/10">
+      <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl shadow-yellow-500/10">
         <div className="flex items-center space-x-3 mb-6">
           <div className="p-3 rounded-2xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10">
             <MessageCircle className="w-6 h-6 text-[#FFB800]" />
@@ -41,7 +41,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({ belief }) => {
   }
 
   return (
-    <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-8 shadow-2xl shadow-yellow-500/10">
+    <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl shadow-yellow-500/10">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">

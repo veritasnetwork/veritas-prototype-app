@@ -44,7 +44,7 @@ export default function FeedLayout({
         <FeedNavWrapper />
         
         {/* Main Content with proper spacing for the enhanced navbar */}
-        <main className="pt-[100px] md:pt-[250px] pb-24 md:pb-8">
+        <main className="pt-[100px] md:pt-[200px] pb-24 md:pb-8">
           {children}
         </main>
       </div>

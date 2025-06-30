@@ -1,53 +1,46 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { GroupedCardContainer } from '@/components/feed/enhanced/GroupedCardContainer';
+import { SkeletonGroupedContainer } from '@/components/feed/skeleton/SkeletonGroupedContainer';
 import { useFeed } from '@/contexts/FeedContext';
 
 // This component receives feed state via FeedContext from the layout
 export default function FeedPage() {
   const [isLoading, setIsLoading] = useState(true);
+  const [showContent, setShowContent] = useState(false);
   const { filteredBeliefs, searchQuery } = useFeed();
 
-  // Simulate loading
+  // Enhanced loading with staggered reveal
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const loadingTimer = setTimeout(() => {
       setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+      // Small delay before showing content for smooth transition
+      setTimeout(() => {
+        setShowContent(true);
+      }, 100);
+    }, 1200); // Slightly longer to appreciate the premium skeleton
+    
+    return () => clearTimeout(loadingTimer);
   }, []);
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-gray-50 dark:bg-slate-900 flex items-center justify-center z-40">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-[#1B365D] rounded-2xl flex items-center justify-center mb-4 mx-auto animate-pulse shadow-lg p-3">
-            <div className="w-full h-full rounded-full bg-white/20 flex items-center justify-center">
-              <Image
-                src="/icons/veritas-logo.png"
-                alt="Veritas"
-                width={32}
-                height={32}
-                className="w-full h-full object-contain rounded-full"
-                priority
-                unoptimized
-              />
-            </div>
-          </div>
-          <p className="text-gray-600 dark:text-slate-400 font-medium">Loading beliefs...</p>
-        </div>
+      <div className="max-w-7xl mx-auto pt-4 min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+        <SkeletonGroupedContainer />
       </div>
     );
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-2 pt-4">
-      {/* Grouped card system using filtered beliefs from context */}
-      <GroupedCardContainer 
-        beliefs={filteredBeliefs}
-        searchQuery={searchQuery}
-      />
+      {/* Grouped card system with reveal animation */}
+      <div className={`${showContent ? 'content-reveal' : 'opacity-0'}`}>
+        <GroupedCardContainer 
+          beliefs={filteredBeliefs}
+          searchQuery={searchQuery}
+        />
+      </div>
     </div>
   );
 }

@@ -18,21 +18,21 @@ export const ConsensusTimeline: React.FC<ConsensusTimelineProps> = ({ belief }) 
   };
 
   const getConsensusColor = (level: number) => {
-    if (level >= 0.7) return 'text-emerald-500';
-    if (level >= 0.4) return 'text-yellow-500';
-    return 'text-red-500';
+    if (level >= 0.7) return 'text-[#3B82F6]'; // Blue for high consensus
+    if (level >= 0.4) return 'text-[#FFB800]'; // Brand yellow for medium consensus
+    return 'text-slate-500'; // Grey for low consensus
   };
 
   const getConsensusGradient = (level: number) => {
-    if (level >= 0.7) return 'from-emerald-500/20 to-emerald-600/10';
-    if (level >= 0.4) return 'from-yellow-500/20 to-orange-500/10';
-    return 'from-red-500/20 to-red-600/10';
+    if (level >= 0.7) return 'from-[#3B82F6]/20 to-[#2563EB]/10'; // Blue variants
+    if (level >= 0.4) return 'from-[#FFB800]/20 to-[#F59E0B]/10'; // Yellow variants
+    return 'from-slate-500/20 to-slate-600/10'; // Keep grey for low consensus
   };
 
   const maxConsensus = Math.max(...belief.consensusHistory.map(h => h.consensusLevel));
 
   return (
-    <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-8 shadow-2xl shadow-yellow-500/10">
+    <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl shadow-yellow-500/10">
       {/* Header */}
       <div className="flex items-center space-x-3 mb-6">
         <div className="p-3 rounded-2xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10">

@@ -15,17 +15,17 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
   };
 
   const getEntropyColor = (entropy: number): string => {
-    if (entropy < 0.3) return 'text-emerald-500';
-    if (entropy < 0.6) return 'text-yellow-500';
-    return 'text-red-500';
+    if (entropy < 0.3) return 'text-[#3B82F6]'; // Blue for high quality
+    if (entropy < 0.6) return 'text-[#FFB800]'; // Brand yellow for medium quality
+    return 'text-slate-500'; // Grey for low quality
   };
 
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'active':
-        return 'text-emerald-500';
+        return 'text-[#3B82F6]'; // Blue for active
       case 'resolved':
-        return 'text-blue-500';
+        return 'text-[#FFB800]'; // Brand yellow for resolved
       case 'closed':
         return 'text-slate-500';
       default:
@@ -57,16 +57,20 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
       label: 'Participants',
       value: belief.participantCount.toLocaleString(),
       change: null,
-      color: 'text-blue-500',
-      bgGradient: 'from-blue-500/20 to-blue-600/10'
+      color: 'text-[#3B82F6]',
+      bgGradient: 'from-[#3B82F6]/20 to-[#2563EB]/10'
     },
     {
       icon: DollarSign,
       label: 'Total Stake',
-      value: `$${belief.totalStake.toLocaleString()}`,
+      value: belief.totalStake >= 1000000 
+        ? `$${(belief.totalStake / 1000000).toFixed(1)}M`
+        : belief.totalStake >= 1000
+        ? `$${(belief.totalStake / 1000).toFixed(0)}K`
+        : `$${belief.totalStake.toLocaleString()}`,
       change: null,
-      color: 'text-emerald-500',
-      bgGradient: 'from-emerald-500/20 to-emerald-600/10'
+      color: 'text-[#10B981]',
+      bgGradient: 'from-[#10B981]/20 to-[#059669]/10'
     },
     {
       icon: BarChart,
@@ -75,10 +79,10 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
       change: null,
       color: getEntropyColor(belief.entropy),
       bgGradient: belief.entropy < 0.3 
-        ? 'from-emerald-500/20 to-emerald-600/10'
+        ? 'from-[#3B82F6]/20 to-[#2563EB]/10'
         : belief.entropy < 0.6 
-        ? 'from-yellow-500/20 to-orange-500/10'
-        : 'from-red-500/20 to-red-600/10'
+        ? 'from-[#FFB800]/20 to-[#F59E0B]/10'
+        : 'from-slate-500/20 to-slate-600/10'
     },
     {
       icon: Target,
@@ -87,9 +91,9 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
       change: null,
       color: getStatusColor(belief.status),
       bgGradient: belief.status === 'active'
-        ? 'from-emerald-500/20 to-emerald-600/10'
+        ? 'from-[#3B82F6]/20 to-[#2563EB]/10'
         : belief.status === 'resolved'
-        ? 'from-blue-500/20 to-blue-600/10'
+        ? 'from-[#FFB800]/20 to-[#F59E0B]/10'
         : 'from-slate-500/20 to-slate-600/10'
     },
     {
@@ -103,7 +107,7 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
   ];
 
   return (
-    <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-8 shadow-2xl shadow-yellow-500/10">
+    <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl shadow-yellow-500/10">
       {/* Header */}
       <div className="flex items-center space-x-3 mb-6">
         <div className="p-3 rounded-2xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10">
@@ -127,11 +131,11 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
           return (
             <div
               key={stat.label}
-              className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 hover:scale-[1.02] group"
+              className="p-4 md:p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 hover:scale-[1.02] group"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className={`p-2 rounded-xl bg-gradient-to-br ${stat.bgGradient} group-hover:scale-110 transition-transform duration-300`}>
-                  <Icon className={`w-5 h-5 ${stat.color}`} />
+                  <Icon className={`w-4 h-4 md:w-5 md:h-5 ${stat.color}`} />
                 </div>
                 {stat.change && (
                   <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1 rounded-full">
@@ -140,11 +144,11 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
                 )}
               </div>
               
-              <div>
-                <div className={`text-2xl font-bold ${stat.color} mb-1`}>
+              <div className="min-w-0">
+                <div className={`text-lg md:text-xl lg:text-2xl font-bold ${stat.color} mb-1 truncate`}>
                   {stat.value}
                 </div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">
+                <div className="text-xs md:text-sm text-slate-600 dark:text-slate-400 leading-tight">
                   {stat.label}
                 </div>
               </div>

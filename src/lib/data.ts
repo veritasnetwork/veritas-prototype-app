@@ -173,11 +173,11 @@ export const getCategoryGradient = (category: string): string => {
     case 'politics':
       return 'from-[#1B365D]/20 to-[#2D4A6B]/10';
     case 'sports':
-      return 'from-green-500/20 to-emerald-400/10';
+      return 'from-[#3B82F6]/20 to-[#2563EB]/10'; // Blue variants
     case 'technology':
-      return 'from-purple-500/20 to-violet-400/10';
+      return 'from-[#FCD34D]/20 to-[#F59E0B]/10'; // Yellow variants
     default:
-      return 'from-slate-500/20 to-slate-600/10';
+      return 'from-[#1B365D]/20 to-[#FFB800]/10'; // Blue to yellow
   }
 };
 
