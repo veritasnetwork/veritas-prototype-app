@@ -1,5 +1,10 @@
 import { Belief, ComponentVariant } from '@/types/belief.types';
 
+interface HeadingData {
+  title?: string;
+  subtitle?: string;
+}
+
 interface HeadingComponentProps {
   belief: Belief;
   variant: ComponentVariant;
@@ -16,7 +21,7 @@ export const HeadingComponent: React.FC<HeadingComponentProps> = ({
   onEdit
 }) => {
   // Read heading data from JSON components
-  const headingData = belief.components?.heading?.currentVersion as any;
+  const headingData = belief.components?.heading?.currentVersion as HeadingData;
   const title = (headingData?.title as string) || belief.title;
   const subtitle = headingData?.subtitle as string;
   

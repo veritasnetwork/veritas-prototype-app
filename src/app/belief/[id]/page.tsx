@@ -1,9 +1,10 @@
 import { BeliefDetailPage } from '@/components/belief-details/BeliefDetailPage';
 
 interface BeliefDetailRouteProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function BeliefDetailRoute({ params }: BeliefDetailRouteProps) {
-  return <BeliefDetailPage beliefId={params.id} />;
+export default async function BeliefDetailRoute({ params }: BeliefDetailRouteProps) {
+  const { id } = await params;
+  return <BeliefDetailPage beliefId={id} />;
 }

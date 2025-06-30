@@ -71,7 +71,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
               Belief Not Found
             </h1>
             <p className="text-slate-600 dark:text-slate-400 mb-8">
-              The belief with ID "{beliefId}" could not be found.
+              The belief with ID &quot;{beliefId}&quot; could not be found.
             </p>
             <button 
               onClick={handleBackToFeed}

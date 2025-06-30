@@ -50,6 +50,7 @@ export const GroupedCardContainer: React.FC<GroupedCardContainerProps> = ({
     return (
       <BeliefCard
         key={belief.id}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         belief={belief as any}
         theme={theme}
         layout="auto"

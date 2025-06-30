@@ -30,7 +30,8 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
       if (belief.title.toLowerCase().includes('election') || belief.title.toLowerCase().includes('winner')) {
         return 'election';
       }
-      const options = (belief as any).options;
+      const beliefWithOptions = belief as Belief & { options?: Array<unknown> };
+      const options = beliefWithOptions.options;
       if (options && options.length > 3) {
         return 'multi-choice';
       }
@@ -42,7 +43,8 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
   const cardLayout = layout === 'auto' ? determineLayout(belief) : layout;
 
   // Premium glassmorphism styling based on layout
-  const getCardClasses = (layout: LayoutVariant) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const getCardClasses = (_layout: LayoutVariant) => {
     const baseClasses = `
       belief-card cursor-pointer group relative overflow-hidden
       rounded-2xl transition-all duration-300 ease-out

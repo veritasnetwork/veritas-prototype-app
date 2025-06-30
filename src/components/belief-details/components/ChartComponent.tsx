@@ -1,5 +1,18 @@
 import { Belief, ComponentVariant } from '@/types/belief.types';
 
+interface ChartData {
+  type?: string;
+  showHistory?: boolean;
+  timeframe?: string;
+}
+
+interface BeliefWithOptions {
+  options?: Array<{ id: string; label: string; probability?: number }>;
+  distribution?: { mean?: number };
+  unit?: string;
+  title: string;
+}
+
 interface ChartComponentProps {
   belief: Belief;
   variant: ComponentVariant;
@@ -16,8 +29,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
   onEdit
 }) => {
   // Read chart configuration from JSON
-  const chartData = belief.components?.chart?.currentVersion as any;
-  const chartType = chartData?.type || 'distribution';
+  const chartData = belief.components?.chart?.currentVersion as ChartData;
   const showHistory = chartData?.showHistory || false;
   const timeframe = chartData?.timeframe || '7d';
   
@@ -70,8 +82,9 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
 
     if (layout === 'continuous' || (layout === 'auto' && belief.type === 'continuous')) {
       // Distribution chart for continuous values
-      const distribution = (belief as any).distribution;
-      const unit = (belief as any).unit;
+      const beliefWithDist = belief as BeliefWithOptions;
+      const distribution = beliefWithDist.distribution;
+      const unit = beliefWithDist.unit;
       if (distribution) {
         return (
           <div className="flex flex-col justify-center items-center h-full px-4">
@@ -96,11 +109,12 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
 
     if (layout === 'election' || (layout === 'auto' && belief.title.toLowerCase().includes('election'))) {
       // Election results visualization
-      const options = (belief as any).options?.slice(0, 3) || [];
+      const beliefWithOptions = belief as BeliefWithOptions;
+      const options = beliefWithOptions.options?.slice(0, 3) || [];
       return (
         <div className="flex justify-center items-center h-full">
           <div className="grid grid-cols-3 gap-4 w-full max-w-xs">
-            {options.map((option: any, index: number) => (
+            {options.map((option) => (
               <div key={option.id} className="text-center">
                 <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center mb-2 mx-auto">
                   <span className="text-xs font-bold text-slate-600 dark:text-slate-400">

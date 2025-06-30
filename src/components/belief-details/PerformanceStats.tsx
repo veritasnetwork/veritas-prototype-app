@@ -125,7 +125,7 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        {stats.map((stat, index) => {
+        {stats.map((stat) => {
           const Icon = stat.icon;
           
           return (

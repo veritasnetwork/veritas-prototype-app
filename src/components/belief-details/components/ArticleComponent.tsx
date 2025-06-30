@@ -1,4 +1,12 @@
 import { Belief, ComponentVariant } from '@/types/belief.types';
+import Image from 'next/image';
+
+interface ArticleData {
+  headline?: string;
+  thumbnail?: string;
+  excerpt?: string;
+  source?: string;
+}
 
 interface ArticleComponentProps {
   belief: Belief;
@@ -9,12 +17,11 @@ interface ArticleComponentProps {
 
 export const ArticleComponent: React.FC<ArticleComponentProps> = ({
   belief,
-  variant,
   isEditable = false,
   onEdit
 }) => {
   // Read article data from JSON
-  const articleData = (belief.components?.article?.currentVersion as any);
+  const articleData = (belief.components?.article?.currentVersion as ArticleData);
   
   // Don't render if no article data
   if (!articleData || (!articleData.headline && !articleData.thumbnail)) {
@@ -35,9 +42,11 @@ export const ArticleComponent: React.FC<ArticleComponentProps> = ({
         {/* Article content */}
         <div className="flex space-x-3">
           {thumbnail && (
-            <img
+            <Image
               src={thumbnail}
               alt=""
+              width={64}
+              height={64}
               className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
               onError={(e) => {
                 // Hide image if it fails to load

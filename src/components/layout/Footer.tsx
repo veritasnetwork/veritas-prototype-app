@@ -1,7 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import { useTheme } from '@/contexts/ThemeContext';
 import { 
   Twitter, 
   Github, 
@@ -11,7 +10,6 @@ import {
 } from 'lucide-react';
 
 const VeritasFooter = () => {
-  const { isDark } = useTheme();
 
   const socialLinks = [
     { icon: Twitter, href: 'https://twitter.com/veritas', label: 'Twitter' },

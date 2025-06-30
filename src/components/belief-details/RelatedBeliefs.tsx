@@ -1,7 +1,7 @@
 'use client';
 
 import { Belief } from '@/types/belief.types';
-import { getBeliefsByCategory, getAllBeliefs } from '@/lib/data';
+import { getAllBeliefs } from '@/lib/data';
 import { Eye, Users, TrendingUp } from 'lucide-react';
 
 interface RelatedBeliefsProps {

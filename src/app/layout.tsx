@@ -14,44 +14,58 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Veritas - Decentralized Truth Finding',
   description: 'Aggregate information into truth signals through collective intelligence and economic incentives.',
-  keywords: ['veritas', 'truth', 'decentralized', 'blockchain', 'consensus', 'information'],
-  authors: [{ name: 'Veritas Team' }],
-  viewport: 'width=device-width, initial-scale=1',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#FFB800' },
-    { media: '(prefers-color-scheme: dark)', color: '#1B365D' }
-  ],
-  manifest: '/manifest.json',
+  
+  // Favicon configuration
   icons: {
     icon: [
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/icons/favicon.ico', sizes: '32x32' },
+      { url: '/icons/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icons/favicon-96x96.png', sizes: '96x96', type: 'image/png' },
     ],
     apple: [
-      { url: '/icons/icon-192x192.png', sizes: '192x192' },
+      { url: '/icons/apple-touch-icon.png', sizes: '180x180' },
     ],
   },
+  
+  // Open Graph
   openGraph: {
     title: 'Veritas - Decentralized Truth Finding',
     description: 'Aggregate information into truth signals through collective intelligence and economic incentives.',
     url: 'https://veritas.app',
     siteName: 'Veritas',
-    type: 'website',
     images: [
       {
-        url: '/og-image.png',
+        url: '/images/veritas-preview-image.png',
         width: 1200,
         height: 630,
-        alt: 'Veritas - Decentralized Truth Finding',
+        alt: 'Veritas - Decentralized Truth Finding Platform',
       },
     ],
+    locale: 'en_US',
+    type: 'website',
   },
+  
+  // Twitter Card
   twitter: {
     card: 'summary_large_image',
     title: 'Veritas - Decentralized Truth Finding',
     description: 'Aggregate information into truth signals through collective intelligence and economic incentives.',
-    images: ['/og-image.png'],
+    images: ['/images/veritas-preview-image.png'],
+    creator: '@veritas',
   },
+  
+  // PWA configuration
+  manifest: '/manifest.json',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#FFB800' },
+    { media: '(prefers-color-scheme: dark)', color: '#1B365D' }
+  ],
+  
+  // Additional SEO
+  keywords: ['veritas', 'truth', 'decentralized', 'prediction markets', 'consensus', 'collective intelligence'],
+  authors: [{ name: 'Veritas Team' }],
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+  robots: 'index, follow',
 };
 
 export default function RootLayout({

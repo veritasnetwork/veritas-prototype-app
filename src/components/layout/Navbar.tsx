@@ -11,10 +11,8 @@ import {
   User, 
   Sun, 
   Moon, 
-  Menu, 
   X,
-  TrendingUp,
-  Info
+  TrendingUp
 } from 'lucide-react';
 
 const VeritasNavbar = () => {
@@ -22,7 +20,7 @@ const VeritasNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { toggleTheme, isDark } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
 
