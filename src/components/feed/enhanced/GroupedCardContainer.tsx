@@ -2,10 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { CardGroup } from './cards/CardGroup';
-import { BinaryCard } from './cards/BinaryCard';
-import { ElectionCard } from './cards/ElectionCard';
-import { MultiChoiceCard } from './cards/MultiChoiceCard';
-import { ContinuousCard } from './cards/ContinuousCard';
+import { BeliefCard } from '@/components/feed/BeliefCard';
 import { BaseBelief } from '@/types/belief.types';
 
 interface GroupedCardContainerProps {
@@ -49,114 +46,17 @@ export const GroupedCardContainer: React.FC<GroupedCardContainerProps> = ({
     .filter(b => b.totalStake < 100000)
     .slice(0, 4);
 
-  // Real image URLs for different categories
-  const getBeliefImage = (belief: BaseBelief) => {
-    if (belief.title.toLowerCase().includes('bitcoin') || belief.title.toLowerCase().includes('btc')) {
-      return 'https://images.unsplash.com/photo-1640340434855-6084b1f4901c?w=400&h=400&fit=crop&crop=center';
-    }
-    if (belief.title.toLowerCase().includes('ethereum')) {
-      return 'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=400&h=400&fit=crop&crop=center';
-    }
-    if (belief.title.toLowerCase().includes('tesla')) {
-      return 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=400&h=400&fit=crop&crop=center';
-    }
-    if (belief.title.toLowerCase().includes('netflix')) {
-      return 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=400&h=400&fit=crop&crop=center';
-    }
-    if (belief.title.toLowerCase().includes('election') || belief.title.toLowerCase().includes('trump')) {
-      return 'https://images.unsplash.com/photo-1586227740560-8cf2732c1531?w=400&h=400&fit=crop&crop=center';
-    }
-    if (belief.category === 'sports') {
-      return 'https://images.unsplash.com/photo-1579952363873-27d3bfad9c0d?w=400&h=400&fit=crop&crop=center';
-    }
-    if (belief.category === 'climate') {
-      return 'https://images.unsplash.com/photo-1569163139262-de96c2cb1a1b?w=400&h=400&fit=crop&crop=center';
-    }
-    if (belief.category === 'technology') {
-      return 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=400&h=400&fit=crop&crop=center';
-    }
-    // Default fallback
-    return 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop&crop=center';
-  };
-
   const renderBeliefCard = (belief: BaseBelief, theme: 'light' | 'dark' = 'light', compact = false) => {
-    const consensusPercentage = Math.round(belief.consensusLevel * 100);
-    const volumeFormatted = `$${(belief.totalStake / 1000).toFixed(0)}K Vol.`;
-    const beliefImage = getBeliefImage(belief);
-
-    // Determine card type based on belief characteristics
-    if (belief.title.toLowerCase().includes('election') || belief.title.toLowerCase().includes('wins')) {
-      // Election card for political races
-      const candidates = [
-        { name: "Leading Option", percentage: consensusPercentage, party: "D" },
-        { name: "Alternative", percentage: 100 - consensusPercentage, party: "R" }
-      ];
-      
-      return (
-        <ElectionCard
-          key={belief.id}
-          title={belief.title}
-          image={beliefImage}
-          candidates={candidates}
-          volume={volumeFormatted}
-          theme={theme}
-          onClick={() => handleBeliefClick(belief.id)}
-        />
-      );
-    } else if (belief.title.toLowerCase().includes('price') || belief.title.toLowerCase().includes('$')) {
-      // Continuous card for price predictions
-      const currentValue = belief.title.includes('bitcoin') ? 98500 : 
-                          belief.title.includes('tesla') ? 240 : 
-                          Math.floor(Math.random() * 1000) + 100;
-      
-      return (
-        <ContinuousCard
-          key={belief.id}
-          title={belief.title}
-          image={beliefImage}
-          currentValue={currentValue}
-          unit="USD"
-          volume={volumeFormatted}
-          theme={theme}
-          change={Math.random() * 20 - 10} // Random change between -10% and +10%
-          onClick={() => handleBeliefClick(belief.id)}
-        />
-      );
-    } else if (belief.layoutType === 'minimal' || compact) {
-      // Binary card for yes/no questions
-      return (
-        <BinaryCard
-          key={belief.id}
-          title={belief.title}
-          image={beliefImage}
-          percentage={consensusPercentage}
-          volume={volumeFormatted}
-          theme={theme}
-          compact={compact}
-          onClick={() => handleBeliefClick(belief.id)}
-        />
-      );
-    } else {
-      // Multi-choice card for complex options
-      const options = [
-        { label: "Most Likely", percentage: consensusPercentage },
-        { label: "Alternative 1", percentage: Math.floor((100 - consensusPercentage) * 0.6) },
-        { label: "Alternative 2", percentage: Math.floor((100 - consensusPercentage) * 0.3) },
-        { label: "Other", percentage: 100 - consensusPercentage - Math.floor((100 - consensusPercentage) * 0.6) - Math.floor((100 - consensusPercentage) * 0.3) }
-      ];
-      
-      return (
-        <MultiChoiceCard
-          key={belief.id}
-          title={belief.title}
-          image={beliefImage}
-          options={options}
-          volume={volumeFormatted}
-          theme={theme}
-          onClick={() => handleBeliefClick(belief.id)}
-        />
-      );
-    }
+    return (
+      <BeliefCard
+        key={belief.id}
+        belief={belief as any}
+        theme={theme}
+        layout="auto"
+        compact={compact}
+        onClick={handleBeliefClick}
+      />
+    );
   };
 
   return (
