@@ -3,6 +3,7 @@ import { Belief, ComponentVariant } from '@/types/belief.types';
 interface HeadingComponentProps {
   belief: Belief;
   variant: ComponentVariant;
+  theme?: 'light' | 'dark';
   isEditable?: boolean;
   onEdit?: () => void;
 }
@@ -10,6 +11,7 @@ interface HeadingComponentProps {
 export const HeadingComponent: React.FC<HeadingComponentProps> = ({
   belief,
   variant,
+  theme,
   isEditable = false,
   onEdit
 }) => {
@@ -18,13 +20,13 @@ export const HeadingComponent: React.FC<HeadingComponentProps> = ({
   const title = (headingData?.title as string) || belief.title;
   const subtitle = headingData?.subtitle as string;
   
-  // Improved typography for different variants
+  // Improved typography for different variants with theme-aware colors
   const headingClass = variant === 'card' 
-    ? 'text-base font-semibold leading-tight text-slate-900 dark:text-white' 
+    ? `text-base font-semibold leading-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900 dark:text-white'}` 
     : 'text-3xl font-bold mb-4 text-slate-900 dark:text-slate-100';
 
   const subtitleClass = variant === 'card'
-    ? 'text-sm text-slate-600 dark:text-slate-300 leading-relaxed'
+    ? `text-sm leading-relaxed ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600 dark:text-slate-300'}`
     : 'text-slate-500 dark:text-slate-400 mt-1 mb-2 text-lg';
 
   return (

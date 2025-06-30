@@ -119,7 +119,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         <div className="flex-grow space-y-4">
           {/* Heading with improved typography */}
           <div className="space-y-2">
-            <HeadingComponent belief={belief} variant="card" />
+            <HeadingComponent belief={belief} variant="card" theme={effectiveTheme} />
           </div>
 
           {/* Key Metrics - Compact and Clean */}
