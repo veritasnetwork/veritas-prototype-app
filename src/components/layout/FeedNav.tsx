@@ -95,7 +95,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
   const sortOptions = [
     { value: 'relevance' as SortOption, label: 'Relevance' },
     { value: 'truth' as SortOption, label: 'Truth' },
-    { value: 'stakes' as SortOption, label: 'High Stakes' }
+    { value: 'informativeness' as SortOption, label: 'Informativeness' }
   ];
 
 

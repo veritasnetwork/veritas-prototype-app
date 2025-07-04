@@ -1,164 +1,210 @@
-import { Belief, ComponentVariant } from '@/types/belief.types';
-
-interface ChartData {
-  type?: string;
-  showHistory?: boolean;
-  timeframe?: string;
-}
-
-interface BeliefWithOptions {
-  options?: Array<{ id: string; label: string; probability?: number }>;
-  distribution?: { mean?: number };
-  unit?: string;
-  title: string;
-}
-
-interface ChartComponentProps {
-  belief: Belief;
-  variant: ComponentVariant;
-  layout?: 'binary' | 'election' | 'continuous' | 'multi-choice' | 'auto';
-  isEditable?: boolean;
-  onEdit?: () => void;
-}
+import { ChartComponentProps } from '@/types/component.types';
+import { ChartData, ContinuousData, ComparativeData, DualProbabilityData, HistoricalLineData } from '@/types/belief.types';
 
 export const ChartComponent: React.FC<ChartComponentProps> = ({
-  belief,
+  charts,
   variant,
-  layout = 'auto',
-  isEditable = false,
-  onEdit
+  showOnlyFeedChart = false
 }) => {
-  // Read chart configuration from JSON
-  const chartData = belief.components?.chart?.currentVersion as ChartData;
-  const showHistory = chartData?.showHistory || false;
-  const timeframe = chartData?.timeframe || '7d';
-  
+  const chartsToRender = showOnlyFeedChart 
+    ? charts.filter(chart => chart.showInFeed)
+    : charts;
+
   const chartHeight = variant === 'card' ? 'h-32' : 'h-64';
 
-  // Determine what to render based on layout and belief type
-  const renderChart = () => {
-    if (layout === 'binary' || (layout === 'auto' && belief.type === 'discrete' && belief.options?.length === 2)) {
-      // Binary consensus circle
-      const consensusPercentage = Math.round(belief.consensusLevel * 100);
-      const getPercentageColor = () => {
-        if (consensusPercentage >= 70) return '#10b981'; // green
-        if (consensusPercentage >= 40) return '#FFB800'; // yellow
-        return '#ef4444'; // red
-      };
+  if (chartsToRender.length === 0) return null;
 
-      return (
-        <div className="flex justify-center items-center h-full">
-          <div className="relative w-20 h-20">
-            <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 100 100">
-              <circle
-                cx="50"
-                cy="50"
-                r="45"
-                stroke="rgba(148, 163, 184, 0.3)"
-                strokeWidth="6"
-                fill="none"
-              />
-              <circle
-                cx="50"
-                cy="50"
-                r="45"
-                stroke={getPercentageColor()}
-                strokeWidth="6"
-                fill="none"
-                strokeDasharray={`${consensusPercentage * 2.83} ${283 - consensusPercentage * 2.83}`}
-                strokeLinecap="round"
-                className="transition-all duration-1000"
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                {consensusPercentage}%
-              </span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (layout === 'continuous' || (layout === 'auto' && belief.type === 'continuous')) {
-      // Distribution chart for continuous values
-      const beliefWithDist = belief as BeliefWithOptions;
-      const distribution = beliefWithDist.distribution;
-      const unit = beliefWithDist.unit;
-      if (distribution) {
+  const renderChartByType = (chart: ChartData) => {
+    switch (chart.type) {
+      case 'continuous':
+        const continuousData = chart.data as ContinuousData;
         return (
           <div className="flex flex-col justify-center items-center h-full px-4">
             <div className="text-center mb-4">
               <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {unit === 'USD' ? '$' : ''}{distribution.mean?.toLocaleString()}{unit !== 'USD' ? ` ${unit}` : ''}
+                {continuousData.currentValue}
+                {chart.axes.yAxis.unit && (
+                  <span className="text-sm ml-1">{chart.axes.yAxis.unit}</span>
+                )}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
-                Consensus estimate
+                Current Index
+              </div>
+              <div className={`text-xs font-medium mt-1 ${
+                continuousData.trend === 'up' ? 'text-green-600' : 
+                continuousData.trend === 'down' ? 'text-red-600' : 'text-slate-600'
+              }`}>
+                {continuousData.trend === 'up' ? '↗' : continuousData.trend === 'down' ? '↘' : '→'} {continuousData.trend}
               </div>
             </div>
-            {/* Simple distribution visualization */}
-            <div className="w-full max-w-xs h-8 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+            <div className="w-full max-w-xs h-4 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all duration-1000"
+                style={{ width: `${continuousData.currentValue}%` }}
+              />
+            </div>
+          </div>
+        );
+
+      case 'comparative':
+        const comparativeData = chart.data as ComparativeData;
+        return (
+          <div className="flex justify-center items-center h-full px-4">
+            <div className="w-full max-w-sm">
+              <div className="space-y-2">
+                {comparativeData.entities.slice(0, variant === 'card' ? 3 : 4).map((entity, index) => (
+                  <div key={index} className="flex items-center justify-between text-xs">
+                    <span className="text-slate-700 dark:text-slate-300 truncate max-w-20">
+                      {entity.name}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full rounded-full transition-all duration-1000"
+                          style={{ 
+                            width: `${entity.value}%`,
+                            backgroundColor: entity.color || '#3B82F6'
+                          }}
+                        />
+                      </div>
+                      <span className="text-slate-600 dark:text-slate-400 w-8 text-right">
+                        {entity.value}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         );
-      }
-    }
 
-    if (layout === 'election' || (layout === 'auto' && belief.title.toLowerCase().includes('election'))) {
-      // Election results visualization
-      const beliefWithOptions = belief as BeliefWithOptions;
-      const options = beliefWithOptions.options?.slice(0, 3) || [];
-      return (
-        <div className="flex justify-center items-center h-full">
-          <div className="grid grid-cols-3 gap-4 w-full max-w-xs">
-            {options.map((option) => (
-              <div key={option.id} className="text-center">
-                <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center mb-2 mx-auto">
-                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                    {Math.round((option.probability || 0) * 100)}%
-                  </span>
+      case 'dual-probability':
+        const dualProbData = chart.data as DualProbabilityData;
+        return (
+          <div className="flex justify-center items-center h-full px-4">
+            <div className="grid grid-cols-2 gap-4 w-full max-w-xs">
+              <div className="text-center">
+                <div className="text-lg font-bold text-red-600 mb-1">
+                  {dualProbData.probabilities.primary.value}%
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                  {option.label}
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  {dualProbData.probabilities.primary.label}
+                </div>
+                <div className={`text-xs mt-1 ${
+                  dualProbData.probabilities.primary.trend === 'up' ? 'text-red-600' : 
+                  dualProbData.probabilities.primary.trend === 'down' ? 'text-green-600' : 'text-slate-600'
+                }`}>
+                  {dualProbData.probabilities.primary.trend === 'up' ? '↗' : 
+                   dualProbData.probabilities.primary.trend === 'down' ? '↘' : '→'}
                 </div>
               </div>
-            ))}
+              <div className="text-center">
+                <div className="text-lg font-bold text-orange-600 mb-1">
+                  {dualProbData.probabilities.secondary.value}%
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  {dualProbData.probabilities.secondary.label}
+                </div>
+                <div className={`text-xs mt-1 ${
+                  dualProbData.probabilities.secondary.trend === 'up' ? 'text-orange-600' : 
+                  dualProbData.probabilities.secondary.trend === 'down' ? 'text-green-600' : 'text-slate-600'
+                }`}>
+                  {dualProbData.probabilities.secondary.trend === 'up' ? '↗' : 
+                   dualProbData.probabilities.secondary.trend === 'down' ? '↘' : '→'}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      );
-    }
+        );
 
-    // Default: Multi-choice or generic
-    return (
-      <div className="flex justify-center items-center h-full">
-        <div className="text-center">
-          <div className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">
-            {Math.round(belief.consensusLevel * 100)}% consensus
+      case 'historical-line':
+        const historicalData = chart.data as HistoricalLineData;
+        return (
+          <div className="flex justify-center items-center h-full px-4">
+            <div className="w-full max-w-sm">
+              <div className="space-y-2">
+                {historicalData.series.slice(0, variant === 'card' ? 3 : 5).map((series, index) => {
+                  const latestValue = series.data[series.data.length - 1]?.value || 0;
+                  const previousValue = series.data[series.data.length - 2]?.value || 0;
+                  const change = latestValue - previousValue;
+                  const trend = change > 0 ? 'up' : change < 0 ? 'down' : 'stable';
+                  
+                  return (
+                    <div key={index} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: series.color }}
+                        />
+                        <span className="text-slate-700 dark:text-slate-300 truncate max-w-20">
+                          {series.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-600 dark:text-slate-400">
+                          {latestValue.toLocaleString()}
+                        </span>
+                        <div className={`text-xs ${
+                          trend === 'up' ? 'text-green-600' : 
+                          trend === 'down' ? 'text-red-600' : 'text-slate-600'
+                        }`}>
+                          {trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">
-            {belief.participantCount} participants
+        );
+
+      default:
+        return (
+          <div className="flex justify-center items-center h-full">
+            <div className="text-center text-slate-500 dark:text-slate-400">
+              <div className="text-sm font-medium">{chart.title}</div>
+              <div className="text-xs">Chart type: {chart.type}</div>
+            </div>
           </div>
-        </div>
-      </div>
-    );
+        );
+    }
   };
 
   return (
-    <div 
-      className={`chart-component ${isEditable ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded-lg transition-colors duration-200' : ''} my-4`}
-      onClick={isEditable ? onEdit : undefined}
-    >
-      <div className={`bg-slate-50 dark:bg-slate-800 rounded-lg ${chartHeight} flex items-center justify-center border border-slate-200 dark:border-slate-700`}>
-        {renderChart()}
-      </div>
-      {showHistory && variant === 'detail' && (
-        <div className="text-xs text-slate-400 mt-2 text-center">
-          Showing {timeframe} history
+    <div className="chart-component my-4">
+      {chartsToRender.map((chart, index) => (
+        <div key={chart.id} className={index > 0 ? 'mt-6' : ''}>
+          {variant === 'detail' && (
+            <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              {chart.title}
+            </h4>
+          )}
+          <div className={`bg-slate-50 dark:bg-slate-800 rounded-lg ${chartHeight} flex items-center justify-center border border-slate-200 dark:border-slate-700`}>
+            {renderChartByType(chart)}
+          </div>
+          {variant === 'detail' && (
+            <div className="mt-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {chart.caption}
+              </p>
+              {chart.metadata && (
+                <div className="flex items-center gap-4 mt-1 text-xs text-slate-400">
+                  <span>Source: {chart.metadata.dataSource}</span>
+                  <span>Updated: {new Date(chart.metadata.lastUpdated).toLocaleDateString()}</span>
+                  <span className={`px-2 py-1 rounded ${
+                    chart.metadata.confidence === 'high' ? 'bg-green-100 text-green-800' :
+                    chart.metadata.confidence === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {chart.metadata.confidence} confidence
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      ))}
     </div>
   );
 };

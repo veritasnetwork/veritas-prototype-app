@@ -8,17 +8,7 @@ interface PerformanceStatsProps {
 }
 
 export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) => {
-  const getEntropyLevel = (entropy: number): string => {
-    if (entropy < 0.3) return 'High';
-    if (entropy < 0.6) return 'Medium';
-    return 'Low';
-  };
 
-  const getEntropyColor = (entropy: number): string => {
-    if (entropy < 0.3) return 'text-[#3B82F6]'; // Blue for high quality
-    if (entropy < 0.6) return 'text-[#FFB800]'; // Brand yellow for medium quality
-    return 'text-slate-500'; // Grey for low quality
-  };
 
   const getStatusColor = (status: string): string => {
     switch (status) {
@@ -33,64 +23,53 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
     }
   };
 
-  const formatDaysActive = (): string => {
-    const created = new Date(belief.createdAt);
-    const now = belief.resolvedAt ? new Date(belief.resolvedAt) : new Date();
-    const diffTime = Math.abs(now.getTime() - created.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
-  };
+  // Removed formatDaysActive as it's no longer used in the information intelligence structure
 
   const stats = [
     {
       icon: TrendingUp,
-      label: 'Consensus Strength',
-      value: `${Math.round(belief.consensusLevel * 100)}%`,
-      change: belief.consensusHistory.length > 1 
-        ? `+${Math.round((belief.consensusLevel - belief.consensusHistory[0].consensusLevel) * 100)}%`
-        : null,
-      color: 'text-[#FFB800]',
-      bgGradient: 'from-[#FFB800]/20 to-[#F5A623]/10'
-    },
-    {
-      icon: Users,
-      label: 'Participants',
-      value: belief.participantCount.toLocaleString(),
-      change: null,
-      color: 'text-[#3B82F6]',
-      bgGradient: 'from-[#3B82F6]/20 to-[#2563EB]/10'
-    },
-    {
-      icon: DollarSign,
-      label: 'Total Stake',
-      value: belief.totalStake >= 1000000 
-        ? `$${(belief.totalStake / 1000000).toFixed(1)}M`
-        : belief.totalStake >= 1000
-        ? `$${(belief.totalStake / 1000).toFixed(0)}K`
-        : `$${belief.totalStake.toLocaleString()}`,
+      label: 'Truth Score',
+      value: `${belief.objectRankingScores.truth}%`,
       change: null,
       color: 'text-[#10B981]',
       bgGradient: 'from-[#10B981]/20 to-[#059669]/10'
     },
     {
-      icon: BarChart,
-      label: 'Information Quality',
-      value: getEntropyLevel(belief.entropy),
+      icon: Users,
+      label: 'Relevance Score',
+      value: `${belief.objectRankingScores.relevance}%`,
       change: null,
-      color: getEntropyColor(belief.entropy),
-      bgGradient: belief.entropy < 0.3 
-        ? 'from-[#3B82F6]/20 to-[#2563EB]/10'
-        : belief.entropy < 0.6 
+      color: 'text-[#3B82F6]',
+      bgGradient: 'from-[#3B82F6]/20 to-[#2563EB]/10'
+    },
+    {
+      icon: BarChart,
+      label: 'Informativeness Score',
+      value: `${belief.objectRankingScores.informativeness}%`,
+      change: null,
+      color: 'text-[#FFB800]',
+      bgGradient: 'from-[#FFB800]/20 to-[#F5A623]/10'
+    },
+    {
+      icon: DollarSign,
+      label: 'Article Credibility',
+      value: belief.article.credibility.charAt(0).toUpperCase() + belief.article.credibility.slice(1),
+      change: null,
+      color: belief.article.credibility === 'high' ? 'text-[#10B981]' : 
+            belief.article.credibility === 'medium' ? 'text-[#FFB800]' : 'text-slate-500',
+      bgGradient: belief.article.credibility === 'high' 
+        ? 'from-[#10B981]/20 to-[#059669]/10'
+        : belief.article.credibility === 'medium' 
         ? 'from-[#FFB800]/20 to-[#F59E0B]/10'
         : 'from-slate-500/20 to-slate-600/10'
     },
     {
       icon: Target,
       label: 'Status',
-      value: belief.status.charAt(0).toUpperCase() + belief.status.slice(1),
+      value: belief.status ? belief.status.charAt(0).toUpperCase() + belief.status.slice(1) : 'Active',
       change: null,
-      color: getStatusColor(belief.status),
-      bgGradient: belief.status === 'active'
+      color: getStatusColor(belief.status || 'active'),
+      bgGradient: belief.status === 'active' || !belief.status
         ? 'from-[#3B82F6]/20 to-[#2563EB]/10'
         : belief.status === 'resolved'
         ? 'from-[#FFB800]/20 to-[#F59E0B]/10'
@@ -98,8 +77,8 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
     },
     {
       icon: Clock,
-      label: 'Duration',
-      value: formatDaysActive(),
+      label: 'Charts Available',
+      value: belief.charts.length.toString(),
       change: null,
       color: 'text-slate-500',
       bgGradient: 'from-slate-500/20 to-slate-600/10'
@@ -161,15 +140,15 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
       <div className="mt-6 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="flex justify-between">
-            <span className="text-slate-600 dark:text-slate-400">Average stake per participant:</span>
+            <span className="text-slate-600 dark:text-slate-400">Average Quality Score:</span>
             <span className="font-semibold text-slate-900 dark:text-slate-100">
-              ${Math.round(belief.totalStake / belief.participantCount).toLocaleString()}
+              {Math.round((belief.objectRankingScores.truth + belief.objectRankingScores.relevance + belief.objectRankingScores.informativeness) / 3)}%
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-600 dark:text-slate-400">Entropy score:</span>
+            <span className="text-slate-600 dark:text-slate-400">Article Sources:</span>
             <span className="font-semibold text-slate-900 dark:text-slate-100">
-              {belief.entropy.toFixed(3)}
+              {belief.article.sources?.length || 0}
             </span>
           </div>
         </div>

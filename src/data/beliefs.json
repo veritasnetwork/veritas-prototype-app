@@ -1,559 +1,319 @@
 [
   {
-    "id": "btc-price-jan-2025",
-    "type": "continuous",
-    "title": "Bitcoin Price by End of January 2025",
-    "description": "What will Bitcoin (BTC) be worth in USD by January 31st, 2025? This prediction aggregates community sentiment about Bitcoin's price movement considering market trends, institutional adoption, and regulatory developments.",
-    "category": "Finance",
-    "subCategory": "Cryptocurrency",
-    "createdAt": "2024-12-15T10:30:00Z",
-    "resolvedAt": null,
+    "id": "missile-production-2024",
+    "objectRankingScores": {
+      "truth": 91,
+      "relevance": 85,
+      "informativeness": 70
+    },
+    "heading": {
+      "title": "Russia Accelerates Oreshnik Missile Production Amid Rising Global Nuclear Tensions",
+      "context": "Global Nuclear Tensions"
+    },
+    "article": {
+      "content": "Russia has announced it is fast-tracking the mass production of its Oreshnik hypersonic missile complex, signaling a major shift in its strategic posture. The Oreshnik, capable of carrying multiple warheads at Mach 10 speeds, is framed as a direct counter to Western missile defense systems. This comes as global nuclear stockpiles trend upward for the first time in decades, with China and India also expanding their arsenals. Veritas aggregates diverse data sources—from satellite imagery and trade flows to defense budgets and military mobilizations—to reveal an evolving risk landscape far beyond what traditional prediction markets or sentiment trackers can capture.",
+      "credibility": "high",
+      "sources": ["Defense Intelligence Agency", "Stockholm International Peace Research Institute", "Jane's Defence Weekly"],
+      "headline": "Russia Fast-Tracks Hypersonic Missile Production",
+      "excerpt": "Mass production announcement signals major strategic shift in global military posture amid rising nuclear tensions.",
+      "thumbnail": "/images/missile-production.jpg"
+    },
+    "charts": [
+      {
+        "id": 1,
+        "title": "Russian Deployment Readiness",
+        "type": "continuous",
+        "caption": "A continuous index showing Russia's progress toward mass deployment of the Oreshnik missile system.",
+        "description": "Tracks real-world indicators like production, logistics, and testing to reflect how close Russia is to operational readiness (0–100 scale).",
+        "showInFeed": false,
+        "data": {
+          "type": "continuous",
+          "currentValue": 67,
+          "trend": "up",
+          "timeline": [
+            { "date": "2024-10-01", "value": 23, "event": "Initial production announcement" },
+            { "date": "2024-11-01", "value": 35, "event": "First successful test" },
+            { "date": "2024-12-01", "value": 52, "event": "Production facility expansion" },
+            { "date": "2024-12-15", "value": 67, "event": "Mass production begins" }
+          ]
+        },
+        "axes": {
+          "xAxis": { "label": "Timeline", "type": "time" },
+          "yAxis": { "label": "Readiness Index", "unit": "%", "min": 0, "max": 100 }
+        },
+        "metadata": {
+          "lastUpdated": "2024-12-15T10:00:00Z",
+          "dataSource": "Defense Intelligence Analysis",
+          "confidence": "high",
+          "updateFrequency": "Weekly"
+        }
+      },
+      {
+        "id": 2,
+        "title": "Relative Military Production Capacity",
+        "type": "comparative",
+        "caption": "A snapshot comparing the strategic weapons production capacity of Russia, the U.S., China, and India.",
+        "description": "Shows each country's relative ability to produce strategic weapons, derived from observable indicators like industrial activity, resource allocation, and logistical capacity.",
+        "showInFeed": true,
+        "data": {
+          "type": "comparative",
+          "entities": [
+            { "name": "United States", "value": 85, "change": -2, "color": "#3B82F6" },
+            { "name": "Russia", "value": 72, "change": 8, "color": "#EF4444" },
+            { "name": "China", "value": 68, "change": 5, "color": "#F59E0B" },
+            { "name": "India", "value": 34, "change": 3, "color": "#10B981" }
+          ]
+        },
+        "axes": {
+          "xAxis": { "label": "Countries", "type": "category" },
+          "yAxis": { "label": "Production Capacity Index", "unit": "points", "min": 0, "max": 100 }
+        },
+        "metadata": {
+          "lastUpdated": "2024-12-10T15:30:00Z",
+          "dataSource": "Industrial Intelligence Aggregation",
+          "confidence": "medium",
+          "updateFrequency": "Monthly"
+        }
+      },
+      {
+        "id": 3,
+        "title": "Emergent Global Risk Score",
+        "type": "dual-probability",
+        "caption": "Two evolving probabilities: (1) risk of a nuclear detonation and (2) risk of general war escalation.",
+        "description": "Aggregates diverse global signals into dynamic risk scores that update in real time as new information emerges.",
+        "showInFeed": false,
+        "data": {
+          "type": "dual-probability",
+          "probabilities": {
+            "primary": {
+              "label": "Nuclear Detonation Risk",
+              "value": 12,
+              "trend": "up",
+              "timeline": [
+                { "date": "2024-10-01", "value": 8 },
+                { "date": "2024-11-01", "value": 9 },
+                { "date": "2024-12-01", "value": 11 },
+                { "date": "2024-12-15", "value": 12 }
+              ]
+            },
+            "secondary": {
+              "label": "General War Escalation Risk",
+              "value": 28,
+              "trend": "up",
+              "timeline": [
+                { "date": "2024-10-01", "value": 22 },
+                { "date": "2024-11-01", "value": 24 },
+                { "date": "2024-12-01", "value": 26 },
+                { "date": "2024-12-15", "value": 28 }
+              ]
+            }
+          }
+        },
+        "axes": {
+          "xAxis": { "label": "Timeline", "type": "time" },
+          "yAxis": { "label": "Risk Probability", "unit": "%", "min": 0, "max": 100 }
+        },
+        "metadata": {
+          "lastUpdated": "2024-12-15T12:00:00Z",
+          "dataSource": "Global Risk Intelligence Network",
+          "confidence": "medium",
+          "updateFrequency": "Daily"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Nuclear Warhead Stockpiles Over Time",
+        "type": "historical-line",
+        "caption": "A historical line chart tracking the total number of nuclear warheads held by key countries.",
+        "description": "Shows changes in the size of nuclear arsenals for countries like the U.S., Russia, China, and others, illustrating long-term trends in global nuclear armament.",
+        "showInFeed": false,
+        "data": {
+          "type": "historical-line",
+          "series": [
+            {
+              "name": "Russia",
+              "color": "#EF4444",
+              "data": [
+                { "date": "2020-01-01", "value": 6372 },
+                { "date": "2021-01-01", "value": 6255 },
+                { "date": "2022-01-01", "value": 5977 },
+                { "date": "2023-01-01", "value": 5889 },
+                { "date": "2024-01-01", "value": 5580 }
+              ]
+            },
+            {
+              "name": "United States",
+              "color": "#3B82F6",
+              "data": [
+                { "date": "2020-01-01", "value": 5800 },
+                { "date": "2021-01-01", "value": 5550 },
+                { "date": "2022-01-01", "value": 5428 },
+                { "date": "2023-01-01", "value": 5244 },
+                { "date": "2024-01-01", "value": 5044 }
+              ]
+            },
+            {
+              "name": "China",
+              "color": "#F59E0B",
+              "data": [
+                { "date": "2020-01-01", "value": 320 },
+                { "date": "2021-01-01", "value": 350 },
+                { "date": "2022-01-01", "value": 410 },
+                { "date": "2023-01-01", "value": 500 },
+                { "date": "2024-01-01", "value": 500 }
+              ]
+            }
+          ]
+        },
+        "axes": {
+          "xAxis": { "label": "Year", "type": "time" },
+          "yAxis": { "label": "Nuclear Warheads", "unit": "count", "min": 0 }
+        },
+        "metadata": {
+          "lastUpdated": "2024-06-01T00:00:00Z",
+          "dataSource": "Stockholm International Peace Research Institute",
+          "confidence": "high",
+          "updateFrequency": "Annually"
+        }
+      }
+    ],
+    "category": "defense",
     "status": "active",
-    "totalStake": 125000,
-    "participantCount": 287,
-    "consensusLevel": 0.73,
-    "entropy": 0.31,
-    "distribution": {
-      "mean": 98500,
-      "variance": 15000000,
-      "min": 40000,
-      "max": 200000
-    },
-    "unit": "USD",
-    "layoutType": "data-focused",
-    "tags": ["cryptocurrency", "trading", "market-analysis"],
-    "consensusHistory": [
-      { "timestamp": "2024-12-15T10:30:00Z", "consensusLevel": 0.45, "entropy": 0.67 },
-      { "timestamp": "2024-12-16T14:20:00Z", "consensusLevel": 0.58, "entropy": 0.52 },
-      { "timestamp": "2024-12-17T09:15:00Z", "consensusLevel": 0.73, "entropy": 0.31 }
-    ],
-    "components": {
-      "heading": {
-        "currentVersion": {
-          "title": "Bitcoin Price by End of January 2025",
-          "subtitle": "Community prediction on BTC/USD price target"
-        },
-        "proposedChanges": []
-      },
-      "chart": {
-        "currentVersion": {
-          "type": "distribution",
-          "showHistory": true,
-          "timeframe": "7d"
-        },
-        "proposedChanges": []
-      },
-      "article": {
-        "currentVersion": {
-          "thumbnail": "/images/bitcoin-analysis.jpg",
-          "headline": "Bitcoin Shows Strong Support Above $95K",
-          "excerpt": "Technical analysis suggests continued bullish momentum with key resistance levels being tested. Market sentiment remains optimistic despite recent volatility.",
-          "source": "CryptoInsights"
-        },
-        "proposedChanges": []
-      }
-    }
+    "createdAt": "2024-12-15T10:00:00Z"
   },
   {
-    "id": "us-election-2024-result",
-    "type": "discrete",
-    "title": "2024 US Presidential Election Winner",
-    "description": "Who will win the 2024 United States Presidential Election? This market aggregates predictions about the final election outcome.",
-    "category": "Politics",
-    "subCategory": "Elections",
-    "createdAt": "2024-01-15T08:00:00Z",
-    "resolvedAt": "2024-11-06T02:30:00Z",
-    "status": "resolved",
-    "totalStake": 2400000,
-    "participantCount": 15670,
-    "consensusLevel": 0.89,
-    "entropy": 0.15,
-    "options": [
-      { "id": "trump", "label": "Donald Trump", "probability": 0.52 },
-      { "id": "biden", "label": "Joe Biden", "probability": 0.41 },
-      { "id": "other", "label": "Other Candidate", "probability": 0.07 }
-    ],
-    "layoutType": "article-heavy",
-    "tags": ["election", "politics", "usa"],
-    "consensusHistory": [
-      { "timestamp": "2024-01-15T08:00:00Z", "consensusLevel": 0.23, "entropy": 0.89 },
-      { "timestamp": "2024-06-15T12:00:00Z", "consensusLevel": 0.67, "entropy": 0.45 },
-      { "timestamp": "2024-11-01T18:00:00Z", "consensusLevel": 0.89, "entropy": 0.15 }
-    ],
-    "resolution": {
-      "outcome": "trump",
-      "finalProbability": 0.52,
-      "resolvedBy": "official-results"
+    "id": "climate-tipping-points-2024",
+    "objectRankingScores": {
+      "truth": 87,
+      "relevance": 93,
+      "informativeness": 82
     },
-    "components": {
-      "heading": {
-        "currentVersion": {
-          "title": "2024 US Presidential Election Winner",
-          "subtitle": "Final prediction market results"
+    "heading": {
+      "title": "Multiple Climate Tipping Points Show Signs of Acceleration",
+      "context": "Climate Emergency"
+    },
+    "article": {
+      "content": "New research indicates that several critical climate tipping points are approaching faster than previously modeled. The West Antarctic Ice Sheet, Amazon rainforest, and Arctic sea ice are showing unprecedented rates of change. Scientists warn that crossing these thresholds could trigger irreversible cascading effects across Earth's climate system. Veritas tracks real-time indicators including ice sheet dynamics, forest cover changes, and ocean temperature anomalies to provide a comprehensive assessment of climate system stability.",
+      "credibility": "high",
+      "sources": ["Nature Climate Change", "IPCC Working Group", "NASA Climate Science"],
+      "headline": "Climate Tipping Points Accelerating Beyond Models",
+      "excerpt": "Critical thresholds in Earth's climate system approaching faster than anticipated, with potential for irreversible changes.",
+      "thumbnail": "/images/climate-tipping.jpg"
+    },
+    "charts": [
+      {
+        "id": 1,
+        "title": "Tipping Point Risk Index",
+        "type": "continuous",
+        "caption": "Combined risk assessment of major climate tipping points approaching critical thresholds.",
+        "description": "Aggregates indicators from ice sheets, forests, and ocean systems to show overall tipping point risk (0-100 scale).",
+        "showInFeed": true,
+        "data": {
+          "type": "continuous",
+          "currentValue": 73,
+          "trend": "up",
+          "timeline": [
+            { "date": "2024-01-01", "value": 58, "event": "Baseline assessment" },
+            { "date": "2024-04-01", "value": 62, "event": "Antarctic ice loss acceleration" },
+            { "date": "2024-08-01", "value": 68, "event": "Amazon drought intensifies" },
+            { "date": "2024-12-01", "value": 73, "event": "Arctic sea ice minimum record" }
+          ]
         },
-        "proposedChanges": []
+        "axes": {
+          "xAxis": { "label": "Timeline", "type": "time" },
+          "yAxis": { "label": "Risk Index", "unit": "points", "min": 0, "max": 100 }
+        },
+        "metadata": {
+          "lastUpdated": "2024-12-15T08:00:00Z",
+          "dataSource": "Climate Tipping Point Observatory",
+          "confidence": "high",
+          "updateFrequency": "Monthly"
+        }
       },
-      "chart": {
-        "currentVersion": {
-          "type": "discrete-outcomes",
-          "showHistory": true,
-          "timeframe": "1y"
+      {
+        "id": 2,
+        "title": "Individual Tipping Point Status",
+        "type": "comparative",
+        "caption": "Current risk levels for major climate tipping points based on latest observations.",
+        "description": "Shows how close each major tipping point is to its threshold based on scientific indicators.",
+        "showInFeed": false,
+        "data": {
+          "type": "comparative",
+          "entities": [
+            { "name": "West Antarctic Ice Sheet", "value": 78, "change": 12, "color": "#EF4444" },
+            { "name": "Amazon Rainforest", "value": 71, "change": 8, "color": "#F59E0B" },
+            { "name": "Arctic Sea Ice", "value": 69, "change": 15, "color": "#3B82F6" },
+            { "name": "Atlantic Ocean Circulation", "value": 54, "change": 6, "color": "#10B981" }
+          ]
         },
-        "proposedChanges": []
-      },
-      "article": {
-        "currentVersion": {
-          "thumbnail": "/images/election-2024.jpg",
-          "headline": "Election Results Confirmed: Market Consensus Achieved",
-          "excerpt": "The prediction market accurately forecasted the election outcome with high consensus levels in the final weeks leading up to the vote.",
-          "source": "PoliticalAnalysis"
+        "axes": {
+          "xAxis": { "label": "Tipping Points", "type": "category" },
+          "yAxis": { "label": "Risk Level", "unit": "%", "min": 0, "max": 100 }
         },
-        "proposedChanges": []
+        "metadata": {
+          "lastUpdated": "2024-12-10T12:00:00Z",
+          "dataSource": "Global Climate Monitoring Network",
+          "confidence": "high",
+          "updateFrequency": "Weekly"
+        }
       }
-    }
-  },
-  {
-    "id": "tesla-q4-2024-deliveries",
-    "type": "continuous",
-    "title": "Tesla Q4 2024 Vehicle Deliveries",
-    "description": "How many vehicles will Tesla deliver globally in Q4 2024? This includes all Model S, 3, X, Y, and Cybertruck deliveries.",
-    "category": "Finance",
-    "subCategory": "Stocks",
-    "createdAt": "2024-10-01T09:00:00Z",
-    "resolvedAt": "2025-01-02T16:00:00Z",
-    "status": "resolved",
-    "totalStake": 89000,
-    "participantCount": 156,
-    "consensusLevel": 0.82,
-    "entropy": 0.24,
-    "distribution": {
-      "mean": 515000,
-      "variance": 2500000,
-      "min": 450000,
-      "max": 600000
-    },
-    "unit": "vehicles",
-    "layoutType": "balanced",
-    "tags": ["tesla", "automotive", "earnings"],
-    "consensusHistory": [
-      { "timestamp": "2024-10-01T09:00:00Z", "consensusLevel": 0.34, "entropy": 0.78 },
-      { "timestamp": "2024-11-15T12:00:00Z", "consensusLevel": 0.67, "entropy": 0.45 },
-      { "timestamp": "2024-12-20T18:00:00Z", "consensusLevel": 0.82, "entropy": 0.24 }
     ],
-    "resolution": {
-      "outcome": "484350",
-      "finalProbability": 0.82,
-      "resolvedBy": "official-earnings"
-    },
-    "components": {
-      "heading": {
-        "currentVersion": {
-          "title": "Tesla Q4 2024 Vehicle Deliveries",
-          "subtitle": "Global delivery predictions for all Tesla models"
-        },
-        "proposedChanges": []
-      },
-      "chart": {
-        "currentVersion": {
-          "type": "distribution",
-          "showHistory": true,
-          "timeframe": "3m"
-        },
-        "proposedChanges": []
-      },
-      "article": {
-        "currentVersion": {
-          "thumbnail": "/images/tesla-deliveries.jpg",
-          "headline": "Tesla Beats Delivery Expectations Despite Supply Challenges",
-          "excerpt": "Strong performance in China and Europe offset production constraints, leading to solid Q4 results.",
-          "source": "AutoTech"
-        },
-        "proposedChanges": []
-      }
-    }
-  },
-  {
-    "id": "superbowl-2025-winner",
-    "type": "discrete",
-    "title": "Super Bowl LIX Winner 2025",
-    "description": "Which team will win Super Bowl LIX in February 2025? Based on current season performance and playoff projections.",
-    "category": "Sports",
-    "subCategory": "Football",
-    "createdAt": "2024-09-01T12:00:00Z",
-    "resolvedAt": null,
+    "category": "environment",
     "status": "active",
-    "totalStake": 340000,
-    "participantCount": 1250,
-    "consensusLevel": 0.58,
-    "entropy": 0.42,
-    "options": [
-      { "id": "chiefs", "label": "Kansas City Chiefs", "probability": 0.18 },
-      { "id": "bills", "label": "Buffalo Bills", "probability": 0.15 },
-      { "id": "lions", "label": "Detroit Lions", "probability": 0.13 },
-      { "id": "eagles", "label": "Philadelphia Eagles", "probability": 0.12 },
-      { "id": "ravens", "label": "Baltimore Ravens", "probability": 0.11 },
-      { "id": "other", "label": "Other Teams", "probability": 0.31 }
-    ],
-    "layoutType": "minimal",
-    "tags": ["nfl", "superbowl", "football"],
-    "consensusHistory": [
-      { "timestamp": "2024-09-01T12:00:00Z", "consensusLevel": 0.25, "entropy": 0.85 },
-      { "timestamp": "2024-11-01T15:00:00Z", "consensusLevel": 0.45, "entropy": 0.62 },
-      { "timestamp": "2024-12-15T20:00:00Z", "consensusLevel": 0.58, "entropy": 0.42 }
-    ],
-    "components": {
-      "heading": {
-        "currentVersion": {
-          "title": "Super Bowl LIX Winner 2025",
-          "subtitle": "NFL championship prediction market"
-        },
-        "proposedChanges": []
-      },
-      "chart": {
-        "currentVersion": {
-          "type": "discrete-outcomes",
-          "showHistory": true,
-          "timeframe": "season"
-        },
-        "proposedChanges": []
-      },
-      "article": {
-        "currentVersion": {
-          "thumbnail": "/images/superbowl-2025.jpg",
-          "headline": "Chiefs Lead Super Bowl Odds as Playoffs Approach",
-          "excerpt": "Kansas City maintains top position despite strong competition from Buffalo and Detroit in a wide-open field.",
-          "source": "SportsCenter"
-        },
-        "proposedChanges": []
-      }
-    }
+    "createdAt": "2024-12-10T14:30:00Z"
   },
   {
-    "id": "ai-agi-achievement",
-    "type": "discrete",
-    "title": "First Company to Achieve AGI",
-    "description": "Which company will be first to demonstrate Artificial General Intelligence by 2030? Based on current AI development progress and capabilities.",
-    "category": "Technology",
-    "subCategory": "Artificial Intelligence",
-    "createdAt": "2024-11-01T10:00:00Z",
-    "resolvedAt": null,
-    "status": "active",
-    "totalStake": 890000,
-    "participantCount": 2340,
-    "consensusLevel": 0.52,
-    "entropy": 0.48,
-    "options": [
-      { "id": "openai", "label": "OpenAI", "probability": 0.28 },
-      { "id": "google", "label": "Google DeepMind", "probability": 0.24 },
-      { "id": "anthropic", "label": "Anthropic", "probability": 0.16 },
-      { "id": "meta", "label": "Meta", "probability": 0.12 },
-      { "id": "microsoft", "label": "Microsoft", "probability": 0.08 },
-      { "id": "other", "label": "Other Company", "probability": 0.12 }
-    ],
-    "layoutType": "article-heavy",
-    "tags": ["ai", "agi", "technology", "future"],
-    "consensusHistory": [
-      { "timestamp": "2024-11-01T10:00:00Z", "consensusLevel": 0.35, "entropy": 0.72 },
-      { "timestamp": "2024-12-01T14:00:00Z", "consensusLevel": 0.52, "entropy": 0.48 }
-    ],
-    "components": {
-      "heading": {
-        "currentVersion": {
-          "title": "First Company to Achieve AGI",
-          "subtitle": "Race to Artificial General Intelligence by 2030"
-        },
-        "proposedChanges": []
-      },
-      "chart": {
-        "currentVersion": {
-          "type": "discrete-outcomes",
-          "showHistory": true,
-          "timeframe": "6m"
-        },
-        "proposedChanges": []
-      },
-      "article": {
-        "currentVersion": {
-          "thumbnail": "/images/agi-race.jpg",
-          "headline": "OpenAI Leads AGI Race as Competition Intensifies",
-          "excerpt": "Recent breakthroughs in reasoning capabilities have positioned OpenAI ahead, though Google DeepMind remains close behind with significant resources.",
-          "source": "TechFuture"
-        },
-        "proposedChanges": []
-      }
-    }
-  },
-  {
-    "id": "fed-rate-march-2025",
-    "type": "continuous",
-    "title": "Federal Reserve Interest Rate March 2025",
-    "description": "What will the Federal Reserve's federal funds rate be after the March 2025 FOMC meeting? Current rate is 4.25-4.50%.",
-    "category": "Finance",
-    "subCategory": "Economics",
-    "createdAt": "2024-12-10T15:00:00Z",
-    "resolvedAt": null,
-    "status": "active",
-    "totalStake": 567000,
-    "participantCount": 890,
-    "consensusLevel": 0.79,
-    "entropy": 0.25,
-    "distribution": {
-      "mean": 3.75,
-      "variance": 0.25,
-      "min": 2.5,
-      "max": 5.5
+    "id": "ai-compute-governance-2024",
+    "objectRankingScores": {
+      "truth": 83,
+      "relevance": 88,
+      "informativeness": 76
     },
-    "unit": "%",
-    "layoutType": "balanced",
-    "tags": ["fed", "interest-rates", "economics", "monetary-policy"],
-    "consensusHistory": [
-      { "timestamp": "2024-12-10T15:00:00Z", "consensusLevel": 0.65, "entropy": 0.42 },
-      { "timestamp": "2024-12-15T10:00:00Z", "consensusLevel": 0.79, "entropy": 0.25 }
-    ],
-    "components": {
-      "heading": {
-        "currentVersion": {
-          "title": "Federal Reserve Interest Rate March 2025",
-          "subtitle": "FOMC meeting rate decision prediction"
-        },
-        "proposedChanges": []
-      },
-      "chart": {
-        "currentVersion": {
-          "type": "distribution",
-          "showHistory": true,
-          "timeframe": "1y"
-        },
-        "proposedChanges": []
-      },
-      "article": {
-        "currentVersion": {
-          "thumbnail": "/images/fed-rates.jpg",
-          "headline": "Markets Expect Continued Rate Cuts Through Early 2025",
-          "excerpt": "Economic data supports gradual easing as inflation trends toward target levels and employment remains stable.",
-          "source": "EconomicTimes"
-        },
-        "proposedChanges": []
-      }
-    }
-  },
-  {
-    "id": "global-temp-2025",
-    "type": "continuous",
-    "title": "Global Average Temperature Anomaly 2025",
-    "description": "What will be the global average temperature anomaly (relative to 1991-2020 baseline) for 2025? This metric tracks climate change impact.",
-    "category": "Climate",
-    "subCategory": "Temperature",
-    "createdAt": "2024-12-01T00:00:00Z",
-    "resolvedAt": null,
-    "status": "active",
-    "totalStake": 75000,
-    "participantCount": 89,
-    "consensusLevel": 0.67,
-    "entropy": 0.38,
-    "distribution": {
-      "mean": 1.35,
-      "variance": 0.15,
-      "min": 0.8,
-      "max": 2.1
+    "heading": {
+      "title": "Global AI Compute Governance Framework Takes Shape",
+      "context": "AI Governance"
     },
-    "unit": "°C",
-    "layoutType": "data-focused",
-    "tags": ["climate", "temperature", "environment"],
-    "consensusHistory": [
-      { "timestamp": "2024-12-01T00:00:00Z", "consensusLevel": 0.45, "entropy": 0.67 },
-      { "timestamp": "2024-12-10T12:00:00Z", "consensusLevel": 0.67, "entropy": 0.38 }
-    ],
-    "components": {
-      "heading": {
-        "currentVersion": {
-          "title": "Global Average Temperature Anomaly 2025",
-          "subtitle": "Climate prediction relative to 1991-2020 baseline"
-        },
-        "proposedChanges": []
-      },
-      "chart": {
-        "currentVersion": {
-          "type": "distribution",
-          "showHistory": true,
-          "timeframe": "historical"
-        },
-        "proposedChanges": []
-      },
-      "article": {
-        "currentVersion": {
-          "thumbnail": "/images/climate-2025.jpg",
-          "headline": "2025 Expected to Continue Record Warming Trend",
-          "excerpt": "Climate models suggest another year of above-average temperatures despite La Niña conditions moderating some warming.",
-          "source": "ClimateWatch"
-        },
-        "proposedChanges": []
-      }
-    }
-  },
-  {
-    "id": "world-cup-2026-winner",
-    "type": "discrete",
-    "title": "2026 FIFA World Cup Winner",
-    "description": "Which country will win the 2026 FIFA World Cup hosted by USA, Canada, and Mexico? Based on current team strength and development.",
-    "category": "Sports",
-    "subCategory": "Soccer",
-    "createdAt": "2024-08-15T10:00:00Z",
-    "resolvedAt": null,
-    "status": "active",
-    "totalStake": 1200000,
-    "participantCount": 3450,
-    "consensusLevel": 0.49,
-    "entropy": 0.51,
-    "options": [
-      { "id": "brazil", "label": "Brazil", "probability": 0.16 },
-      { "id": "france", "label": "France", "probability": 0.14 },
-      { "id": "argentina", "label": "Argentina", "probability": 0.13 },
-      { "id": "england", "label": "England", "probability": 0.12 },
-      { "id": "spain", "label": "Spain", "probability": 0.11 },
-      { "id": "germany", "label": "Germany", "probability": 0.10 },
-      { "id": "other", "label": "Other Countries", "probability": 0.24 }
-    ],
-    "layoutType": "article-heavy",
-    "tags": ["fifa", "world-cup", "soccer", "football"],
-    "consensusHistory": [
-      { "timestamp": "2024-08-15T10:00:00Z", "consensusLevel": 0.32, "entropy": 0.84 },
-      { "timestamp": "2024-10-10T15:30:00Z", "consensusLevel": 0.41, "entropy": 0.67 },
-      { "timestamp": "2024-12-01T12:00:00Z", "consensusLevel": 0.49, "entropy": 0.51 }
-    ],
-    "components": {
-      "heading": {
-        "currentVersion": {
-          "title": "2026 FIFA World Cup Winner",
-          "subtitle": "North American World Cup championship prediction"
-        },
-        "proposedChanges": []
-      },
-      "chart": {
-        "currentVersion": {
-          "type": "discrete-outcomes",
-          "showHistory": true,
-          "timeframe": "qualification"
-        },
-        "proposedChanges": []
-      },
-      "article": {
-        "currentVersion": {
-          "thumbnail": "/images/world-cup-2026.jpg",
-          "headline": "Brazil Edges Ahead in Early 2026 World Cup Predictions",
-          "excerpt": "Strong youth development and tactical innovations have positioned Brazil as slight favorites with France and Argentina close behind.",
-          "source": "FIFA.com"
-        },
-        "proposedChanges": []
-      }
-    }
-  },
-  {
-    "id": "inflation-us-2025",
-    "type": "continuous",
-    "title": "US Inflation Rate December 2025",
-    "description": "What will the US Consumer Price Index (CPI) year-over-year inflation rate be in December 2025? Based on current economic trends and policy expectations.",
-    "category": "Finance",
-    "subCategory": "Economics",
-    "createdAt": "2024-12-05T11:00:00Z",
-    "resolvedAt": null,
-    "status": "active",
-    "totalStake": 445000,
-    "participantCount": 678,
-    "consensusLevel": 0.71,
-    "entropy": 0.32,
-    "distribution": {
-      "mean": 2.4,
-      "variance": 0.36,
-      "min": 1.0,
-      "max": 4.5
+    "article": {
+      "content": "Major powers are converging on frameworks for governing advanced AI compute resources, with the EU's AI Act, US executive orders, and China's AI regulations creating a complex regulatory landscape. The focus on compute governance reflects growing recognition that controlling access to training resources may be more feasible than regulating AI capabilities directly. Veritas tracks regulatory developments, compute allocation patterns, and international coordination efforts to assess the evolving governance landscape.",
+      "credibility": "high",
+      "sources": ["AI Governance Institute", "Brookings Institution", "Center for Strategic Studies"],
+      "headline": "AI Compute Governance Gains International Momentum",
+      "excerpt": "Coordinated efforts emerge to regulate AI development through compute resource controls rather than capability restrictions.",
+      "thumbnail": "/images/ai-governance.jpg"
     },
-    "unit": "%",
-    "layoutType": "data-focused",
-    "tags": ["inflation", "cpi", "economics", "fed-policy"],
-    "consensusHistory": [
-      { "timestamp": "2024-12-05T11:00:00Z", "consensusLevel": 0.58, "entropy": 0.48 },
-      { "timestamp": "2024-12-12T14:30:00Z", "consensusLevel": 0.71, "entropy": 0.32 }
-    ],
-    "components": {
-      "heading": {
-        "currentVersion": {
-          "title": "US Inflation Rate December 2025",
-          "subtitle": "Consumer Price Index annual prediction"
+    "charts": [
+      {
+        "id": 1,
+        "title": "Regulatory Coordination Index",
+        "type": "continuous",
+        "caption": "Measures the level of international coordination in AI compute governance policies.",
+        "description": "Tracks alignment between major jurisdictions on compute thresholds, reporting requirements, and enforcement mechanisms.",
+        "showInFeed": true,
+        "data": {
+          "type": "continuous",
+          "currentValue": 64,
+          "trend": "up",
+          "timeline": [
+            { "date": "2024-06-01", "value": 34, "event": "EU AI Act implementation" },
+            { "date": "2024-09-01", "value": 45, "event": "US-EU coordination talks" },
+            { "date": "2024-11-01", "value": 58, "event": "G7 AI governance summit" },
+            { "date": "2024-12-15", "value": 64, "event": "China policy alignment" }
+          ]
         },
-        "proposedChanges": []
-      },
-      "chart": {
-        "currentVersion": {
-          "type": "distribution",
-          "showHistory": true,
-          "timeframe": "2y"
+        "axes": {
+          "xAxis": { "label": "Timeline", "type": "time" },
+          "yAxis": { "label": "Coordination Level", "unit": "%", "min": 0, "max": 100 }
         },
-        "proposedChanges": []
-      },
-      "article": {
-        "currentVersion": {
-          "thumbnail": "/images/inflation-2025.jpg",
-          "headline": "Inflation Expected to Stabilize Near Fed Target by End 2025",
-          "excerpt": "Economic forecasters increasingly confident that inflation will return to the Federal Reserve's 2% target as supply chains normalize and monetary policy takes effect.",
-          "source": "EconomicOutlook"
-        },
-        "proposedChanges": []
+        "metadata": {
+          "lastUpdated": "2024-12-15T16:00:00Z",
+          "dataSource": "AI Policy Tracker",
+          "confidence": "medium",
+          "updateFrequency": "Bi-weekly"
+        }
       }
-    }
-  },
-  {
-    "id": "netflix-subscribers-q2-2025",
-    "type": "continuous",
-    "title": "Netflix Global Subscribers Q2 2025",
-    "description": "How many global subscribers will Netflix have at the end of Q2 2025? Includes all subscription tiers across all regions.",
-    "category": "Entertainment",
-    "subCategory": "Streaming",
-    "createdAt": "2024-11-30T16:00:00Z",
-    "resolvedAt": null,
-    "status": "closed",
-    "totalStake": 67000,
-    "participantCount": 189,
-    "consensusLevel": 0.63,
-    "entropy": 0.41,
-    "distribution": {
-      "mean": 285000000,
-      "variance": 400000000,
-      "min": 260000000,
-      "max": 320000000
-    },
-    "unit": "subscribers",
-    "layoutType": "minimal",
-    "tags": ["netflix", "streaming", "subscribers", "entertainment"],
-    "consensusHistory": [
-      { "timestamp": "2024-11-30T16:00:00Z", "consensusLevel": 0.47, "entropy": 0.58 },
-      { "timestamp": "2024-12-08T13:20:00Z", "consensusLevel": 0.63, "entropy": 0.41 }
     ],
-    "components": {
-      "heading": {
-        "currentVersion": {
-          "title": "Netflix Global Subscribers Q2 2025",
-          "subtitle": "Streaming platform growth prediction"
-        },
-        "proposedChanges": []
-      },
-      "chart": {
-        "currentVersion": {
-          "type": "distribution",
-          "showHistory": true,
-          "timeframe": "quarterly"
-        },
-        "proposedChanges": []
-      },
-      "article": {
-        "currentVersion": {
-          "thumbnail": "/images/netflix-growth.jpg",
-          "headline": "Netflix Growth Expected to Slow but Remain Positive",
-          "excerpt": "Ad-supported tier expansion and password sharing crackdown should drive continued subscriber growth despite market saturation concerns.",
-          "source": "StreamingAnalytics"
-        },
-        "proposedChanges": []
-      }
-    }
+    "category": "technology",
+    "status": "active",
+    "createdAt": "2024-12-08T11:15:00Z"
   }
 ]

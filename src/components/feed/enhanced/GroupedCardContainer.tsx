@@ -22,15 +22,15 @@ export const GroupedCardContainer: React.FC<GroupedCardContainerProps> = ({
 
   // Group beliefs by different criteria
   const featuredBeliefs = beliefs
-    .filter(b => b.totalStake > 1000000 || b.participantCount > 5000)
+    .filter(b => b.objectRankingScores.truth > 85 || b.objectRankingScores.informativeness > 80)
     .slice(0, 2);
 
   const cryptoFinanceBeliefs = beliefs
     .filter(b => b.category === 'finance' && (
-      b.title.toLowerCase().includes('bitcoin') ||
-      b.title.toLowerCase().includes('crypto') ||
-      b.title.toLowerCase().includes('btc') ||
-      b.title.toLowerCase().includes('ethereum')
+      b.heading.title.toLowerCase().includes('bitcoin') ||
+      b.heading.title.toLowerCase().includes('crypto') ||
+      b.heading.title.toLowerCase().includes('btc') ||
+      b.heading.title.toLowerCase().includes('ethereum')
     ))
     .slice(0, 3);
 
@@ -43,7 +43,7 @@ export const GroupedCardContainer: React.FC<GroupedCardContainerProps> = ({
     .slice(0, 3);
 
   const quickBeliefs = beliefs
-    .filter(b => b.totalStake < 100000)
+    .filter(b => b.objectRankingScores.informativeness < 60)
     .slice(0, 4);
 
   const renderBeliefCard = (belief: BaseBelief, theme: 'light' | 'dark' = 'light', compact = false) => {
@@ -53,7 +53,6 @@ export const GroupedCardContainer: React.FC<GroupedCardContainerProps> = ({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         belief={belief as any}
         theme={theme}
-        layout="auto"
         compact={compact}
         onClick={handleBeliefClick}
       />

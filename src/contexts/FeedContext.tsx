@@ -63,17 +63,20 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
         return activeFilters.some(filter => {
           switch (filter) {
             case 'breaking-news':
-              return belief.totalStake > 500000;
+              // High informativeness indicates breaking/noteworthy content
+              return belief.objectRankingScores.informativeness > 75;
             case 'high-stakes':
-              return belief.totalStake > 1000000;
+              // High truth score indicates high-stakes/important information
+              return belief.objectRankingScores.truth > 85;
             case 'ending-soon':
-              // Mock implementation - in real app, you'd check end dates
-              return belief.participantCount > 1000;
+              // High relevance indicates time-sensitive content
+              return belief.objectRankingScores.relevance > 80;
             case 'recently-active':
-              // Mock implementation - in real app, you'd check recent activity
-              return belief.consensusLevel > 0.7;
+              // Combination of high relevance and informativeness
+              return belief.objectRankingScores.relevance > 70 && belief.objectRankingScores.informativeness > 70;
             case 'high-consensus':
-              return belief.consensusLevel > 0.8;
+              // High truth score indicates strong consensus/confidence
+              return belief.objectRankingScores.truth > 90;
             default:
               return true;
           }

@@ -1,8 +1,9 @@
-import { beliefs, categories } from '@/data';
-import { Belief, Category, SortOption, FilterStatus } from '@/types/belief.types';
+import { Belief, SortOption, FilterStatus, Category } from '@/types/belief.types';
+import beliefsData from '@/data/beliefs.json';
+import { categories } from '@/data';
 
 // Type the imported data
-const typedBeliefs = beliefs as Belief[];
+const typedBeliefs = beliefsData as Belief[];
 const typedCategories = categories as Category[];
 
 // Belief data access
@@ -17,7 +18,7 @@ export const getBeliefById = (id: string): Belief | null => {
 
 export const getBeliefsByCategory = (category: string): Belief[] => {
   return typedBeliefs.filter(b => 
-    b.category.toLowerCase() === category.toLowerCase()
+    b.category?.toLowerCase() === category.toLowerCase()
   );
 };
 
@@ -27,59 +28,61 @@ export const getBeliefsByStatus = (status: FilterStatus): Belief[] => {
 };
 
 export const searchBeliefs = (query: string): Belief[] => {
+  if (!query.trim()) return typedBeliefs;
+  
   const lowercaseQuery = query.toLowerCase();
   return typedBeliefs.filter(b => 
-    b.title.toLowerCase().includes(lowercaseQuery) ||
-    b.description.toLowerCase().includes(lowercaseQuery) ||
-    b.tags?.some(tag => tag.toLowerCase().includes(lowercaseQuery)) ||
-    b.category.toLowerCase().includes(lowercaseQuery) ||
-    b.subCategory?.toLowerCase().includes(lowercaseQuery)
+    b.heading.title.toLowerCase().includes(lowercaseQuery) ||
+    b.article.content.toLowerCase().includes(lowercaseQuery) ||
+    b.article.headline?.toLowerCase().includes(lowercaseQuery) ||
+    b.category?.toLowerCase().includes(lowercaseQuery)
   );
 };
 
-export const getBeliefsByConsensusLevel = (min: number, max: number): Belief[] => {
-  return typedBeliefs.filter(b => 
-    b.consensusLevel >= min && b.consensusLevel <= max
-  );
-};
-
+// NEW: Ranking-based sorting for information intelligence
 export const sortBeliefs = (beliefs: Belief[], sortBy: SortOption): Belief[] => {
   switch (sortBy) {
-    case 'relevance':
-      // Sort by a combination of recent activity and consensus
-      return [...beliefs].sort((a, b) => {
-        const aScore = a.consensusLevel * 0.6 + (a.participantCount / 10000) * 0.4;
-        const bScore = b.consensusLevel * 0.6 + (b.participantCount / 10000) * 0.4;
-        return bScore - aScore;
-      });
     case 'truth':
-      // Sort by consensus level (higher consensus = higher "truth")
-      return [...beliefs].sort((a, b) => b.consensusLevel - a.consensusLevel);
-    case 'stakes':
-      return [...beliefs].sort((a, b) => b.totalStake - a.totalStake);
+      return beliefs.sort((a, b) => b.objectRankingScores.truth - a.objectRankingScores.truth);
+    case 'relevance':
+      return beliefs.sort((a, b) => b.objectRankingScores.relevance - a.objectRankingScores.relevance);
+    case 'informativeness':
+      return beliefs.sort((a, b) => b.objectRankingScores.informativeness - a.objectRankingScores.informativeness);
     default:
       return beliefs;
   }
 };
 
-export const getBeliefsByLayoutType = (layoutType: string): Belief[] => {
-  return typedBeliefs.filter(b => b.layoutType === layoutType);
+// NEW: Chart utility functions
+export const getFeedChart = (belief: Belief) => {
+  return belief.charts.find(chart => chart.showInFeed);
 };
 
-export const getBeliefsBySubCategory = (subCategory: string): Belief[] => {
-  return typedBeliefs.filter(b => 
-    b.subCategory?.toLowerCase() === subCategory.toLowerCase()
-  );
+export const getDetailCharts = (belief: Belief) => {
+  return belief.charts;
 };
 
-export const getBeliefsByTags = (tags: string[]): Belief[] => {
-  return typedBeliefs.filter(b => 
-    b.tags?.some(tag => 
-      tags.some(searchTag => 
-        tag.toLowerCase().includes(searchTag.toLowerCase())
-      )
-    )
-  );
+// Updated belief stats for information intelligence
+export const getBeliefStats = () => {
+  const total = typedBeliefs.length;
+  const active = typedBeliefs.filter(b => b.status === 'active').length;
+  const resolved = typedBeliefs.filter(b => b.status === 'resolved').length;
+  const closed = typedBeliefs.filter(b => b.status === 'closed').length;
+  
+  // Calculate average ranking scores
+  const avgTruth = typedBeliefs.reduce((sum, b) => sum + b.objectRankingScores.truth, 0) / total;
+  const avgRelevance = typedBeliefs.reduce((sum, b) => sum + b.objectRankingScores.relevance, 0) / total;
+  const avgInformativeness = typedBeliefs.reduce((sum, b) => sum + b.objectRankingScores.informativeness, 0) / total;
+  
+  return {
+    total,
+    active,
+    resolved,
+    closed,
+    avgTruth: Math.round(avgTruth * 100) / 100,
+    avgRelevance: Math.round(avgRelevance * 100) / 100,
+    avgInformativeness: Math.round(avgInformativeness * 100) / 100
+  };
 };
 
 // Category data access
@@ -99,92 +102,78 @@ export const getCategoryByName = (name: string): Category | null => {
   return category || null;
 };
 
-// Combined utilities
-export const getBeliefStats = () => {
-  const total = typedBeliefs.length;
-  const active = typedBeliefs.filter(b => b.status === 'active').length;
-  const resolved = typedBeliefs.filter(b => b.status === 'resolved').length;
-  const closed = typedBeliefs.filter(b => b.status === 'closed').length;
-  
-  const totalStake = typedBeliefs.reduce((sum, b) => sum + b.totalStake, 0);
-  const totalParticipants = typedBeliefs.reduce((sum, b) => sum + b.participantCount, 0);
-  
-  const avgConsensus = typedBeliefs.reduce((sum, b) => sum + b.consensusLevel, 0) / total;
-  
-  return {
-    total,
-    active,
-    resolved,
-    closed,
-    totalStake,
-    totalParticipants,
-    avgConsensus: Math.round(avgConsensus * 100) / 100
-  };
-};
-
 export const getCategoryStats = () => {
   const categoryStats = typedCategories.map(category => ({
     ...category,
     beliefCount: getBeliefsByCategory(category.name).length,
     activeBeliefs: getBeliefsByCategory(category.name).filter(b => b.status === 'active').length,
-    totalStake: getBeliefsByCategory(category.name).reduce((sum, b) => sum + b.totalStake, 0)
+    avgTruthScore: Math.round(getBeliefsByCategory(category.name).reduce((sum, b) => sum + b.objectRankingScores.truth, 0) / getBeliefsByCategory(category.name).length * 100) / 100 || 0
   }));
   
   return categoryStats;
 };
 
-// New utility functions for belief details page
-export const getRelatedBeliefs = (currentBeliefId: string, category: string, tags?: string[]): Belief[] => {
+// Related beliefs for detail page
+export const getRelatedBeliefs = (currentBeliefId: string, category?: string): Belief[] => {
   const allBeliefs = getAllBeliefs();
   
-  // Filter out current belief and get beliefs from same category
-  let relatedBeliefs = allBeliefs.filter(b => 
-    b.id !== currentBeliefId && 
-    b.category === category
-  );
+  // Filter out current belief
+  let relatedBeliefs = allBeliefs.filter(b => b.id !== currentBeliefId);
   
-  // If we have tags, prioritize beliefs with matching tags
-  if (tags && tags.length > 0) {
-    const tagMatches = relatedBeliefs.filter(b => 
-      b.tags?.some(tag => tags.includes(tag))
-    );
-    const nonTagMatches = relatedBeliefs.filter(b => 
-      !b.tags?.some(tag => tags.includes(tag))
-    );
-    relatedBeliefs = [...tagMatches, ...nonTagMatches];
-  }
-  
-  // If we don't have enough from same category, add others
-  if (relatedBeliefs.length < 4) {
-    const others = allBeliefs.filter(b => 
-      b.id !== currentBeliefId && 
-      b.category !== category
-    );
-    relatedBeliefs = [...relatedBeliefs, ...others];
+  // If category provided, prioritize same category
+  if (category) {
+    const sameCategoryBeliefs = relatedBeliefs.filter(b => b.category === category);
+    const otherBeliefs = relatedBeliefs.filter(b => b.category !== category);
+    relatedBeliefs = [...sameCategoryBeliefs, ...otherBeliefs];
   }
   
   return relatedBeliefs
-    .sort((a, b) => b.consensusLevel - a.consensusLevel)
+    .sort((a, b) => b.objectRankingScores.relevance - a.objectRankingScores.relevance)
     .slice(0, 4);
 };
 
 export const getCategoryGradient = (category: string): string => {
-  switch (category.toLowerCase()) {
+  switch (category?.toLowerCase()) {
+    case 'defense':
+      return 'from-[#EF4444]/20 to-[#DC2626]/10';
+    case 'environment':
+      return 'from-[#10B981]/20 to-[#059669]/10';
+    case 'technology':
+      return 'from-[#3B82F6]/20 to-[#2563EB]/10';
     case 'finance':
       return 'from-[#FFB800]/20 to-[#F5A623]/10';
     case 'politics':
       return 'from-[#1B365D]/20 to-[#2D4A6B]/10';
-    case 'sports':
-      return 'from-[#3B82F6]/20 to-[#2563EB]/10'; // Blue variants
-    case 'technology':
-      return 'from-[#FCD34D]/20 to-[#F59E0B]/10'; // Yellow variants
     default:
-      return 'from-[#1B365D]/20 to-[#FFB800]/10'; // Blue to yellow
+      return 'from-[#1B365D]/20 to-[#FFB800]/10';
   }
 };
 
-export const getEntropyLevel = (entropy: number): string => {
-  if (entropy < 0.3) return 'High Consensus';
-  if (entropy < 0.6) return 'Moderate Consensus';
-  return 'Low Consensus';
+// NEW: Information quality assessment
+export const getInformationQuality = (belief: Belief): string => {
+  const avgScore = (belief.objectRankingScores.truth + belief.objectRankingScores.relevance + belief.objectRankingScores.informativeness) / 3;
+  
+  if (avgScore >= 85) return 'Excellent';
+  if (avgScore >= 70) return 'High';
+  if (avgScore >= 55) return 'Good';
+  if (avgScore >= 40) return 'Fair';
+  return 'Low';
+};
+
+// NEW: Get beliefs by ranking threshold
+export const getBeliefsByRankingThreshold = (
+  ranking: 'truth' | 'relevance' | 'informativeness',
+  minThreshold: number
+): Belief[] => {
+  return typedBeliefs.filter(b => b.objectRankingScores[ranking] >= minThreshold);
+};
+
+// NEW: Get top beliefs by ranking
+export const getTopBeliefsByRanking = (
+  ranking: 'truth' | 'relevance' | 'informativeness',
+  limit: number = 10
+): Belief[] => {
+  return typedBeliefs
+    .sort((a, b) => b.objectRankingScores[ranking] - a.objectRankingScores[ranking])
+    .slice(0, limit);
 }; 

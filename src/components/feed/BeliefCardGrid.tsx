@@ -92,7 +92,7 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
         <BeliefCard
           key={belief.id}
           belief={belief}
-          compact={belief.layoutType === 'minimal'}
+          compact={false}
           onClick={handleCardClick}
         />
       ))}

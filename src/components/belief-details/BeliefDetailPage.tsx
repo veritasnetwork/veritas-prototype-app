@@ -88,7 +88,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Hero Section with Category-based Background */}
-      <div className={`relative bg-gradient-to-br ${getCategoryGradient(belief.category)} border-b border-white/20 dark:border-white/10 pt-20 md:pt-8 ${showContent ? 'animate-in slide-in-from-top-6 duration-700' : 'opacity-0'}`}>
+      <div className={`relative bg-gradient-to-br ${getCategoryGradient(belief.category || 'general')} border-b border-white/20 dark:border-white/10 pt-20 md:pt-8 ${showContent ? 'animate-in slide-in-from-top-6 duration-700' : 'opacity-0'}`}>
         {/* Backdrop overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/5 via-transparent to-[#1B365D]/5" />
         
@@ -130,11 +130,11 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
               </div>
               
               <h1 className="text-2xl md:text-4xl font-bold text-slate-900 dark:text-slate-100 mb-4 leading-tight animate-in slide-in-from-left-6 duration-700 delay-400">
-                {belief.title}
+                {belief.heading.title}
               </h1>
               
               <p className="text-base md:text-lg text-slate-600 dark:text-slate-300 animate-in slide-in-from-left-4 duration-600 delay-500">
-                {belief.description}
+                {belief.heading.context || belief.article.excerpt || 'Information intelligence analysis'}
               </p>
             </div>
 
@@ -159,7 +159,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
           <div className="lg:col-span-2 space-y-6 md:space-y-8">
             
             {/* Main Belief Card - The Centerpiece */}
-            <div className={`backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 md:p-8 lg:p-12 shadow-2xl shadow-yellow-500/10 bg-gradient-to-br ${getCategoryGradient(belief.category)} animate-in zoom-in-95 duration-800 delay-700`}>
+                          <div className={`backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 md:p-8 lg:p-12 shadow-2xl shadow-yellow-500/10 bg-gradient-to-br ${getCategoryGradient(belief.category || 'general')} animate-in zoom-in-95 duration-800 delay-700`}>
               {/* Premium inner glow */}
               <div className="absolute inset-px bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-3xl opacity-50 pointer-events-none" />
               
@@ -169,7 +169,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
               <div className="relative space-y-8">
                 <div className="animate-in slide-in-from-top-4 duration-600 delay-900">
                   <HeadingComponent 
-                    belief={belief} 
+                    heading={belief.heading} 
                     variant="detail" 
                     isEditable={true}
                     onEdit={() => setEditingComponent('heading')}
@@ -178,16 +178,14 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                 
                 <div className="animate-in slide-in-from-bottom-4 duration-600 delay-1000">
                   <ChartComponent 
-                    belief={belief} 
+                    charts={belief.charts} 
                     variant="detail" 
-                    isEditable={true}
-                    onEdit={() => setEditingComponent('chart')}
                   />
                 </div>
                 
                 <div className="animate-in slide-in-from-left-4 duration-600 delay-1100">
                   <ArticleComponent 
-                    belief={belief} 
+                    article={belief.article} 
                     variant="detail" 
                     isEditable={true}
                     onEdit={() => setEditingComponent('article')}
