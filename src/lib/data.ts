@@ -45,16 +45,18 @@ export const getBeliefsByConsensusLevel = (min: number, max: number): Belief[] =
 
 export const sortBeliefs = (beliefs: Belief[], sortBy: SortOption): Belief[] => {
   switch (sortBy) {
-    case 'recent':
-      return [...beliefs].sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-    case 'active':
-      return [...beliefs].sort((a, b) => b.participantCount - a.participantCount);
+    case 'relevance':
+      // Sort by a combination of recent activity and consensus
+      return [...beliefs].sort((a, b) => {
+        const aScore = a.consensusLevel * 0.6 + (a.participantCount / 10000) * 0.4;
+        const bScore = b.consensusLevel * 0.6 + (b.participantCount / 10000) * 0.4;
+        return bScore - aScore;
+      });
+    case 'truth':
+      // Sort by consensus level (higher consensus = higher "truth")
+      return [...beliefs].sort((a, b) => b.consensusLevel - a.consensusLevel);
     case 'stakes':
       return [...beliefs].sort((a, b) => b.totalStake - a.totalStake);
-    case 'consensus':
-      return [...beliefs].sort((a, b) => b.consensusLevel - a.consensusLevel);
     default:
       return beliefs;
   }

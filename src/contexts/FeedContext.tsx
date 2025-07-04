@@ -29,7 +29,7 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('trending');
   const [activeFilters, setActiveFilters] = useState<string[]>(['all']);
-  const [sortBy, setSortBy] = useState<SortOption>('recent');
+  const [sortBy, setSortBy] = useState<SortOption>('relevance');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
 
   // Data

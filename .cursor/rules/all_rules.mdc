@@ -1,0 +1,238 @@
+# .cursorrules for Veritas Frontend (React/TypeScript/Next.js)
+
+# Purpose: Build an information intelligence platform, NOT a prediction market
+
+# Context: Next.js 13+ App Router, TypeScript, Tailwind CSS, Progressive Web App
+
+## Core Principles
+
+1. **Information Over Speculation**: Every UI element should inform users, not encourage gambling. Veritas helps users understand truth through collective intelligence.
+
+2. **Maximum Information Density**: Use space wisely. Every pixel should contribute to user understanding. Remove clutter and focus on content.
+
+3. **News Feed Style**: Design like an intelligent news aggregator (BBC meets X/Instagram), not like Polymarket or betting sites.
+
+4. **Nested Component Architecture**: All content uses modular components (HeadingComponent, ArticleComponent, ChartComponent, MetadataComponent) that can be combined flexibly.
+
+5. **Think Step-by-Step**: Provide a bulleted PLAN before coding. Analyze existing patterns and match the established architecture.
+
+## Veritas-Specific Design Philosophy
+
+### What Veritas IS:
+- Information intelligence platform that aggregates collective understanding
+- Supports any truth: past/present/future, continuous data, social opinion, unresolvable questions
+- Focuses on helping users understand rather than predict
+- Uses economic incentives to surface quality information
+
+### What Veritas is NOT:
+- A prediction market or betting platform
+- A place for speculation or gambling
+- Focused on financial stakes or winnings
+
+### UI Implications:
+- **Remove gambling language**: No "predict", "bet", "stake" in primary UI
+- **Hide financial metrics**: Participants/stakes should be minimal or hidden
+- **Emphasize content**: Headlines, articles, charts, and data should dominate
+- **Implicit interaction**: Click cards to explore, don't need explicit "view" buttons
+
+## React/TypeScript Guidelines
+
+### Component Architecture:
+- **Template-based design**: Components accept `variant` props for different contexts
+- **Modular composition**: Combine HeadingComponent + ArticleComponent + ChartComponent + MetadataComponent
+- **Type safety**: Use strict TypeScript interfaces for all props and data
+- **Theme awareness**: Support light/dark themes with proper color tokens
+
+### Naming Conventions:
+- Components: `PascalCase` (e.g., `BeliefCard`, `FeedContainer`)
+- Props/variables: `camelCase` (e.g., `beliefData`, `onItemClick`)
+- Types/interfaces: `PascalCase` (e.g., `Belief`, `ComponentVariant`)
+- Files: Use descriptive names matching component names
+
+### Code Style:
+- Use TypeScript strict mode with proper type annotations
+- Prefer functional components with hooks
+- Use Tailwind CSS for styling (utility-first approach)
+- Follow Next.js 13+ App Router patterns
+- Use ESLint and Prettier configurations
+
+## Veritas Data Structure
+
+### Belief Object Structure:
+```typescript
+interface Belief {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  type: 'continuous' | 'discrete';
+  status: 'active' | 'resolved' | 'closed';
+  
+  // Information content (core focus)
+  components: {
+    heading: { currentVersion: HeadingData };
+    article: { currentVersion: ArticleData };
+    chart: { currentVersion: ChartData };
+    metadata: { currentVersion: MetadataData };
+  };
+  
+  // Veritas-specific data
+  consensusLevel: number;
+  entropy: number;
+  informationQuality: 'high' | 'medium' | 'low';
+  
+  // De-emphasize financial aspects
+  totalStake?: number;        // Hidden or minimal display
+  participantCount?: number;  // Secondary information
+}
+```
+
+### Component Data Types:
+- **HeadingData**: title, subtitle, importance level
+- **ArticleData**: headline, excerpt, source, thumbnail, credibility score
+- **ChartData**: type, data points, timeframe, axes labels
+- **MetadataData**: creation date, update frequency, reliability metrics
+
+## UI/UX Guidelines
+
+### Feed Design:
+- **Social media style**: Vertical scrolling feed like X/Instagram
+- **Rich content cards**: Large cards with nested components
+- **Information hierarchy**: Most important content largest and most prominent
+- **Minimal chrome**: Remove unnecessary buttons, labels, and UI elements
+
+### Card Design:
+- **Content-first**: Article headlines and charts should dominate
+- **Implicit interaction**: Click anywhere on card to explore details
+- **Progressive disclosure**: Show essential info in card, details on click
+- **Consistent sizing**: Use standardized card heights for clean layout
+
+### Navigation:
+- **Auto-hide dock**: Hide on scroll down, show on scroll up
+- **Filter-focused**: All categorization through navbar filters
+- **Clean categories**: Simple filter options (Relevance, Truth, High Stakes)
+- **Search-first**: Prominent search with intelligent filtering
+
+### Information Display:
+- **Headlines first**: Clear, compelling titles that inform
+- **Visual hierarchy**: Use typography and spacing to guide attention
+- **Chart integration**: Show data visualizations that aid understanding
+- **Source credibility**: Display information reliability indicators
+
+## Technical Requirements
+
+### Performance:
+- **Optimize images**: Use Next.js Image component with proper sizing
+- **Lazy loading**: Implement for feed scroll performance
+- **Bundle splitting**: Use dynamic imports for heavy components
+- **PWA optimization**: Service worker caching for offline functionality
+
+### Accessibility:
+- **Semantic HTML**: Use proper heading structure and landmarks
+- **ARIA labels**: Add accessibility labels for interactive elements
+- **Keyboard navigation**: Ensure all actions accessible via keyboard
+- **Color contrast**: Meet WCAG 2.1 AA standards
+
+### Mobile-First:
+- **Responsive design**: Mobile-first approach with progressive enhancement
+- **Touch targets**: Minimum 44px touch targets for mobile
+- **Thumb navigation**: Important actions within thumb reach
+- **Gesture support**: Swipe and scroll gestures where appropriate
+
+## File Organization
+
+### Directory Structure:
+```
+src/
+├── components/
+│   ├── feed/              # Feed-related components
+│   ├── belief-details/    # Detail page components
+│   ├── shared/            # Reusable UI components
+│   └── layout/            # Navigation and layout
+├── types/                 # TypeScript definitions
+├── lib/                   # Utility functions
+├── data/                  # Mock data and data utilities
+└── styles/                # Global styles
+```
+
+### Component Structure:
+- Each component in its own file
+- Collocate related components in subdirectories
+- Export from index files for clean imports
+- Include component-specific types in same file
+
+## Data Handling
+
+### Mock Data:
+- Use JSON files in `/data` directory for development
+- Structure data to match production API expectations
+- Include rich content (articles, charts, images) in mock data
+- Focus on informational content over financial metrics
+
+### State Management:
+- Use React Context for global state (theme, user preferences)
+- Local component state for UI interactions
+- Consider Zustand or similar for complex state if needed
+
+## Testing Guidelines
+
+### Unit Testing:
+- Test component rendering with different props
+- Test user interactions and event handlers
+- Mock external dependencies (APIs, images)
+- Focus on behavior, not implementation details
+
+### Integration Testing:
+- Test component composition and data flow
+- Test navigation and routing
+- Test responsive behavior across screen sizes
+
+## AI Behavior Guidelines
+
+### Response Style:
+- **No apologies**: Focus on solutions, not disclaimers
+- **Code-first**: Provide working code examples
+- **Explain context**: When making changes, explain why they align with Veritas principles
+- **Information-focused**: Always consider "does this help users understand truth?"
+
+### Planning:
+- Always provide a PLAN before implementing changes
+- Consider impact on information hierarchy and user understanding
+- Reference existing patterns and maintain consistency
+- Think about both desktop and mobile implications
+
+## Absolute Do-Nots
+
+### UI/UX:
+- Do not use prediction market language (bet, stake, predict)
+- Do not prominently display financial metrics
+- Do not add gambling-style animations or sounds
+- Do not create interfaces that encourage speculation
+
+### Code:
+- Do not break existing TypeScript interfaces without updating dependents
+- Do not remove accessibility features
+- Do not hardcode values that should be configurable
+- Do not create overly complex component hierarchies
+
+### Content:
+- Do not present Veritas as a prediction market
+- Do not emphasize winning/losing over understanding
+- Do not hide information quality indicators
+- Do not sacrifice content clarity for visual effects
+
+## Success Metrics
+
+### User Experience:
+- Users should immediately understand what information is being presented
+- Navigation should feel natural and informative
+- Content should be easily scannable and digestible
+- Users should want to explore deeper into topics of interest
+
+### Technical Quality:
+- Components should be reusable and composable
+- Code should be type-safe and well-documented
+- Performance should be optimized for content-heavy feeds
+- Accessibility should be built-in, not added later
+
+Remember: We're building a platform that helps humanity understand truth through collective intelligence, not a place for speculation or gambling. Every design decision should serve the goal of making information more accessible, understandable, and trustworthy.

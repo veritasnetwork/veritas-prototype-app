@@ -9,8 +9,13 @@ export interface Category {
 }
 
 export type LayoutType = 'minimal' | 'balanced' | 'article-heavy' | 'data-focused';
-export type SortOption = 'recent' | 'active' | 'stakes' | 'consensus';
 export type FilterStatus = 'all' | 'active' | 'resolved' | 'closed';
+
+// Sprint 2 additions - simplified sort options
+export type SortOption = 'relevance' | 'truth' | 'stakes';
+
+// View mode for feed display
+export type ViewMode = 'feed' | 'grid';
 
 export interface ConsensusHistoryPoint {
   timestamp: string;

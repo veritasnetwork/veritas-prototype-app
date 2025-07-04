@@ -17,7 +17,7 @@ interface BeliefCardGridProps {
 export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
   searchQuery = '',
   selectedCategory = '',
-  sortBy = 'recent',
+  sortBy = 'relevance',
   filterStatus = 'all'
 }) => {
   const [isLoading, setIsLoading] = useState(true);
