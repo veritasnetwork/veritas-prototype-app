@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
-import { FilterStatus, SortOption, Belief } from '@/types/belief.types';
+import { FilterStatus, SortOption, Belief, ViewMode } from '@/types/belief.types';
 import { getAllBeliefs, searchBeliefs, sortBeliefs, getBeliefsByCategory, getBeliefsByStatus } from '@/lib/data';
 
 interface FeedContextType {
@@ -11,6 +11,7 @@ interface FeedContextType {
   activeFilters: string[];
   sortBy: SortOption;
   filterStatus: FilterStatus;
+  viewMode: ViewMode;
   filteredBeliefs: Belief[];
   allBeliefs: Belief[];
   
@@ -19,6 +20,7 @@ interface FeedContextType {
   setActiveCategory: (category: string) => void;
   setSortBy: (sort: SortOption) => void;
   setFilterStatus: (status: FilterStatus) => void;
+  setViewMode: (mode: ViewMode) => void;
   handleFilterToggle: (filter: string) => void;
 }
 
@@ -29,8 +31,9 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('trending');
   const [activeFilters, setActiveFilters] = useState<string[]>(['all']);
-  const [sortBy, setSortBy] = useState<SortOption>('recent');
+  const [sortBy, setSortBy] = useState<SortOption>('relevance');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('feed');
 
   // Data
   const allBeliefs = getAllBeliefs();
@@ -63,17 +66,20 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
         return activeFilters.some(filter => {
           switch (filter) {
             case 'breaking-news':
-              return belief.totalStake > 500000;
+              // High informativeness indicates breaking/noteworthy content
+              return belief.objectRankingScores.informativeness > 75;
             case 'high-stakes':
-              return belief.totalStake > 1000000;
+              // High truth score indicates high-stakes/important information
+              return belief.objectRankingScores.truth > 85;
             case 'ending-soon':
-              // Mock implementation - in real app, you'd check end dates
-              return belief.participantCount > 1000;
+              // High relevance indicates time-sensitive content
+              return belief.objectRankingScores.relevance > 80;
             case 'recently-active':
-              // Mock implementation - in real app, you'd check recent activity
-              return belief.consensusLevel > 0.7;
+              // Combination of high relevance and informativeness
+              return belief.objectRankingScores.relevance > 70 && belief.objectRankingScores.informativeness > 70;
             case 'high-consensus':
-              return belief.consensusLevel > 0.8;
+              // High truth score indicates strong consensus/confidence
+              return belief.objectRankingScores.truth > 90;
             default:
               return true;
           }
@@ -106,18 +112,38 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Save view mode to localStorage
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('veritas-view-mode', mode);
+    }
+  };
+
+  // Load view mode from localStorage on mount
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('veritas-view-mode') as ViewMode;
+      if (savedMode && ['feed', 'grid'].includes(savedMode)) {
+        setViewMode(savedMode);
+      }
+    }
+  }, []);
+
   const contextValue: FeedContextType = {
     searchQuery,
     activeCategory,
     activeFilters,
     sortBy,
     filterStatus,
+    viewMode,
     filteredBeliefs,
     allBeliefs,
     setSearchQuery,
     setActiveCategory,
     setSortBy,
     setFilterStatus,
+    setViewMode: handleViewModeChange,
     handleFilterToggle,
   };
 

@@ -22,14 +22,14 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
     // If we have beliefs in same category, return them (limit 4)
     if (categoryBeliefs.length > 0) {
       return categoryBeliefs
-        .sort((a, b) => b.consensusLevel - a.consensusLevel) // Sort by consensus
+        .sort((a, b) => b.objectRankingScores.truth - a.objectRankingScores.truth) // Sort by truth score
         .slice(0, 4);
     }
     
-    // Fallback: return other beliefs sorted by consensus
+    // Fallback: return other beliefs sorted by truth score
     return allBeliefs
       .filter(b => b.id !== belief.id)
-      .sort((a, b) => b.consensusLevel - a.consensusLevel)
+      .sort((a, b) => b.objectRankingScores.truth - a.objectRankingScores.truth)
       .slice(0, 4);
   };
 
@@ -80,7 +80,7 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
             Related Beliefs
           </h3>
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            From {belief.category}
+            From {belief.category || 'mixed categories'}
           </p>
         </div>
       </div>
@@ -95,8 +95,8 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
           >
             {/* Category badge */}
             <div className="flex items-center justify-between mb-3">
-              <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gradient-to-r ${getCategoryGradient(relatedBelief.category)} text-slate-700 dark:text-slate-300 border border-white/20`}>
-                {relatedBelief.category}
+              <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gradient-to-r ${getCategoryGradient(relatedBelief.category || 'general')} text-slate-700 dark:text-slate-300 border border-white/20`}>
+                {relatedBelief.category || 'general'}
               </span>
               <div className={`w-2 h-2 rounded-full ${
                 relatedBelief.status === 'active' 
@@ -109,7 +109,7 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
 
             {/* Title */}
             <h4 className="font-medium text-slate-900 dark:text-slate-100 text-sm line-clamp-2 mb-3 group-hover:text-[#FFB800] transition-colors">
-              {relatedBelief.title}
+              {relatedBelief.heading.title}
             </h4>
 
             {/* Stats */}
@@ -117,13 +117,13 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
               <div className="flex items-center space-x-1">
                 <Users className="w-3 h-3 text-slate-500" />
                 <span className="text-slate-600 dark:text-slate-400">
-                  {relatedBelief.participantCount.toLocaleString()}
+                  {relatedBelief.objectRankingScores.relevance}% relevance
                 </span>
               </div>
               <div className="flex items-center space-x-1">
                 <TrendingUp className="w-3 h-3 text-slate-500" />
                 <span className="text-slate-600 dark:text-slate-400">
-                  {Math.round(relatedBelief.consensusLevel * 100)}%
+                  {relatedBelief.objectRankingScores.truth}% truth
                 </span>
               </div>
             </div>
@@ -131,7 +131,7 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
             {/* View indicator */}
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                ${(relatedBelief.totalStake / 1000).toFixed(0)}K stake
+                {relatedBelief.objectRankingScores.informativeness}% informativeness
               </span>
               <Eye className="w-3 h-3 text-slate-400 group-hover:text-[#FFB800] transition-colors" />
             </div>

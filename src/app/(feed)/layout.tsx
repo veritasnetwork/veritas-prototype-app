@@ -7,14 +7,12 @@ function FeedNavWrapper() {
   const {
     searchQuery,
     activeCategory,
-    activeFilters,
     sortBy,
-    filterStatus,
+    viewMode,
     setSearchQuery,
     setActiveCategory,
     setSortBy,
-    setFilterStatus,
-    handleFilterToggle,
+    setViewMode,
   } = useFeed();
 
   return (
@@ -23,12 +21,10 @@ function FeedNavWrapper() {
       onSearchChange={setSearchQuery}
       activeCategory={activeCategory}
       onCategoryChange={setActiveCategory}
-      activeFilters={activeFilters}
       sortBy={sortBy}
-      filterStatus={filterStatus}
-      onFilterToggle={handleFilterToggle}
       onSortChange={setSortBy}
-      onStatusChange={setFilterStatus}
+      viewMode={viewMode}
+      onViewModeChange={setViewMode}
     />
   );
 }
@@ -40,13 +36,12 @@ export default function FeedLayout({
 }) {
   return (
     <FeedProvider>
-      <div className="min-h-screen bg-white dark:bg-slate-900">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
         <FeedNavWrapper />
-        
-        {/* Main Content with proper spacing for the enhanced navbar */}
-        <main className="pt-[100px] md:pt-[200px] pb-24 md:pb-8">
+        {/* Main content with padding for fixed nav */}
+        <div className="pt-48 lg:pt-56 pb-4 lg:pb-8">
           {children}
-        </main>
+        </div>
       </div>
     </FeedProvider>
   );

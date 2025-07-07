@@ -12,23 +12,27 @@ import {
   Sun, 
   Moon,
   TrendingUp,
-  Filter,
-  Bookmark
+  ChevronDown,
+  Grid3X3,
+  LogIn,
+  UserPlus,
+  Filter
 } from 'lucide-react';
 import { getAllCategories } from '@/lib/data';
-import { FilterStatus, SortOption } from '@/types/belief.types';
+import { SortOption, ViewMode } from '@/types/belief.types';
+import { useScrollDirection } from '@/hooks/useScrollDirection';
 
 interface FeedNavProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   activeCategory: string;
   onCategoryChange: (category: string) => void;
-  activeFilters: string[];
   sortBy: SortOption;
-  filterStatus: FilterStatus;
-  onFilterToggle: (filter: string) => void;
   onSortChange: (sort: SortOption) => void;
-  onStatusChange: (status: FilterStatus) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+  onLogin?: () => void;
+  onSignUp?: () => void;
 }
 
 const FeedNav: React.FC<FeedNavProps> = ({
@@ -36,30 +40,24 @@ const FeedNav: React.FC<FeedNavProps> = ({
   onSearchChange,
   activeCategory,
   onCategoryChange,
-  activeFilters,
   sortBy,
-  filterStatus,
-  onFilterToggle,
   onSortChange,
-  onStatusChange
+  viewMode,
+  onViewModeChange,
+  onLogin,
+  onSignUp
 }) => {
-  const [isScrolled, setIsScrolled] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showMobileSortDropdown, setShowMobileSortDropdown] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  
   const { toggleTheme, isDark } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrolled = window.scrollY > 100;
-      setIsScrolled(scrolled);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  const { isVisible } = useScrollDirection();
 
   // Handle mobile detection and hydration
   useEffect(() => {
@@ -72,6 +70,15 @@ const FeedNav: React.FC<FeedNavProps> = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Handle scroll detection for mobile
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const navItems = [
     { icon: Home, label: 'Feed', href: '/', id: 'feed' },
     { icon: Search, label: 'Explore', href: '/explore', id: 'explore' },
@@ -80,23 +87,21 @@ const FeedNav: React.FC<FeedNavProps> = ({
     { icon: User, label: 'Profile', href: '/profile', id: 'profile' },
   ];
 
-
-
   const categories = getAllCategories();
   const categoryItems = [
     { id: 'trending', label: 'Trending', icon: TrendingUp },
     { id: 'new', label: 'New', icon: Plus },
-    ...categories.map(cat => ({ id: cat.id, label: cat.name, icon: undefined }))
+    ...categories.slice(0, 3).map(cat => ({ id: cat.id, label: cat.name, icon: undefined }))
   ];
 
-  const quickFilters = [
-    'All',
-    'Breaking News',
-    'High Stakes',
-    'Ending Soon',
-    'Recently Active',
-    'High Consensus',
+  // Simplified sort options (Sprint 2 requirement)
+  const sortOptions = [
+    { value: 'relevance' as SortOption, label: 'Relevance' },
+    { value: 'truth' as SortOption, label: 'Truth' },
+    { value: 'informativeness' as SortOption, label: 'Informativeness' }
   ];
+
+
 
   const isActiveRoute = (href: string) => {
     if (href === '/') return pathname === '/';
@@ -105,236 +110,214 @@ const FeedNav: React.FC<FeedNavProps> = ({
 
   const handleNavigation = (href: string) => {
     router.push(href);
-    setShowMobileFilters(false);
   };
 
-  const isFilterActive = (filter: string) => {
-    if (filter === 'All') return activeFilters.includes('all') || activeFilters.length === 0;
-    return activeFilters.includes(filter.toLowerCase().replace(' ', '-'));
+  const handleLogin = () => {
+    onLogin?.();
   };
 
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return (
-      <nav className="hidden md:block fixed top-0 left-0 right-0 z-50 w-full">
-        <div className="bg-white/10 dark:bg-slate-900/10 backdrop-blur-xl">
-          <div className="relative flex items-center justify-between px-12 py-6">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-[#1B365D] rounded-2xl flex items-center justify-center p-2">
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                  <span className="font-black text-white text-xl">V</span>
-                </div>
-              </div>
-              <span className="ml-3 text-2xl font-bold text-[#1B365D] dark:text-[#D4A574]">
-                Veritas
-              </span>
-            </div>
-            <div className="w-10 h-10"></div>
-          </div>
-        </div>
-      </nav>
-    );
-  }
+  const handleSignUp = () => {
+    onSignUp?.();
+  };
+
+  if (!mounted) return null;
 
   return (
     <>
-      {/* Desktop Enhanced Feed Navbar */}
-      <nav
-        className={`hidden md:block fixed z-50 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          isScrolled
-            ? 'top-6 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-7xl'
-            : 'top-0 left-1/2 -translate-x-1/2 w-full'
-        }`}
-        style={{
-          transformOrigin: 'center top',
-          transform: isScrolled 
-            ? 'translateX(-50%) scale(0.97)' 
-            : 'translateX(-50%) scale(1)'
-        }}
-      >
-        <div
-          className={`relative transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-            isScrolled
-              ? 'bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 rounded-3xl shadow-2xl shadow-yellow-500/10'
-              : 'bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-slate-700'
+      {/* Desktop Navigation - Full Width Premium Dock */}
+      {!isMobile && (
+        <nav 
+          className={`fixed z-50 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            isVisible
+              ? 'top-6 left-6 right-6'
+              : 'top-6 left-6 right-6 -translate-y-[120%]'
           }`}
+          style={{
+            transformOrigin: 'center top',
+            transform: isVisible 
+              ? 'scale(1)' 
+              : 'scale(0.95) translateY(-120%)'
+          }}
         >
-          {/* Glassmorphism overlay for premium effect */}
-          <div
-            className={`absolute inset-0 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-              isScrolled
-                ? 'bg-gradient-to-r from-yellow-500/5 to-orange-500/5 rounded-3xl'
-                : 'bg-gradient-to-r from-white/20 to-yellow-100/20 dark:from-slate-800/20 dark:to-slate-700/20'
-            }`}
-          />
-          
-          {/* Main Header */}
-          <div
-            className={`relative flex items-center justify-between transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-              isScrolled ? 'px-8 py-4' : 'px-12 py-6'
-            }`}
-          >
-            {/* Logo with circular transparent image */}
-            <div 
-              className="flex items-center cursor-pointer group"
-              onClick={() => handleNavigation('/')}
-            >
-              <div
-                className={`relative transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                  isScrolled ? 'w-10 h-10' : 'w-12 h-12'
-                }`}
-              >
-                <div className="w-full h-full bg-[#1B365D] rounded-2xl flex items-center justify-center p-2 group-hover:scale-110 transition-transform duration-300">
-                  <div className="w-full h-full rounded-full bg-white/20 flex items-center justify-center">
-                    <Image
-                      src="/icons/veritas-logo.png"
-                      alt="Veritas"
-                      width={isScrolled ? 20 : 24}
-                      height={isScrolled ? 20 : 24}
-                      className="w-full h-full object-contain rounded-full"
-                      priority
-                      unoptimized
-                    />
+          <div className="relative">
+            {/* Multi-layer Glassmorphism Container with Enhanced Aura Effect */}
+            {/* Outer glow - largest blur for ambient light */}
+            <div className="absolute -inset-2 bg-gradient-to-r from-white/30 via-white/20 to-white/30 dark:from-slate-800/30 dark:via-slate-800/20 dark:to-slate-800/30 rounded-[2rem] blur-2xl pointer-events-none"></div>
+            
+            {/* Middle aura - medium blur for color depth */}
+            <div className="absolute -inset-1 bg-gradient-to-br from-[#FFB800]/25 via-[#FFB800]/15 to-[#1B365D]/25 dark:from-[#FFB800]/20 dark:via-[#D4A574]/15 dark:to-[#1B365D]/20 rounded-3xl blur-xl pointer-events-none"></div>
+            
+            {/* Inner halo - subtle blur for refined edge */}
+            <div className="absolute inset-0 bg-gradient-to-r from-white/40 via-transparent to-white/40 dark:from-slate-900/40 dark:via-transparent dark:to-slate-900/40 rounded-3xl blur-lg pointer-events-none"></div>
+            
+            <div className="relative bg-white/20 dark:bg-slate-900/25 backdrop-blur-[40px] border border-white/30 dark:border-slate-700/40 rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_0_rgba(255,184,0,0.15)] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)]">
+              {/* Inner border highlight */}
+              <div className="absolute inset-0 rounded-3xl border border-white/40 dark:border-slate-600/50 pointer-events-none"></div>
+              
+              {/* Premium gradient overlay with better blending */}
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/4 via-transparent to-blue-500/4 dark:from-yellow-500/3 dark:via-transparent dark:to-blue-400/3 rounded-3xl mix-blend-overlay pointer-events-none"></div>
+              
+              {/* Subtle frost texture overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/2 to-transparent dark:via-slate-400/2 rounded-3xl pointer-events-none"></div>
+              
+              <div className="relative">
+                {/* Main dock bar */}
+                <div className="flex items-center justify-between px-8 py-4">
+                  {/* Logo */}
+                  <div 
+                    className="flex items-center cursor-pointer group"
+                    onClick={() => handleNavigation('/')}
+                  >
+                    <div className="relative w-10 h-10">
+                      <div className="w-full h-full bg-[#1B365D] rounded-2xl flex items-center justify-center p-2 group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-[#1B365D]/25">
+                        <div className="w-full h-full rounded-full bg-white/20 flex items-center justify-center">
+                          <Image
+                            src="/icons/veritas-logo.png"
+                            alt="Veritas"
+                            width={20}
+                            height={20}
+                            className="w-full h-full object-contain rounded-full"
+                            priority
+                            unoptimized
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <span className="ml-3 text-xl font-bold text-[#1B365D] dark:text-[#D4A574] transition-all duration-300">
+                      Veritas
+                    </span>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="flex-1 max-w-2xl mx-8">
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search beliefs, topics, or users..."
+                        value={searchQuery}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 bg-white/30 dark:bg-slate-800/35 border border-white/40 dark:border-slate-600/40 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FFB800]/50 focus:border-[#FFB800]/50 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 backdrop-blur-lg transition-all duration-300 shadow-inner"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right side controls */}
+                  <div className="flex items-center space-x-3">
+                    {/* View Toggle */}
+                    <button
+                      onClick={() => onViewModeChange(viewMode === 'feed' ? 'grid' : 'feed')}
+                      className="p-3 rounded-2xl bg-white dark:bg-slate-800 hover:bg-gradient-to-br hover:from-[#FFB800]/30 hover:to-[#FFB800]/20 dark:hover:from-[#D4A574] dark:hover:to-[#D4A574]/80 transition-all duration-300 group shadow-lg hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-slate-700"
+                      title={viewMode === 'feed' ? 'Switch to Grid View' : 'Switch to Feed View'}
+                    >
+                      <Grid3X3 className="w-5 h-5 text-[#1B365D] dark:text-[#D4A574] group-hover:text-[#1B365D]/80 dark:group-hover:text-slate-900 group-hover:scale-110 transition-all duration-300" />
+                    </button>
+
+                    {/* Sort Dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowSortDropdown(!showSortDropdown)}
+                        className="flex items-center space-x-2 px-4 py-3 bg-white dark:bg-slate-800 hover:bg-gradient-to-br hover:from-[#FFB800]/30 hover:to-[#FFB800]/20 dark:hover:from-[#D4A574] dark:hover:to-[#D4A574]/80 transition-all duration-300 rounded-2xl group shadow-lg hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-slate-700"
+                      >
+                        <span className="text-sm font-medium text-[#1B365D] dark:text-[#D4A574] group-hover:text-[#1B365D]/80 dark:group-hover:text-slate-900 transition-colors duration-300">
+                          {sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort'}
+                        </span>
+                        <ChevronDown className="w-4 h-4 text-[#1B365D] dark:text-[#D4A574] group-hover:text-[#1B365D]/80 dark:group-hover:text-slate-900 group-hover:rotate-180 transition-all duration-300" />
+                      </button>
+
+                      {/* Fixed Dropdown Menu */}
+                      {showSortDropdown && (
+                        <div className="absolute right-0 mt-3 w-48 z-50">
+                          {/* Enhanced Dropdown aura effect */}
+                          <div className="absolute -inset-1 bg-gradient-to-r from-white/30 via-white/20 to-white/30 dark:from-slate-800/30 dark:via-slate-800/20 dark:to-slate-800/30 rounded-3xl blur-xl pointer-events-none"></div>
+                          <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/20 via-[#FFB800]/10 to-[#1B365D]/20 dark:from-[#FFB800]/15 dark:via-[#D4A574]/10 dark:to-[#1B365D]/15 rounded-2xl blur-lg pointer-events-none"></div>
+                          
+                          <div className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_0_rgba(255,184,0,0.2)] border border-white/60 dark:border-slate-600/60 py-2 px-6 transition-all duration-300">
+                            {/* Inner border highlight */}
+                            <div className="absolute inset-0 rounded-2xl border border-white/80 dark:border-slate-500/80 pointer-events-none"></div>
+                            {sortOptions.map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() => {
+                                  onSortChange(option.value);
+                                  setShowSortDropdown(false);
+                                }}
+                                className={`w-full text-left px-4 py-3 text-sm font-medium transition-all duration-300 hover:scale-[1.02] mx-2 my-1 rounded-xl ${
+                                  sortBy === option.value
+                                    ? 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25'
+                                    : 'text-slate-700 dark:text-slate-300 hover:text-[#1B365D] dark:hover:text-[#D4A574] hover:bg-gradient-to-r hover:from-[#FFB800]/20 hover:to-[#1B365D]/10'
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Theme Toggle */}
+                    <button
+                      onClick={toggleTheme}
+                      className="p-3 rounded-2xl bg-white dark:bg-slate-800 hover:bg-gradient-to-br hover:from-[#FFB800]/30 hover:to-[#FFB800]/20 dark:hover:from-[#D4A574] dark:hover:to-[#D4A574]/80 transition-all duration-300 group shadow-lg hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-slate-700"
+                    >
+                      {isDark ? (
+                        <Sun className="w-5 h-5 text-[#D4A574] group-hover:text-slate-900 group-hover:rotate-12 transition-all duration-300" />
+                      ) : (
+                        <Moon className="w-5 h-5 text-[#1B365D] group-hover:text-[#1B365D]/80 group-hover:-rotate-12 transition-all duration-300" />
+                      )}
+                    </button>
+
+                    {/* Login/Sign Up Buttons */}
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={handleLogin}
+                        className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-white dark:bg-slate-800 border-2 border-[#1B365D]/50 dark:border-[#D4A574]/50 hover:border-[#1B365D] dark:hover:border-[#D4A574] text-[#1B365D] dark:text-[#D4A574] hover:bg-[#1B365D] dark:hover:bg-[#D4A574] hover:text-white dark:hover:text-slate-900 font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                      >
+                        <LogIn className="w-4 h-4" />
+                        <span>Login</span>
+                      </button>
+                      
+                      <button
+                        onClick={handleSignUp}
+                        className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] hover:from-[#2D4A6B] hover:to-[#1B365D] text-white font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-[#1B365D]/20"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Sign Up</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Category Pills */}
+                <div className="border-t border-white/20 dark:border-slate-700/30">
+                  <div className="flex items-center space-x-3 overflow-x-auto scrollbar-hide px-8 py-8">
+                    {categoryItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => onCategoryChange(item.id)}
+                          className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all duration-300 transform hover:scale-105 shadow-lg border ${
+                            activeCategory === item.id
+                              ? 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25 border-[#1B365D]/30'
+                              : 'text-slate-700 dark:text-slate-300 hover:text-[#1B365D]/80 dark:hover:text-slate-900 bg-white dark:bg-slate-800 hover:bg-gradient-to-r hover:from-[#FFB800]/30 hover:to-[#FFB800]/20 dark:hover:from-[#D4A574] dark:hover:to-[#D4A574]/80 hover:shadow-xl border-slate-200 dark:border-slate-700'
+                          }`}
+                        >
+                          {Icon && <Icon className="w-4 h-4" />}
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
-              <span
-                className={`ml-3 font-bold text-[#1B365D] dark:text-[#D4A574] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                  isScrolled ? 'text-xl' : 'text-2xl'
-                }`}
-              >
-                Veritas
-              </span>
-            </div>
-
-            {/* Enhanced Search Bar */}
-            <div className="flex-1 max-w-2xl mx-8">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search beliefs..."
-                  value={searchQuery}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-slate-600 rounded-xl leading-5 bg-white dark:bg-slate-700 placeholder-gray-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFB800] focus:border-[#FFB800] text-gray-900 dark:text-slate-100 shadow-sm"
-                />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                  <span className="text-gray-400 text-sm font-mono">/</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center space-x-4">
-              {/* Theme Toggle */}
-              <button
-                onClick={toggleTheme}
-                className="p-3 rounded-2xl bg-[#FFB800]/10 hover:bg-[#FFB800]/20 transition-all duration-300 group"
-              >
-                {isDark ? (
-                  <Sun className="w-5 h-5 text-[#D4A574] group-hover:rotate-12 transition-transform duration-300" />
-                ) : (
-                  <Moon className="w-5 h-5 text-[#1B365D] group-hover:-rotate-12 transition-transform duration-300" />
-                )}
-              </button>
-
-              {/* Submit Button */}
-              <button
-                onClick={() => handleNavigation('/submit')}
-                className="px-6 py-3 rounded-2xl bg-[#1B365D] hover:bg-[#2D4A6B] text-white font-semibold shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300"
-              >
-                Submit Belief
-              </button>
             </div>
           </div>
+        </nav>
+      )}
 
-          {/* Categories Row */}
-          <div className={`relative border-t border-gray-200 dark:border-slate-700 ${isScrolled ? 'px-8 py-3' : 'px-12 py-4'}`}>
-            <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide">
-              {categoryItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => onCategoryChange(item.id)}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 ${
-                      activeCategory === item.id
-                        ? 'text-white bg-[#1B365D] shadow-sm'
-                        : 'text-gray-700 dark:text-slate-300 hover:text-[#1B365D] dark:hover:text-[#D4A574] hover:bg-gray-50 dark:hover:bg-slate-700/50'
-                    }`}
-                  >
-                    {Icon && <Icon className="w-4 h-4" />}
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Filters Row */}
-          <div className={`relative border-t border-gray-200 dark:border-slate-700 ${isScrolled ? 'px-8 py-3' : 'px-12 py-4'}`}>
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0">
-              {/* Left side - Filter Icons + Quick Filters */}
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <button className="p-2 text-gray-500 hover:text-[#1B365D] dark:hover:text-[#D4A574] transition-colors rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50">
-                    <Filter className="w-5 h-5" />
-                  </button>
-                  <button className="p-2 text-gray-500 hover:text-[#FFB800] transition-colors rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50">
-                    <Bookmark className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Quick Filter Tags */}
-                <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide">
-                  {quickFilters.map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => onFilterToggle(filter)}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
-                        isFilterActive(filter)
-                          ? 'bg-[#FFB800] text-[#1B365D] shadow-sm'
-                          : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600'
-                      }`}
-                    >
-                      {filter}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Right side - Sort and Status dropdowns */}
-              <div className="flex items-center space-x-3">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => onStatusChange(e.target.value as FilterStatus)}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#FFB800] focus:border-[#FFB800] shadow-sm"
-                >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="closed">Closed</option>
-                </select>
-
-                <select
-                  value={sortBy}
-                  onChange={(e) => onSortChange(e.target.value as SortOption)}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#FFB800] focus:border-[#FFB800] shadow-sm"
-                >
-                  <option value="recent">Most Recent</option>
-                  <option value="active">Most Active</option>
-                  <option value="stakes">Highest Stakes</option>
-                  <option value="consensus">High Consensus</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Enhanced Mobile Top Bar */}
+      {/* Mobile Top Bar with Login/Signup */}
       {isMobile && (
         <nav className="md:hidden fixed top-0 left-0 right-0 z-50 pointer-events-none">
           <div className="p-4">
@@ -374,12 +357,15 @@ const FeedNav: React.FC<FeedNavProps> = ({
 
                 {/* Mobile Actions */}
                 <div className="flex items-center space-x-2">
+                  {/* Filter Toggle */}
                   <button
                     onClick={() => setShowMobileFilters(!showMobileFilters)}
                     className="p-2 rounded-xl bg-[#FFB800]/10 hover:bg-[#FFB800]/20 transition-all duration-300"
                   >
                     <Filter className="w-4 h-4 text-[#1B365D] dark:text-[#D4A574]" />
                   </button>
+
+                  {/* Theme Toggle */}
                   <button
                     onClick={toggleTheme}
                     className="p-2 rounded-xl bg-[#FFB800]/10 hover:bg-[#FFB800]/20 transition-all duration-300 group"
@@ -409,14 +395,14 @@ const FeedNav: React.FC<FeedNavProps> = ({
                 </div>
               </div>
 
-              {/* Expandable Mobile Filters */}
+              {/* Expandable Mobile Filters - Match Desktop */}
               {showMobileFilters && (
                 <div className="border-t border-gray-200 dark:border-slate-700 px-6 py-3 space-y-4">
-                  {/* Categories */}
+                  {/* Categories - Match Desktop */}
                   <div>
                     <label className="text-xs font-medium text-gray-700 dark:text-slate-300 mb-2 block">Categories</label>
                     <div className="flex flex-wrap gap-2">
-                      {categoryItems.slice(0, 6).map((item) => {
+                      {categoryItems.map((item) => {
                         const Icon = item.icon;
                         return (
                           <button
@@ -424,8 +410,8 @@ const FeedNav: React.FC<FeedNavProps> = ({
                             onClick={() => onCategoryChange(item.id)}
                             className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
                               activeCategory === item.id
-                                ? 'text-white bg-[#1B365D] shadow-sm'
-                                : 'text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-700'
+                                ? 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25'
+                                : 'text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600'
                             }`}
                           >
                             {Icon && <Icon className="w-3 h-3" />}
@@ -436,49 +422,46 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     </div>
                   </div>
 
-                  {/* Quick Filters */}
-                  <div>
-                    <label className="text-xs font-medium text-gray-700 dark:text-slate-300 mb-2 block">Quick Filters</label>
-                    <div className="flex flex-wrap gap-2">
-                      {quickFilters.slice(0, 4).map((filter) => (
-                        <button
-                          key={filter}
-                          onClick={() => onFilterToggle(filter)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
-                            isFilterActive(filter)
-                              ? 'bg-[#FFB800] text-[#1B365D] shadow-sm'
-                              : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300'
-                          }`}
-                        >
-                          {filter}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Sort and Status */}
-                  <div className="flex space-x-3">
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => onStatusChange(e.target.value as FilterStatus)}
-                      className="flex-1 px-3 py-2 text-xs border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#FFB800] focus:border-[#FFB800]"
+                  {/* Sort Options - Custom Dropdown to Match Desktop */}
+                  <div className="relative">
+                    <label className="text-xs font-medium text-gray-700 dark:text-slate-300 mb-2 block">Sort By</label>
+                    <button
+                      onClick={() => setShowMobileSortDropdown(!showMobileSortDropdown)}
+                      className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-lg hover:shadow-xl border border-white/60 dark:border-slate-600/60 text-[#1B365D] dark:text-[#D4A574] focus:outline-none focus:ring-2 focus:ring-[#FFB800]/50 focus:border-[#FFB800]/50 transition-all duration-300 hover:scale-[1.02]"
                     >
-                      <option value="all">All Status</option>
-                      <option value="active">Active</option>
-                      <option value="resolved">Resolved</option>
-                      <option value="closed">Closed</option>
-                    </select>
+                      <span>{sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort'}</span>
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${showMobileSortDropdown ? 'rotate-180' : ''}`} />
+                    </button>
 
-                    <select
-                      value={sortBy}
-                      onChange={(e) => onSortChange(e.target.value as SortOption)}
-                      className="flex-1 px-3 py-2 text-xs border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#FFB800] focus:border-[#FFB800]"
-                    >
-                      <option value="recent">Most Recent</option>
-                      <option value="active">Most Active</option>
-                      <option value="stakes">Highest Stakes</option>
-                      <option value="consensus">High Consensus</option>
-                    </select>
+                    {/* Mobile Sort Dropdown Menu */}
+                    {showMobileSortDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-2 z-50">
+                        {/* Enhanced Dropdown aura effect */}
+                        <div className="absolute -inset-1 bg-gradient-to-r from-white/30 via-white/20 to-white/30 dark:from-slate-800/30 dark:via-slate-800/20 dark:to-slate-800/30 rounded-2xl blur-xl pointer-events-none"></div>
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/20 via-[#FFB800]/10 to-[#1B365D]/20 dark:from-[#FFB800]/15 dark:via-[#D4A574]/10 dark:to-[#1B365D]/15 rounded-xl blur-lg pointer-events-none"></div>
+                        
+                        <div className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_0_rgba(255,184,0,0.2)] border border-white/60 dark:border-slate-600/60 py-2 px-4 transition-all duration-300">
+                          {/* Inner border highlight */}
+                          <div className="absolute inset-0 rounded-xl border border-white/80 dark:border-slate-500/80 pointer-events-none"></div>
+                          {sortOptions.map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => {
+                                onSortChange(option.value);
+                                setShowMobileSortDropdown(false);
+                              }}
+                              className={`w-full text-left px-4 py-3 text-sm font-medium transition-all duration-300 hover:scale-[1.02] mx-2 my-1 rounded-lg ${
+                                sortBy === option.value
+                                  ? 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25'
+                                  : 'text-slate-700 dark:text-slate-300 hover:text-[#1B365D] dark:hover:text-[#D4A574] hover:bg-gradient-to-r hover:from-[#FFB800]/20 hover:to-[#1B365D]/10'
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -487,15 +470,23 @@ const FeedNav: React.FC<FeedNavProps> = ({
         </nav>
       )}
 
-      {/* Mobile Bottom Dock - Unchanged */}
+      {/* Clean Mobile Bottom Dock - Navigation Only */}
       {isMobile && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 p-4">
           <div className="relative max-w-md mx-auto">
-            {/* Glassmorphism container */}
-            <div className="relative bg-white/90 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 rounded-3xl shadow-2xl shadow-yellow-500/10">
-              {/* Premium gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 rounded-3xl" />
+            {/* Multi-layer Mobile Glassmorphism */}
+            <div className="absolute -inset-2 bg-gradient-to-r from-white/30 via-white/20 to-white/30 dark:from-slate-800/30 dark:via-slate-800/20 dark:to-slate-800/30 rounded-[2rem] blur-2xl pointer-events-none"></div>
+            <div className="absolute -inset-1 bg-gradient-to-br from-[#FFB800]/25 via-[#FFB800]/15 to-[#1B365D]/25 dark:from-[#FFB800]/20 dark:via-[#D4A574]/15 dark:to-[#1B365D]/20 rounded-3xl blur-xl pointer-events-none"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-white/40 via-transparent to-white/40 dark:from-slate-900/40 dark:via-transparent dark:to-slate-900/40 rounded-3xl blur-lg pointer-events-none"></div>
+            
+            <div className="relative bg-white/20 dark:bg-slate-900/25 backdrop-blur-[40px] border border-white/30 dark:border-slate-700/40 rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_0_rgba(255,184,0,0.15)]">
+              {/* Inner border highlight */}
+              <div className="absolute inset-0 rounded-3xl border border-white/40 dark:border-slate-600/50 pointer-events-none"></div>
               
+              {/* Premium gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/4 via-transparent to-blue-500/4 dark:from-yellow-500/3 dark:via-transparent dark:to-blue-400/3 rounded-3xl mix-blend-overlay pointer-events-none"></div>
+              
+              {/* Navigation Icons Only */}
               <div className="relative flex items-center justify-around px-6 py-4">
                 {navItems.map((item) => {
                   const Icon = item.icon;
@@ -513,12 +504,12 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     >
                       {/* Active indicator background */}
                       {isActive && (
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/30 to-[#1B365D]/20 rounded-2xl" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/30 to-[#1B365D]/20 rounded-2xl shadow-lg" />
                       )}
                       
                       {/* Icon */}
                       <Icon 
-                        className={`w-6 h-6 transition-colors duration-300 ${
+                        className={`w-6 h-6 transition-colors duration-300 relative z-10 ${
                           isActive 
                             ? 'text-[#1B365D] dark:text-[#D4A574]' 
                             : 'text-slate-500 dark:text-slate-400'
@@ -527,7 +518,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                       
                       {/* Label */}
                       <span
-                        className={`text-xs font-medium mt-1 transition-colors duration-300 ${
+                        className={`text-xs font-medium transition-colors duration-300 relative z-10 ${
                           isActive 
                             ? 'text-[#1B365D] dark:text-[#D4A574]' 
                             : 'text-slate-500 dark:text-slate-400'
@@ -543,8 +534,19 @@ const FeedNav: React.FC<FeedNavProps> = ({
           </div>
         </div>
       )}
+
+      {/* Click outside to close dropdowns */}
+      {(showSortDropdown || showMobileSortDropdown) && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => {
+            setShowSortDropdown(false);
+            setShowMobileSortDropdown(false);
+          }}
+        />
+      )}
     </>
   );
 };
 
-export default FeedNav; 
+export default FeedNav;
