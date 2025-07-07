@@ -1,229 +1,261 @@
 import React from 'react';
 import { Belief } from '@/types/belief.types';
-import { HeadingComponent } from '@/components/belief-details/components/HeadingComponent';
+import { ChartComponent } from '@/components/belief-details/components/ChartComponent';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Eye, TrendingUp } from 'lucide-react';
-
-type LayoutVariant = 'binary' | 'election' | 'continuous' | 'multi-choice' | 'auto';
+import { getFeedChart } from '@/lib/data';
+import { Clock, Users } from 'lucide-react';
 
 interface BeliefCardProps {
   belief: Belief;
-  theme?: 'light' | 'dark';
-  layout?: LayoutVariant;
-  compact?: boolean;
+  variant?: 'feed' | 'grid' | 'compact' | 'mobile';
   onClick: (beliefId: string) => void;
 }
 
 export const BeliefCard: React.FC<BeliefCardProps> = ({
   belief,
-  theme = 'light',
-  layout = 'auto',
-  compact = false,
+  variant = 'feed',
   onClick
 }) => {
   const { isDark } = useTheme();
-  const effectiveTheme = theme === 'dark' || isDark ? 'dark' : 'light';
-
-  // Determine layout variant
-  const determineLayout = (belief: Belief): LayoutVariant => {
-    if (belief.type === 'discrete') {
-      if (belief.title.toLowerCase().includes('election') || belief.title.toLowerCase().includes('winner')) {
-        return 'election';
-      }
-      const beliefWithOptions = belief as Belief & { options?: Array<unknown> };
-      const options = beliefWithOptions.options;
-      if (options && options.length > 3) {
-        return 'multi-choice';
-      }
-      return 'binary';
+  const feedChart = getFeedChart(belief);
+  
+  // Calculate consensus percentage based on truth and relevance scores
+  const consensusPercentage = Math.round((belief.objectRankingScores.truth + belief.objectRankingScores.relevance) / 2);
+  
+  // Determine consensus confidence level
+  const getConsensusLevel = () => {
+    if (consensusPercentage >= 80) return 'high';
+    if (consensusPercentage >= 60) return 'medium';
+    return 'low';
+  };
+  
+  const consensusLevel = getConsensusLevel();
+  
+  // Get consensus color based on confidence
+  const getConsensusColor = () => {
+    switch (consensusLevel) {
+      case 'high': return isDark ? 'text-green-400' : 'text-green-600';
+      case 'medium': return isDark ? 'text-blue-400' : 'text-blue-600';
+      case 'low': return isDark ? 'text-gray-400' : 'text-gray-600';
+      default: return isDark ? 'text-gray-400' : 'text-gray-600';
     }
-    return 'continuous';
+  };
+  
+  // Get confidence indicator bars
+  const getConfidenceIndicator = () => {
+    const level = consensusLevel;
+    const bars = [];
+    for (let i = 0; i < 3; i++) {
+      const isActive = (level === 'high' && i < 3) || (level === 'medium' && i < 2) || (level === 'low' && i < 1);
+      bars.push(
+        <div
+          key={i}
+          className={`h-2 w-1 rounded-full ${
+            isActive 
+              ? level === 'high' 
+                ? 'bg-green-500' 
+                : level === 'medium' 
+                  ? 'bg-blue-500' 
+                  : 'bg-gray-500'
+              : 'bg-gray-300 dark:bg-gray-700'
+          }`}
+        />
+      );
+    }
+    return bars;
+  };
+  
+    // Card sizing based on variant
+  const getCardSizing = () => {
+    switch (variant) {
+      case 'compact':
+        return 'w-full h-36'; // Small cards for premier header grid
+      case 'mobile':
+        return 'w-full'; // Full width mobile posts
+      case 'grid':
+        return 'w-full max-w-sm'; // Grid view cards
+      default: // 'feed'
+        return 'w-full max-w-2xl mx-auto'; // Two-column feed cards
+    }
   };
 
-  const cardLayout = layout === 'auto' ? determineLayout(belief) : layout;
-
-  // Premium glassmorphism styling based on layout
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const getCardClasses = (_layout: LayoutVariant) => {
-    const baseClasses = `
-      belief-card cursor-pointer group relative overflow-hidden
-      rounded-2xl transition-all duration-300 ease-out
-      hover:scale-[1.02] hover:shadow-2xl
-      border backdrop-blur-md
-    `;
-    
-    // Universal glassmorphism with theme-aware transparency
-    const glassClasses = effectiveTheme === 'dark' 
-      ? 'bg-white/5 border-white/10 hover:bg-white/10' 
-      : 'bg-white/20 border-white/30 hover:bg-white/30';
-    
-    return `${baseClasses} ${glassClasses}`;
+  // Variant-specific styling
+  const getVariantStyles = () => {
+    switch (variant) {
+      case 'compact':
+        return 'bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 dark:border-gray-700';
+      case 'mobile':
+        return 'bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200 border-0 rounded-none';
+      default:
+        return 'bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-gray-200 dark:border-gray-700';
+    }
   };
 
-  const handleViewDetails = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleClick = () => {
     onClick(belief.id);
   };
-
-  const handleSubmitBelief = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    console.log('Navigate to submit belief for:', belief.id);
+  
+  // Get placeholder image or use article thumbnail
+  const getImageSrc = () => {
+    if (belief.article.thumbnail) {
+      return belief.article.thumbnail;
+    }
+    // Generate a placeholder based on category
+    const categoryColors = {
+      'politics': 'bg-blue-500',
+      'finance': 'bg-green-500',
+      'sports': 'bg-orange-500',
+      'technology': 'bg-purple-500',
+      'health': 'bg-red-500',
+      'science': 'bg-indigo-500',
+      'entertainment': 'bg-pink-500',
+      'default': 'bg-gray-500'
+    };
+    return categoryColors[belief.category as keyof typeof categoryColors] || categoryColors.default;
   };
-
-  // Compact padding for different card sizes
-  const cardPadding = compact ? 'p-4' : 'p-6';
-
+  
+  // Mock participant count and time
+  const participantCount = Math.floor(Math.random() * 500) + 50;
+  const timeAgo = Math.floor(Math.random() * 12) + 1;
+  
   return (
     <div 
-      className={`${getCardClasses(cardLayout)} ${cardPadding}`}
-      onClick={() => onClick(belief.id)}
+      className={`
+        ${getCardSizing()}
+        ${getVariantStyles()}
+        belief-card cursor-pointer group relative overflow-hidden
+        ${variant === 'mobile' ? 'hover:scale-100' : 'hover:scale-[1.02]'}
+        ${variant === 'feed' ? 'p-6' : variant === 'compact' ? 'p-3' : 'p-4'}
+      `}
+      onClick={handleClick}
     >
-      {/* Premium gradient glow overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/10 via-transparent to-[#1B365D]/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      
-      {/* Subtle inner glow */}
-      <div className="absolute inset-px bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl opacity-50" />
-      
-      {/* Content Container */}
-      <div className="relative z-10 h-full flex flex-col">
+      {/* Header Section */}
+      <div className="flex items-start gap-4 mb-4">
+        {/* Image */}
+        <div className="flex-shrink-0">
+          {belief.article.thumbnail ? (
+            <img 
+              src={belief.article.thumbnail}
+              alt={belief.heading.title}
+              className={`object-cover rounded-lg border-2 border-gray-100 dark:border-gray-700 ${
+                variant === 'compact' ? 'w-12 h-12' : 'w-20 h-20'
+              }`}
+            />
+          ) : (
+            <div className={`rounded-lg ${getImageSrc()} flex items-center justify-center ${
+              variant === 'compact' ? 'w-12 h-12' : 'w-20 h-20'
+            }`}>
+              <span className={`text-white font-bold ${
+                variant === 'compact' ? 'text-lg' : 'text-2xl'
+              }`}>
+                {belief.category?.charAt(0).toUpperCase() || '?'}
+              </span>
+            </div>
+          )}
+        </div>
         
-        {/* Status and Category Header */}
-        <div className="flex items-start justify-between mb-4">
-          {/* Category badge */}
-          <div className="flex-shrink-0">
-            <span className={`
-              inline-flex items-center px-3 py-1 text-xs font-medium rounded-full
-              transition-all duration-300 group-hover:scale-105
-              ${effectiveTheme === 'dark'
-                ? 'bg-gradient-to-r from-[#FFB800]/20 to-[#1B365D]/10 text-[#FFB800] border border-[#FFB800]/30'
-                : 'bg-gradient-to-r from-[#1B365D]/20 to-[#FFB800]/10 text-[#1B365D] border border-[#1B365D]/30'
-              }
-            `}>
-              {belief.category}
-            </span>
+        {/* Question */}
+        <div className="flex-1 min-w-0">
+          <h3 className={`
+            font-bold text-gray-900 dark:text-white line-clamp-2
+            ${variant === 'feed' ? 'text-2xl' : variant === 'compact' ? 'text-sm' : 'text-lg'}
+          `}>
+            {belief.heading.title}
+          </h3>
+          {belief.heading.subtitle && (
+            <p className="text-gray-600 dark:text-gray-400 text-sm mt-1 line-clamp-1">
+              {belief.heading.subtitle}
+            </p>
+          )}
+        </div>
+      </div>
+      
+      {/* Consensus Section */}
+      <div className={`flex items-center gap-4 ${variant === 'compact' ? 'mb-2' : 'mb-4'}`}>
+        <div className="flex items-center gap-2">
+          <div className={`font-extrabold ${getConsensusColor()} ${
+            variant === 'compact' ? 'text-lg' : 'text-3xl'
+          }`}>
+            {consensusPercentage}%
           </div>
-          
-          {/* Status indicator */}
-          <div className="flex-shrink-0">
-            <div className={`
-              w-3 h-3 rounded-full transition-all duration-300
-              ${belief.status === 'active' 
-                ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse' 
-                : belief.status === 'resolved'
-                ? 'bg-blue-400 shadow-lg shadow-blue-400/50'
-                : 'bg-slate-400'
-              }
-            `} />
+          <div className={`text-gray-600 dark:text-gray-400 ${
+            variant === 'compact' ? 'text-xs' : 'text-sm'
+          }`}>
+            {consensusPercentage >= 50 ? 'YES' : 'NO'}
           </div>
         </div>
-
-        {/* Main Content */}
-        <div className="flex-grow space-y-4">
-          {/* Heading with improved typography */}
-          <div className="space-y-2">
-            <HeadingComponent belief={belief} variant="card" theme={effectiveTheme} />
-          </div>
-
-          {/* Key Metrics - Compact and Clean */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className={`text-lg font-bold ${
-                effectiveTheme === 'dark' ? 'text-white' : 'text-slate-900'
-              }`}>
-                {belief.participantCount?.toLocaleString() || '0'}
-              </div>
-              <div className={`text-xs font-medium ${
-                effectiveTheme === 'dark' ? 'text-slate-300' : 'text-slate-600'
-              }`}>
-                Participants
-              </div>
-            </div>
-
-            <div className="text-center">
-              <div className={`text-lg font-bold ${
-                effectiveTheme === 'dark' ? 'text-[#FFB800]' : 'text-[#1B365D]'
-              }`}>
-                {Math.round((belief.consensusLevel || 0) * 100)}%
-              </div>
-              <div className={`text-xs font-medium ${
-                effectiveTheme === 'dark' ? 'text-slate-300' : 'text-slate-600'
-              }`}>
-                Consensus
-              </div>
-            </div>
-
-            <div className="text-center">
-              <div className={`text-lg font-bold ${
-                effectiveTheme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
-              }`}>
-                ${(belief.totalStake / 1000).toFixed(0)}K
-              </div>
-              <div className={`text-xs font-medium ${
-                effectiveTheme === 'dark' ? 'text-slate-300' : 'text-slate-600'
-              }`}>
-                Stake
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Minimal Actions - Only for non-compact cards */}
-        {!compact && (
-          <div className="mt-6 flex space-x-3">
-            <button
-              onClick={handleViewDetails}
-              className={`
-                flex-1 flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl text-sm font-medium
-                transition-all duration-300 hover:scale-105 active:scale-95
-                ${effectiveTheme === 'dark'
-                  ? 'bg-white/10 hover:bg-white/20 text-white border border-white/20 hover:border-white/30'
-                  : 'bg-[#1B365D]/10 hover:bg-[#1B365D]/20 text-[#1B365D] border border-[#1B365D]/20 hover:border-[#1B365D]/30'
-                }
-              `}
-            >
-              <Eye className="w-4 h-4" />
-              <span>View</span>
-            </button>
-            
-            <button
-              onClick={handleSubmitBelief}
-              className={`
-                flex-1 flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl text-sm font-medium
-                transition-all duration-300 hover:scale-105 active:scale-95
-                ${effectiveTheme === 'dark'
-                  ? 'bg-[#FFB800]/20 hover:bg-[#FFB800]/30 text-[#FFB800] border border-[#FFB800]/30 hover:border-[#FFB800]/50'
-                  : 'bg-[#FFB800]/20 hover:bg-[#FFB800]/30 text-[#FFB800] border border-[#FFB800]/30 hover:border-[#FFB800]/50'
-                }
-              `}
-            >
-              <TrendingUp className="w-4 h-4" />
-              <span>Predict</span>
-            </button>
+        
+        {/* Confidence Indicator - hide on compact */}
+        {variant !== 'compact' && (
+          <div className="flex items-center gap-1">
+            {getConfidenceIndicator()}
           </div>
         )}
-
-        {/* Compact view minimal action */}
-        {compact && (
-          <div className="mt-4">
-            <button
-              onClick={handleViewDetails}
-              className={`
-                w-full py-2 px-4 rounded-lg text-xs font-medium
-                transition-all duration-300 hover:scale-105
-                ${effectiveTheme === 'dark'
-                  ? 'bg-white/10 hover:bg-white/20 text-white'
-                  : 'bg-[#1B365D]/10 hover:bg-[#1B365D]/20 text-[#1B365D]'
-                }
-              `}
-            >
-              View Details
-            </button>
+        
+        {/* Status indicator - hide on compact */}
+        {belief.status && variant !== 'compact' && (
+          <div className={`
+            px-2 py-1 rounded-full text-xs font-medium
+            ${belief.status === 'active' 
+              ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
+              : belief.status === 'resolved'
+              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+              : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+            }
+          `}>
+            {belief.status}
           </div>
         )}
       </div>
-
-      {/* Premium shine effect on hover */}
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none" />
+      
+      {/* Mini Chart Preview - only for feed variant */}
+      {feedChart && variant === 'feed' && (
+        <div className="mb-4 h-32 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+          <ChartComponent 
+            charts={[feedChart]} 
+            variant="card" 
+            showOnlyFeedChart={true} 
+          />
+        </div>
+      )}
+      
+      {/* News Context - hide for compact */}
+      {belief.article.excerpt && variant !== 'compact' && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">News</span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+            {belief.article.excerpt}
+          </p>
+        </div>
+      )}
+      
+      {/* Metadata Footer - hide for compact */}
+      {variant !== 'compact' && (
+        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 pt-3 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              <Users className="w-3 h-3" />
+              <span>{participantCount} participants</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              <span>{timeAgo}h ago</span>
+            </div>
+          </div>
+          
+          {belief.category && (
+            <div className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs">
+              {belief.category}
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Hover overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none rounded-xl" />
     </div>
   );
 };

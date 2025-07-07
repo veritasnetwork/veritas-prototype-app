@@ -14,8 +14,8 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({ belief }) => {
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: belief.title,
-        text: belief.description,
+        title: belief.heading.title,
+        text: belief.article.excerpt || belief.article.content.slice(0, 100) + '...',
         url: window.location.href,
       });
     } else {
@@ -103,7 +103,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({ belief }) => {
         <div className="mt-6 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl">
           <div className="text-center">
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-              Join {belief.participantCount.toLocaleString()} participants in this prediction
+              Analyze this information with {belief.charts.length} available charts
             </p>
             <div className="flex justify-center space-x-4 text-xs text-slate-500 dark:text-slate-400">
               <span>🏆 Earn rewards for accuracy</span>

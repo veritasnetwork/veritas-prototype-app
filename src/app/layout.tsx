@@ -2,8 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import VeritasNavbar from '@/components/layout/Navbar';
+
 import VeritasFooter from '@/components/layout/Footer';
+import ConditionalNavbar from '@/components/layout/ConditionalNavbar';
+import ConditionalWrapper from '@/components/layout/ConditionalWrapper';
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -22,56 +24,68 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://app.veritas.computer'),
-  title: 'Veritas - Decentralized Truth Finding',
-  description: 'Aggregate information into truth signals through collective intelligence and economic incentives.',
-  
-  // Favicon configuration
-  icons: {
-    icon: [
-      { url: '/icons/favicon.ico', sizes: '32x32' },
-      { url: '/icons/favicon.svg', type: 'image/svg+xml' },
-      { url: '/icons/favicon-96x96.png', sizes: '96x96', type: 'image/png' },
-    ],
-    apple: [
-      { url: '/icons/apple-touch-icon.png', sizes: '180x180' },
-    ],
+  title: {
+    template: '%s | Veritas',
+    default: 'Veritas - Belief Prediction Platform'
   },
-  
-  // Open Graph
+  description: 'Veritas is a revolutionary belief prediction platform that combines the wisdom of crowds with advanced forecasting techniques to help you make better decisions.',
+  keywords: [
+    'prediction market',
+    'belief prediction',
+    'forecasting',
+    'crowd wisdom',
+    'decision making',
+    'probability',
+    'consensus',
+    'market prediction'
+  ],
+  authors: [
+    {
+      name: 'Veritas Team',
+      url: 'https://veritas.com'
+    }
+  ],
+  creator: 'Veritas',
+  publisher: 'Veritas',
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  metadataBase: new URL('https://veritas.com'),
   openGraph: {
-    title: 'Veritas - Decentralized Truth Finding',
-    description: 'Aggregate information into truth signals through collective intelligence and economic incentives.',
-    url: 'https://veritas.app',
+    title: 'Veritas - Belief Prediction Platform',
+    description: 'Harness the power of collective intelligence to predict outcomes and make better decisions.',
+    url: 'https://veritas.com',
     siteName: 'Veritas',
     images: [
       {
-        url: '/images/veritas-preview-image.png',
+        url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Veritas - Decentralized Truth Finding Platform',
-      },
+        alt: 'Veritas Belief Prediction Platform'
+      }
     ],
     locale: 'en_US',
     type: 'website',
   },
-  
-  // Twitter Card
   twitter: {
     card: 'summary_large_image',
-    title: 'Veritas - Decentralized Truth Finding',
-    description: 'Aggregate information into truth signals through collective intelligence and economic incentives.',
-    images: ['/images/veritas-preview-image.png'],
-    creator: '@veritas',
+    title: 'Veritas - Belief Prediction Platform',
+    description: 'Harness the power of collective intelligence to predict outcomes and make better decisions.',
+    images: ['/og-image.jpg'],
   },
-  
-  // PWA configuration
-  manifest: '/manifest.json',
-  
-  // Additional SEO
-  keywords: ['veritas', 'truth', 'decentralized', 'prediction markets', 'consensus', 'collective intelligence'],
-  authors: [{ name: 'Veritas Team' }],
-  robots: 'index, follow',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
 };
 
 export default function RootLayout({
@@ -83,20 +97,14 @@ export default function RootLayout({
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className="min-h-screen bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-300">
         <ThemeProvider>
-          {/* Navigation */}
-          <VeritasNavbar />
+          {/* Conditional Navigation - Only show VeritasNavbar on non-feed routes */}
+          <ConditionalNavbar />
           
           {/* Main Content */}
           <main className="relative">
-            {/* Desktop: Add top padding for navbar */}
-            <div className="hidden md:block pt-24">
+            <ConditionalWrapper>
               {children}
-            </div>
-            
-            {/* Mobile: Add bottom padding for dock, different top padding */}
-            <div className="md:hidden pt-6 pb-32">
-              {children}
-            </div>
+            </ConditionalWrapper>
           </main>
           
           {/* Footer (desktop only) */}

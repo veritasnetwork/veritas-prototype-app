@@ -145,6 +145,19 @@
     @apply animate-pulse bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700;
   }
   
+  /* News feed animations */
+  .animate-in {
+    animation: animateIn 0.6s ease-out forwards;
+  }
+  
+  .fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+  
+  .slide-in-from-bottom {
+    animation: slideInFromBottom 0.6s ease-out forwards;
+  }
+  
   /* Scrollbar styles */
   .custom-scrollbar::-webkit-scrollbar {
     width: 8px;
@@ -232,6 +245,37 @@
   }
   to {
     box-shadow: 0 0 20px 5px rgba(255, 184, 0, 0.8);
+  }
+}
+
+@keyframes animateIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
