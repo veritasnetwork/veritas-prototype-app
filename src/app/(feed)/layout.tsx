@@ -8,9 +8,11 @@ function FeedNavWrapper() {
     searchQuery,
     activeCategory,
     sortBy,
+    viewMode,
     setSearchQuery,
     setActiveCategory,
     setSortBy,
+    setViewMode,
   } = useFeed();
 
   return (
@@ -21,6 +23,8 @@ function FeedNavWrapper() {
       onCategoryChange={setActiveCategory}
       sortBy={sortBy}
       onSortChange={setSortBy}
+      viewMode={viewMode}
+      onViewModeChange={setViewMode}
     />
   );
 }

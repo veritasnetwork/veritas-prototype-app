@@ -158,6 +158,7 @@ export interface ChartData {
 // NEW: Main Belief Interface
 export interface Belief {
   id: string;
+  isPremier?: boolean; // NEW: For featuring in premier header
   objectRankingScores: ObjectRankingScores;
   heading: HeadingData;
   article: ArticleData;

@@ -1,6 +1,7 @@
 [
   {
     "id": "missile-production-2024",
+    "isPremier": true,
     "objectRankingScores": {
       "truth": 91,
       "relevance": 85,
@@ -16,7 +17,7 @@
       "sources": ["Defense Intelligence Agency", "Stockholm International Peace Research Institute", "Jane's Defence Weekly"],
       "headline": "Russia Fast-Tracks Hypersonic Missile Production",
       "excerpt": "Mass production announcement signals major strategic shift in global military posture amid rising nuclear tensions.",
-      "thumbnail": "/images/missile-production.jpg"
+      "thumbnail": "/images/missile-production.webp"
     },
     "charts": [
       {
@@ -183,6 +184,7 @@
   },
   {
     "id": "climate-tipping-points-2024",
+    "isPremier": true,
     "objectRankingScores": {
       "truth": 87,
       "relevance": 93,
@@ -264,6 +266,7 @@
   },
   {
     "id": "ai-compute-governance-2024",
+    "isPremier": true,
     "objectRankingScores": {
       "truth": 83,
       "relevance": 88,
@@ -279,7 +282,7 @@
       "sources": ["AI Governance Institute", "Brookings Institution", "Center for Strategic Studies"],
       "headline": "AI Compute Governance Gains International Momentum",
       "excerpt": "Coordinated efforts emerge to regulate AI development through compute resource controls rather than capability restrictions.",
-      "thumbnail": "/images/ai-governance.jpg"
+      "thumbnail": "/images/ai-governance.png"
     },
     "charts": [
       {

@@ -1,0 +1,181 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Belief } from '@/types/belief.types';
+import { BeliefCard } from './BeliefCard';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+interface PremierHeaderProps {
+  premierBeliefs: Belief[];
+  onBeliefClick: (beliefId: string) => void;
+}
+
+export const PremierHeader: React.FC<PremierHeaderProps> = ({
+  premierBeliefs,
+  onBeliefClick
+}) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // Auto-cycle through beliefs every 6 seconds
+  useEffect(() => {
+    if (premierBeliefs.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % premierBeliefs.length);
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [premierBeliefs.length]);
+
+  if (!premierBeliefs.length) return null;
+
+  const activeBelief = premierBeliefs[activeIndex];
+
+  return (
+    <div className="w-full bg-white dark:bg-gray-900 mb-12 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-[500px]">
+          
+          {/* Hero Card - Left Side (2/3 width on desktop) */}
+          <div className="lg:col-span-2 relative group cursor-pointer overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 shadow-2xl"
+               onClick={() => onBeliefClick(activeBelief.id)}>
+            
+            {/* Hero Image with Overlay */}
+            {activeBelief.article?.thumbnail && (
+              <>
+                <div className="absolute inset-0">
+                  <img 
+                    src={activeBelief.article.thumbnail} 
+                    alt={activeBelief.heading.title}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
+              </>
+            )}
+            
+            {/* Hero Content */}
+            <div className="relative z-10 h-full flex flex-col justify-end p-8 text-white">
+              
+              {/* Category Badge */}
+              {activeBelief.category && (
+                <div className="inline-flex items-center px-4 py-2 bg-blue-600/90 backdrop-blur-sm text-blue-100 text-sm font-medium rounded-full mb-4 w-fit shadow-lg">
+                  {activeBelief.category.toUpperCase()}
+                </div>
+              )}
+              
+              {/* Title */}
+              <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-4 drop-shadow-lg">
+                {activeBelief.heading.title}
+              </h1>
+              
+              {/* Context/Subtitle */}
+              {activeBelief.heading.context && (
+                <p className="text-xl text-gray-200 leading-relaxed mb-4 drop-shadow">
+                  {activeBelief.heading.context}
+                </p>
+              )}
+              
+              {/* Article Excerpt */}
+              {activeBelief.article?.excerpt && (
+                <p className="text-lg text-gray-300 leading-relaxed mb-6 line-clamp-2 drop-shadow">
+                  {activeBelief.article.excerpt}
+                </p>
+              )}
+              
+              {/* Truth Score Badges */}
+              <div className="flex items-center gap-4 mb-4">
+                <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-sm font-medium">
+                    Truth Score: {activeBelief.objectRankingScores.truth}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  <span className="text-sm font-medium">
+                    Relevance: {activeBelief.objectRankingScores.relevance}%
+                  </span>
+                </div>
+              </div>
+              
+              {/* Read More CTA */}
+              <div className="text-sm text-gray-300 font-medium">
+                Click to explore full analysis →
+              </div>
+            </div>
+            
+            {/* Navigation Controls */}
+            {premierBeliefs.length > 1 && (
+              <>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveIndex((prev) => prev === 0 ? premierBeliefs.length - 1 : prev - 1);
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-all duration-200 shadow-lg"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveIndex((prev) => (prev + 1) % premierBeliefs.length);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-all duration-200 shadow-lg"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+          </div>
+          
+          {/* Small Grid - Right Side (1/3 width on desktop) */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Featured Insights
+            </h3>
+            {premierBeliefs.slice(0, 3).map((belief, index) => (
+              <div 
+                key={belief.id}
+                className={`cursor-pointer transition-all duration-300 ${
+                  index === activeIndex 
+                    ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900 transform scale-105' 
+                    : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2 dark:hover:ring-gray-600 dark:hover:ring-offset-gray-900 hover:transform hover:scale-105'
+                }`}
+                onClick={() => {
+                  setActiveIndex(index);
+                  onBeliefClick(belief.id);
+                }}
+              >
+                <BeliefCard 
+                  belief={belief} 
+                  variant="compact"
+                  onClick={() => onBeliefClick(belief.id)}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Dots Indicator */}
+        {premierBeliefs.length > 1 && (
+          <div className="flex justify-center mt-6 gap-2">
+            {premierBeliefs.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setActiveIndex(index)}
+                className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                  index === activeIndex 
+                    ? 'bg-blue-600 scale-110 shadow-lg' 
+                    : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}; 

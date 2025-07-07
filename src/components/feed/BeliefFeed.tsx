@@ -1,30 +1,28 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Belief } from '@/types/belief.types';
 import { BeliefCard } from './BeliefCard';
 import { SkeletonBeliefCard } from './skeleton/SkeletonBeliefCard';
 import { useRouter } from 'next/navigation';
-import { Brain, Sparkles, TrendingUp } from 'lucide-react';
+import { Brain, TrendingUp, Sparkles } from 'lucide-react';
 
-interface BeliefCardGridProps {
+interface BeliefFeedProps {
   beliefs: Belief[];
   loading?: boolean;
-  columns?: 2 | 3 | 4 | 5; // Responsive column count
   onLoadMore?: () => void;
   hasMore?: boolean;
 }
 
-export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
+export const BeliefFeed: React.FC<BeliefFeedProps> = ({
   beliefs,
   loading = false,
-  columns = 3,
   onLoadMore,
   hasMore = false
 }) => {
   const [isLoading, setIsLoading] = useState(loading);
   const [showContent, setShowContent] = useState(!loading);
-  const [visibleCards, setVisibleCards] = useState(15); // Start with 15 cards for grid
+  const [visibleCards, setVisibleCards] = useState(10); // Start with 10 cards
   const router = useRouter();
 
   // Handle loading states
@@ -36,7 +34,7 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
       const timer = setTimeout(() => {
         setIsLoading(false);
         setTimeout(() => setShowContent(true), 100);
-      }, 600);
+      }, 800);
       return () => clearTimeout(timer);
     }
   }, [loading]);
@@ -54,7 +52,7 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
           onLoadMore();
         } else {
           // Load more cards from current beliefs
-          setVisibleCards(prev => Math.min(prev + 12, beliefs.length));
+          setVisibleCards(prev => Math.min(prev + 10, beliefs.length));
         }
       }
     };
@@ -72,35 +70,18 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
     return beliefs.slice(0, visibleCards);
   }, [beliefs, visibleCards]);
 
-  // Get grid column classes based on columns prop
-  const getGridClasses = () => {
-    const baseClasses = 'grid gap-4 sm:gap-6';
-    switch (columns) {
-      case 2:
-        return `${baseClasses} grid-cols-1 sm:grid-cols-2`;
-      case 3:
-        return `${baseClasses} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`;
-      case 4:
-        return `${baseClasses} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`;
-      case 5:
-        return `${baseClasses} grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5`;
-      default:
-        return `${baseClasses} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`;
-    }
-  };
-
   // Loading skeleton
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className={getGridClasses()}>
-          {[...Array(12)].map((_, index) => (
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        <div className="space-y-6">
+          {[...Array(6)].map((_, index) => (
             <div 
               key={index}
               className="animate-in fade-in duration-300"
-              style={{ animationDelay: `${index * 80}ms` }}
+              style={{ animationDelay: `${index * 100}ms` }}
             >
-              <SkeletonBeliefCard variant="grid" />
+              <SkeletonBeliefCard />
             </div>
           ))}
         </div>
@@ -111,7 +92,7 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
   // Empty state
   if (!loading && beliefs.length === 0) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-16">
+      <div className="max-w-3xl mx-auto px-4 py-16">
         <div className="text-center space-y-6">
           <div className="relative">
             <div className="w-32 h-32 mx-auto bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center">
@@ -152,28 +133,28 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Grid Header */}
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      {/* Feed Header */}
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Grid View
+          Live Feed
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
-          Browse beliefs in a compact grid layout
+          Explore the latest beliefs and predictions from the community
         </p>
       </div>
 
-      {/* Belief Cards Grid */}
-      <div className={`${getGridClasses()} ${showContent ? 'animate-in fade-in duration-500' : 'opacity-0'}`}>
+      {/* Belief Cards */}
+      <div className={`space-y-6 ${showContent ? 'animate-in fade-in duration-500' : 'opacity-0'}`}>
         {visibleBeliefs.map((belief, index) => (
           <div
             key={belief.id}
             className="animate-in slide-in-from-bottom duration-300"
-            style={{ animationDelay: `${index * 30}ms` }}
+            style={{ animationDelay: `${index * 50}ms` }}
           >
             <BeliefCard
               belief={belief}
-              variant="grid"
+              variant="feed"
               onClick={handleBeliefClick}
             />
           </div>
@@ -192,15 +173,15 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
         </div>
       )}
 
-      {/* End of grid indicator */}
+      {/* End of feed indicator */}
       {!hasMore && visibleCards >= beliefs.length && beliefs.length > 0 && (
         <div className="mt-12 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-full text-sm text-gray-600 dark:text-gray-400">
             <Sparkles className="w-4 h-4" />
-            <span>You&apos;ve reached the end of the grid</span>
+            <span>You&apos;ve reached the end of the feed</span>
           </div>
         </div>
       )}
     </div>
   );
-};
+}; 

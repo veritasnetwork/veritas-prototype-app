@@ -19,7 +19,7 @@ import {
   Filter
 } from 'lucide-react';
 import { getAllCategories } from '@/lib/data';
-import { SortOption } from '@/types/belief.types';
+import { SortOption, ViewMode } from '@/types/belief.types';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
 
 interface FeedNavProps {
@@ -29,6 +29,8 @@ interface FeedNavProps {
   onCategoryChange: (category: string) => void;
   sortBy: SortOption;
   onSortChange: (sort: SortOption) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
   onLogin?: () => void;
   onSignUp?: () => void;
 }
@@ -40,13 +42,14 @@ const FeedNav: React.FC<FeedNavProps> = ({
   onCategoryChange,
   sortBy,
   onSortChange,
+  viewMode,
+  onViewModeChange,
   onLogin,
   onSignUp
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [viewMode, setViewMode] = useState<'feed' | 'grid'>('feed');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showMobileSortDropdown, setShowMobileSortDropdown] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -203,7 +206,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                   <div className="flex items-center space-x-3">
                     {/* View Toggle */}
                     <button
-                      onClick={() => setViewMode(viewMode === 'feed' ? 'grid' : 'feed')}
+                      onClick={() => onViewModeChange(viewMode === 'feed' ? 'grid' : 'feed')}
                       className="p-3 rounded-2xl bg-white dark:bg-slate-800 hover:bg-gradient-to-br hover:from-[#FFB800]/30 hover:to-[#FFB800]/20 dark:hover:from-[#D4A574] dark:hover:to-[#D4A574]/80 transition-all duration-300 group shadow-lg hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-slate-700"
                       title={viewMode === 'feed' ? 'Switch to Grid View' : 'Switch to Feed View'}
                     >
