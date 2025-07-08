@@ -13,7 +13,7 @@ export const HeadingComponent: React.FC<HeadingComponentProps> = ({
 
   return (
     <div 
-      className={`heading-component ${isEditable ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded-lg transition-colors duration-200' : ''}`}
+      className={`heading-component ${isEditable ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-xl transition-colors duration-200' : ''}`}
       onClick={isEditable ? onEdit : undefined}
     >
       <h2 className={headingClass}>
@@ -23,7 +23,7 @@ export const HeadingComponent: React.FC<HeadingComponentProps> = ({
       {variant === 'detail' && (
         <div>
           {heading.context && (
-            <p className="text-slate-500 dark:text-slate-400 mt-1 mb-2 text-lg">
+            <p className="text-slate-600 dark:text-slate-400 mt-2 text-lg leading-relaxed">
               {heading.context}
             </p>
           )}
