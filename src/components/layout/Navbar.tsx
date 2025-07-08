@@ -7,12 +7,11 @@ import { useRouter, usePathname } from 'next/navigation';
 import { 
   Home, 
   Search, 
-  Plus, 
   User, 
   Sun, 
   Moon, 
   X,
-  TrendingUp
+  LogIn
 } from 'lucide-react';
 
 const VeritasNavbar = () => {
@@ -47,21 +46,19 @@ const VeritasNavbar = () => {
 
   const navItems = [
     { icon: Home, label: 'Feed', href: '/', id: 'feed' },
-    { icon: Search, label: 'Explore', href: '/explore', id: 'explore' },
-    { icon: Plus, label: 'Submit', href: '/submit', id: 'submit' },
-    { icon: TrendingUp, label: 'Analytics', href: '/analytics', id: 'analytics' },
+    { icon: Search, label: 'Explore', href: '/?view=grid', id: 'explore' },
     { icon: User, label: 'Profile', href: '/profile', id: 'profile' },
   ];
 
   const desktopNavItems = [
     { label: 'Feed', href: '/' },
-    { label: 'Explore', href: '/explore' },
-    { label: 'Analytics', href: '/analytics' },
+    { label: 'Explore', href: '/?view=grid' },
     { label: 'About', href: '/about' },
   ];
 
   const isActiveRoute = (href: string) => {
     if (href === '/') return pathname === '/';
+    if (href === '/?view=grid') return pathname === '/' || pathname.startsWith('/explore');
     return pathname.startsWith(href);
   };
 
@@ -195,12 +192,13 @@ const VeritasNavbar = () => {
                 )}
               </button>
 
-              {/* Submit Button */}
+              {/* Login Button */}
               <button
-                onClick={() => handleNavigation('/submit')}
-                className="px-6 py-3 rounded-2xl bg-[#1B365D] hover:bg-[#2D4A6B] text-white font-semibold shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300"
+                onClick={() => handleNavigation('/login')}
+                className="flex items-center space-x-2 px-6 py-3 rounded-2xl bg-[#1B365D] hover:bg-[#2D4A6B] text-white font-semibold shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300"
               >
-                Submit Belief
+                <LogIn className="w-4 h-4" />
+                <span>Login</span>
               </button>
             </div>
           </div>
@@ -348,10 +346,11 @@ const VeritasNavbar = () => {
               ))}
               
               <button
-                onClick={() => handleNavigation('/submit')}
-                className="w-full p-4 rounded-2xl bg-[#1B365D] hover:bg-[#2D4A6B] text-white font-semibold transition-all duration-300"
+                onClick={() => handleNavigation('/login')}
+                className="w-full flex items-center justify-center space-x-2 p-4 rounded-2xl bg-[#1B365D] hover:bg-[#2D4A6B] text-white font-semibold transition-all duration-300"
               >
-                Submit Belief
+                <LogIn className="w-4 h-4" />
+                <span>Login</span>
               </button>
             </div>
           </div>
