@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Belief } from '@/types/belief.types';
 import { BeliefCard } from './BeliefCard';
 import { ChevronRight } from 'lucide-react';
@@ -44,10 +45,13 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
             {activeBelief.article?.thumbnail && (
               <>
                 <div className="absolute inset-0">
-                  <img 
+                  <Image 
                     src={activeBelief.article.thumbnail} 
                     alt={activeBelief.heading.title}
+                    width={800}
+                    height={500}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    unoptimized
                   />
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
