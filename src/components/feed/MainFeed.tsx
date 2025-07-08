@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Belief } from '@/types/belief.types';
 import { PremierHeader } from './PremierHeader';
-import { TwoColumnFeed } from './TwoColumnFeed';
+import { NewsFeed } from './NewsFeed';
 import { MobileFeed } from './MobileFeed';
 import { BeliefCardGrid } from './BeliefCardGrid';
 import { SkeletonPremierHeader } from './skeleton/SkeletonPremierHeader';
@@ -67,7 +67,7 @@ export const MainFeed: React.FC<MainFeedProps> = ({ beliefs, loading = false }) 
     );
   }
 
-  // Desktop feed - premier header + two column feed
+  // Desktop feed - premier header + news feed
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="space-y-12">
@@ -84,7 +84,7 @@ export const MainFeed: React.FC<MainFeedProps> = ({ beliefs, loading = false }) 
         )}
         
         {/* Regular Feed */}
-        <TwoColumnFeed 
+        <NewsFeed 
           beliefs={regularBeliefs}
           onBeliefClick={handleBeliefClick}
           loading={loading}

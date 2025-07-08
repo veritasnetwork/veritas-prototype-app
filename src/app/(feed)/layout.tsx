@@ -39,7 +39,7 @@ export default function FeedLayout({
       <div className="min-h-screen bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
         <FeedNavWrapper />
         {/* Main content with padding for fixed nav */}
-        <div className="pt-48 lg:pt-56 pb-4 lg:pb-0">
+        <div className="pt-32 lg:pt-56 pb-4 lg:pb-0">
           {children}
         </div>
       </div>
