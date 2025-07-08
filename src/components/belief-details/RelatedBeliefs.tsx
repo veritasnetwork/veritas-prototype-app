@@ -99,11 +99,11 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
                 {relatedBelief.category || 'general'}
               </span>
               <div className={`w-2 h-2 rounded-full ${
-                relatedBelief.status === 'active' 
-                  ? 'bg-emerald-400 animate-pulse' 
-                  : relatedBelief.status === 'resolved'
+                relatedBelief.status === 'resolved'
                   ? 'bg-blue-400'
-                  : 'bg-slate-400'
+                  : relatedBelief.status === 'closed'
+                  ? 'bg-slate-400'
+                  : 'bg-emerald-400 animate-pulse'
               }`} />
             </div>
 

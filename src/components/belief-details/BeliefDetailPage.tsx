@@ -117,14 +117,14 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                 </span>
                 <div className="flex items-center space-x-2">
                   <div className={`w-3 h-3 rounded-full ${
-                    belief.status === 'active' 
-                      ? 'bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50' 
-                      : belief.status === 'resolved'
+                    belief.status === 'resolved'
                       ? 'bg-blue-400 shadow-lg shadow-blue-400/50'
-                      : 'bg-slate-400'
+                      : belief.status === 'closed'
+                      ? 'bg-slate-400'
+                      : 'bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50'
                   }`} />
                   <span className="text-sm font-medium capitalize text-slate-700 dark:text-slate-300">
-                    {belief.status}
+                    {belief.status || 'continuous'}
                   </span>
                 </div>
               </div>

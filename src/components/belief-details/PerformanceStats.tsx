@@ -12,14 +12,12 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
 
   const getStatusColor = (status: string): string => {
     switch (status) {
-      case 'active':
-        return 'text-[#3B82F6]'; // Blue for active
       case 'resolved':
         return 'text-[#FFB800]'; // Brand yellow for resolved
       case 'closed':
         return 'text-slate-500';
       default:
-        return 'text-slate-500';
+        return 'text-[#3B82F6]'; // Blue for continuous beliefs
     }
   };
 
@@ -66,10 +64,10 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
     {
       icon: Target,
       label: 'Status',
-      value: belief.status ? belief.status.charAt(0).toUpperCase() + belief.status.slice(1) : 'Active',
+      value: belief.status ? belief.status.charAt(0).toUpperCase() + belief.status.slice(1) : 'Continuous',
       change: null,
-      color: getStatusColor(belief.status || 'active'),
-      bgGradient: belief.status === 'active' || !belief.status
+      color: getStatusColor(belief.status || 'continuous'),
+      bgGradient: !belief.status
         ? 'from-[#3B82F6]/20 to-[#2563EB]/10'
         : belief.status === 'resolved'
         ? 'from-[#FFB800]/20 to-[#F59E0B]/10'
