@@ -376,9 +376,9 @@ const FeedNav: React.FC<FeedNavProps> = ({
                       {/* Network Metrics Cards */}
                       <div className="flex items-center space-x-3">
                         {/* Total Stake */}
-                        <div className="relative group">
+                        <div className="relative group w-20">
                           <div className="absolute -inset-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
-                          <div className="relative px-4 py-2 bg-gradient-to-r from-yellow-50/80 to-orange-50/80 dark:from-yellow-900/20 dark:to-orange-900/20 backdrop-blur-xl rounded-2xl border border-yellow-200/30 dark:border-yellow-700/30">
+                          <div className="relative px-3 py-2 bg-gradient-to-r from-yellow-50/80 to-orange-50/80 dark:from-yellow-900/20 dark:to-orange-900/20 backdrop-blur-xl rounded-2xl border border-yellow-200/30 dark:border-yellow-700/30">
                             <div className="flex items-center space-x-2">
                               <div className="relative">
                                 <DollarSign className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
@@ -389,10 +389,10 @@ const FeedNav: React.FC<FeedNavProps> = ({
                                 )}
                               </div>
                               <div className="text-xs">
-                                <div className="text-yellow-700/80 dark:text-yellow-300/80 font-medium leading-tight">Stake</div>
-                                <div className={`font-bold text-yellow-800 dark:text-yellow-200 leading-tight ${isNetworkLoading ? 'animate-pulse' : 'animate-pulse'}`}>
+                                <div className="text-yellow-700/80 dark:text-yellow-300/80 font-medium">Stake</div>
+                                <div className={`font-bold text-yellow-800 dark:text-yellow-200 mt-1 ${isNetworkLoading ? 'animate-pulse' : ''}`}>
                                   {isNetworkLoading ? (
-                                    <div className="flex items-center space-x-0.5">
+                                    <div className="flex items-center space-x-0.5 h-4">
                                       <div className="w-1.5 h-1.5 bg-yellow-600 dark:bg-yellow-400 rounded-full animate-bounce"></div>
                                       <div className="w-1.5 h-1.5 bg-yellow-600 dark:bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                                       <div className="w-1.5 h-1.5 bg-yellow-600 dark:bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
@@ -407,9 +407,9 @@ const FeedNav: React.FC<FeedNavProps> = ({
                         </div>
 
                         {/* Total Agents */}
-                        <div className="relative group">
+                        <div className="relative group w-24">
                           <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
-                          <div className="relative px-4 py-2 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 backdrop-blur-xl rounded-2xl border border-blue-200/30 dark:border-blue-700/30">
+                          <div className="relative px-3 py-2 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 backdrop-blur-xl rounded-2xl border border-blue-200/30 dark:border-blue-700/30">
                             <div className="flex items-center space-x-2">
                               <div className="relative">
                                 <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -420,10 +420,10 @@ const FeedNav: React.FC<FeedNavProps> = ({
                                 )}
                               </div>
                               <div className="text-xs">
-                                <div className="text-blue-700/80 dark:text-blue-300/80 font-medium leading-tight">Agents</div>
-                                <div className={`font-bold text-blue-800 dark:text-blue-200 leading-tight ${isNetworkLoading ? 'animate-pulse' : 'animate-pulse'}`}>
+                                <div className="text-blue-700/80 dark:text-blue-300/80 font-medium">Agents</div>
+                                <div className={`font-bold text-blue-800 dark:text-blue-200 mt-1 ${isNetworkLoading ? 'animate-pulse' : ''}`}>
                                   {isNetworkLoading ? (
-                                    <div className="flex items-center space-x-0.5">
+                                    <div className="flex items-center space-x-0.5 h-4">
                                       <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce"></div>
                                       <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                                       <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
@@ -438,13 +438,13 @@ const FeedNav: React.FC<FeedNavProps> = ({
                         </div>
 
                         {/* Network Status */}
-                        <div className="relative group">
+                        <div className="relative group w-24">
                           <div className={`absolute -inset-1 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300 ${
                             isNetworkLoading || !networkMetrics.isConnected 
                               ? 'bg-gradient-to-r from-red-500/20 to-pink-500/20' 
                               : 'bg-gradient-to-r from-green-500/20 to-emerald-500/20'
                           }`}></div>
-                          <div className={`relative px-3 py-2 backdrop-blur-xl rounded-2xl border transition-all duration-300 ${
+                          <div className={`relative px-2 py-2 backdrop-blur-xl rounded-2xl border transition-all duration-300 ${
                             isNetworkLoading || !networkMetrics.isConnected 
                               ? 'bg-gradient-to-r from-red-50/80 to-pink-50/80 dark:from-red-900/20 dark:to-pink-900/20 border-red-200/30 dark:border-red-700/30' 
                               : 'bg-gradient-to-r from-green-50/80 to-emerald-50/80 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200/30 dark:border-green-700/30'
