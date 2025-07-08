@@ -18,7 +18,7 @@ export const SkeletonBeliefCard: React.FC<SkeletonBeliefCardProps> = ({
     if (variant === 'feed') {
       return `${baseClasses} w-full max-w-2xl mx-auto p-6`;
     } else {
-      return `${baseClasses} w-full max-w-sm p-4`;
+      return `${baseClasses} w-full max-w-sm min-h-[280px] p-4`;
     }
   };
 
@@ -39,22 +39,35 @@ export const SkeletonBeliefCard: React.FC<SkeletonBeliefCardProps> = ({
         </div>
       </div>
       
-      {/* Consensus Section */}
-      <div className="flex items-center gap-4 mb-4">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-          <div className="h-4 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      {/* Truth & Relevance Section */}
+      <div className="mb-4">
+        <div className={`flex items-center ${variant === 'grid' ? 'gap-2' : 'gap-4'}`}>
+          {/* Truth metric */}
+          <div className="flex items-center gap-1">
+            <div className="h-6 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <div className={`h-4 bg-gray-200 dark:bg-gray-700 rounded ${variant === 'grid' ? 'w-4' : 'w-8'}`}></div>
+          </div>
+          
+          {/* Relevance metric */}
+          <div className="flex items-center gap-1">
+            <div className="h-6 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <div className={`h-4 bg-gray-200 dark:bg-gray-700 rounded ${variant === 'grid' ? 'w-4' : 'w-12'}`}></div>
+          </div>
+          
+          {/* Confidence indicators - only for feed */}
+          {variant === 'feed' && (
+            <div className="flex items-center gap-1">
+              <div className="h-2 w-1 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+              <div className="h-2 w-1 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+              <div className="h-2 w-1 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+            </div>
+          )}
+          
+          {/* Status - only for feed */}
+          {variant === 'feed' && (
+            <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+          )}
         </div>
-        
-        {/* Confidence indicators */}
-        <div className="flex items-center gap-1">
-          <div className="h-2 w-1 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-          <div className="h-2 w-1 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-          <div className="h-2 w-1 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-        </div>
-        
-        {/* Status */}
-        <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
       </div>
       
       {/* Chart placeholder (only for feed variant) */}
@@ -62,22 +75,26 @@ export const SkeletonBeliefCard: React.FC<SkeletonBeliefCardProps> = ({
         <div className="mb-4 h-32 bg-gray-100 dark:bg-gray-700/50 rounded-lg"></div>
       )}
       
-      {/* News Context */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-1 h-1 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-          <div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      {/* News Context - only for feed variant */}
+      {variant === 'feed' && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-1 h-1 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+            <div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+          </div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+          </div>
         </div>
-        <div className="space-y-2">
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-        </div>
-      </div>
+      )}
       
       {/* Footer metadata */}
-      <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
-        <div className="flex items-center gap-4">
-          <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      <div className={`pt-3 border-t border-gray-100 dark:border-gray-700 ${
+        variant === 'grid' ? 'space-y-2' : 'flex items-center justify-between'
+      }`}>
+        <div className={`flex items-center ${variant === 'grid' ? 'gap-2' : 'gap-4'}`}>
+          <div className={`h-3 bg-gray-200 dark:bg-gray-700 rounded ${variant === 'grid' ? 'w-8' : 'w-20'}`}></div>
           <div className="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
         </div>
         <div className="h-5 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>

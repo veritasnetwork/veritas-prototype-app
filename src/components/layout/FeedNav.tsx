@@ -16,7 +16,10 @@ import {
   Grid3X3,
   LogIn,
   UserPlus,
-  Filter
+  Filter,
+  CircleDot,
+  Users,
+  DollarSign
 } from 'lucide-react';
 import { getAllCategories } from '@/lib/data';
 import { SortOption, ViewMode } from '@/types/belief.types';
@@ -54,6 +57,14 @@ const FeedNav: React.FC<FeedNavProps> = ({
   const [showMobileSortDropdown, setShowMobileSortDropdown] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   
+  // Network metrics state
+  const [isNetworkLoading, setIsNetworkLoading] = useState(true);
+  const [networkMetrics, setNetworkMetrics] = useState({
+    totalStake: 0,
+    totalAgents: 0,
+    isConnected: false
+  });
+  
   const { toggleTheme, isDark } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
@@ -79,6 +90,37 @@ const FeedNav: React.FC<FeedNavProps> = ({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Network metrics loading simulation
+  useEffect(() => {
+    if (!mounted) return;
+
+    // Simulate network connection and data loading
+    const loadingTimer = setTimeout(() => {
+      setIsNetworkLoading(false);
+      setNetworkMetrics({
+        totalStake: 2847532, // Simulated total stake
+        totalAgents: 1247, // Simulated total agents
+        isConnected: true
+      });
+    }, 10000); // 10 seconds loading
+
+    // Simulate gradual loading of metrics during the loading period
+    const metricsInterval = setInterval(() => {
+      if (isNetworkLoading) {
+        setNetworkMetrics(prev => ({
+          totalStake: Math.floor(Math.random() * 100000) + 2000000,
+          totalAgents: Math.floor(Math.random() * 200) + 1000,
+          isConnected: false
+        }));
+      }
+    }, 2000);
+
+    return () => {
+      clearTimeout(loadingTimer);
+      clearInterval(metricsInterval);
+    };
+  }, [mounted, isNetworkLoading]);
+
   const navItems = [
     { icon: Home, label: 'Feed', href: '/', id: 'feed' },
     { icon: Search, label: 'Explore', href: '/explore', id: 'explore' },
@@ -87,11 +129,27 @@ const FeedNav: React.FC<FeedNavProps> = ({
     { icon: User, label: 'Profile', href: '/profile', id: 'profile' },
   ];
 
-  const categories = getAllCategories();
+  // Get unique categories from actual belief data
+  const getUniqueCategories = () => {
+    const beliefs = require('@/data/beliefs.json');
+    const categorySet = new Set();
+    beliefs.forEach((belief: any) => {
+      if (belief.category) {
+        categorySet.add(belief.category);
+      }
+    });
+    return Array.from(categorySet) as string[];
+  };
+
+  const categories = getUniqueCategories();
   const categoryItems = [
     { id: 'trending', label: 'Trending', icon: TrendingUp },
     { id: 'new', label: 'New', icon: Plus },
-    ...categories.slice(0, 3).map(cat => ({ id: cat.id, label: cat.name, icon: undefined }))
+    ...categories.map(cat => ({ 
+      id: cat, 
+      label: cat.charAt(0).toUpperCase() + cat.slice(1), 
+      icon: undefined 
+    }))
   ];
 
   // Simplified sort options (Sprint 2 requirement)
@@ -268,47 +326,166 @@ const FeedNav: React.FC<FeedNavProps> = ({
                       )}
                     </button>
 
-                    {/* Login/Sign Up Buttons */}
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={handleLogin}
-                        className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-white dark:bg-slate-800 border-2 border-[#1B365D]/50 dark:border-[#D4A574]/50 hover:border-[#1B365D] dark:hover:border-[#D4A574] text-[#1B365D] dark:text-[#D4A574] hover:bg-[#1B365D] dark:hover:bg-[#D4A574] hover:text-white dark:hover:text-slate-900 font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                      >
-                        <LogIn className="w-4 h-4" />
-                        <span>Login</span>
-                      </button>
-                      
-                      <button
-                        onClick={handleSignUp}
-                        className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] hover:from-[#2D4A6B] hover:to-[#1B365D] text-white font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-[#1B365D]/20"
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        <span>Sign Up</span>
-                      </button>
-                    </div>
+                    {/* Login Button */}
+                    <button
+                      onClick={handleLogin}
+                      className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] hover:from-[#2D4A6B] hover:to-[#1B365D] text-white font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-[#1B365D]/20"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      <span>Login</span>
+                    </button>
                   </div>
                 </div>
 
                 {/* Category Pills */}
-                <div className="border-t border-white/20 dark:border-slate-700/30">
-                  <div className="flex items-center space-x-3 overflow-x-auto scrollbar-hide px-8 py-8">
-                    {categoryItems.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => onCategoryChange(item.id)}
-                          className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all duration-300 transform hover:scale-105 shadow-lg border ${
-                            activeCategory === item.id
-                              ? 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25 border-[#1B365D]/30'
-                              : 'text-slate-700 dark:text-slate-300 hover:text-[#1B365D]/80 dark:hover:text-slate-900 bg-white dark:bg-slate-800 hover:bg-gradient-to-r hover:from-[#FFB800]/30 hover:to-[#FFB800]/20 dark:hover:from-[#D4A574] dark:hover:to-[#D4A574]/80 hover:shadow-xl border-slate-200 dark:border-slate-700'
-                          }`}
-                        >
-                          {Icon && <Icon className="w-4 h-4" />}
-                          <span>{item.label}</span>
-                        </button>
-                      );
-                    })}
+                <div className="border-t border-white/20 dark:border-slate-700/30 overflow-hidden">
+                  <div className="flex items-center justify-between px-8 pt-6 pb-8">
+                    {/* Category buttons with proper spacing */}
+                    <div className="flex-1 min-w-0 mr-6">
+                      <div className="flex items-center space-x-3 overflow-x-auto scrollbar-hide pb-4 -mb-6 px-2">
+                        {categoryItems.map((item) => {
+                          const Icon = item.icon;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => onCategoryChange(item.id)}
+                              className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all duration-300 transform hover:scale-105 shadow-lg border flex-shrink-0 ${
+                                activeCategory === item.id
+                                  ? 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25 border-[#1B365D]/30'
+                                  : 'text-slate-700 dark:text-slate-300 hover:text-[#1B365D]/80 dark:hover:text-slate-900 bg-white dark:bg-slate-800 hover:bg-gradient-to-r hover:from-[#FFB800]/30 hover:to-[#FFB800]/20 dark:hover:from-[#D4A574] dark:hover:to-[#D4A574]/80 hover:shadow-xl border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              {Icon && <Icon className="w-4 h-4" />}
+                              <span>{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Live Network Status Dashboard */}
+                    <div className="flex items-center space-x-4 flex-shrink-0">
+                      {/* Connection Pulse Indicator */}
+                      <div className="relative">
+                        <div className={`w-3 h-3 rounded-full transition-all duration-500 ${
+                          isNetworkLoading || !networkMetrics.isConnected 
+                            ? 'bg-red-500 animate-pulse' 
+                            : 'bg-green-400'
+                        }`}>
+                          {!isNetworkLoading && networkMetrics.isConnected && (
+                            <>
+                              <div className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-30"></div>
+                              <div className="absolute inset-0 rounded-full bg-green-400 animate-pulse"></div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Network Metrics Cards */}
+                      <div className="flex items-center space-x-3">
+                        {/* Total Stake */}
+                        <div className="relative group">
+                          <div className="absolute -inset-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
+                          <div className="relative px-4 py-2 bg-gradient-to-r from-yellow-50/80 to-orange-50/80 dark:from-yellow-900/20 dark:to-orange-900/20 backdrop-blur-xl rounded-2xl border border-yellow-200/30 dark:border-yellow-700/30">
+                            <div className="flex items-center space-x-2">
+                              <div className="relative">
+                                <DollarSign className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                                {!isNetworkLoading && (
+                                  <div className="absolute inset-0 text-yellow-600 dark:text-yellow-400 animate-pulse opacity-50">
+                                    <DollarSign className="w-4 h-4" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-xs">
+                                <div className="text-yellow-700/80 dark:text-yellow-300/80 font-medium leading-tight">Stake</div>
+                                <div className={`font-bold text-yellow-800 dark:text-yellow-200 leading-tight ${isNetworkLoading ? 'animate-pulse' : 'animate-pulse'}`}>
+                                  {isNetworkLoading ? (
+                                    <div className="flex items-center space-x-0.5">
+                                      <div className="w-1.5 h-1.5 bg-yellow-600 dark:bg-yellow-400 rounded-full animate-bounce"></div>
+                                      <div className="w-1.5 h-1.5 bg-yellow-600 dark:bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                      <div className="w-1.5 h-1.5 bg-yellow-600 dark:bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                    </div>
+                                  ) : (
+                                    `${(networkMetrics.totalStake / 1000000).toFixed(1)}M`
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Total Agents */}
+                        <div className="relative group">
+                          <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
+                          <div className="relative px-4 py-2 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 backdrop-blur-xl rounded-2xl border border-blue-200/30 dark:border-blue-700/30">
+                            <div className="flex items-center space-x-2">
+                              <div className="relative">
+                                <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                {!isNetworkLoading && (
+                                  <div className="absolute inset-0 text-blue-600 dark:text-blue-400 animate-pulse opacity-50">
+                                    <Users className="w-4 h-4" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-xs">
+                                <div className="text-blue-700/80 dark:text-blue-300/80 font-medium leading-tight">Agents</div>
+                                <div className={`font-bold text-blue-800 dark:text-blue-200 leading-tight ${isNetworkLoading ? 'animate-pulse' : 'animate-pulse'}`}>
+                                  {isNetworkLoading ? (
+                                    <div className="flex items-center space-x-0.5">
+                                      <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce"></div>
+                                      <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                      <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                    </div>
+                                  ) : (
+                                    `${networkMetrics.totalAgents.toLocaleString()}`
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Network Status */}
+                        <div className="relative group">
+                          <div className={`absolute -inset-1 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300 ${
+                            isNetworkLoading || !networkMetrics.isConnected 
+                              ? 'bg-gradient-to-r from-red-500/20 to-pink-500/20' 
+                              : 'bg-gradient-to-r from-green-500/20 to-emerald-500/20'
+                          }`}></div>
+                          <div className={`relative px-3 py-2 backdrop-blur-xl rounded-2xl border transition-all duration-300 ${
+                            isNetworkLoading || !networkMetrics.isConnected 
+                              ? 'bg-gradient-to-r from-red-50/80 to-pink-50/80 dark:from-red-900/20 dark:to-pink-900/20 border-red-200/30 dark:border-red-700/30' 
+                              : 'bg-gradient-to-r from-green-50/80 to-emerald-50/80 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200/30 dark:border-green-700/30'
+                          }`}>
+                            <div className="flex items-center space-x-2">
+                              <div className="relative">
+                                <CircleDot 
+                                  className={`w-4 h-4 transition-all duration-500 ${
+                                    isNetworkLoading || !networkMetrics.isConnected 
+                                      ? 'text-red-600 dark:text-red-400' 
+                                      : 'text-green-600 dark:text-green-400'
+                                  }`} 
+                                />
+                                {!isNetworkLoading && networkMetrics.isConnected && (
+                                  <div className="absolute inset-0 text-green-600 dark:text-green-400 animate-ping opacity-50">
+                                    <CircleDot className="w-4 h-4" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-xs font-semibold">
+                                <div className={`transition-all duration-300 ${
+                                  isNetworkLoading || !networkMetrics.isConnected 
+                                    ? 'text-red-700 dark:text-red-300' 
+                                    : 'text-green-700 dark:text-green-300'
+                                }`}>
+                                  {isNetworkLoading ? 'Syncing...' : (networkMetrics.isConnected ? 'Live' : 'Offline')}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

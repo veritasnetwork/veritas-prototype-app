@@ -9,7 +9,7 @@ export interface Category {
 }
 
 export type LayoutType = 'minimal' | 'balanced' | 'article-heavy' | 'data-focused';
-export type FilterStatus = 'all' | 'active' | 'resolved' | 'closed';
+export type FilterStatus = 'all' | 'resolved' | 'closed';
 
 // Sprint 2 additions - simplified sort options
 export type SortOption = 'relevance' | 'truth' | 'informativeness';
@@ -166,7 +166,7 @@ export interface Belief {
   
   // Legacy fields (keep for backward compatibility)
   category?: string;
-  status?: 'active' | 'resolved' | 'closed';
+  status?: 'resolved' | 'closed';
   createdAt?: string;
 }
 

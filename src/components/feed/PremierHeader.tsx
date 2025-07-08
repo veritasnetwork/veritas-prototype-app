@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Belief } from '@/types/belief.types';
 import { BeliefCard } from './BeliefCard';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 interface PremierHeaderProps {
   premierBeliefs: Belief[];
@@ -54,15 +54,15 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
               </>
             )}
             
+            {/* Category Badge - Top Left Corner */}
+            {activeBelief.category && (
+              <div className="absolute top-6 left-6 z-20 inline-flex items-center px-4 py-2 bg-blue-600/90 backdrop-blur-sm text-blue-100 text-sm font-medium rounded-full shadow-lg">
+                {activeBelief.category.toUpperCase()}
+              </div>
+            )}
+
             {/* Hero Content */}
             <div className="relative z-10 h-full flex flex-col justify-end p-8 text-white">
-              
-              {/* Category Badge */}
-              {activeBelief.category && (
-                <div className="inline-flex items-center px-4 py-2 bg-blue-600/90 backdrop-blur-sm text-blue-100 text-sm font-medium rounded-full mb-4 w-fit shadow-lg">
-                  {activeBelief.category.toUpperCase()}
-                </div>
-              )}
               
               {/* Title */}
               <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-4 drop-shadow-lg">
@@ -107,27 +107,21 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
             
             {/* Navigation Controls */}
             {premierBeliefs.length > 1 && (
-              <>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveIndex((prev) => prev === 0 ? premierBeliefs.length - 1 : prev - 1);
-                  }}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-all duration-200 shadow-lg"
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-                
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveIndex((prev) => (prev + 1) % premierBeliefs.length);
-                  }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-all duration-200 shadow-lg"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-              </>
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setActiveIndex((prev) => (prev + 1) % premierBeliefs.length);
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-all duration-200 shadow-lg cursor-pointer"
+                style={{ pointerEvents: 'auto' }}
+              >
+                <ChevronRight className="w-6 h-6 pointer-events-none" />
+              </button>
             )}
           </div>
           
@@ -139,20 +133,21 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
             {premierBeliefs.slice(0, 3).map((belief, index) => (
               <div 
                 key={belief.id}
-                className={`cursor-pointer transition-all duration-300 ${
+                className={`cursor-pointer transition-all duration-300 rounded-xl ${
                   index === activeIndex 
                     ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900 transform scale-105' 
                     : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2 dark:hover:ring-gray-600 dark:hover:ring-offset-gray-900 hover:transform hover:scale-105'
                 }`}
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   setActiveIndex(index);
-                  onBeliefClick(belief.id);
                 }}
               >
                 <BeliefCard 
                   belief={belief} 
                   variant="compact"
-                  onClick={() => onBeliefClick(belief.id)}
+                  onClick={() => {}} // Disable navigation - wrapper handles the click
                 />
               </div>
             ))}
