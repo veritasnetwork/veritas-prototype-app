@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Belief } from '@/types/belief.types';
 import { ChartComponent } from '@/components/belief-details/components/ChartComponent';
 import { getFeedChart } from '@/lib/data';
@@ -122,10 +123,13 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
           {/* Hero Image Section - Left 50% */}
           <div className="relative w-1/2 overflow-hidden">
             {belief.article.thumbnail ? (
-              <img 
+              <Image 
                 src={belief.article.thumbnail}
                 alt={belief.heading.title}
+                width={400}
+                height={320}
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                unoptimized
               />
             ) : (
               <div className={`w-full h-full ${getImageSrc()} flex items-center justify-center`}>
@@ -243,12 +247,15 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         {/* Image */}
         <div className="flex-shrink-0">
           {belief.article.thumbnail ? (
-            <img 
+            <Image 
               src={belief.article.thumbnail}
               alt={belief.heading.title}
+              width={80}
+              height={80}
               className={`object-cover rounded-lg border-2 border-gray-100 dark:border-gray-700 ${
                 variant === 'compact' ? 'w-12 h-12' : 'w-20 h-20'
               }`}
+              unoptimized
             />
           ) : (
             <div className={`rounded-lg ${getImageSrc()} flex items-center justify-center ${

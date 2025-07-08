@@ -15,15 +15,14 @@ import {
   ChevronDown,
   Grid3X3,
   LogIn,
-  UserPlus,
   Filter,
   CircleDot,
   Users,
   DollarSign
 } from 'lucide-react';
-import { getAllCategories } from '@/lib/data';
 import { SortOption, ViewMode } from '@/types/belief.types';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
+import beliefData from '@/data/beliefs.json';
 
 interface FeedNavProps {
   searchQuery: string;
@@ -35,7 +34,6 @@ interface FeedNavProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onLogin?: () => void;
-  onSignUp?: () => void;
 }
 
 const FeedNav: React.FC<FeedNavProps> = ({
@@ -47,8 +45,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
   onSortChange,
   viewMode,
   onViewModeChange,
-  onLogin,
-  onSignUp
+  onLogin
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -107,11 +104,11 @@ const FeedNav: React.FC<FeedNavProps> = ({
     // Simulate gradual loading of metrics during the loading period
     const metricsInterval = setInterval(() => {
       if (isNetworkLoading) {
-        setNetworkMetrics(prev => ({
+        setNetworkMetrics({
           totalStake: Math.floor(Math.random() * 100000) + 2000000,
           totalAgents: Math.floor(Math.random() * 200) + 1000,
           isConnected: false
-        }));
+        });
       }
     }, 2000);
 
@@ -131,14 +128,13 @@ const FeedNav: React.FC<FeedNavProps> = ({
 
   // Get unique categories from actual belief data
   const getUniqueCategories = () => {
-    const beliefs = require('@/data/beliefs.json');
-    const categorySet = new Set();
-    beliefs.forEach((belief: any) => {
+    const categorySet = new Set<string>();
+    beliefData.forEach((belief: { category?: string }) => {
       if (belief.category) {
         categorySet.add(belief.category);
       }
     });
-    return Array.from(categorySet) as string[];
+    return Array.from(categorySet);
   };
 
   const categories = getUniqueCategories();
@@ -172,10 +168,6 @@ const FeedNav: React.FC<FeedNavProps> = ({
 
   const handleLogin = () => {
     onLogin?.();
-  };
-
-  const handleSignUp = () => {
-    onSignUp?.();
   };
 
   if (!mounted) return null;
