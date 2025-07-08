@@ -1,5 +1,4 @@
 import { ArticleComponentProps } from '@/types/component.types';
-import Image from 'next/image';
 
 export const ArticleComponent: React.FC<ArticleComponentProps> = ({
   article,
@@ -7,75 +6,53 @@ export const ArticleComponent: React.FC<ArticleComponentProps> = ({
   isEditable = false,
   onEdit
 }) => {
+  const isDetailView = variant === 'detail';
+
   return (
     <div 
-      className={`article-component ${isEditable ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded-lg transition-colors duration-200' : ''} my-4`}
+      className={`article-component ${isEditable ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-xl transition-colors duration-200' : ''}`}
       onClick={isEditable ? onEdit : undefined}
     >
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
-        {variant === 'card' ? (
-          <div className="flex space-x-3">
-            {article.thumbnail && (
-              <Image
-                src={article.thumbnail}
-                alt=""
-                width={64}
-                height={64}
-                className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              {article.headline && (
-                <h4 className="font-medium mb-2 text-slate-900 dark:text-slate-100 line-clamp-2">
-                  {article.headline}
-                </h4>
-              )}
-              {article.excerpt && (
-                <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-3">
-                  {article.excerpt}
-                </p>
-              )}
-            </div>
-          </div>
-        ) : (
+      {isDetailView ? (
+        <div className="space-y-6">
           <div>
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                {article.content}
-              </p>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-1 h-1 bg-amber-500 rounded-full"></div>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Article</span>
             </div>
-            {article.sources && article.sources.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-600">
-                <h5 className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">SOURCES</h5>
-                <div className="flex flex-wrap gap-2">
-                  {article.sources.map((source, index) => (
-                    <span key={index} className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">
-                      {source}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {article.credibility && (
-              <div className="mt-3 flex items-center gap-2">
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">CREDIBILITY:</span>
-                <span className={`text-xs font-medium px-2 py-1 rounded ${
-                  article.credibility === 'high' 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                    : article.credibility === 'medium'
-                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                }`}>
-                  {article.credibility.toUpperCase()}
-                </span>
-              </div>
-            )}
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-3">
+              {article.headline}
+            </h3>
           </div>
-        )}
-      </div>
+          
+          <div className="prose prose-slate dark:prose-invert max-w-none">
+            <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-lg">
+              {article.content}
+            </p>
+          </div>
+
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                Verified by Veritas Intelligence
+              </div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                Credibility: {article.credibility}%
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-1 h-1 bg-amber-500 rounded-full"></div>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Article</span>
+          </div>
+          <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
+            {article.excerpt}
+          </p>
+        </div>
+      )}
     </div>
   );
 };

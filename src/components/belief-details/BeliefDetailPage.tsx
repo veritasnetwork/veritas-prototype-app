@@ -6,15 +6,15 @@ import { HeadingComponent } from './components/HeadingComponent';
 import { ChartComponent } from './components/ChartComponent';
 import { ArticleComponent } from './components/ArticleComponent';
 import { MetadataComponent } from './components/MetadataComponent';
-import { ConsensusTimeline } from './ConsensusTimeline';
+import { IntelligenceEvolution } from './IntelligenceEvolution';
 import { CommentsSection } from './CommentsSection';
-import { PerformanceStats } from './PerformanceStats';
 import { ActionPanel } from './ActionPanel';
 import { RelatedBeliefs } from './RelatedBeliefs';
 import { SkeletonBeliefDetailPage } from './skeleton/SkeletonBeliefDetailPage';
-import { getBeliefById, getCategoryGradient } from '@/lib/data';
-import { ArrowLeft, Share2, Bookmark, ChevronRight } from 'lucide-react';
+import { getBeliefById } from '@/lib/data';
+import { ArrowLeft, Share2, Bookmark } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface BeliefDetailPageProps {
   beliefId: string;
@@ -26,7 +26,6 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
   const [belief, setBelief] = useState<Belief | null>(null);
   const [editingComponent, setEditingComponent] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showContent, setShowContent] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -34,14 +33,9 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
       const foundBelief = getBeliefById(beliefId);
       setBelief(foundBelief);
       
-      // Premium loading experience with timing
       setTimeout(() => {
         setIsLoading(false);
-        // Small delay before showing content for smooth transition
-        setTimeout(() => {
-          setShowContent(true);
-        }, 150);
-      }, 1000); // Slightly shorter than feed since it's a single item
+      }, 800);
     };
 
     fetchBelief();
@@ -61,21 +55,21 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
 
   if (!belief) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
         <div className="container mx-auto px-4 py-12 max-w-4xl">
           <div className="text-center py-16">
             <div className="w-20 h-20 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🔍</span>
             </div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-4">
-              Belief Not Found
+              Information Not Found
             </h1>
             <p className="text-slate-600 dark:text-slate-400 mb-8">
-              The belief with ID &quot;{beliefId}&quot; could not be found.
+              The information with ID &quot;{beliefId}&quot; could not be found.
             </p>
             <button 
               onClick={handleBackToFeed}
-              className="px-6 py-3 bg-gradient-to-r from-[#FFB800] to-[#F5A623] text-[#1B365D] font-medium rounded-xl hover:shadow-lg transition-all duration-300"
+              className="px-6 py-3 bg-gradient-to-r from-amber-500 to-blue-600 dark:from-amber-400 dark:to-blue-500 text-white font-medium rounded-xl hover:shadow-lg transition-all duration-300"
             >
               Back to Feed
             </button>
@@ -86,88 +80,86 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-      {/* Hero Section with Category-based Background */}
-      <div className={`relative bg-gradient-to-br ${getCategoryGradient(belief.category || 'general')} border-b border-white/20 dark:border-white/10 pt-20 md:pt-8 ${showContent ? 'animate-in slide-in-from-top-6 duration-700' : 'opacity-0'}`}>
-        {/* Backdrop overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/5 via-transparent to-[#1B365D]/5" />
-        
-        <div className="relative container mx-auto px-4 py-4 md:py-8 max-w-7xl">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+      {/* Simplified Header - No Heading Content */}
+      <div className="bg-gradient-to-r from-amber-500/10 to-blue-600/10 dark:from-amber-400/10 dark:to-blue-500/10 border-b border-slate-200 dark:border-slate-700 pt-20 md:pt-8">
+        <div className="container mx-auto px-4 py-6 max-w-7xl">
           {/* Breadcrumbs */}
-          <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400 mb-6 animate-in slide-in-from-left-4 duration-500 delay-200">
+          <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400 mb-4">
             <button 
               onClick={handleBackToFeed}
-              className="flex items-center space-x-2 hover:text-[#FFB800] transition-colors"
+              className="flex items-center space-x-2 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Feed</span>
             </button>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-[#FFB800]">{belief.category}</span>
-            <ChevronRight className="w-4 h-4" />
+            <span>/</span>
+            <span className="text-amber-600 dark:text-amber-400">{belief.category}</span>
+            <span>/</span>
             <span>Details</span>
           </div>
 
-          {/* Hero Content */}
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between">
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center gap-3 mb-4 animate-in slide-in-from-left-4 duration-600 delay-300">
-                <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-gradient-to-r from-[#FFB800]/30 to-[#F5A623]/20 text-[#1B365D] border border-[#FFB800]/40">
-                  {belief.category}
-                </span>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${
-                    belief.status === 'resolved'
-                      ? 'bg-blue-400 shadow-lg shadow-blue-400/50'
-                      : belief.status === 'closed'
-                      ? 'bg-slate-400'
-                      : 'bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50'
-                  }`} />
-                  <span className="text-sm font-medium capitalize text-slate-700 dark:text-slate-300">
-                    {belief.status || 'continuous'}
-                  </span>
-                </div>
-              </div>
-              
-              <h1 className="text-2xl md:text-4xl font-bold text-slate-900 dark:text-slate-100 mb-4 leading-tight animate-in slide-in-from-left-6 duration-700 delay-400">
-                {belief.heading.title}
-              </h1>
-              
-              <p className="text-base md:text-lg text-slate-600 dark:text-slate-300 animate-in slide-in-from-left-4 duration-600 delay-500">
-                {belief.heading.context || belief.article.excerpt || 'Information intelligence analysis'}
-              </p>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="flex items-center space-x-3 mt-4 md:mt-0 md:ml-8 animate-in slide-in-from-right-4 duration-600 delay-600">
-              <button className="p-3 rounded-2xl bg-white/20 dark:bg-white/10 hover:bg-white/30 dark:hover:bg-white/20 transition-all duration-300 hover:scale-110">
-                <Share2 className="w-4 h-4 md:w-5 md:h-5 text-slate-700 dark:text-slate-300" />
+          {/* Category Badge & Actions */}
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-700">
+              {belief.category}
+            </span>
+            
+            <div className="flex items-center space-x-3">
+              <button className="p-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 border border-slate-200 dark:border-slate-600">
+                <Share2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </button>
-              <button className="p-3 rounded-2xl bg-white/20 dark:bg-white/10 hover:bg-white/30 dark:hover:bg-white/20 transition-all duration-300 hover:scale-110">
-                <Bookmark className="w-4 h-4 md:w-5 md:h-5 text-slate-700 dark:text-slate-300" />
+              <button className="p-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 border border-slate-200 dark:border-slate-600">
+                <Bookmark className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className={`container mx-auto px-4 py-6 md:py-8 max-w-7xl ${showContent ? 'content-reveal' : 'opacity-0'}`}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+      {/* Main Content - News Article Style */}
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           
-          {/* Main Column - Primary Content */}
-          <div className="lg:col-span-2 space-y-6 md:space-y-8">
+          {/* Main Article Content - 3 columns on desktop */}
+          <div className="lg:col-span-3">
             
-            {/* Main Belief Card - The Centerpiece */}
-                          <div className={`backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 md:p-8 lg:p-12 shadow-2xl shadow-yellow-500/10 bg-gradient-to-br ${getCategoryGradient(belief.category || 'general')} animate-in zoom-in-95 duration-800 delay-700`}>
-              {/* Premium inner glow */}
-              <div className="absolute inset-px bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-3xl opacity-50 pointer-events-none" />
+            {/* Hero Image Section - News Style */}
+            {belief.article?.thumbnail && (
+              <div className="relative w-full h-64 md:h-80 lg:h-96 rounded-2xl overflow-hidden mb-8 shadow-lg">
+                <Image 
+                  src={belief.article.thumbnail}
+                  alt={belief.heading.title}
+                  fill
+                  className="object-cover"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                <div className="absolute bottom-6 left-6 right-6 text-white">
+                  <div className="text-xs uppercase tracking-wide font-medium mb-2 text-amber-300">
+                    Veritas Intelligence
+                  </div>
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight drop-shadow-lg">
+                    {belief.heading.title}
+                  </h1>
+                  {belief.heading.context && (
+                    <p className="text-lg text-gray-200 mt-2 drop-shadow">
+                      {belief.heading.context}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Article Content - No Card Wrapper */}
+            <div className="space-y-8">
               
-              {/* Content reveal animation overlay */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/10 via-transparent to-[#1B365D]/10 rounded-3xl animate-pulse opacity-30" />
-              
-              <div className="relative space-y-8">
-                <div className="animate-in slide-in-from-top-4 duration-600 delay-900">
+              {/* Heading Component (for cases without hero image) */}
+              {!belief.article?.thumbnail && (
+                <div 
+                  className={`cursor-pointer transition-all duration-200 ${editingComponent === 'heading' ? 'ring-2 ring-amber-500' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} rounded-xl p-4`}
+                  onClick={() => setEditingComponent('heading')}
+                >
                   <HeadingComponent 
                     heading={belief.heading} 
                     variant="detail" 
@@ -175,67 +167,89 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                     onEdit={() => setEditingComponent('heading')}
                   />
                 </div>
-                
-                <div className="animate-in slide-in-from-bottom-4 duration-600 delay-1000">
-                  <ChartComponent 
-                    charts={belief.charts} 
-                    variant="detail" 
-                  />
-                </div>
-                
-                <div className="animate-in slide-in-from-left-4 duration-600 delay-1100">
-                  <ArticleComponent 
-                    article={belief.article} 
-                    variant="detail" 
-                    isEditable={true}
-                    onEdit={() => setEditingComponent('article')}
-                  />
-                </div>
-                
-                <div className="animate-in slide-in-from-right-4 duration-600 delay-1200">
-                  <MetadataComponent 
-                    belief={belief} 
-                    variant="detail" 
-                    isEditable={true}
-                    onEdit={() => setEditingComponent('metadata')}
-                  />
-                </div>
+              )}
+              
+              {/* Chart Component */}
+              <div 
+                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'chart' ? 'ring-2 ring-amber-500' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} rounded-xl p-4`}
+                onClick={() => setEditingComponent('chart')}
+              >
+                <ChartComponent 
+                  charts={belief.charts} 
+                  variant="detail" 
+                />
+              </div>
+
+              {/* Submit Belief CTA Button */}
+              <div className="flex justify-center my-8">
+                <button 
+                  onClick={() => {
+                    // Trigger ActionPanel submission modal
+                    const actionPanel = document.querySelector('[data-action-panel]') as HTMLElement;
+                    actionPanel?.click();
+                  }}
+                  className="px-8 py-4 bg-gradient-to-r from-amber-500 to-blue-600 dark:from-amber-400 dark:to-blue-500 text-white font-semibold rounded-2xl hover:shadow-lg hover:shadow-amber-500/25 transition-all duration-300 hover:scale-105"
+                >
+                  Submit Your Understanding
+                </button>
+              </div>
+              
+              {/* Article Component */}
+              <div 
+                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'article' ? 'ring-2 ring-amber-500' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} rounded-xl p-4`}
+                onClick={() => setEditingComponent('article')}
+              >
+                <ArticleComponent 
+                  article={belief.article} 
+                  variant="detail" 
+                  isEditable={true}
+                  onEdit={() => setEditingComponent('article')}
+                />
+              </div>
+              
+              {/* Metadata Component */}
+              <div 
+                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'metadata' ? 'ring-2 ring-amber-500' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} rounded-xl p-4`}
+                onClick={() => setEditingComponent('metadata')}
+              >
+                <MetadataComponent 
+                  belief={belief} 
+                  variant="detail" 
+                  isEditable={true}
+                  onEdit={() => setEditingComponent('metadata')}
+                />
               </div>
             </div>
 
-            {/* Consensus Timeline */}
-            <div className="animate-in slide-in-from-bottom-6 duration-700 delay-1300">
-              <ConsensusTimeline belief={belief} />
-            </div>
+            {/* Full Width Sections */}
+            <div className="mt-12 space-y-8">
+              {/* Intelligence Evolution - 3 Line Charts */}
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                <IntelligenceEvolution belief={belief} />
+              </div>
 
-            {/* Comments Section */}
-            <div className="animate-in slide-in-from-bottom-8 duration-700 delay-1400">
-              <CommentsSection belief={belief} />
+              {/* Community Discussion */}
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                <CommentsSection belief={belief} />
+              </div>
             </div>
-            
           </div>
 
-          {/* Sidebar - Supporting Content */}
-          <div className="lg:col-span-1 space-y-6 md:space-y-8">
+          {/* Sidebar - 1 column on desktop */}
+          <div className="lg:col-span-1 space-y-6">
             
-            {/* Performance Stats */}
-            <div className="animate-in slide-in-from-right-6 duration-700 delay-800">
-              <PerformanceStats belief={belief} />
-            </div>
-
-            {/* Action Panel */}
-            <div className="animate-in slide-in-from-right-8 duration-700 delay-1000">
+            {/* Take Action - Prominent Position */}
+            <div data-action-panel>
               <ActionPanel belief={belief} />
             </div>
 
-            {/* Related Beliefs */}
-            <div className="animate-in slide-in-from-right-10 duration-700 delay-1200">
+            {/* Related Information */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
               <RelatedBeliefs 
                 belief={belief} 
                 onBeliefClick={handleBeliefClick}
               />
             </div>
-            
           </div>
         </div>
       </div>
@@ -247,7 +261,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
             <div className="p-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
-                  <div className="p-3 rounded-2xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10">
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/20 to-blue-600/20">
                     <span className="text-xl">✏️</span>
                   </div>
                   <div>
@@ -255,7 +269,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                       Edit {editingComponent} Component
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
-                      Propose changes to belief components
+                      Propose changes to information components
                     </p>
                   </div>
                 </div>
@@ -269,7 +283,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
 
               <div className="space-y-6">
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10 flex items-center justify-center mx-auto mb-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500/20 to-blue-600/20 flex items-center justify-center mx-auto mb-4">
                     <span className="text-2xl">🚧</span>
                   </div>
                   <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
@@ -278,26 +292,13 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                   <p className="text-slate-600 dark:text-slate-400 mb-4">
                     Component editing functionality is under development.
                   </p>
-                  <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 text-left">
-                    <h5 className="font-medium text-slate-900 dark:text-slate-100 mb-2">
-                      Features in development:
-                    </h5>
-                    <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
-                      <li>• Propose changes to titles and descriptions</li>
-                      <li>• Update chart configurations and timeframes</li>
-                      <li>• Add/edit related articles and sources</li>
-                      <li>• Community voting on proposed changes</li>
-                      <li>• Version history and rollback options</li>
-                    </ul>
-                  </div>
+                  <button
+                    onClick={() => setEditingComponent(null)}
+                    className="px-6 py-2 bg-gradient-to-r from-amber-500 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all duration-300"
+                  >
+                    Close
+                  </button>
                 </div>
-
-                <button 
-                  onClick={() => setEditingComponent(null)}
-                  className="w-full py-3 px-6 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-2xl hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors font-medium"
-                >
-                  Got it
-                </button>
               </div>
             </div>
           </div>
