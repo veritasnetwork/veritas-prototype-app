@@ -16,7 +16,7 @@ export const MobileFeed: React.FC<MobileFeedProps> = ({
 }) => {
   if (loading) {
     return (
-      <div className="space-y-1">
+      <div className="space-y-1 pb-32">
         {[...Array(5)].map((_, index) => (
           <div 
             key={index} 
@@ -47,7 +47,7 @@ export const MobileFeed: React.FC<MobileFeedProps> = ({
 
   if (beliefs.length === 0) {
     return (
-      <div className="px-4 py-16 text-center">
+      <div className="px-4 py-16 pb-32 text-center">
         <p className="text-gray-500 dark:text-gray-400 text-lg">
           No insights match your current filters
         </p>
@@ -56,7 +56,7 @@ export const MobileFeed: React.FC<MobileFeedProps> = ({
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 pb-32">
       {beliefs.map((belief) => (
         <div 
           key={belief.id}
