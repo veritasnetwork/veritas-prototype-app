@@ -1,7 +1,6 @@
 import React from 'react';
 import { Belief } from '@/types/belief.types';
 import { ChartComponent } from '@/components/belief-details/components/ChartComponent';
-import { useTheme } from '@/contexts/ThemeContext';
 import { getFeedChart } from '@/lib/data';
 import { Clock, Users } from 'lucide-react';
 
@@ -16,42 +15,29 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
   variant = 'feed',
   onClick
 }) => {
-  const { isDark } = useTheme();
   const feedChart = getFeedChart(belief);
   
-  // Calculate consensus percentage based on truth and relevance scores
-  const consensusPercentage = Math.round((belief.objectRankingScores.truth + belief.objectRankingScores.relevance) / 2);
-  
-  // Determine consensus confidence level
-  const getConsensusLevel = () => {
-    if (consensusPercentage >= 80) return 'high';
-    if (consensusPercentage >= 60) return 'medium';
+  // Determine overall confidence level based on truth and relevance scores
+  const getConfidenceLevel = () => {
+    const avgScore = (belief.objectRankingScores.truth + belief.objectRankingScores.relevance) / 2;
+    if (avgScore >= 80) return 'high';
+    if (avgScore >= 60) return 'medium';
     return 'low';
   };
   
-  const consensusLevel = getConsensusLevel();
-  
-  // Get consensus color based on confidence
-  const getConsensusColor = () => {
-    switch (consensusLevel) {
-      case 'high': return isDark ? 'text-green-400' : 'text-green-600';
-      case 'medium': return isDark ? 'text-blue-400' : 'text-blue-600';
-      case 'low': return isDark ? 'text-gray-400' : 'text-gray-600';
-      default: return isDark ? 'text-gray-400' : 'text-gray-600';
-    }
-  };
+  const confidenceLevel = getConfidenceLevel();
   
   // Get confidence indicator bars
   const getConfidenceIndicator = () => {
-    const level = consensusLevel;
+    const level = confidenceLevel;
     const bars = [];
     for (let i = 0; i < 3; i++) {
-      const isActive = (level === 'high' && i < 3) || (level === 'medium' && i < 2) || (level === 'low' && i < 1);
+      const isEnabled = (level === 'high' && i < 3) || (level === 'medium' && i < 2) || (level === 'low' && i < 1);
       bars.push(
         <div
           key={i}
           className={`h-2 w-1 rounded-full ${
-            isActive 
+            isEnabled 
               ? level === 'high' 
                 ? 'bg-green-500' 
                 : level === 'medium' 
@@ -170,18 +156,32 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         </div>
       </div>
       
-      {/* Consensus Section */}
+      {/* Truth & Relevance Scores Section */}
       <div className={`flex items-center gap-4 ${variant === 'compact' ? 'mb-2' : 'mb-4'}`}>
-        <div className="flex items-center gap-2">
-          <div className={`font-extrabold ${getConsensusColor()} ${
-            variant === 'compact' ? 'text-lg' : 'text-3xl'
-          }`}>
-            {consensusPercentage}%
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <div className={`font-bold text-green-600 dark:text-green-400 ${
+              variant === 'compact' ? 'text-sm' : 'text-lg'
+            }`}>
+              {belief.objectRankingScores.truth}%
+            </div>
+            <div className={`text-gray-600 dark:text-gray-400 ${
+              variant === 'compact' ? 'text-xs' : 'text-xs'
+            }`}>
+              Truth
+            </div>
           </div>
-          <div className={`text-gray-600 dark:text-gray-400 ${
-            variant === 'compact' ? 'text-xs' : 'text-sm'
-          }`}>
-            {consensusPercentage >= 50 ? 'YES' : 'NO'}
+          <div className="flex items-center gap-1">
+            <div className={`font-bold text-blue-600 dark:text-blue-400 ${
+              variant === 'compact' ? 'text-sm' : 'text-lg'
+            }`}>
+              {belief.objectRankingScores.relevance}%
+            </div>
+            <div className={`text-gray-600 dark:text-gray-400 ${
+              variant === 'compact' ? 'text-xs' : 'text-xs'
+            }`}>
+              Relevance
+            </div>
           </div>
         </div>
         
@@ -192,13 +192,11 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
           </div>
         )}
         
-        {/* Status indicator - hide on compact */}
+        {/* Status indicator - only show for resolved/closed beliefs */}
         {belief.status && variant !== 'compact' && (
           <div className={`
             px-2 py-1 rounded-full text-xs font-medium
-            ${belief.status === 'active' 
-              ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
-              : belief.status === 'resolved'
+            ${belief.status === 'resolved'
               ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
               : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
             }

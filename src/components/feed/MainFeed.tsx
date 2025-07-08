@@ -7,6 +7,7 @@ import { PremierHeader } from './PremierHeader';
 import { TwoColumnFeed } from './TwoColumnFeed';
 import { MobileFeed } from './MobileFeed';
 import { BeliefCardGrid } from './BeliefCardGrid';
+import { SkeletonPremierHeader } from './skeleton/SkeletonPremierHeader';
 import { useFeed } from '@/contexts/FeedContext';
 
 interface MainFeedProps {
@@ -70,12 +71,16 @@ export const MainFeed: React.FC<MainFeedProps> = ({ beliefs, loading = false }) 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="space-y-12">
-        {/* Premier Header */}
-        {premierBeliefs.length > 0 && !loading && (
-          <PremierHeader 
-            premierBeliefs={premierBeliefs}
-            onBeliefClick={handleBeliefClick}
-          />
+        {/* Premier Header - Show skeleton when loading or actual header when loaded */}
+        {loading ? (
+          <SkeletonPremierHeader />
+        ) : (
+          premierBeliefs.length > 0 && (
+            <PremierHeader 
+              premierBeliefs={premierBeliefs}
+              onBeliefClick={handleBeliefClick}
+            />
+          )
         )}
         
         {/* Regular Feed */}

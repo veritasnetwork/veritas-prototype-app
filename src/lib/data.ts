@@ -65,7 +65,7 @@ export const getDetailCharts = (belief: Belief) => {
 // Updated belief stats for information intelligence
 export const getBeliefStats = () => {
   const total = typedBeliefs.length;
-  const active = typedBeliefs.filter(b => b.status === 'active').length;
+  const continuous = typedBeliefs.filter(b => !b.status).length;
   const resolved = typedBeliefs.filter(b => b.status === 'resolved').length;
   const closed = typedBeliefs.filter(b => b.status === 'closed').length;
   
@@ -76,7 +76,7 @@ export const getBeliefStats = () => {
   
   return {
     total,
-    active,
+    continuous,
     resolved,
     closed,
     avgTruth: Math.round(avgTruth * 100) / 100,
@@ -106,7 +106,7 @@ export const getCategoryStats = () => {
   const categoryStats = typedCategories.map(category => ({
     ...category,
     beliefCount: getBeliefsByCategory(category.name).length,
-    activeBeliefs: getBeliefsByCategory(category.name).filter(b => b.status === 'active').length,
+    continuousBeliefs: getBeliefsByCategory(category.name).filter(b => !b.status).length,
     avgTruthScore: Math.round(getBeliefsByCategory(category.name).reduce((sum, b) => sum + b.objectRankingScores.truth, 0) / getBeliefsByCategory(category.name).length * 100) / 100 || 0
   }));
   
