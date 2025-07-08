@@ -134,24 +134,20 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Featured Insights
             </h3>
-            {premierBeliefs.slice(0, 3).map((belief, index) => (
+            {premierBeliefs.slice(0, 3).map((belief) => (
               <div 
                 key={belief.id}
-                className={`cursor-pointer transition-all duration-300 rounded-xl ${
-                  index === activeIndex 
-                    ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900 transform scale-105' 
-                    : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2 dark:hover:ring-gray-600 dark:hover:ring-offset-gray-900 hover:transform hover:scale-105'
-                }`}
+                className="cursor-pointer transition-all duration-300 rounded-xl hover:transform hover:scale-[1.02] hover:shadow-lg"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setActiveIndex(index);
+                  onBeliefClick(belief.id);
                 }}
               >
                 <BeliefCard 
                   belief={belief} 
                   variant="compact"
-                  onClick={() => {}} // Disable navigation - wrapper handles the click
+                  onClick={(beliefId: string) => onBeliefClick(beliefId)}
                 />
               </div>
             ))}
