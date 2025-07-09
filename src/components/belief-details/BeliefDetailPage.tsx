@@ -5,14 +5,13 @@ import { Belief } from '@/types/belief.types';
 import { HeadingComponent } from './components/HeadingComponent';
 import { ChartComponent } from './components/ChartComponent';
 import { ArticleComponent } from './components/ArticleComponent';
-import { MetadataComponent } from './components/MetadataComponent';
 import { IntelligenceEvolution } from './IntelligenceEvolution';
 import { CommentsSection } from './CommentsSection';
 import { ActionPanel } from './ActionPanel';
 import { RelatedBeliefs } from './RelatedBeliefs';
 import { SkeletonBeliefDetailPage } from './skeleton/SkeletonBeliefDetailPage';
 import { getBeliefById } from '@/lib/data';
-import { ArrowLeft, Share2, Bookmark } from 'lucide-react';
+import { ArrowLeft, Share2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
