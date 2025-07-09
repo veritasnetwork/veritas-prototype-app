@@ -89,7 +89,7 @@ interface Belief {
 
 ### Component Data Types:
 - **HeadingData**: title, subtitle, importance level
-- **ArticleData**: headline, excerpt, source, thumbnail, credibility score
+- **ArticleData**: headline, excerpt, thumbnail, credibility score
 - **ChartData**: type, data points, timeframe, axes labels
 - **MetadataData**: creation date, update frequency, reliability metrics
 

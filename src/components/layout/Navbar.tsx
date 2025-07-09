@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter, usePathname } from 'next/navigation';
+import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { 
   Home, 
   Search, 
@@ -22,6 +23,7 @@ const VeritasNavbar = () => {
   const { toggleTheme, isDark } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
+  const { isVisible } = useScrollDirection();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -90,18 +92,22 @@ const VeritasNavbar = () => {
 
   return (
     <>
-      {/* Desktop Navbar - Unchanged premium center transition */}
+      {/* Desktop Navbar - Premium center transition with scroll visibility */}
       <nav
         className={`hidden md:block fixed z-50 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          isScrolled
-            ? 'top-6 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-5xl'
-            : 'top-0 left-1/2 -translate-x-1/2 w-full'
+          isVisible
+            ? isScrolled
+              ? 'top-6 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-5xl'
+              : 'top-0 left-1/2 -translate-x-1/2 w-full'
+            : 'top-0 left-1/2 -translate-x-1/2 w-full -translate-y-full'
         }`}
         style={{
           transformOrigin: 'center top',
-          transform: isScrolled 
-            ? 'translateX(-50%) scale(0.97)' 
-            : 'translateX(-50%) scale(1)'
+          transform: isVisible 
+            ? isScrolled 
+              ? 'translateX(-50%) scale(0.97)' 
+              : 'translateX(-50%) scale(1)'
+            : 'translateX(-50%) scale(0.95) translateY(-100%)'
         }}
       >
         <div
@@ -207,7 +213,19 @@ const VeritasNavbar = () => {
 
       {/* NEW: Mobile Top Bar - Minimal (Logo + Theme Toggle only) */}
       {isMobile && (
-        <nav className="md:hidden fixed top-0 left-0 right-0 z-50 pointer-events-none">
+        <nav 
+          className={`md:hidden fixed top-0 left-0 right-0 z-50 pointer-events-none transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            isVisible
+              ? 'translate-y-0'
+              : '-translate-y-full'
+          }`}
+          style={{
+            transformOrigin: 'center top',
+            transform: isVisible 
+              ? 'scale(1) translateY(0)' 
+              : 'scale(0.95) translateY(-100%)'
+          }}
+        >
           <div className="p-4">
             <div
               className={`pointer-events-auto flex items-center justify-between max-w-md mx-auto rounded-3xl px-6 py-3 transition-all duration-500 ${
@@ -257,9 +275,21 @@ const VeritasNavbar = () => {
         </nav>
       )}
 
-      {/* Mobile Bottom Dock - Unchanged */}
+      {/* Mobile Bottom Dock - With scroll visibility */}
       {isMobile && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 p-4">
+        <div 
+          className={`md:hidden fixed bottom-0 left-0 right-0 z-50 p-4 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            isVisible
+              ? 'translate-y-0'
+              : 'translate-y-full'
+          }`}
+          style={{
+            transformOrigin: 'center bottom',
+            transform: isVisible 
+              ? 'scale(1) translateY(0)' 
+              : 'scale(0.95) translateY(100%)'
+          }}
+        >
           <div className="relative max-w-md mx-auto">
             {/* Glassmorphism container */}
             <div className="relative bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 rounded-3xl shadow-2xl shadow-yellow-500/10">

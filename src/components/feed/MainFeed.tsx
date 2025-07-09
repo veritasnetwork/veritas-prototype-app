@@ -43,13 +43,16 @@ export const MainFeed: React.FC<MainFeedProps> = ({ beliefs, loading = false }) 
   if (viewMode === 'grid') {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <BeliefCardGrid 
-          beliefs={beliefs}
-          loading={loading}
-          columns={isMobile ? 3 : 5}
-          onLoadMore={() => {}}
-          hasMore={false}
-        />
+        {/* Full-width grid container with minimal padding */}
+        <div className="w-full px-4 sm:px-6">
+          <BeliefCardGrid 
+            beliefs={beliefs}
+            loading={loading}
+            columns={3} // Fixed 3 columns for desktop grid view
+            onLoadMore={() => {}}
+            hasMore={false}
+          />
+        </div>
       </div>
     );
   }

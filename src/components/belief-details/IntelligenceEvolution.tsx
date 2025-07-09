@@ -149,13 +149,6 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
           </div>
         ))}
       </div>
-
-      {/* Evolution Summary */}
-      <div className="mt-6 p-4 bg-gradient-to-r from-amber-50 to-blue-50 dark:from-amber-900/20 dark:to-blue-900/20 rounded-2xl border border-amber-200 dark:border-amber-700/30">
-        <p className="text-sm text-slate-700 dark:text-slate-300 text-center">
-          📊 Intelligence scores represent collective understanding quality as assessed by the Veritas community
-        </p>
-      </div>
     </div>
   );
 }; 

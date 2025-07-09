@@ -97,12 +97,7 @@ export const MetadataComponent: React.FC<MetadataComponentProps> = ({
           </span>
         </div>
 
-        <div className="flex flex-col">
-          <span className="font-medium">Article Sources</span>
-          <span className="text-slate-900 dark:text-slate-100">
-            {belief.article.sources?.length || 0}
-          </span>
-        </div>
+
 
         <div className="flex flex-col">
           <span className="font-medium">Available Charts</span>

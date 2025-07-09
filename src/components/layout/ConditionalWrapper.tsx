@@ -26,7 +26,7 @@ const ConditionalWrapper: React.FC<ConditionalWrapperProps> = ({ children }) => 
       </div>
       
       {/* Mobile: Add bottom padding for dock, different top padding */}
-      <div className="md:hidden pt-6 pb-32">
+      <div className="md:hidden pb-32">
         {children}
       </div>
     </>

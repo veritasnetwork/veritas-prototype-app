@@ -7,7 +7,7 @@ import { Clock, Users } from 'lucide-react';
 
 interface BeliefCardProps {
   belief: Belief;
-  variant?: 'feed' | 'grid' | 'compact' | 'mobile' | 'news';
+  variant?: 'feed' | 'grid' | 'compact' | 'mobile' | 'news' | 'large';
   onClick: (beliefId: string) => void;
 }
 
@@ -18,39 +18,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
 }) => {
   const feedChart = getFeedChart(belief);
   
-  // Determine overall confidence level based on truth and relevance scores
-  const getConfidenceLevel = () => {
-    const avgScore = (belief.objectRankingScores.truth + belief.objectRankingScores.relevance) / 2;
-    if (avgScore >= 80) return 'high';
-    if (avgScore >= 60) return 'medium';
-    return 'low';
-  };
-  
-  const confidenceLevel = getConfidenceLevel();
-  
-  // Get confidence indicator bars
-  const getConfidenceIndicator = () => {
-    const level = confidenceLevel;
-    const bars = [];
-    for (let i = 0; i < 3; i++) {
-      const isEnabled = (level === 'high' && i < 3) || (level === 'medium' && i < 2) || (level === 'low' && i < 1);
-      bars.push(
-        <div
-          key={i}
-          className={`h-2 w-1 rounded-full ${
-            isEnabled 
-              ? level === 'high' 
-                ? 'bg-green-500' 
-                : level === 'medium' 
-                  ? 'bg-blue-500' 
-                  : 'bg-gray-500'
-              : 'bg-gray-300 dark:bg-gray-700'
-          }`}
-        />
-      );
-    }
-    return bars;
-  };
+
   
     // Card sizing based on variant
   const getCardSizing = () => {
@@ -63,6 +31,8 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         return 'w-full max-w-sm min-h-[280px]'; // Grid view cards with minimum height
       case 'news':
         return 'w-full h-80'; // News-style horizontal cards with fixed height
+      case 'large':
+        return 'w-full h-72 md:h-80'; // Reduced height for more compact grid layout
       default: // 'feed'
         return 'w-full max-w-2xl mx-auto'; // Two-column feed cards
     }
@@ -77,6 +47,8 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         return 'bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200 border-0 rounded-none';
       case 'news':
         return 'bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl hover:shadow-blue-500/10 dark:hover:shadow-blue-400/20 transition-all duration-500 cursor-pointer group border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:ring-2 hover:ring-blue-100 dark:hover:ring-blue-900/30 overflow-hidden hover:-translate-y-1';
+      case 'large':
+        return 'bg-white dark:bg-gray-800 rounded-2xl shadow-2xl hover:shadow-3xl hover:shadow-blue-500/10 dark:hover:shadow-blue-400/20 transition-all duration-500 cursor-pointer group border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:ring-2 hover:ring-blue-100 dark:hover:ring-blue-900/30 overflow-hidden hover:-translate-y-1';
       default:
         return 'bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-gray-200 dark:border-gray-700';
     }
@@ -164,8 +136,6 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
               {belief.article.excerpt && (
                 <div className="mt-3 pt-3 border-t border-white/20">
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
-                    <span className="text-xs font-medium text-blue-200">News</span>
                   </div>
                   <p className="text-xs text-gray-300 leading-relaxed drop-shadow line-clamp-2">
                     {belief.article.excerpt}
@@ -177,7 +147,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
           
           {/* Content Section - Right 50% */}
           <div className="w-1/2 p-6 flex flex-col">
-            {/* Top: Truth & Relevance Metrics */}
+            {/* Truth & Relevance Metrics with Metadata */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
@@ -193,11 +163,21 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
                   </span>
                 </div>
               </div>
+              <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  <span>{participantCount} participants</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  <span>{timeAgo}h ago</span>
+                </div>
+              </div>
             </div>
             
             {/* Middle: Chart */}
-            <div className="flex-1 mb-4">
-              <div className="h-42 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 flex items-center justify-center">
+            <div className="flex-1 mb-2">
+              <div className="h-56 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 flex items-center justify-center">
                 {feedChart ? (
                   <ChartComponent 
                     charts={[feedChart]} 
@@ -210,21 +190,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
               </div>
             </div>
             
-            {/* Bottom: Metadata Footer */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1">
-                    <Users className="w-3 h-3" />
-                    <span>{participantCount} participants</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>{timeAgo}h ago</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+          
           </div>
         </div>
       </div>
@@ -238,31 +204,31 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         ${getVariantStyles()}
         belief-card cursor-pointer group relative overflow-hidden
         ${variant === 'mobile' ? 'hover:scale-100' : 'hover:scale-[1.02]'}
-        ${variant === 'feed' ? 'p-6' : variant === 'compact' ? 'p-3' : 'p-4'}
+        ${variant === 'feed' ? 'p-6' : variant === 'compact' ? 'p-3' : variant === 'large' ? 'p-4 flex flex-col' : 'p-4'}
       `}
       onClick={handleClick}
     >
       {/* Header Section */}
-      <div className="flex items-start gap-4 mb-4">
+      <div className="flex items-start gap-3 mb-3 flex-shrink-0">
         {/* Image */}
         <div className="flex-shrink-0">
           {belief.article.thumbnail ? (
             <Image 
               src={belief.article.thumbnail}
               alt={belief.heading.title}
-              width={80}
-              height={80}
+              width={variant === 'large' ? 80 : 80}
+              height={variant === 'large' ? 80 : 80}
               className={`object-cover rounded-lg border-2 border-gray-100 dark:border-gray-700 ${
-                variant === 'compact' ? 'w-12 h-12' : 'w-20 h-20'
+                variant === 'compact' ? 'w-12 h-12' : variant === 'large' ? 'w-20 h-20' : 'w-20 h-20'
               }`}
               unoptimized
             />
           ) : (
             <div className={`rounded-lg ${getImageSrc()} flex items-center justify-center ${
-              variant === 'compact' ? 'w-12 h-12' : 'w-20 h-20'
+              variant === 'compact' ? 'w-12 h-12' : variant === 'large' ? 'w-20 h-20' : 'w-20 h-20'
             }`}>
               <span className={`text-white font-bold ${
-                variant === 'compact' ? 'text-lg' : 'text-2xl'
+                variant === 'compact' ? 'text-lg' : variant === 'large' ? 'text-2xl' : 'text-2xl'
               }`}>
                 {belief.category?.charAt(0).toUpperCase() || '?'}
               </span>
@@ -273,13 +239,15 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         {/* Question */}
         <div className="flex-1 min-w-0">
           <h3 className={`
-            font-bold text-gray-900 dark:text-white line-clamp-2
-            ${variant === 'feed' ? 'text-2xl' : variant === 'compact' ? 'text-sm' : 'text-lg'}
+            font-bold text-gray-900 dark:text-white ${variant === 'large' ? 'line-clamp-2' : 'line-clamp-2'}
+            ${variant === 'feed' ? 'text-2xl' : variant === 'compact' ? 'text-sm' : variant === 'large' ? 'text-lg' : 'text-lg'}
           `}>
             {belief.heading.title}
           </h3>
           {belief.heading.subtitle && (
-            <p className="text-gray-600 dark:text-gray-400 text-sm mt-1 line-clamp-1">
+            <p className={`text-gray-600 dark:text-gray-400 mt-1 ${
+              variant === 'large' ? 'text-sm line-clamp-1' : 'text-sm line-clamp-1'
+            }`}>
               {belief.heading.subtitle}
             </p>
           )}
@@ -287,43 +255,43 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
       </div>
       
       {/* Truth & Relevance Scores Section */}
-      <div className={`${variant === 'compact' ? 'mb-2' : 'mb-4'}`}>
-        <div className={`flex items-center ${variant === 'grid' ? 'gap-2 flex-wrap' : 'gap-3'}`}>
+      <div className="mb-3 flex-shrink-0">
+        <div className={`flex items-center flex-wrap ${variant === 'grid' ? 'gap-2' : variant === 'large' ? 'gap-2 md:gap-3' : 'gap-3'}`}>
           <div className="flex items-center gap-1 flex-shrink-0">
             <div className={`font-bold text-green-600 dark:text-green-400 ${
-              variant === 'compact' ? 'text-sm' : 'text-lg'
+              variant === 'compact' ? 'text-sm' : variant === 'large' ? 'text-base md:text-lg' : 'text-lg'
             }`}>
               {belief.objectRankingScores.truth}%
             </div>
-            <div className={`text-gray-600 dark:text-gray-400 ${
-              variant === 'compact' ? 'text-xs' : 'text-xs'
-            }`}>
-              {variant === 'grid' ? 'T' : 'Truth'}
+            <div className="text-gray-600 dark:text-gray-400 text-xs">
+              Truth
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <div className={`font-bold text-blue-600 dark:text-blue-400 ${
-              variant === 'compact' ? 'text-sm' : 'text-lg'
+              variant === 'compact' ? 'text-sm' : variant === 'large' ? 'text-base md:text-lg' : 'text-lg'
             }`}>
               {belief.objectRankingScores.relevance}%
             </div>
-            <div className={`text-gray-600 dark:text-gray-400 ${
-              variant === 'compact' ? 'text-xs' : 'text-xs'
-            }`}>
-              {variant === 'grid' ? 'R' : 'Relevance'}
+            <div className="text-gray-600 dark:text-gray-400 text-xs">
+              Relevance
             </div>
           </div>
+          {/* Show informativeness score for large variant */}
+          {variant === 'large' && (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="font-bold text-purple-600 dark:text-purple-400 text-base md:text-lg">
+                {belief.objectRankingScores.informativeness}%
+              </div>
+              <div className="text-gray-600 dark:text-gray-400 text-xs">
+                Info
+              </div>
+            </div>
+          )}
         </div>
         
-        {/* Confidence Indicator - hide on compact and grid for space */}
-        {variant !== 'compact' && variant !== 'grid' && (
-          <div className="flex items-center gap-1 mt-2">
-            {getConfidenceIndicator()}
-          </div>
-        )}
-        
         {/* Status indicator - only show for resolved/closed beliefs */}
-        {belief.status && variant !== 'compact' && variant !== 'grid' && (
+        {belief.status && variant !== 'compact' && variant !== 'grid' && variant !== 'large' && (
           <div className={`
             px-2 py-1 rounded-full text-xs font-medium mt-2
             ${belief.status === 'resolved'
@@ -336,41 +304,39 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         )}
       </div>
       
-      {/* Mini Chart Preview - only for feed variant */}
+      {/* Enhanced Chart Preview - only for feed variant now */}
       {feedChart && variant === 'feed' && (
         <div className="mb-4 h-32 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
           <ChartComponent 
             charts={[feedChart]} 
-            variant="card" 
+            variant="card"
             showOnlyFeedChart={true} 
           />
         </div>
       )}
       
-      {/* News Context - hide for compact */}
+      {/* Enhanced News Context - removed label and blue dot */}
       {belief.article.excerpt && variant !== 'compact' && (
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">News</span>
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+        <div className={`mb-3 ${variant === 'large' ? 'flex-1 flex flex-col' : ''}`}>
+          <p className={`text-gray-600 dark:text-gray-400 ${
+            variant === 'large' ? 'text-sm line-clamp-3 flex-1' : 'text-sm line-clamp-2'
+          }`}>
             {belief.article.excerpt}
           </p>
         </div>
       )}
       
-      {/* Metadata Footer - hide for compact */}
+      {/* Enhanced Metadata Footer - removed active discussion */}
       {variant !== 'compact' && (
-        <div className={`pt-3 border-t border-gray-100 dark:border-gray-700 ${
-          variant === 'grid' ? 'space-y-2' : 'flex items-center justify-between'
+        <div className={`pt-3 border-t border-gray-100 dark:border-gray-700 flex-shrink-0 ${
+          variant === 'grid' || variant === 'large' ? 'space-y-2' : 'flex items-center justify-between'
         }`}>
-          <div className={`flex items-center text-xs text-gray-500 dark:text-gray-400 ${
-            variant === 'grid' ? 'gap-2' : 'gap-4'
+          <div className={`flex items-center text-gray-500 dark:text-gray-400 ${
+            variant === 'grid' ? 'gap-2 text-xs' : variant === 'large' ? 'gap-3 text-xs' : 'gap-4 text-xs'
           }`}>
             <div className="flex items-center gap-1">
               <Users className="w-3 h-3" />
-              <span>{variant === 'grid' ? participantCount : `${participantCount} participants`}</span>
+              <span>{participantCount} participants</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
@@ -379,8 +345,8 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
           </div>
           
           {belief.category && (
-            <div className={`px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs ${
-              variant === 'grid' ? 'self-start' : ''
+            <div className={`px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full ${
+              variant === 'grid' ? 'self-start text-xs' : variant === 'large' ? 'text-xs' : 'text-xs'
             }`}>
               {belief.category}
             </div>

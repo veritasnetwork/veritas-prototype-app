@@ -5,14 +5,13 @@ import { Belief } from '@/types/belief.types';
 import { HeadingComponent } from './components/HeadingComponent';
 import { ChartComponent } from './components/ChartComponent';
 import { ArticleComponent } from './components/ArticleComponent';
-import { MetadataComponent } from './components/MetadataComponent';
 import { IntelligenceEvolution } from './IntelligenceEvolution';
 import { CommentsSection } from './CommentsSection';
 import { ActionPanel } from './ActionPanel';
 import { RelatedBeliefs } from './RelatedBeliefs';
 import { SkeletonBeliefDetailPage } from './skeleton/SkeletonBeliefDetailPage';
 import { getBeliefById } from '@/lib/data';
-import { ArrowLeft, Share2, Bookmark } from 'lucide-react';
+import { ArrowLeft, Share2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
@@ -47,6 +46,19 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
 
   const handleBackToFeed = () => {
     router.push('/');
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: belief?.heading.title || 'Veritas Intelligence',
+        text: belief?.article.excerpt || belief?.article.content.slice(0, 100) + '...' || 'Check out this intelligence on Veritas',
+        url: window.location.href,
+      });
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      // You could add a toast notification here for user feedback
+    }
   };
 
   if (isLoading) {
@@ -106,11 +118,13 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
             </span>
             
             <div className="flex items-center space-x-3">
-              <button className="p-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 border border-slate-200 dark:border-slate-600">
+              <button 
+                onClick={handleShare}
+                className="p-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 border border-slate-200 dark:border-slate-600"
+                aria-label="Share this belief"
+                title="Share this belief"
+              >
                 <Share2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-              </button>
-              <button className="p-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 border border-slate-200 dark:border-slate-600">
-                <Bookmark className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </button>
             </div>
           </div>
@@ -126,7 +140,10 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
             
             {/* Hero Image Section - News Style */}
             {belief.article?.thumbnail && (
-              <div className="relative w-full h-64 md:h-80 lg:h-96 rounded-2xl overflow-hidden mb-8 shadow-lg">
+              <div 
+                className={`relative w-full h-64 md:h-80 lg:h-96 rounded-2xl overflow-hidden mb-8 shadow-lg cursor-pointer transition-all duration-200 ${editingComponent === 'heading' ? 'ring-2 ring-amber-500' : 'hover:ring-1 hover:ring-amber-400'}`}
+                onClick={() => setEditingComponent('heading')}
+              >
                 <Image 
                   src={belief.article.thumbnail}
                   alt={belief.heading.title}
@@ -134,7 +151,8 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                   className="object-cover"
                   priority
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                <div className="absolute inset-0 bg-slate-900/20" />
                 <div className="absolute bottom-6 left-6 right-6 text-white">
                   <div className="text-xs uppercase tracking-wide font-medium mb-2 text-amber-300">
                     Veritas Intelligence
@@ -168,6 +186,19 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                   />
                 </div>
               )}
+
+              {/* Article Component */}
+              <div 
+                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'article' ? 'ring-2 ring-amber-500' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} rounded-xl p-4`}
+                onClick={() => setEditingComponent('article')}
+              >
+                <ArticleComponent 
+                  article={belief.article} 
+                  variant="detail" 
+                  isEditable={true}
+                  onEdit={() => setEditingComponent('article')}
+                />
+              </div>
               
               {/* Chart Component */}
               <div 
@@ -192,47 +223,10 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                 >
                   Submit Your Understanding
                 </button>
-              </div>
-              
-              {/* Article Component */}
-              <div 
-                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'article' ? 'ring-2 ring-amber-500' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} rounded-xl p-4`}
-                onClick={() => setEditingComponent('article')}
-              >
-                <ArticleComponent 
-                  article={belief.article} 
-                  variant="detail" 
-                  isEditable={true}
-                  onEdit={() => setEditingComponent('article')}
-                />
-              </div>
-              
-              {/* Metadata Component */}
-              <div 
-                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'metadata' ? 'ring-2 ring-amber-500' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} rounded-xl p-4`}
-                onClick={() => setEditingComponent('metadata')}
-              >
-                <MetadataComponent 
-                  belief={belief} 
-                  variant="detail" 
-                  isEditable={true}
-                  onEdit={() => setEditingComponent('metadata')}
-                />
-              </div>
+              </div>           
+
             </div>
 
-            {/* Full Width Sections */}
-            <div className="mt-12 space-y-8">
-              {/* Intelligence Evolution - 3 Line Charts */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-                <IntelligenceEvolution belief={belief} />
-              </div>
-
-              {/* Community Discussion */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-                <CommentsSection belief={belief} />
-              </div>
-            </div>
           </div>
 
           {/* Sidebar - 1 column on desktop */}
@@ -249,6 +243,19 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                 belief={belief} 
                 onBeliefClick={handleBeliefClick}
               />
+            </div>
+          </div>
+
+          {/* Full Width Sections - Span all 4 columns */}
+          <div className="lg:col-span-4 mt-12 space-y-8">
+            {/* Intelligence Evolution - 3 Line Charts */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+              <IntelligenceEvolution belief={belief} />
+            </div>
+
+            {/* Community Discussion */}
+            <div>
+              <CommentsSection belief={belief} />
             </div>
           </div>
         </div>
