@@ -14,7 +14,6 @@
     "article": {
       "content": "Russia has announced it is fast-tracking the mass production of its Oreshnik hypersonic missile complex, signaling a major shift in its strategic posture. The Oreshnik, capable of carrying multiple warheads at Mach 10 speeds, is framed as a direct counter to Western missile defense systems. This comes as global nuclear stockpiles trend upward for the first time in decades, with China and India also expanding their arsenals. Veritas aggregates diverse data sources—from satellite imagery and trade flows to defense budgets and military mobilizations—to reveal an evolving risk landscape far beyond what traditional prediction markets or sentiment trackers can capture.",
       "credibility": "high",
-      "sources": ["Defense Intelligence Agency", "Stockholm International Peace Research Institute", "Jane's Defence Weekly"],
       "headline": "Russia Fast-Tracks Hypersonic Missile Production",
       "excerpt": "Mass production announcement signals major strategic shift in global military posture amid rising nuclear tensions.",
       "thumbnail": "/images/missile-production.webp"
@@ -43,9 +42,6 @@
           "yAxis": { "label": "Readiness Index", "unit": "%", "min": 0, "max": 100 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-15T10:00:00Z",
-          "dataSource": "Defense Intelligence Analysis",
-          "confidence": "high",
           "updateFrequency": "Weekly"
         }
       },
@@ -70,9 +66,6 @@
           "yAxis": { "label": "Production Capacity Index", "unit": "points", "min": 0, "max": 100 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-10T15:30:00Z",
-          "dataSource": "Industrial Intelligence Aggregation",
-          "confidence": "medium",
           "updateFrequency": "Monthly"
         }
       },
@@ -115,9 +108,6 @@
           "yAxis": { "label": "Risk Probability", "unit": "%", "min": 0, "max": 100 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-15T12:00:00Z",
-          "dataSource": "Global Risk Intelligence Network",
-          "confidence": "medium",
           "updateFrequency": "Daily"
         }
       },
@@ -171,9 +161,6 @@
           "yAxis": { "label": "Nuclear Warheads", "unit": "count", "min": 0 }
         },
         "metadata": {
-          "lastUpdated": "2024-06-01T00:00:00Z",
-          "dataSource": "Stockholm International Peace Research Institute",
-          "confidence": "high",
           "updateFrequency": "Annually"
         }
       }
@@ -196,7 +183,6 @@
     "article": {
       "content": "New research indicates that several critical climate tipping points are approaching faster than previously modeled. The West Antarctic Ice Sheet, Amazon rainforest, and Arctic sea ice are showing unprecedented rates of change. Scientists warn that crossing these thresholds could trigger irreversible cascading effects across Earth's climate system. Veritas tracks real-time indicators including ice sheet dynamics, forest cover changes, and ocean temperature anomalies to provide a comprehensive assessment of climate system stability.",
       "credibility": "high",
-      "sources": ["Nature Climate Change", "IPCC Working Group", "NASA Climate Science"],
       "headline": "Climate Tipping Points Accelerating Beyond Models",
       "excerpt": "Critical thresholds in Earth's climate system approaching faster than anticipated, with potential for irreversible changes.",
       "thumbnail": "/images/climate-tipping.jpg"
@@ -225,9 +211,6 @@
           "yAxis": { "label": "Risk Index", "unit": "points", "min": 0, "max": 100 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-15T08:00:00Z",
-          "dataSource": "Climate Tipping Point Observatory",
-          "confidence": "high",
           "updateFrequency": "Monthly"
         }
       },
@@ -252,9 +235,6 @@
           "yAxis": { "label": "Risk Level", "unit": "%", "min": 0, "max": 100 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-10T12:00:00Z",
-          "dataSource": "Global Climate Monitoring Network",
-          "confidence": "high",
           "updateFrequency": "Weekly"
         }
       }
@@ -277,7 +257,6 @@
     "article": {
       "content": "Major powers are converging on frameworks for governing advanced AI compute resources, with the EU's AI Act, US executive orders, and China's AI regulations creating a complex regulatory landscape. The focus on compute governance reflects growing recognition that controlling access to training resources may be more feasible than regulating AI capabilities directly. Veritas tracks regulatory developments, compute allocation patterns, and international coordination efforts to assess the evolving governance landscape.",
       "credibility": "high",
-      "sources": ["AI Governance Institute", "Brookings Institution", "Center for Strategic Studies"],
       "headline": "AI Compute Governance Gains International Momentum",
       "excerpt": "Coordinated efforts emerge to regulate AI development through compute resource controls rather than capability restrictions.",
       "thumbnail": "/images/ai-governance.png"
@@ -306,9 +285,6 @@
           "yAxis": { "label": "Coordination Level", "unit": "%", "min": 0, "max": 100 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-15T16:00:00Z",
-          "dataSource": "AI Policy Tracker",
-          "confidence": "medium",
           "updateFrequency": "Bi-weekly"
         }
       }
@@ -330,7 +306,6 @@
     "article": {
       "content": "Cultivated meat production has achieved cost parity with conventional meat in Singapore and select EU markets, marking a pivotal moment for the industry. Major producers like GOOD Meat and UPSIDE Foods report production costs below $15/kg for chicken, competitive with premium conventional options. Regulatory approvals are accelerating globally, with the US, EU, and Singapore leading adoption. Consumer acceptance surveys show growing willingness to purchase, especially among younger demographics concerned about sustainability and animal welfare.",
       "credibility": "high",
-      "sources": ["Good Food Institute", "McKinsey Food Tech Report", "Nature Food"],
       "headline": "Cultivated Meat Achieves Cost Breakthrough",
       "excerpt": "Lab-grown meat reaches price parity with conventional options in key markets, accelerating mainstream adoption timeline.",
       "thumbnail": "/images/lab-meat.jpg"
@@ -359,9 +334,6 @@
           "yAxis": { "label": "Market Share", "unit": "%", "min": 0, "max": 10 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-14T10:30:00Z",
-          "dataSource": "Alternative Protein Market Research",
-          "confidence": "medium",
           "updateFrequency": "Monthly"
         }
       }
@@ -383,7 +355,6 @@
     "article": {
       "content": "Space debris in Low Earth Orbit has reached a critical density where cascading collisions could trigger Kessler Syndrome, potentially making space inaccessible for decades. The European Space Agency reports over 34,000 tracked objects larger than 10cm, with millions of smaller fragments posing collision risks. Recent satellite constellation deployments by SpaceX, Amazon, and China have accelerated debris accumulation. International efforts for active debris removal are intensifying, but current cleanup rates lag far behind debris generation.",
       "credibility": "high",
-      "sources": ["European Space Agency", "NASA Orbital Debris Office", "Nature Astronomy"],
       "headline": "Space Debris Approaches Cascade Collision Point",
       "excerpt": "Critical density of orbital debris threatens to trigger chain reaction that could render space inaccessible for generations.",
       "thumbnail": "/images/space-debris.jpg"
@@ -412,9 +383,6 @@
           "yAxis": { "label": "Risk Index", "unit": "points", "min": 0, "max": 100 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-13T14:20:00Z",
-          "dataSource": "Space Debris Monitoring Consortium",
-          "confidence": "high",
           "updateFrequency": "Weekly"
         }
       }
@@ -436,7 +404,6 @@
     "article": {
       "content": "Google's latest quantum processor achieved a 100x reduction in error rates through improved quantum error correction, bringing practical quantum computing closer to reality. The breakthrough addresses the primary barrier to scaling quantum systems beyond laboratory demonstrations. IBM, IonQ, and other players report similar advances, suggesting the industry may reach 'quantum advantage' for real-world problems by 2026-2027, years ahead of previous estimates. Financial services and cryptography sectors are preparing for the transition.",
       "credibility": "medium",
-      "sources": ["Nature Quantum Information", "IBM Research", "Quantum Computing Report"],
       "headline": "Quantum Error Correction Leap Shortens Timeline",
       "excerpt": "Major error reduction breakthrough brings practical quantum computing applications within 2-3 years instead of a decade.",
       "thumbnail": "/images/quantum-chip.webp"
@@ -465,9 +432,6 @@
           "yAxis": { "label": "Estimated Year", "unit": "year", "min": 2025, "max": 2035 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-10T11:15:00Z",
-          "dataSource": "Quantum Computing Expert Panel",
-          "confidence": "medium",
           "updateFrequency": "Quarterly"
         }
       }
@@ -489,7 +453,6 @@
     "article": {
       "content": "User migration from X (formerly Twitter) has accelerated following policy changes and content moderation controversies, with alternative platforms seeing unprecedented growth. Bluesky gained 15 million users in Q4 2024, while Mastodon, Threads, and other decentralized platforms capture different user segments. The migration represents the largest social media platform shift since MySpace to Facebook. Advertisers are diversifying spend across platforms, fundamentally reshaping the social media landscape and revenue distribution.",
       "credibility": "high",
-      "sources": ["Pew Research Center", "Social Media Analytics", "Reuters Digital Report"],
       "headline": "Historic Social Media Migration Reshapes Landscape",
       "excerpt": "Mass user exodus from X accelerates growth of alternative platforms, fragmenting social media ecosystem.",
       "thumbnail": "/images/social-migration.jpg"
@@ -517,9 +480,6 @@
           "yAxis": { "label": "Growth Rate", "unit": "% change", "min": -100, "max": 300 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-14T09:00:00Z",
-          "dataSource": "Social Platform Analytics Consortium",
-          "confidence": "high",
           "updateFrequency": "Daily"
         }
       }
@@ -541,7 +501,6 @@
     "article": {
       "content": "Birth rates have plummeted to historic lows across developed and developing nations, with South Korea hitting 0.78 children per woman and even traditionally high-fertility countries like India approaching replacement level. The demographic transition is accelerating globally due to urbanization, education access, economic pressures, and changing lifestyle priorities. Governments are implementing aggressive pro-natalist policies, but early evidence suggests limited effectiveness. The shift threatens pension systems, economic growth models, and social structures worldwide.",
       "credibility": "high",
-      "sources": ["UN Population Division", "World Bank Demographics", "The Lancet Global Health"],
       "headline": "Historic Global Fertility Collapse Reshapes Demographics",
       "excerpt": "Unprecedented decline in birth rates across all continents threatens to fundamentally alter global population dynamics within decades.",
       "thumbnail": "/images/fertility-rates.jpg"
@@ -571,9 +530,6 @@
           "yAxis": { "label": "Births per Woman", "unit": "children", "min": 1.5, "max": 3.0 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-15T12:00:00Z",
-          "dataSource": "UN World Population Prospects",
-          "confidence": "high",
           "updateFrequency": "Annually"
         }
       }
@@ -595,7 +551,6 @@
     "article": {
       "content": "Toyota and QuantumScape have successfully transitioned solid-state battery technology from laboratory to pilot production, achieving energy densities 40% higher than lithium-ion with 10-minute charging capabilities. The breakthrough addresses safety concerns and degradation issues that have plagued the technology for decades. Major automakers are restructuring EV timelines around solid-state availability by 2026-2027. The technology promises to eliminate range anxiety and could accelerate global EV adoption beyond current projections.",
       "credibility": "high",
-      "sources": ["Nature Energy", "Toyota Technical Review", "Battery Industry Research"],
       "headline": "Solid-State Batteries Ready for Commercial Scale",
       "excerpt": "Next-generation battery technology enters mass production, promising to revolutionize electric vehicles with ultra-fast charging and extended range.",
       "thumbnail": "/images/solid-state-battery.jpeg"
@@ -625,9 +580,6 @@
           "yAxis": { "label": "Market Share", "unit": "%", "min": 0, "max": 50 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-15T11:30:00Z",
-          "dataSource": "Advanced Battery Consortium",
-          "confidence": "medium",
           "updateFrequency": "Monthly"
         }
       }
@@ -649,7 +601,6 @@
     "article": {
       "content": "Regulatory agencies worldwide have approved 12 new CRISPR-based therapies in 2024, expanding treatment options for genetic disorders, cancers, and autoimmune diseases. The FDA's streamlined approval pathway for gene editing treatments has accelerated access, while cost reduction initiatives make therapies available beyond rare disease applications. Clinical trials show remarkable success rates for sickle cell disease, beta-thalassemia, and certain cancers. The technology is transitioning from experimental to mainstream medical practice.",
       "credibility": "high",
-      "sources": ["New England Journal of Medicine", "FDA Gene Therapy Office", "Nature Biotechnology"],
       "headline": "CRISPR Therapies Become Mainstream Medical Option",
       "excerpt": "Gene editing treatments gain widespread regulatory approval, transforming treatment options for previously incurable genetic conditions.",
       "thumbnail": "/images/crispr-therapy.jpg"
@@ -679,9 +630,6 @@
           "yAxis": { "label": "Approved Therapies", "unit": "count", "min": 0, "max": 40 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-14T16:45:00Z",
-          "dataSource": "Global Gene Therapy Registry",
-          "confidence": "high",
           "updateFrequency": "Weekly"
         }
       }
@@ -703,7 +651,6 @@
     "article": {
       "content": "Office building values have crashed across major metropolitan areas as remote work becomes permanently embedded in corporate culture. San Francisco, New York, and London report 35-45% value declines, with many buildings sitting empty or converting to residential use. The shift represents the largest commercial real estate correction since the 1990s savings and loan crisis. Cities are scrambling to adjust zoning laws and tax structures as the foundation of urban economics shifts toward residential and mixed-use development.",
       "credibility": "high",
-      "sources": ["Commercial Real Estate Board", "McKinsey Urban Institute", "Wall Street Journal Real Estate"],
       "headline": "Remote Work Triggers Historic Office Real Estate Crash",
       "excerpt": "Permanent shift to remote work devastates commercial property values, forcing fundamental rethinking of urban development.",
       "thumbnail": "/images/empty-offices.jpeg"
@@ -733,9 +680,6 @@
           "yAxis": { "label": "Value Index", "unit": "index", "min": 50, "max": 110 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-15T09:15:00Z",
-          "dataSource": "Metropolitan Real Estate Index",
-          "confidence": "high",
           "updateFrequency": "Monthly"
         }
       }
@@ -757,7 +701,6 @@
     "article": {
       "content": "Over 130 countries are now developing or piloting Central Bank Digital Currencies (CBDCs), with China's digital yuan, the European digital euro pilot, and India's digital rupee leading adoption. Cross-border CBDC transactions have increased 300% in 2024, facilitated by new international protocols. The technology promises to reduce transaction costs, improve financial inclusion, and provide governments with enhanced monetary policy tools. Privacy advocates raise concerns about surveillance capabilities inherent in programmable money systems.",
       "credibility": "high",
-      "sources": ["Bank for International Settlements", "IMF Digital Currency Report", "Federal Reserve Research"],
       "headline": "Digital Currencies Reshape Global Financial System",
       "excerpt": "Government-issued digital currencies achieve critical adoption mass, fundamentally altering how money moves through the global economy.",
       "thumbnail": "/images/digital-currency.jpeg"
@@ -787,9 +730,6 @@
           "yAxis": { "label": "Population Coverage", "unit": "%", "min": 0, "max": 50 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-14T14:00:00Z",
-          "dataSource": "Global CBDC Tracker",
-          "confidence": "medium",
           "updateFrequency": "Monthly"
         }
       }
@@ -811,7 +751,6 @@
     "article": {
       "content": "Ocean acidification is occurring 30% faster than IPCC models predicted, with pH levels dropping to historic lows not seen in 3 million years. Marine ecosystems are showing widespread stress, with coral reef systems, shellfish populations, and plankton communities experiencing unprecedented decline rates. The chemical changes affect the entire marine food web, from microscopic organisms to large fish populations. Coastal economies dependent on fishing and tourism face mounting pressure as ecosystem collapse accelerates.",
       "credibility": "high",
-      "sources": ["Ocean Acidification Research Center", "Nature Marine Science", "NOAA Ocean Chemistry"],
       "headline": "Ocean Chemistry Changes Outpace Climate Predictions",
       "excerpt": "Marine pH levels dropping faster than anticipated, threatening global ocean ecosystems and coastal economies worldwide.",
       "thumbnail": "/images/ocean-acidification.jpg"
@@ -841,9 +780,6 @@
           "yAxis": { "label": "Ocean pH", "unit": "pH units", "min": 7.9, "max": 8.1 }
         },
         "metadata": {
-          "lastUpdated": "2024-12-15T07:30:00Z",
-          "dataSource": "Global Ocean Monitoring Network",
-          "confidence": "high",
           "updateFrequency": "Monthly"
         }
       }

@@ -34,10 +34,10 @@ export const SkeletonBeliefDetailPage: React.FC = () => {
 
       {/* Main Content Grid skeleton */}
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           
           {/* Main Column skeleton */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-3 space-y-8">
             
             {/* Hero Image Skeleton (News Article Style) */}
             <div className="relative w-full h-64 md:h-80 bg-slate-200 dark:bg-slate-800 rounded-2xl overflow-hidden animate-pulse">
@@ -89,88 +89,9 @@ export const SkeletonBeliefDetailPage: React.FC = () => {
                 </div>
               </div>
               
-              {/* Metadata Component Skeleton */}
-              <div className="space-y-4">
-                <div className="h-5 w-24 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="text-center space-y-2">
-                    <div className="h-8 w-16 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
-                    <div className="h-3 w-20 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
-                  </div>
-                  <div className="text-center space-y-2">
-                    <div className="h-8 w-16 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
-                    <div className="h-3 w-20 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
-                  </div>
-                  <div className="text-center space-y-2">
-                    <div className="h-8 w-16 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
-                    <div className="h-3 w-20 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
-                  </div>
-                </div>
-              </div>
+
             </div>
 
-            {/* Full Width Sections */}
-            <div className="mt-12 space-y-8">
-              
-              {/* Intelligence Evolution - 3 Line Charts Skeleton */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 animate-pulse">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-6 h-6 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                    <div className="h-7 w-48 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Truth Chart */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 bg-green-400/30 rounded shimmer" />
-                        <div className="h-5 w-20 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                      </div>
-                      <div className="h-40 w-full bg-slate-100 dark:bg-slate-700 rounded-lg shimmer" />
-                      <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
-                    </div>
-                    {/* Relevance Chart */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 bg-blue-400/30 rounded shimmer" />
-                        <div className="h-5 w-24 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                      </div>
-                      <div className="h-40 w-full bg-slate-100 dark:bg-slate-700 rounded-lg shimmer" />
-                      <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
-                    </div>
-                    {/* Informativeness Chart */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 bg-purple-400/30 rounded shimmer" />
-                        <div className="h-5 w-28 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                      </div>
-                      <div className="h-40 w-full bg-slate-100 dark:bg-slate-700 rounded-lg shimmer" />
-                      <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Community Discussion Skeleton */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 animate-pulse">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-6 h-6 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                    <div className="h-7 w-48 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                  </div>
-                  {[1, 2, 3].map((index) => (
-                    <div key={index} className="flex space-x-4">
-                      <div className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-full shimmer" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                        <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                        <div className="h-4 w-3/4 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Sidebar skeleton */}
@@ -215,6 +136,71 @@ export const SkeletonBeliefDetailPage: React.FC = () => {
               </div>
             </div>
             
+          </div>
+
+          {/* Full Width Sections - Span all 4 columns */}
+          <div className="lg:col-span-4 mt-12 space-y-8">
+            
+            {/* Intelligence Evolution - 3 Line Charts Skeleton */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 animate-pulse">
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-6 h-6 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
+                  <div className="h-7 w-48 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Truth Chart */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-green-400/30 rounded shimmer" />
+                      <div className="h-5 w-20 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
+                    </div>
+                    <div className="h-40 w-full bg-slate-100 dark:bg-slate-700 rounded-lg shimmer" />
+                    <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
+                  </div>
+                  {/* Relevance Chart */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-blue-400/30 rounded shimmer" />
+                      <div className="h-5 w-24 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
+                    </div>
+                    <div className="h-40 w-full bg-slate-100 dark:bg-slate-700 rounded-lg shimmer" />
+                    <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
+                  </div>
+                  {/* Informativeness Chart */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-purple-400/30 rounded shimmer" />
+                      <div className="h-5 w-28 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
+                    </div>
+                    <div className="h-40 w-full bg-slate-100 dark:bg-slate-700 rounded-lg shimmer" />
+                    <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded mx-auto shimmer" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Community Discussion Skeleton */}
+            <div className="animate-pulse">
+              <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl shadow-yellow-500/10">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-6 h-6 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
+                    <div className="h-7 w-48 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
+                  </div>
+                  {[1, 2, 3].map((index) => (
+                    <div key={index} className="flex space-x-4">
+                      <div className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-full shimmer" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
+                        <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded shimmer" />
+                        <div className="h-4 w-3/4 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

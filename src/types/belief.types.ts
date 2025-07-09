@@ -56,7 +56,6 @@ export interface HeadingData {
 
 export interface ArticleData {
   content: string;
-  sources?: string[];
   credibility: 'high' | 'medium' | 'low';
   headline?: string;
   excerpt?: string;
@@ -79,9 +78,6 @@ export interface ChartAxes {
 }
 
 export interface ChartMetadata {
-  lastUpdated: string;
-  dataSource: string;
-  confidence: 'high' | 'medium' | 'low';
   updateFrequency: string;
 }
 

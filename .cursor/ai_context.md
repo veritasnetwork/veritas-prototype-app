@@ -39,7 +39,7 @@ Veritas is a **decentralized information intelligence platform** that aggregates
 ### Data Structure:
 Beliefs are rich information objects containing:
 - **Heading**: Title, subtitle, importance indicators
-- **Article**: Headlines, excerpts, sources, credibility scores
+- **Article**: Headlines, excerpts, credibility scores
 - **Chart**: Data visualizations, trends, metrics
 - **Metadata**: Quality indicators, timestamps, reliability metrics
 
@@ -52,7 +52,7 @@ Beliefs are rich information objects containing:
 - **Implicit interaction**: Click cards to explore, minimal UI chrome
 
 ### What to Emphasize:
-- ✅ **Information quality**: Credibility, sources, reliability
+- ✅ **Information quality**: Credibility, reliability
 - ✅ **Content clarity**: Headlines, data, visual hierarchy
 - ✅ **Understanding aids**: Charts, summaries, context
 - ✅ **Truth indicators**: Consensus quality, information gain
