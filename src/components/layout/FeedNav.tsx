@@ -120,9 +120,6 @@ const FeedNav: React.FC<FeedNavProps> = ({
 
   const navItems = [
     { icon: Home, label: 'Feed', href: '/', id: 'feed' },
-    { icon: Search, label: 'Explore', href: '/explore', id: 'explore' },
-    { icon: Plus, label: 'Submit', href: '/submit', id: 'submit' },
-    { icon: TrendingUp, label: 'Analytics', href: '/analytics', id: 'analytics' },
     { icon: User, label: 'Profile', href: '/profile', id: 'profile' },
   ];
 
@@ -488,7 +485,19 @@ const FeedNav: React.FC<FeedNavProps> = ({
 
       {/* Mobile Top Bar with Login/Signup */}
       {isMobile && (
-        <nav className="md:hidden fixed top-0 left-0 right-0 z-50 pointer-events-none">
+        <nav 
+          className={`md:hidden fixed top-0 left-0 right-0 z-50 pointer-events-none transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            isVisible
+              ? 'translate-y-0'
+              : '-translate-y-full'
+          }`}
+          style={{
+            transformOrigin: 'center top',
+            transform: isVisible 
+              ? 'scale(1) translateY(0)' 
+              : 'scale(0.95) translateY(-100%)'
+          }}
+        >
           <div className="p-4">
             <div
               className={`pointer-events-auto rounded-3xl transition-all duration-500 ${
@@ -576,7 +585,10 @@ const FeedNav: React.FC<FeedNavProps> = ({
                         return (
                           <button
                             key={item.id}
-                            onClick={() => onCategoryChange(item.id)}
+                            onClick={() => {
+                              onCategoryChange(item.id);
+                              setShowMobileFilters(false);
+                            }}
                             className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
                               activeCategory === item.id
                                 ? 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25'
@@ -641,8 +653,20 @@ const FeedNav: React.FC<FeedNavProps> = ({
 
       {/* Clean Mobile Bottom Dock - Navigation Only */}
       {isMobile && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 p-4">
-          <div className="relative max-w-md mx-auto">
+        <div 
+          className={`md:hidden fixed bottom-0 left-0 right-0 z-50 p-4 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            isVisible
+              ? 'translate-y-0'
+              : 'translate-y-full'
+          }`}
+          style={{
+            transformOrigin: 'center bottom',
+            transform: isVisible 
+              ? 'scale(1) translateY(0)' 
+              : 'scale(0.95) translateY(100%)'
+          }}
+        >
+          <div className="relative max-w-xs mx-auto">
             {/* Multi-layer Mobile Glassmorphism */}
             <div className="absolute -inset-2 bg-gradient-to-r from-white/30 via-white/20 to-white/30 dark:from-slate-800/30 dark:via-slate-800/20 dark:to-slate-800/30 rounded-[2rem] blur-2xl pointer-events-none"></div>
             <div className="absolute -inset-1 bg-gradient-to-br from-[#FFB800]/25 via-[#FFB800]/15 to-[#1B365D]/25 dark:from-[#FFB800]/20 dark:via-[#D4A574]/15 dark:to-[#1B365D]/20 rounded-3xl blur-xl pointer-events-none"></div>
