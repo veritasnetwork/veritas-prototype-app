@@ -2,7 +2,7 @@
 
 interface SkeletonBeliefCardProps {
   theme?: 'light' | 'dark';
-  variant?: 'feed' | 'grid' | 'large';
+  variant?: 'feed' | 'grid' | 'large' | 'news';
 }
 
 export const SkeletonBeliefCard: React.FC<SkeletonBeliefCardProps> = ({
@@ -19,10 +19,61 @@ export const SkeletonBeliefCard: React.FC<SkeletonBeliefCardProps> = ({
       return `${baseClasses} w-full max-w-2xl mx-auto p-6`;
     } else if (variant === 'large') {
       return `${baseClasses} w-full h-72 md:h-80 p-4 flex flex-col`; // Consistent height with flexbox
+    } else if (variant === 'news') {
+      return `${baseClasses} w-full h-80`; // News variant with fixed height
     } else {
       return `${baseClasses} w-full max-w-sm min-h-[280px] p-4`;
     }
   };
+
+  // News variant with horizontal layout
+  if (variant === 'news') {
+    return (
+      <div className={getCardClasses()}>
+        <div className="flex h-full">
+          {/* Hero Image Section - Left 50% */}
+          <div className="relative w-1/2 overflow-hidden">
+            <div className="w-full h-full bg-gray-200 dark:bg-gray-700"></div>
+            
+            {/* Category Badge skeleton */}
+            <div className="absolute top-4 left-4 h-6 w-20 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+            
+            {/* Text Overlay skeleton - Bottom */}
+            <div className="absolute bottom-4 left-4 right-4 space-y-2">
+              <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-full"></div>
+              <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-4/5"></div>
+              <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
+              <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-2/3"></div>
+              <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
+            </div>
+          </div>
+          
+          {/* Content Section - Right 50% */}
+          <div className="w-1/2 p-6 flex flex-col">
+            {/* Truth & Relevance Metrics with Metadata */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                <div className="h-8 w-28 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              </div>
+            </div>
+            
+            {/* Chart skeleton */}
+            <div className="flex-1 mb-2">
+              <div className="h-56 bg-gray-100 dark:bg-gray-700/50 rounded-xl"></div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Shimmer effect */}
+        <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent dark:via-gray-400/20 animate-shimmer"></div>
+      </div>
+    );
+  }
 
   return (
     <div className={getCardClasses()}>

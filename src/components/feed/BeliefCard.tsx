@@ -147,7 +147,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
           
           {/* Content Section - Right 50% */}
           <div className="w-1/2 p-6 flex flex-col">
-            {/* Top: Truth & Relevance Metrics */}
+            {/* Truth & Relevance Metrics with Metadata */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
@@ -163,11 +163,21 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
                   </span>
                 </div>
               </div>
+              <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  <span>{participantCount} participants</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  <span>{timeAgo}h ago</span>
+                </div>
+              </div>
             </div>
             
             {/* Middle: Chart */}
-            <div className="flex-1 mb-4">
-              <div className="h-42 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 flex items-center justify-center">
+            <div className="flex-1 mb-2">
+              <div className="h-56 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 flex items-center justify-center">
                 {feedChart ? (
                   <ChartComponent 
                     charts={[feedChart]} 
@@ -180,21 +190,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
               </div>
             </div>
             
-            {/* Bottom: Metadata Footer */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1">
-                    <Users className="w-3 h-3" />
-                    <span>{participantCount} participants</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>{timeAgo}h ago</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+          
           </div>
         </div>
       </div>
