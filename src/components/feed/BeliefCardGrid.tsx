@@ -75,11 +75,13 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
   // Get grid column classes based on columns prop
   const getGridClasses = () => {
     const baseClasses = 'grid gap-4 sm:gap-6';
+    // For columns=3 (our new grid view), enforce exactly 3 columns on desktop
+    if (columns === 3) {
+      return `${baseClasses} grid-cols-1 md:grid-cols-2 lg:grid-cols-3`;
+    }
     switch (columns) {
       case 2:
         return `${baseClasses} grid-cols-1 sm:grid-cols-2`;
-      case 3:
-        return `${baseClasses} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`;
       case 4:
         return `${baseClasses} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`;
       case 5:
@@ -92,7 +94,7 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
   // Loading skeleton
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="w-full py-8">
         <div className={getGridClasses()}>
           {[...Array(12)].map((_, index) => (
             <div 
@@ -100,7 +102,7 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
               className="animate-in fade-in duration-300"
               style={{ animationDelay: `${index * 80}ms` }}
             >
-              <SkeletonBeliefCard variant="grid" />
+              <SkeletonBeliefCard variant="large" />
             </div>
           ))}
         </div>
@@ -111,8 +113,8 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
   // Empty state
   if (!loading && beliefs.length === 0) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-16">
-        <div className="text-center space-y-6">
+      <div className="w-full py-16">
+        <div className="text-center space-y-6 max-w-2xl mx-auto">
           <div className="relative">
             <div className="w-32 h-32 mx-auto bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center">
               <Brain className="w-16 h-16 text-blue-600 dark:text-blue-400" />
@@ -152,14 +154,14 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="w-full py-8">
       {/* Grid Header */}
-      <div className="mb-8">
+      <div className="mb-8 max-w-2xl mx-auto lg:max-w-none">
         <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
           Grid View
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
-          Browse beliefs in a compact grid layout
+          Browse beliefs in a compact grid layout with enhanced details
         </p>
       </div>
 
@@ -173,7 +175,7 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
           >
             <BeliefCard
               belief={belief}
-              variant="grid"
+              variant="large"
               onClick={handleBeliefClick}
             />
           </div>
