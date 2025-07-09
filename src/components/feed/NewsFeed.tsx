@@ -100,7 +100,7 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 pb-16">
+    <div className="max-w-7xl mx-auto px-4 pb-16 py-6">
       {/* Section Header */}
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">

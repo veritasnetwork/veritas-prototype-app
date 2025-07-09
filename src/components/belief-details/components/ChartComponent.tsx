@@ -188,19 +188,6 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {chart.caption}
               </p>
-              {chart.metadata && (
-                <div className="flex items-center gap-4 mt-1 text-xs text-slate-400">
-                  <span>Source: {chart.metadata.dataSource}</span>
-                  <span>Updated: {new Date(chart.metadata.lastUpdated).toLocaleDateString()}</span>
-                  <span className={`px-2 py-1 rounded ${
-                    chart.metadata.confidence === 'high' ? 'bg-green-100 text-green-800' :
-                    chart.metadata.confidence === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {chart.metadata.confidence} confidence
-                  </span>
-                </div>
-              )}
             </div>
           )}
         </div>

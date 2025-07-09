@@ -136,17 +136,11 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
 
       {/* Additional Insights */}
       <div className="mt-6 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 gap-4 text-sm">
           <div className="flex justify-between">
             <span className="text-slate-600 dark:text-slate-400">Average Quality Score:</span>
             <span className="font-semibold text-slate-900 dark:text-slate-100">
               {Math.round((belief.objectRankingScores.truth + belief.objectRankingScores.relevance + belief.objectRankingScores.informativeness) / 3)}%
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-600 dark:text-slate-400">Article Sources:</span>
-            <span className="font-semibold text-slate-900 dark:text-slate-100">
-              {belief.article.sources?.length || 0}
             </span>
           </div>
         </div>

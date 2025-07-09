@@ -32,9 +32,9 @@
   // Rich content components (PRIMARY FOCUS)
   components: {
     heading: { currentVersion: { title, subtitle, importance } };
-    article: { currentVersion: { headline, excerpt, source, credibility } };
+    article: { currentVersion: { headline, excerpt, credibility } };
     chart: { currentVersion: { type, data, timeframe } };
-    metadata: { currentVersion: { quality, reliability, sources } };
+    metadata: { currentVersion: { quality, reliability } };
   };
   
   // Veritas metrics (secondary, often hidden)
@@ -71,7 +71,7 @@
 - **Article Content**: Excerpts, summaries, context
 
 ### Priority 2 (Secondary Information):
-- **Sources**: Credibility indicators
+- **Credibility**: Quality indicators
 - **Quality Metrics**: Information reliability
 - **Categories**: Topic classification
 
@@ -144,7 +144,7 @@
 
 ### Add/Modify:
 - ✅ **Information types**: News, Analysis, Data, Opinion
-- ✅ **Quality filters**: High credibility, Verified sources
+- ✅ **Quality filters**: High credibility, Verified information
 - ✅ **Content types**: Articles, Charts, Summaries
 - ✅ **Time relevance**: Recent, Trending, Historical
 
