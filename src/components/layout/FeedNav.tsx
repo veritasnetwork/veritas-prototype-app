@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { SortOption, ViewMode } from '@/types/belief.types';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
+import { useLoginModal } from '@/hooks/useLoginModal';
+import { LoginPendingModal } from '@/components/common/LoginPendingModal';
 import beliefData from '@/data/beliefs.json';
 
 interface FeedNavProps {
@@ -33,7 +35,6 @@ interface FeedNavProps {
   onSortChange: (sort: SortOption) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
-  onLogin?: () => void;
 }
 
 const FeedNav: React.FC<FeedNavProps> = ({
@@ -45,7 +46,6 @@ const FeedNav: React.FC<FeedNavProps> = ({
   onSortChange,
   viewMode,
   onViewModeChange,
-  onLogin
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -66,6 +66,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
   const router = useRouter();
   const pathname = usePathname();
   const { isVisible } = useScrollDirection();
+  const { isLoginModalOpen, openLoginModal, closeLoginModal } = useLoginModal();
 
   // Handle mobile detection and hydration
   useEffect(() => {
@@ -107,7 +108,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
         setNetworkMetrics({
           totalStake: Math.floor(Math.random() * 100000) + 2000000,
           totalAgents: Math.floor(Math.random() * 200) + 1000,
-          isConnected: false
+          isConnected: true // Keep connected during syncing
         });
       }
     }, 2000);
@@ -164,7 +165,11 @@ const FeedNav: React.FC<FeedNavProps> = ({
   };
 
   const handleLogin = () => {
-    onLogin?.();
+    openLoginModal();
+  };
+
+  const handleProfileClick = () => {
+    openLoginModal();
   };
 
   if (!mounted) return null;
@@ -355,20 +360,20 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     {/* Live Network Status Dashboard */}
                     <div className="flex items-center space-x-4 flex-shrink-0">
                       {/* Connection Pulse Indicator */}
-                      <div className="relative">
-                        <div className={`w-3 h-3 rounded-full transition-all duration-500 ${
-                          isNetworkLoading || !networkMetrics.isConnected 
-                            ? 'bg-red-500 animate-pulse' 
-                            : 'bg-green-400'
-                        }`}>
-                          {!isNetworkLoading && networkMetrics.isConnected && (
-                            <>
-                              <div className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-30"></div>
-                              <div className="absolute inset-0 rounded-full bg-green-400 animate-pulse"></div>
-                            </>
-                          )}
+                                              <div className="relative">
+                          <div className={`w-3 h-3 rounded-full transition-all duration-500 ${
+                            isNetworkLoading 
+                              ? 'bg-amber-500 animate-pulse' 
+                              : 'bg-green-400'
+                          }`}>
+                            {!isNetworkLoading && networkMetrics.isConnected && (
+                              <>
+                                <div className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-30"></div>
+                                <div className="absolute inset-0 rounded-full bg-green-400 animate-pulse"></div>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
                       {/* Network Metrics Cards */}
                       <div className="flex items-center space-x-3">
@@ -442,16 +447,16 @@ const FeedNav: React.FC<FeedNavProps> = ({
                               : 'bg-gradient-to-r from-green-500/20 to-emerald-500/20'
                           }`}></div>
                           <div className={`relative px-2 py-2 backdrop-blur-xl rounded-2xl border transition-all duration-300 ${
-                            isNetworkLoading || !networkMetrics.isConnected 
-                              ? 'bg-gradient-to-r from-red-50/80 to-pink-50/80 dark:from-red-900/20 dark:to-pink-900/20 border-red-200/30 dark:border-red-700/30' 
+                            isNetworkLoading 
+                              ? 'bg-gradient-to-r from-amber-50/80 to-yellow-50/80 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-200/30 dark:border-amber-700/30' 
                               : 'bg-gradient-to-r from-green-50/80 to-emerald-50/80 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200/30 dark:border-green-700/30'
                           }`}>
                             <div className="flex items-center space-x-2">
                               <div className="relative">
                                 <CircleDot 
                                   className={`w-4 h-4 transition-all duration-500 ${
-                                    isNetworkLoading || !networkMetrics.isConnected 
-                                      ? 'text-red-600 dark:text-red-400' 
+                                    isNetworkLoading 
+                                      ? 'text-amber-600 dark:text-amber-400' 
                                       : 'text-green-600 dark:text-green-400'
                                   }`} 
                                 />
@@ -463,11 +468,11 @@ const FeedNav: React.FC<FeedNavProps> = ({
                               </div>
                               <div className="text-xs font-semibold">
                                 <div className={`transition-all duration-300 ${
-                                  isNetworkLoading || !networkMetrics.isConnected 
-                                    ? 'text-red-700 dark:text-red-300' 
+                                  isNetworkLoading 
+                                    ? 'text-amber-700 dark:text-amber-300' 
                                     : 'text-green-700 dark:text-green-300'
                                 }`}>
-                                  {isNetworkLoading ? 'Syncing...' : (networkMetrics.isConnected ? 'Live' : 'Offline')}
+                                  {isNetworkLoading ? 'Syncing...' : 'Live'}
                                 </div>
                               </div>
                             </div>
@@ -688,7 +693,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                   return (
                     <button
                       key={item.id}
-                      onClick={() => handleNavigation(item.href)}
+                      onClick={() => item.id === 'profile' ? handleProfileClick() : handleNavigation(item.href)}
                       className={`relative flex flex-col items-center p-3 rounded-2xl transition-all duration-300 ${
                         isActive 
                           ? 'transform scale-110' 
@@ -738,6 +743,12 @@ const FeedNav: React.FC<FeedNavProps> = ({
           }}
         />
       )}
+
+      {/* Login Pending Modal */}
+      <LoginPendingModal 
+        isOpen={isLoginModalOpen} 
+        onClose={closeLoginModal} 
+      />
     </>
   );
 };
