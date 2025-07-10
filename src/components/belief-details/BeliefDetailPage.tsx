@@ -209,20 +209,6 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                   charts={belief.charts} 
                   variant="detail" 
                 />
-              </div>
-
-              {/* Submit Belief CTA Button */}
-              <div className="flex justify-center my-8">
-                <button 
-                  onClick={() => {
-                    // Trigger ActionPanel submission modal
-                    const actionPanel = document.querySelector('[data-action-panel]') as HTMLElement;
-                    actionPanel?.click();
-                  }}
-                  className="px-8 py-4 bg-gradient-to-r from-amber-500 to-blue-600 dark:from-amber-400 dark:to-blue-500 text-white font-semibold rounded-2xl hover:shadow-lg hover:shadow-amber-500/25 transition-all duration-300 hover:scale-105"
-                >
-                  Submit Your Understanding
-                </button>
               </div>           
 
             </div>
@@ -247,7 +233,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
           </div>
 
           {/* Full Width Sections - Span all 4 columns */}
-          <div className="lg:col-span-4 mt-12 space-y-8">
+          <div className="lg:col-span-4 mt-8 space-y-8">
             {/* Intelligence Evolution - 3 Line Charts */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
               <IntelligenceEvolution belief={belief} />

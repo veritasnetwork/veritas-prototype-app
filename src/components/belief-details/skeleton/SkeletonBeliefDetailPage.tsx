@@ -97,22 +97,14 @@ export const SkeletonBeliefDetailPage: React.FC = () => {
           {/* Sidebar skeleton */}
           <div className="lg:col-span-1 space-y-6">
             
-            {/* Take Action Panel Skeleton - Prominent Position */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 animate-pulse">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-5 h-5 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                  <div className="h-6 w-32 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                </div>
-                <div className="h-12 w-full bg-gradient-to-r from-amber-500/20 to-blue-600/20 rounded-xl shimmer" />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="h-10 w-full bg-slate-200 dark:bg-slate-700 rounded-lg shimmer" />
-                  <div className="h-10 w-full bg-slate-200 dark:bg-slate-700 rounded-lg shimmer" />
-                </div>
-                <div className="space-y-2">
-                  <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                  <div className="h-4 w-3/4 bg-slate-200 dark:bg-slate-700 rounded shimmer" />
-                </div>
+            {/* Simplified Action Panel Skeleton */}
+            <div className="space-y-4 animate-pulse">
+              {/* Share Your Understanding Button Skeleton */}
+              <div className="h-14 w-full bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl shimmer" />
+              
+              {/* Info Notice Skeleton */}
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                <div className="h-3 w-full bg-blue-200 dark:bg-blue-700 rounded shimmer" />
               </div>
             </div>
 
