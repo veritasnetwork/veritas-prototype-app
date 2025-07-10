@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
+import { useLoginModal } from '@/hooks/useLoginModal';
+import { LoginPendingModal } from '@/components/common/LoginPendingModal';
 import { 
   Home, 
   Search, 
@@ -24,6 +26,7 @@ const VeritasNavbar = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { isVisible } = useScrollDirection();
+  const { isLoginModalOpen, openLoginModal, closeLoginModal } = useLoginModal();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -67,6 +70,15 @@ const VeritasNavbar = () => {
   const handleNavigation = (href: string) => {
     router.push(href);
     setIsMobileMenuOpen(false);
+  };
+
+  const handleLogin = () => {
+    openLoginModal();
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleProfileClick = () => {
+    openLoginModal();
   };
 
   // Prevent hydration mismatch
@@ -200,7 +212,7 @@ const VeritasNavbar = () => {
 
               {/* Login Button */}
               <button
-                onClick={() => handleNavigation('/login')}
+                onClick={handleLogin}
                 className="flex items-center space-x-2 px-6 py-3 rounded-2xl bg-[#1B365D] hover:bg-[#2D4A6B] text-white font-semibold shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300"
               >
                 <LogIn className="w-4 h-4" />
@@ -304,7 +316,7 @@ const VeritasNavbar = () => {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => handleNavigation(item.href)}
+                      onClick={() => item.id === 'profile' ? handleProfileClick() : handleNavigation(item.href)}
                       className={`relative flex flex-col items-center p-3 rounded-2xl transition-all duration-300 ${
                         isActive 
                           ? 'transform scale-110' 
@@ -376,7 +388,7 @@ const VeritasNavbar = () => {
               ))}
               
               <button
-                onClick={() => handleNavigation('/login')}
+                onClick={handleLogin}
                 className="w-full flex items-center justify-center space-x-2 p-4 rounded-2xl bg-[#1B365D] hover:bg-[#2D4A6B] text-white font-semibold transition-all duration-300"
               >
                 <LogIn className="w-4 h-4" />
@@ -386,6 +398,12 @@ const VeritasNavbar = () => {
           </div>
         </div>
       )}
+
+      {/* Login Pending Modal */}
+      <LoginPendingModal 
+        isOpen={isLoginModalOpen} 
+        onClose={closeLoginModal} 
+      />
     </>
   );
 };

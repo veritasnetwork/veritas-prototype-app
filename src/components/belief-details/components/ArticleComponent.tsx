@@ -32,13 +32,8 @@ export const ArticleComponent: React.FC<ArticleComponentProps> = ({
           </div>
 
           <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                Verified by Veritas Intelligence
-              </div>
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                Credibility: {article.credibility}%
-              </div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">
+              Verified by Veritas Intelligence
             </div>
           </div>
         </div>
