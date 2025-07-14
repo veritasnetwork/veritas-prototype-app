@@ -207,6 +207,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
               >
                 <ChartComponent 
                   charts={belief.charts} 
+                  beliefId={belief.id}
                   variant="detail" 
                 />
               </div>           

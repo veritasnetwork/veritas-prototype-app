@@ -104,50 +104,62 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
 
       {/* Line Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {metrics.map((metric) => (
-          <div key={metric.key} className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: metric.color }} />
-              <h4 className="font-semibold text-slate-900 dark:text-slate-100">
-                {metric.label}
-              </h4>
+        {metrics.map((metric) => {
+          // Calculate optimal Y-axis domain for each metric
+          const metricData = historicalData.map(d => d[metric.key as keyof typeof d] as number).filter(v => !isNaN(v));
+          const minValue = Math.min(...metricData);
+          const maxValue = Math.max(...metricData);
+          // Ensure values are within reasonable bounds (0-100 for percentage scores)
+          const domainMin = Math.max(0, minValue > 10 ? minValue - 10 : 0);
+          const domainMax = Math.min(100, maxValue);
+          const yDomain = [domainMin, domainMax];
+
+          return (
+            <div key={metric.key} className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: metric.color }} />
+                <h4 className="font-semibold text-slate-900 dark:text-slate-100">
+                  {metric.label}
+                </h4>
+              </div>
+              
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={historicalData} margin={{ top: 10, right: 15, left: 15, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 12 }}
+                      className="text-slate-600 dark:text-slate-400"
+                    />
+                    <YAxis 
+                      domain={yDomain}
+                      tick={{ fontSize: 12 }}
+                      className="text-slate-600 dark:text-slate-400"
+                      tickFormatter={(value) => Math.round(value).toString()}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: 'none',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={metric.key}
+                      stroke={metric.color}
+                      strokeWidth={3}
+                      dot={false}
+                      activeDot={{ r: 6, stroke: metric.color, strokeWidth: 2 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={historicalData}>
-                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fontSize: 12 }}
-                    className="text-slate-600 dark:text-slate-400"
-                  />
-                  <YAxis 
-                    domain={[0, 100]}
-                    tick={{ fontSize: 12 }}
-                    className="text-slate-600 dark:text-slate-400"
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      border: 'none',
-                      borderRadius: '12px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey={metric.key}
-                    stroke={metric.color}
-                    strokeWidth={3}
-                    dot={{ fill: metric.color, strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, stroke: metric.color, strokeWidth: 2 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
