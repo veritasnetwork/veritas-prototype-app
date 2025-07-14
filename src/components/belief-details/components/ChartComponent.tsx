@@ -1,197 +1,182 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { ChartComponentProps } from '@/types/component.types';
-import { ChartData, ContinuousData, ComparativeData, DualProbabilityData, HistoricalLineData } from '@/types/belief.types';
+import { RenderableChart } from '@/types/belief.types';
+import { getChartsForBelief, getFeedChart } from '@/lib/chartData';
 
 export const ChartComponent: React.FC<ChartComponentProps> = ({
   charts,
+  beliefId,
   variant,
-  showOnlyFeedChart = false
+  showOnlyFeedChart = false,
+  isEditable = false,
+  onEdit
 }) => {
-  const chartsToRender = showOnlyFeedChart 
-    ? charts.filter(chart => chart.showInFeed)
-    : charts;
+  const [renderableCharts, setRenderableCharts] = useState<RenderableChart[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const chartHeight = variant === 'card' ? 'h-32' : 'h-64';
+  // Use beliefId prop or extract from legacy charts prop structure  
+  const actualBeliefId = beliefId || (charts && charts.length > 0 ? 
+    (charts[0] as { metadata?: { beliefId?: string }; beliefId?: string })?.metadata?.beliefId || 
+    (charts[0] as { metadata?: { beliefId?: string }; beliefId?: string })?.beliefId : 
+    undefined);
 
-  if (chartsToRender.length === 0) return null;
+  useEffect(() => {
+    async function loadCharts() {
+      if (!actualBeliefId) {
+        setError('No belief ID found');
+        setLoading(false);
+        return;
+      }
 
-  const renderChartByType = (chart: ChartData) => {
-    switch (chart.type) {
-      case 'continuous':
-        const continuousData = chart.data as ContinuousData;
-        return (
-          <div className="flex flex-col justify-center items-center h-full px-4">
-            <div className="text-center mb-4">
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {continuousData.currentValue}
-                {chart.axes.yAxis.unit && (
-                  <span className="text-sm ml-1">{chart.axes.yAxis.unit}</span>
-                )}
-              </div>
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                Current Index
-              </div>
-              <div className={`text-xs font-medium mt-1 ${
-                continuousData.trend === 'up' ? 'text-green-600' : 
-                continuousData.trend === 'down' ? 'text-red-600' : 'text-slate-600'
-              }`}>
-                {continuousData.trend === 'up' ? '↗' : continuousData.trend === 'down' ? '↘' : '→'} {continuousData.trend}
-              </div>
-            </div>
-            <div className="w-full max-w-xs h-4 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all duration-1000"
-                style={{ width: `${continuousData.currentValue}%` }}
-              />
-            </div>
-          </div>
-        );
-
-      case 'comparative':
-        const comparativeData = chart.data as ComparativeData;
-        return (
-          <div className="flex justify-center items-center h-full px-4">
-            <div className="w-full max-w-sm">
-              <div className="space-y-2">
-                {comparativeData.entities.slice(0, variant === 'card' ? 3 : 4).map((entity, index) => (
-                  <div key={index} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-700 dark:text-slate-300 truncate max-w-20">
-                      {entity.name}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full rounded-full transition-all duration-1000"
-                          style={{ 
-                            width: `${entity.value}%`,
-                            backgroundColor: entity.color || '#3B82F6'
-                          }}
-                        />
-                      </div>
-                      <span className="text-slate-600 dark:text-slate-400 w-8 text-right">
-                        {entity.value}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'dual-probability':
-        const dualProbData = chart.data as DualProbabilityData;
-        return (
-          <div className="flex justify-center items-center h-full px-4">
-            <div className="grid grid-cols-2 gap-4 w-full max-w-xs">
-              <div className="text-center">
-                <div className="text-lg font-bold text-red-600 mb-1">
-                  {dualProbData.probabilities.primary.value}%
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  {dualProbData.probabilities.primary.label}
-                </div>
-                <div className={`text-xs mt-1 ${
-                  dualProbData.probabilities.primary.trend === 'up' ? 'text-red-600' : 
-                  dualProbData.probabilities.primary.trend === 'down' ? 'text-green-600' : 'text-slate-600'
-                }`}>
-                  {dualProbData.probabilities.primary.trend === 'up' ? '↗' : 
-                   dualProbData.probabilities.primary.trend === 'down' ? '↘' : '→'}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-orange-600 mb-1">
-                  {dualProbData.probabilities.secondary.value}%
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  {dualProbData.probabilities.secondary.label}
-                </div>
-                <div className={`text-xs mt-1 ${
-                  dualProbData.probabilities.secondary.trend === 'up' ? 'text-orange-600' : 
-                  dualProbData.probabilities.secondary.trend === 'down' ? 'text-green-600' : 'text-slate-600'
-                }`}>
-                  {dualProbData.probabilities.secondary.trend === 'up' ? '↗' : 
-                   dualProbData.probabilities.secondary.trend === 'down' ? '↘' : '→'}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'historical-line':
-        const historicalData = chart.data as HistoricalLineData;
-        return (
-          <div className="flex justify-center items-center h-full px-4">
-            <div className="w-full max-w-sm">
-              <div className="space-y-2">
-                {historicalData.series.slice(0, variant === 'card' ? 3 : 5).map((series, index) => {
-                  const latestValue = series.data[series.data.length - 1]?.value || 0;
-                  const previousValue = series.data[series.data.length - 2]?.value || 0;
-                  const change = latestValue - previousValue;
-                  const trend = change > 0 ? 'up' : change < 0 ? 'down' : 'stable';
-                  
-                  return (
-                    <div key={index} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: series.color }}
-                        />
-                        <span className="text-slate-700 dark:text-slate-300 truncate max-w-20">
-                          {series.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-600 dark:text-slate-400">
-                          {latestValue.toLocaleString()}
-                        </span>
-                        <div className={`text-xs ${
-                          trend === 'up' ? 'text-green-600' : 
-                          trend === 'down' ? 'text-red-600' : 'text-slate-600'
-                        }`}>
-                          {trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        );
-
-      default:
-        return (
-          <div className="flex justify-center items-center h-full">
-            <div className="text-center text-slate-500 dark:text-slate-400">
-              <div className="text-sm font-medium">{chart.title}</div>
-              <div className="text-xs">Chart type: {chart.type}</div>
-            </div>
-          </div>
-        );
+      try {
+        setLoading(true);
+        if (showOnlyFeedChart) {
+          const feedChart = await getFeedChart(actualBeliefId);
+          setRenderableCharts(feedChart ? [feedChart] : []);
+        } else {
+          const allCharts = await getChartsForBelief(actualBeliefId);
+          setRenderableCharts(allCharts);
+        }
+        setError(null);
+      } catch (err) {
+        setError('Failed to load chart data');
+        console.error('Chart loading error:', err);
+      } finally {
+        setLoading(false);
+      }
     }
+
+    loadCharts();
+  }, [actualBeliefId, showOnlyFeedChart]);
+
+  const chartHeight = variant === 'card' ? 'h-full' : 'h-64';
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className={`chart-component my-4 ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded' : ''}`}>
+        <div className={`bg-gray-100 dark:bg-gray-800 rounded-lg ${chartHeight} flex items-center justify-center animate-pulse`}>
+          <div className="text-gray-500 dark:text-gray-400 text-sm">Loading chart...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || renderableCharts.length === 0) {
+    return (
+      <div className={`chart-component my-4 ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded' : ''}`}>
+        <div className={`bg-gray-50 dark:bg-gray-800 rounded-lg ${chartHeight} flex items-center justify-center border border-gray-200 dark:border-gray-700`}>
+          <div className="text-center text-gray-500 dark:text-gray-400">
+            <div className="text-sm font-medium">No chart data available</div>
+            {variant === 'detail' && (
+              <div className="text-xs mt-1">Charts will appear here when data is added</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const renderChart = (chart: RenderableChart, index: number) => {
+    const { config, data } = chart;
+    const color = config.color || '#3b82f6';
+
+    const customTooltip = (props: { active?: boolean; payload?: Array<{ name: string; value: number }>; label?: string | number }) => {
+      const { active, payload, label } = props;
+      if (active && payload && payload.length) {
+        return (
+          <div className="bg-white dark:bg-gray-800 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{`${label}`}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {`${payload[0].name}: ${payload[0].value}`}
+            </p>
+          </div>
+        );
+      }
+      return null;
+    };
+
+    const chartElement = config.type === 'line' ? (
+      <LineChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+        <XAxis 
+          dataKey="x" 
+          axisLine={false}
+          tickLine={false}
+          tick={{ fontSize: 10, fill: 'currentColor' }}
+          className="text-gray-600 dark:text-gray-400"
+        />
+        <YAxis 
+          axisLine={false}
+          tickLine={false}
+          tick={{ fontSize: 10, fill: 'currentColor' }}
+          className="text-gray-600 dark:text-gray-400"
+          width={variant === 'card' ? 25 : 35}
+        />
+        <Tooltip content={customTooltip} />
+        <Line 
+          type="monotone" 
+          dataKey="y" 
+          stroke={color}
+          strokeWidth={2}
+          dot={{ fill: color, strokeWidth: 2, r: 3 }}
+          activeDot={{ r: 4, fill: color }}
+        />
+      </LineChart>
+    ) : (
+      <BarChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+        <XAxis 
+          dataKey="x" 
+          axisLine={false}
+          tickLine={false}
+          tick={{ fontSize: 10, fill: 'currentColor' }}
+          className="text-gray-600 dark:text-gray-400"
+        />
+        <YAxis 
+          axisLine={false}
+          tickLine={false}
+          tick={{ fontSize: 10, fill: 'currentColor' }}
+          className="text-gray-600 dark:text-gray-400"
+          width={variant === 'card' ? 25 : 35}
+        />
+        <Tooltip content={customTooltip} />
+        <Bar dataKey="y" fill={color} radius={[2, 2, 0, 0]} />
+      </BarChart>
+    );
+
+    return (
+      <div key={config.id} className={index > 0 ? 'mt-6' : ''}>
+        {variant === 'detail' && (
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            {config.title}
+          </h4>
+        )}
+        <div className={`bg-white dark:bg-gray-800 rounded-lg ${chartHeight} border border-gray-200 dark:border-gray-700`}>
+          <ResponsiveContainer width="100%" height="100%">
+            {chartElement}
+          </ResponsiveContainer>
+        </div>
+        {variant === 'detail' && (
+          <div className="mt-2">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {config.description}
+            </p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
-    <div className="chart-component my-4">
-      {chartsToRender.map((chart, index) => (
-        <div key={chart.id} className={index > 0 ? 'mt-6' : ''}>
-          {variant === 'detail' && (
-            <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              {chart.title}
-            </h4>
-          )}
-          <div className={`bg-slate-50 dark:bg-slate-800 rounded-lg ${chartHeight} flex items-center justify-center border border-slate-200 dark:border-slate-700`}>
-            {renderChartByType(chart)}
-          </div>
-          {variant === 'detail' && (
-            <div className="mt-2">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {chart.caption}
-              </p>
-            </div>
-          )}
-        </div>
-      ))}
+    <div 
+      className={`chart-component my-4 ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded transition-colors' : ''}`}
+      onClick={isEditable ? onEdit : undefined}
+    >
+      {renderableCharts.map((chart, index) => renderChart(chart, index))}
     </div>
   );
 };

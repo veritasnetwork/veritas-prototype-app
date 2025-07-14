@@ -62,6 +62,33 @@ export interface ArticleData {
   thumbnail?: string;
 }
 
+// NEW: Chart data types for new chart system
+export interface BeliefChartData {
+  [axisName: string]: (string | number)[];
+}
+
+export interface ChartConfig {
+  id: string;
+  beliefId: string;
+  type: 'line' | 'bar';
+  xAxis: string;
+  yAxis: string;
+  title: string;
+  description: string;
+  showInFeed: boolean;
+  color?: string;
+  order?: number;
+}
+
+export interface RenderableChart {
+  config: ChartConfig;
+  data: Array<{
+    x: string | number;
+    y: number;
+    label?: string;
+  }>;
+}
+
 // Chart data structures for different types
 export interface ChartAxes {
   xAxis: {

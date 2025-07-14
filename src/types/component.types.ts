@@ -1,4 +1,4 @@
-import { HeadingData, ArticleData, ChartData } from './belief.types';
+import { HeadingData, ArticleData } from './belief.types';
 
 export type ComponentType = 'heading' | 'chart' | 'article' | 'metadata';
 export type ComponentVariant = 'card' | 'detail';
@@ -19,7 +19,8 @@ export interface ArticleComponentProps {
 }
 
 export interface ChartComponentProps {
-  charts: ChartData[];
+  charts: unknown[]; // Keep for backward compatibility
+  beliefId?: string; // New prop for identifying the belief
   variant: ComponentVariant;
   showOnlyFeedChart?: boolean;
   isEditable?: boolean;
