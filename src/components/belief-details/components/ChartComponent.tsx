@@ -87,6 +87,24 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
     const { config, data } = chart;
     const color = config.color || '#3b82f6';
 
+    // Calculate optimal Y-axis domain for line charts
+    const calculateYDomain = (data: Array<{x: string | number; y: number}>, chartType: string) => {
+      if (chartType !== 'line' || data.length === 0) {
+        return undefined; // Let Recharts auto-calculate for bar charts and empty data
+      }
+      
+      const yValues = data.map(point => point.y);
+      const minValue = Math.min(...yValues);
+      const maxValue = Math.max(...yValues);
+      
+      // Start from minValue - 10, but don't go below 0 if all values are positive
+      const domainMin = minValue > 10 ? minValue - 10 : 0;
+      
+      return [domainMin, maxValue];
+    };
+
+    const yDomain = calculateYDomain(data, config.type);
+
     const customTooltip = (props: { active?: boolean; payload?: Array<{ name: string; value: number }>; label?: string | number }) => {
       const { active, payload, label } = props;
       if (active && payload && payload.length) {
@@ -103,7 +121,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
     };
 
     const chartElement = config.type === 'line' ? (
-      <LineChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+      <LineChart data={data} margin={{ top: 10, right: 15, left: 15, bottom: 10 }}>
         <XAxis 
           dataKey="x" 
           axisLine={false}
@@ -117,6 +135,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
           tick={{ fontSize: 10, fill: 'currentColor' }}
           className="text-gray-600 dark:text-gray-400"
           width={variant === 'card' ? 25 : 35}
+          domain={yDomain}
         />
         <Tooltip content={customTooltip} />
         <Line 
@@ -124,12 +143,12 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
           dataKey="y" 
           stroke={color}
           strokeWidth={2}
-          dot={{ fill: color, strokeWidth: 2, r: 3 }}
+          dot={false}
           activeDot={{ r: 4, fill: color }}
         />
       </LineChart>
     ) : (
-      <BarChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+      <BarChart data={data} margin={{ top: 10, right: 15, left: 15, bottom: 10 }}>
         <XAxis 
           dataKey="x" 
           axisLine={false}
