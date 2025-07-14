@@ -2,7 +2,6 @@ import React from 'react';
 import Image from 'next/image';
 import { Belief } from '@/types/belief.types';
 import { ChartComponent } from '@/components/belief-details/components/ChartComponent';
-import { getFeedChart } from '@/lib/data';
 import { Clock, Users } from 'lucide-react';
 
 interface BeliefCardProps {
@@ -16,7 +15,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
   variant = 'feed',
   onClick
 }) => {
-  const feedChart = getFeedChart(belief);
+  // Charts will be loaded directly by ChartComponent
   
 
   
@@ -177,17 +176,14 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
             
             {/* Middle: Chart */}
             <div className="flex-1 mb-2">
-              <div className="h-56 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 flex items-center justify-center">
-                {feedChart ? (
+                              <div className="h-56 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <ChartComponent 
-                    charts={[feedChart]} 
+                    charts={[]} 
+                    beliefId={belief.id}
                     variant="card" 
                     showOnlyFeedChart={true} 
                   />
-                ) : (
-                  <div className="text-gray-400 dark:text-gray-500 text-sm">No chart data available</div>
-                )}
-              </div>
+                </div>
             </div>
             
           
@@ -305,13 +301,14 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
       </div>
       
       {/* Enhanced Chart Preview - only for feed variant now */}
-      {feedChart && variant === 'feed' && (
+      {variant === 'feed' && (
         <div className="mb-4 h-32 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-          <ChartComponent 
-            charts={[feedChart]} 
-            variant="card"
-            showOnlyFeedChart={true} 
-          />
+                            <ChartComponent 
+                    charts={[]} 
+                    beliefId={belief.id}
+                    variant="card" 
+                    showOnlyFeedChart={true} 
+                  />
         </div>
       )}
       
