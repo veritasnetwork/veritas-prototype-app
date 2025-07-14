@@ -54,11 +54,12 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
   }, [actualBeliefId, showOnlyFeedChart]);
 
   const chartHeight = variant === 'card' ? 'h-full' : 'h-64';
+  const wrapperMargin = variant === 'card' ? '' : 'my-4';
 
   // Loading state
   if (loading) {
     return (
-      <div className={`chart-component my-4 ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded' : ''}`}>
+      <div className={`chart-component ${wrapperMargin} ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded' : ''}`}>
         <div className={`bg-gray-100 dark:bg-gray-800 rounded-lg ${chartHeight} flex items-center justify-center animate-pulse`}>
           <div className="text-gray-500 dark:text-gray-400 text-sm">Loading chart...</div>
         </div>
@@ -69,7 +70,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
   // Error state
   if (error || renderableCharts.length === 0) {
     return (
-      <div className={`chart-component my-4 ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded' : ''}`}>
+      <div className={`chart-component ${wrapperMargin} ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded' : ''}`}>
         <div className={`bg-gray-50 dark:bg-gray-800 rounded-lg ${chartHeight} flex items-center justify-center border border-gray-200 dark:border-gray-700`}>
           <div className="text-center text-gray-500 dark:text-gray-400">
             <div className="text-sm font-medium">No chart data available</div>
@@ -149,7 +150,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
     );
 
     return (
-      <div key={config.id} className={index > 0 ? 'mt-6' : ''}>
+      <div key={config.id} className={`${index > 0 && variant !== 'card' ? 'mt-6' : ''} ${variant === 'card' ? 'h-full' : ''}`}>
         {variant === 'detail' && (
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             {config.title}
@@ -173,7 +174,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
 
   return (
     <div 
-      className={`chart-component my-4 ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded transition-colors' : ''}`}
+      className={`chart-component ${wrapperMargin} ${variant === 'card' ? 'h-full' : ''} ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded transition-colors' : ''}`}
       onClick={isEditable ? onEdit : undefined}
     >
       {renderableCharts.map((chart, index) => renderChart(chart, index))}
