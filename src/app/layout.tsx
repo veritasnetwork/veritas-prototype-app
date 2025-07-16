@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { Analytics } from '@vercel/analytics/next';
 
 import VeritasFooter from '@/components/layout/Footer';
 import ConditionalNavbar from '@/components/layout/ConditionalNavbar';
@@ -109,6 +110,9 @@ export default function RootLayout({
           
           {/* Footer (desktop only) */}
           <VeritasFooter />
+          
+          {/* Vercel Analytics */}
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
