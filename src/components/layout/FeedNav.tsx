@@ -224,7 +224,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                       <div className="w-full h-full bg-[#1B365D] rounded-2xl flex items-center justify-center p-2 group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-[#1B365D]/25">
                         <div className="w-full h-full rounded-full bg-white/20 flex items-center justify-center">
                           <Image
-                            src="/icons/veritas-logo.png"
+                            src="/icons/logo.png"
                             alt="Veritas"
                             width={20}
                             height={20}
@@ -522,7 +522,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     <div className="w-full h-full bg-[#1B365D] rounded-xl flex items-center justify-center p-1.5 group-hover:scale-110 transition-transform duration-300">
                       <div className="w-full h-full rounded-full bg-white/20 flex items-center justify-center">
                         <Image
-                          src="/icons/veritas-logo.png"
+                          src="/icons/logo.png"
                           alt="Veritas"
                           width={16}
                           height={16}
