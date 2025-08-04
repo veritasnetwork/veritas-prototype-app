@@ -34,7 +34,7 @@ const VeritasFooter = () => {
                 <div className="w-full h-full bg-[#1B365D] rounded-xl flex items-center justify-center p-1.5">
                   <div className="w-full h-full rounded-full bg-white/20 flex items-center justify-center">
                     <Image
-                      src="/icons/veritas-logo.png"
+                      src="/icons/logo.png"
                       alt="Veritas"
                       width={16}
                       height={16}
