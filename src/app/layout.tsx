@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Analytics } from '@vercel/analytics/next';
@@ -8,19 +7,13 @@ import VeritasFooter from '@/components/layout/Footer';
 import ConditionalNavbar from '@/components/layout/ConditionalNavbar';
 import ConditionalWrapper from '@/components/layout/ConditionalWrapper';
 
-const inter = Inter({ 
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-inter'
-});
-
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#FFB800' },
-    { media: '(prefers-color-scheme: dark)', color: '#1B365D' }
+    { media: '(prefers-color-scheme: light)', color: '#EA900E' },
+    { media: '(prefers-color-scheme: dark)', color: '#0C1D51' }
   ],
 };
 
@@ -95,8 +88,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body className="min-h-screen bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-background text-foreground transition-colors duration-300">
         <ThemeProvider>
           {/* Conditional Navigation - Only show VeritasNavbar on non-feed routes */}
           <ConditionalNavbar />
