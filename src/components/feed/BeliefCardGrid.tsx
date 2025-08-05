@@ -125,10 +125,10 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
           </div>
           
           <div className="space-y-2">
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-veritas-eggshell">
               No beliefs found
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+            <p className="text-gray-600 dark:text-veritas-eggshell/70 max-w-md mx-auto">
               Be the first to share your insights! Create a belief to start engaging with the community.
             </p>
           </div>
@@ -157,10 +157,10 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
     <div className="w-full py-8">
       {/* Grid Header */}
       <div className="mb-8 max-w-2xl mx-auto lg:max-w-none">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+        <h2 className="text-3xl font-bold text-gray-900 dark:text-veritas-eggshell mb-2">
           Grid View
         </h2>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-gray-600 dark:text-veritas-eggshell/70">
           Browse beliefs in a compact grid layout with enhanced details
         </p>
       </div>
