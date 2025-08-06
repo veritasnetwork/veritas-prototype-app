@@ -8,12 +8,12 @@ export const HeadingComponent: React.FC<HeadingComponentProps> = ({
   onEdit
 }) => {
   const headingClass = variant === 'card' 
-    ? `text-base font-semibold leading-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900 dark:text-white'}` 
-    : 'text-3xl font-bold mb-4 text-slate-900 dark:text-slate-100';
+    ? `text-base font-semibold leading-tight ${theme === 'dark' ? 'text-veritas-eggshell' : 'text-veritas-primary dark:text-veritas-eggshell'}` 
+    : 'text-3xl font-bold mb-4 text-veritas-primary dark:text-veritas-eggshell';
 
   return (
     <div 
-      className={`heading-component ${isEditable ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-xl transition-colors duration-200' : ''}`}
+      className={`heading-component ${isEditable ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-veritas-eggshell/5 p-2 rounded-xl transition-colors duration-200' : ''}`}
       onClick={isEditable ? onEdit : undefined}
     >
       <h2 className={headingClass}>
@@ -23,12 +23,12 @@ export const HeadingComponent: React.FC<HeadingComponentProps> = ({
       {variant === 'detail' && (
         <div>
           {heading.context && (
-            <p className="text-slate-600 dark:text-slate-400 mt-2 text-lg leading-relaxed">
+            <p className="text-veritas-primary/70 dark:text-veritas-eggshell/70 mt-2 text-lg leading-relaxed">
               {heading.context}
             </p>
           )}
           {heading.subtitle && (
-            <p className="text-slate-600 dark:text-slate-300 mt-2">{heading.subtitle}</p>
+            <p className="text-veritas-primary/70 dark:text-veritas-eggshell/80 mt-2">{heading.subtitle}</p>
           )}
         </div>
       )}

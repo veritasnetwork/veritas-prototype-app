@@ -50,12 +50,12 @@ const ComponentUnderstandingModal: React.FC<{
         }
       }}
     >
-      <div className="bg-white dark:bg-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+      <div className="bg-white dark:bg-veritas-darker-blue rounded-2xl sm:rounded-3xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="relative px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-gradient-to-br from-slate-50 to-white dark:from-slate-700 dark:to-slate-800 border-b border-slate-200 dark:border-slate-600 flex-shrink-0">
+        <div className="relative px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-gradient-to-br from-slate-50 to-white dark:from-slate-700 dark:to-slate-800 border-b border-slate-200 dark:border-veritas-eggshell/10 flex-shrink-0">
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10"
           >
             <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
@@ -65,17 +65,17 @@ const ComponentUnderstandingModal: React.FC<{
               <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
+              <h2 className="text-lg sm:text-2xl font-bold text-veritas-primary dark:text-veritas-eggshell leading-tight">
                 Contribute Your Understanding
               </h2>
-              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-tight">
+              <p className="text-sm sm:text-base text-veritas-primary/70 dark:text-veritas-eggshell/70 leading-tight">
                 How Veritas works
               </p>
             </div>
           </div>
 
           {/* Belief Topic Display */}
-          <div className="bg-slate-100 dark:bg-slate-700 rounded-xl sm:rounded-2xl p-3 sm:p-4">
+          <div className="bg-slate-100 dark:bg-veritas-darker-blue/80 rounded-xl sm:rounded-2xl p-3 sm:p-4">
             <div className="flex items-start space-x-3">
               {belief.article?.thumbnail && (
                 <Image 
@@ -87,11 +87,11 @@ const ComponentUnderstandingModal: React.FC<{
                 />
               )}
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-slate-900 dark:text-slate-100 line-clamp-2 mb-1 text-sm sm:text-base">
+                <h3 className="font-semibold text-veritas-primary dark:text-veritas-eggshell line-clamp-2 mb-1 text-sm sm:text-base">
                   {belief.heading.title}
                 </h3>
                 {belief.heading.context && (
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 line-clamp-1">
+                  <p className="text-xs sm:text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70 line-clamp-1">
                     {belief.heading.context}
                   </p>
                 )}
@@ -146,11 +146,11 @@ const ComponentUnderstandingModal: React.FC<{
           </div>
 
           {/* Current Support */}
-          <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-600">
-            <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-2 sm:mb-3 text-base sm:text-lg">
+          <div className="bg-slate-50 dark:bg-veritas-darker-blue/80/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-veritas-eggshell/10">
+            <h4 className="font-bold text-veritas-primary dark:text-veritas-eggshell mb-2 sm:mb-3 text-base sm:text-lg">
               Currently Supported
             </h4>
-            <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm sm:text-base">
+            <p className="text-veritas-primary/70 dark:text-veritas-eggshell/70 leading-relaxed text-sm sm:text-base">
               For now, we support contribution to the truth belief through our Bayesian Truth Serum methodology. 
               This allows you to share your understanding of the topic&apos;s accuracy and relevance.
             </p>
@@ -158,7 +158,7 @@ const ComponentUnderstandingModal: React.FC<{
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-slate-50 dark:bg-slate-700/50 border-t border-slate-200 dark:border-slate-600">
+        <div className="flex-shrink-0 px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-slate-50 dark:bg-veritas-darker-blue/80/50 border-t border-slate-200 dark:border-veritas-eggshell/10">
           <button
             onClick={onContributeToTruth}
             className="w-full py-3 sm:py-4 px-4 sm:px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl sm:rounded-2xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 hover:scale-[1.02] active:scale-95 text-sm sm:text-base"
@@ -169,7 +169,7 @@ const ComponentUnderstandingModal: React.FC<{
             </div>
           </button>
 
-          <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-2 sm:mt-3">
+          <p className="text-xs text-center text-veritas-primary/60 dark:text-veritas-eggshell/60 mt-2 sm:mt-3">
             Your contribution helps improve collective intelligence
           </p>
         </div>
@@ -283,28 +283,28 @@ const BeliefSubmissionModal: React.FC<{
           }
         }}
       >
-        <div className="bg-white dark:bg-slate-800 rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] sm:max-h-[80vh] overflow-y-auto p-6 sm:p-8 text-center shadow-2xl">
+        <div className="bg-white dark:bg-veritas-darker-blue rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] sm:max-h-[80vh] overflow-y-auto p-6 sm:p-8 text-center shadow-2xl">
           <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
             <Check className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
           </div>
-          <h3 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3 sm:mb-4">
+          <h3 className="text-lg sm:text-2xl font-bold text-veritas-primary dark:text-veritas-eggshell mb-3 sm:mb-4">
             Belief Submitted Successfully!
           </h3>
           <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
-            <div className="flex justify-between items-center p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-700 rounded-lg sm:rounded-xl">
-              <span className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Certainty Level:</span>
-              <span className="text-sm sm:text-lg font-bold text-slate-900 dark:text-slate-100">{certainty}%</span>
+            <div className="flex justify-between items-center p-2.5 sm:p-3 bg-slate-50 dark:bg-veritas-darker-blue/80 rounded-lg sm:rounded-xl">
+              <span className="text-xs sm:text-sm font-medium text-veritas-primary/70 dark:text-veritas-eggshell/70">Certainty Level:</span>
+              <span className="text-sm sm:text-lg font-bold text-veritas-primary dark:text-veritas-eggshell">{certainty}%</span>
             </div>
-            <div className="flex justify-between items-center p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-700 rounded-lg sm:rounded-xl">
-              <span className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Your Belief:</span>
-              <span className="text-sm sm:text-lg font-bold text-slate-900 dark:text-slate-100">{truthValue}%</span>
+            <div className="flex justify-between items-center p-2.5 sm:p-3 bg-slate-50 dark:bg-veritas-darker-blue/80 rounded-lg sm:rounded-xl">
+              <span className="text-xs sm:text-sm font-medium text-veritas-primary/70 dark:text-veritas-eggshell/70">Your Belief:</span>
+              <span className="text-sm sm:text-lg font-bold text-veritas-primary dark:text-veritas-eggshell">{truthValue}%</span>
             </div>
-            <div className="flex justify-between items-center p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-700 rounded-lg sm:rounded-xl">
-              <span className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Others&apos; Belief:</span>
-              <span className="text-sm sm:text-lg font-bold text-slate-900 dark:text-slate-100">{othersWillSay}%</span>
+            <div className="flex justify-between items-center p-2.5 sm:p-3 bg-slate-50 dark:bg-veritas-darker-blue/80 rounded-lg sm:rounded-xl">
+              <span className="text-xs sm:text-sm font-medium text-veritas-primary/70 dark:text-veritas-eggshell/70">Others&apos; Belief:</span>
+              <span className="text-sm sm:text-lg font-bold text-veritas-primary dark:text-veritas-eggshell">{othersWillSay}%</span>
             </div>
           </div>
-          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+          <div className="text-xs sm:text-sm text-veritas-primary/60 dark:text-veritas-eggshell/60">
             Thank you for contributing to collective intelligence
           </div>
         </div>
@@ -323,12 +323,12 @@ const BeliefSubmissionModal: React.FC<{
         }
       }}
     >
-      <div className="bg-white dark:bg-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+      <div className="bg-white dark:bg-veritas-darker-blue rounded-2xl sm:rounded-3xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="relative px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-gradient-to-br from-slate-50 to-white dark:from-slate-700 dark:to-slate-800 border-b border-slate-200 dark:border-slate-600 flex-shrink-0">
+        <div className="relative px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-gradient-to-br from-slate-50 to-white dark:from-slate-700 dark:to-slate-800 border-b border-slate-200 dark:border-veritas-eggshell/10 flex-shrink-0">
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10"
           >
             <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
@@ -338,17 +338,17 @@ const BeliefSubmissionModal: React.FC<{
               <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
+              <h2 className="text-lg sm:text-2xl font-bold text-veritas-primary dark:text-veritas-eggshell leading-tight">
                 Submit Your Understanding
               </h2>
-              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-tight">
+              <p className="text-sm sm:text-base text-veritas-primary/70 dark:text-veritas-eggshell/70 leading-tight">
                 How certain are you about this topic?
               </p>
             </div>
           </div>
 
           {/* Belief Topic Display */}
-          <div className="bg-slate-100 dark:bg-slate-700 rounded-2xl p-4">
+          <div className="bg-slate-100 dark:bg-veritas-darker-blue/80 rounded-2xl p-4">
             <div className="flex items-start space-x-3">
               {belief.article?.thumbnail && (
                 <Image 
@@ -360,11 +360,11 @@ const BeliefSubmissionModal: React.FC<{
                 />
               )}
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-slate-900 dark:text-slate-100 line-clamp-2 mb-1">
+                <h3 className="font-semibold text-veritas-primary dark:text-veritas-eggshell line-clamp-2 mb-1">
                   {belief.heading.title}
                 </h3>
                 {belief.heading.context && (
-                  <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-1">
+                  <p className="text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70 line-clamp-1">
                     {belief.heading.context}
                   </p>
                 )}
@@ -381,10 +381,10 @@ const BeliefSubmissionModal: React.FC<{
             <div className="space-y-3 sm:space-y-4">
               <div className="flex items-start sm:items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h4 className="font-semibold text-slate-900 dark:text-slate-100 text-sm sm:text-base">
+                  <h4 className="font-semibold text-veritas-primary dark:text-veritas-eggshell text-sm sm:text-base">
                     Certainty Level
                   </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
+                  <p className="text-xs text-veritas-primary/60 dark:text-veritas-eggshell/60 leading-tight">
                     How confident you are in your assessment
                   </p>
                 </div>
@@ -392,7 +392,7 @@ const BeliefSubmissionModal: React.FC<{
                   {certainty}%
                 </div>
               </div>
-              <div className="flex justify-between text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
+              <div className="flex justify-between text-xs sm:text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70 font-medium">
                 <span>Unsure</span>
                 <span>Very Certain</span>
               </div>
@@ -403,7 +403,7 @@ const BeliefSubmissionModal: React.FC<{
                   max="100"
                   value={certainty}
                   onChange={handleCertaintyChange}
-                  className="w-full h-2.5 sm:h-3 bg-slate-200 dark:bg-slate-700 rounded-full appearance-none cursor-pointer slider"
+                  className="w-full h-2.5 sm:h-3 bg-slate-200 dark:bg-veritas-darker-blue/80 rounded-full appearance-none cursor-pointer slider"
                 />
               </div>
             </div>
@@ -412,10 +412,10 @@ const BeliefSubmissionModal: React.FC<{
             <div className="space-y-3 sm:space-y-4">
               <div className="flex items-start sm:items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h4 className="font-semibold text-slate-900 dark:text-slate-100 text-sm sm:text-base">
+                  <h4 className="font-semibold text-veritas-primary dark:text-veritas-eggshell text-sm sm:text-base">
                     Your Belief
                   </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
+                  <p className="text-xs text-veritas-primary/60 dark:text-veritas-eggshell/60 leading-tight">
                     What you personally think is true
                   </p>
                 </div>
@@ -423,7 +423,7 @@ const BeliefSubmissionModal: React.FC<{
                   {truthValue}%
                 </div>
               </div>
-              <div className="flex justify-between text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
+              <div className="flex justify-between text-xs sm:text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70 font-medium">
                 <span>False</span>
                 <span>True</span>
               </div>
@@ -434,7 +434,7 @@ const BeliefSubmissionModal: React.FC<{
                   max="100"
                   value={truthValue}
                   onChange={handleTruthValueChange}
-                  className="w-full h-2.5 sm:h-3 bg-slate-200 dark:bg-slate-700 rounded-full appearance-none cursor-pointer slider"
+                  className="w-full h-2.5 sm:h-3 bg-slate-200 dark:bg-veritas-darker-blue/80 rounded-full appearance-none cursor-pointer slider"
                 />
               </div>
             </div>
@@ -443,10 +443,10 @@ const BeliefSubmissionModal: React.FC<{
             <div className="space-y-3 sm:space-y-4">
               <div className="flex items-start sm:items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h4 className="font-semibold text-slate-900 dark:text-slate-100 text-sm sm:text-base">
+                  <h4 className="font-semibold text-veritas-primary dark:text-veritas-eggshell text-sm sm:text-base">
                     Others&apos; Belief
                   </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
+                  <p className="text-xs text-veritas-primary/60 dark:text-veritas-eggshell/60 leading-tight">
                     What you think others will say
                   </p>
                 </div>
@@ -454,7 +454,7 @@ const BeliefSubmissionModal: React.FC<{
                   {othersWillSay}%
                 </div>
               </div>
-              <div className="flex justify-between text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
+              <div className="flex justify-between text-xs sm:text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70 font-medium">
                 <span>Others Say False</span>
                 <span>Others Say True</span>
               </div>
@@ -465,7 +465,7 @@ const BeliefSubmissionModal: React.FC<{
                   max="100"
                   value={othersWillSay}
                   onChange={handleOthersWillSayChange}
-                  className="w-full h-2.5 sm:h-3 bg-slate-200 dark:bg-slate-700 rounded-full appearance-none cursor-pointer slider"
+                  className="w-full h-2.5 sm:h-3 bg-slate-200 dark:bg-veritas-darker-blue/80 rounded-full appearance-none cursor-pointer slider"
                 />
               </div>
             </div>
@@ -535,7 +535,7 @@ const BeliefSubmissionModal: React.FC<{
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-slate-50 dark:bg-slate-700/50 border-t border-slate-200 dark:border-slate-600">
+        <div className="flex-shrink-0 px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-slate-50 dark:bg-veritas-darker-blue/80/50 border-t border-slate-200 dark:border-veritas-eggshell/10">
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
@@ -560,7 +560,7 @@ const BeliefSubmissionModal: React.FC<{
             )}
           </button>
 
-          <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-2 sm:mt-3">
+          <p className="text-xs text-center text-veritas-primary/60 dark:text-veritas-eggshell/60 mt-2 sm:mt-3">
             Your submission will contribute to the collective understanding of this topic
           </p>
         </div>

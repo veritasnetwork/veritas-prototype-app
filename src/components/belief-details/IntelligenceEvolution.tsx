@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Belief } from '@/types/belief.types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Brain, Target } from 'lucide-react';
@@ -9,6 +10,25 @@ interface IntelligenceEvolutionProps {
 }
 
 export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ belief }) => {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // Detect dark mode
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+    
+    checkDarkMode();
+    
+    // Set up observer for class changes
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
   
   // Generate mock historical data for the 3 scores
   const generateHistoricalData = () => {
@@ -38,26 +58,30 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
 
   const historicalData = generateHistoricalData();
 
+  // Use different Veritas colors for each metric
   const metrics = [
     {
       key: 'truth',
       label: 'Truth Score',
       icon: Target,
-      color: '#10B981',
+      color: isDarkMode ? '#B9D9EB' : '#0C1D51',  // Light blue in dark mode, dark blue in light mode
+      bgColor: isDarkMode ? '#B9D9EB' : '#0C1D51',  // For inline style
       currentValue: belief.objectRankingScores.truth
     },
     {
       key: 'relevance', 
       label: 'Relevance Score',
       icon: Brain,
-      color: '#3B82F6',
+      color: '#EA900E',  // Veritas orange (same in both modes)
+      bgColor: '#EA900E',  // For inline style
       currentValue: belief.objectRankingScores.relevance
     },
     {
       key: 'informativeness',
       label: 'Informativeness',
       icon: TrendingUp,
-      color: '#F59E0B',
+      color: '#F0EAD6',  // Veritas eggshell (same in both modes)
+      bgColor: '#F0EAD6',  // For inline style
       currentValue: belief.objectRankingScores.informativeness
     }
   ];
@@ -65,14 +89,14 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
   return (
     <div>
       <div className="flex items-center space-x-3 mb-6">
-        <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/20 to-blue-600/20">
-          <TrendingUp className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+        <div className="p-3 rounded-2xl bg-veritas-primary dark:bg-veritas-eggshell">
+          <TrendingUp className="w-6 h-6 text-white dark:text-veritas-primary" />
         </div>
         <div>
-          <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+          <h3 className="text-xl font-bold text-veritas-primary dark:text-veritas-eggshell">
             Intelligence Evolution
           </h3>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70">
             How collective understanding has evolved over time
           </p>
         </div>
@@ -83,16 +107,16 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
         {metrics.map((metric) => {
           const Icon = metric.icon;
           return (
-            <div key={metric.key} className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-4">
+            <div key={metric.key} className="bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-2xl p-4">
               <div className="flex items-center space-x-3">
-                <div className="p-2 rounded-xl" style={{ backgroundColor: `${metric.color}20` }}>
-                  <Icon className="w-5 h-5" style={{ color: metric.color }} />
+                <div className="p-2 rounded-xl" style={{ backgroundColor: metric.bgColor }}>
+                  <Icon className="w-5 h-5" style={{ color: (metric.key === 'informativeness' || (metric.key === 'truth' && isDarkMode)) ? '#050A1A' : '#FFFFFF' }} />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  <div className="text-2xl font-bold text-veritas-primary dark:text-veritas-eggshell">
                     {metric.currentValue}%
                   </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                  <div className="text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70">
                     {metric.label}
                   </div>
                 </div>
@@ -115,10 +139,10 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
           const yDomain = [domainMin, domainMax];
 
           return (
-            <div key={metric.key} className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-6">
+            <div key={metric.key} className="bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-2xl p-6">
               <div className="flex items-center space-x-2 mb-4">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: metric.color }} />
-                <h4 className="font-semibold text-slate-900 dark:text-slate-100">
+                <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: metric.color }} />
+                <h4 className="font-semibold text-veritas-primary dark:text-veritas-eggshell">
                   {metric.label}
                 </h4>
               </div>
@@ -130,20 +154,21 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
                     <XAxis 
                       dataKey="date" 
                       tick={{ fontSize: 12 }}
-                      className="text-slate-600 dark:text-slate-400"
+                      className="text-veritas-primary/60 dark:text-veritas-eggshell/60"
                     />
                     <YAxis 
                       domain={yDomain}
                       tick={{ fontSize: 12 }}
-                      className="text-slate-600 dark:text-slate-400"
+                      className="text-veritas-primary/60 dark:text-veritas-eggshell/60"
                       tickFormatter={(value) => Math.round(value).toString()}
                     />
                     <Tooltip 
                       contentStyle={{
                         backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: 'none',
+                        border: '1px solid #e5e7eb',
                         borderRadius: '12px',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        color: '#0C1D51'
                       }}
                     />
                     <Line

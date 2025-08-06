@@ -17,6 +17,25 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
   const [renderableCharts, setRenderableCharts] = useState<RenderableChart[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // Detect dark mode
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+    
+    checkDarkMode();
+    
+    // Set up observer for class changes
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
 
   // Use beliefId prop or extract from legacy charts prop structure  
   const actualBeliefId = beliefId || (charts && charts.length > 0 ? 
@@ -59,9 +78,9 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
   // Loading state
   if (loading) {
     return (
-      <div className={`chart-component ${wrapperMargin} ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded' : ''}`}>
+      <div className={`chart-component ${wrapperMargin} ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-veritas-eggshell/5 p-2 rounded' : ''}`}>
         <div className={`bg-gray-100 dark:bg-gray-800 rounded-lg ${chartHeight} flex items-center justify-center animate-pulse`}>
-          <div className="text-gray-500 dark:text-gray-400 text-sm">Loading chart...</div>
+          <div className="text-veritas-primary/60 dark:text-veritas-eggshell/60 text-sm">Loading chart...</div>
         </div>
       </div>
     );
@@ -70,9 +89,9 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
   // Error state
   if (error || renderableCharts.length === 0) {
     return (
-      <div className={`chart-component ${wrapperMargin} ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded' : ''}`}>
+      <div className={`chart-component ${wrapperMargin} ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-veritas-eggshell/5 p-2 rounded' : ''}`}>
         <div className={`bg-gray-50 dark:bg-gray-800 rounded-lg ${chartHeight} flex items-center justify-center border border-gray-200 dark:border-gray-700`}>
-          <div className="text-center text-gray-500 dark:text-gray-400">
+          <div className="text-center text-veritas-primary/60 dark:text-veritas-eggshell/60">
             <div className="text-sm font-medium">No chart data available</div>
             {variant === 'detail' && (
               <div className="text-xs mt-1">Charts will appear here when data is added</div>
@@ -85,7 +104,8 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
 
   const renderChart = (chart: RenderableChart, index: number) => {
     const { config, data } = chart;
-    const color = config.color || '#3b82f6';
+    // Use Veritas colors: eggshell in dark mode, dark blue in light mode
+    const color = isDarkMode ? '#F0EAD6' : '#0C1D51';
 
     // Calculate optimal Y-axis domain for line charts
     const calculateYDomain = (data: Array<{x: string | number; y: number}>, chartType: string) => {
@@ -109,9 +129,9 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
       const { active, payload, label } = props;
       if (active && payload && payload.length) {
         return (
-          <div className="bg-white dark:bg-gray-800 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{`${label}`}</p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="bg-white dark:bg-veritas-darker-blue/90 px-3 py-2 border border-gray-200 dark:border-veritas-eggshell/10 rounded-lg shadow-lg">
+            <p className="text-sm font-medium text-veritas-primary dark:text-veritas-eggshell">{`${label}`}</p>
+            <p className="text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70">
               {`${payload[0].name}: ${payload[0].value}`}
             </p>
           </div>
@@ -127,13 +147,13 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
           axisLine={false}
           tickLine={false}
           tick={{ fontSize: 10, fill: 'currentColor' }}
-          className="text-gray-600 dark:text-gray-400"
+          className="text-veritas-primary/60 dark:text-veritas-eggshell/60"
         />
         <YAxis 
           axisLine={false}
           tickLine={false}
           tick={{ fontSize: 10, fill: 'currentColor' }}
-          className="text-gray-600 dark:text-gray-400"
+          className="text-veritas-primary/60 dark:text-veritas-eggshell/60"
           width={variant === 'card' ? 25 : 35}
           domain={yDomain}
         />
@@ -144,7 +164,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
           stroke={color}
           strokeWidth={2}
           dot={false}
-          activeDot={{ r: 4, fill: color }}
+          activeDot={{ r: 4, fill: isDarkMode ? '#F0EAD6' : '#0C1D51' }}
         />
       </LineChart>
     ) : (
@@ -154,13 +174,13 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
           axisLine={false}
           tickLine={false}
           tick={{ fontSize: 10, fill: 'currentColor' }}
-          className="text-gray-600 dark:text-gray-400"
+          className="text-veritas-primary/60 dark:text-veritas-eggshell/60"
         />
         <YAxis 
           axisLine={false}
           tickLine={false}
           tick={{ fontSize: 10, fill: 'currentColor' }}
-          className="text-gray-600 dark:text-gray-400"
+          className="text-veritas-primary/60 dark:text-veritas-eggshell/60"
           width={variant === 'card' ? 25 : 35}
         />
         <Tooltip content={customTooltip} />
@@ -171,7 +191,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
     return (
       <div key={config.id} className={`${index > 0 && variant !== 'card' ? 'mt-6' : ''} ${variant === 'card' ? 'h-full' : ''}`}>
         {variant === 'detail' && (
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <h4 className="text-sm font-medium text-veritas-primary dark:text-veritas-eggshell mb-2">
             {config.title}
           </h4>
         )}
@@ -182,7 +202,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
         </div>
         {variant === 'detail' && (
           <div className="mt-2">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-veritas-primary/50 dark:text-veritas-eggshell/50">
               {config.description}
             </p>
           </div>
@@ -193,7 +213,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
 
   return (
     <div 
-      className={`chart-component ${wrapperMargin} ${variant === 'card' ? 'h-full' : ''} ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded transition-colors' : ''}`}
+      className={`chart-component ${wrapperMargin} ${variant === 'card' ? 'h-full' : ''} ${isEditable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-veritas-eggshell/5 p-2 rounded transition-colors' : ''}`}
       onClick={isEditable ? onEdit : undefined}
     >
       {renderableCharts.map((chart, index) => renderChart(chart, index))}

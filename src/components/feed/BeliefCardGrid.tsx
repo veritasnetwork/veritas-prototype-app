@@ -155,16 +155,6 @@ export const BeliefCardGrid: React.FC<BeliefCardGridProps> = ({
 
   return (
     <div className="w-full py-8">
-      {/* Grid Header */}
-      <div className="mb-8 max-w-2xl mx-auto lg:max-w-none">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-veritas-eggshell mb-2">
-          Grid View
-        </h2>
-        <p className="text-gray-600 dark:text-veritas-eggshell/70">
-          Browse beliefs in a compact grid layout with enhanced details
-        </p>
-      </div>
-
       {/* Belief Cards Grid */}
       <div className={`${getGridClasses()} ${showContent ? 'animate-in fade-in duration-500' : 'opacity-0'}`}>
         {visibleBeliefs.map((belief, index) => (

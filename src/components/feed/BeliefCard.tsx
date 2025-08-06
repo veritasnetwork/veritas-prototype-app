@@ -115,28 +115,28 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
             
             {/* Category Badge - Top Left */}
             {belief.category && (
-              <div className="absolute top-4 left-4 inline-flex items-center px-3 py-1 bg-blue-600/90 backdrop-blur-sm text-blue-100 text-xs font-medium rounded-full">
+              <div className="absolute top-4 left-4 inline-flex items-center px-3 py-1 bg-veritas-primary dark:bg-veritas-light-blue backdrop-blur-sm text-white dark:text-veritas-darker-blue text-xs font-medium font-mono uppercase rounded-full border border-veritas-primary/20 dark:border-veritas-light-blue/20">
                 {belief.category.toUpperCase()}
               </div>
             )}
             
-            {/* Text Overlay - Bottom Left */}
-            <div className="absolute bottom-4 left-4 right-4 text-white">
-              <h3 className="text-2xl font-bold leading-tight mb-2 drop-shadow-lg line-clamp-2">
+            {/* Text Overlay - Bottom Left (Always eggshell over image) */}
+            <div className="absolute bottom-4 left-4 right-4">
+              <h3 className="text-2xl font-bold leading-tight mb-2 drop-shadow-lg line-clamp-2 text-veritas-eggshell">
                 {belief.heading.title}
               </h3>
               {belief.heading.subtitle && (
-                <p className="text-gray-200 text-sm leading-relaxed drop-shadow line-clamp-1 mb-3">
+                <p className="text-sm leading-relaxed drop-shadow line-clamp-1 mb-3 text-veritas-eggshell/90">
                   {belief.heading.subtitle}
                 </p>
               )}
               
               {/* News Section - Moved from right side */}
               {belief.article.excerpt && (
-                <div className="mt-3 pt-3 border-t border-white/20">
+                <div className="mt-3 pt-3 border-t border-veritas-eggshell/20">
                   <div className="flex items-center gap-2 mb-1">
                   </div>
-                  <p className="text-xs text-gray-300 leading-relaxed drop-shadow line-clamp-2">
+                  <p className="text-xs leading-relaxed drop-shadow line-clamp-2 text-veritas-eggshell/70">
                     {belief.article.excerpt}
                   </p>
                 </div>
@@ -162,7 +162,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-4 text-xs text-veritas-primary dark:text-veritas-eggshell">
                 <div className="flex items-center gap-1">
                   <Users className="w-3 h-3" />
                   <span>{participantCount} participants</span>
@@ -235,13 +235,13 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         {/* Question */}
         <div className="flex-1 min-w-0">
           <h3 className={`
-            font-bold text-gray-900 dark:text-white ${variant === 'large' ? 'line-clamp-2' : 'line-clamp-2'}
+            font-bold text-veritas-primary dark:text-veritas-eggshell ${variant === 'large' ? 'line-clamp-2' : 'line-clamp-2'}
             ${variant === 'feed' ? 'text-2xl' : variant === 'compact' ? 'text-sm' : variant === 'large' ? 'text-lg' : 'text-lg'}
           `}>
             {belief.heading.title}
           </h3>
           {belief.heading.subtitle && (
-            <p className={`text-gray-600 dark:text-gray-400 mt-1 ${
+            <p className={`text-veritas-primary/70 dark:text-veritas-eggshell/70 mt-1 ${
               variant === 'large' ? 'text-sm line-clamp-1' : 'text-sm line-clamp-1'
             }`}>
               {belief.heading.subtitle}
@@ -259,7 +259,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
             }`}>
               {belief.objectRankingScores.truth}%
             </div>
-            <div className="text-gray-600 dark:text-gray-400 text-xs">
+            <div className="text-veritas-primary dark:text-veritas-eggshell text-xs">
               Truth
             </div>
           </div>
@@ -269,7 +269,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
             }`}>
               {belief.objectRankingScores.relevance}%
             </div>
-            <div className="text-gray-600 dark:text-gray-400 text-xs">
+            <div className="text-veritas-primary dark:text-veritas-eggshell text-xs">
               Relevance
             </div>
           </div>
@@ -279,7 +279,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
               <div className="font-bold text-purple-600 dark:text-purple-400 text-base md:text-lg">
                 {belief.objectRankingScores.informativeness}%
               </div>
-              <div className="text-gray-600 dark:text-gray-400 text-xs">
+              <div className="text-veritas-primary dark:text-veritas-eggshell text-xs">
                 Info
               </div>
             </div>
@@ -315,7 +315,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
       {/* Enhanced News Context - removed label and blue dot */}
       {belief.article.excerpt && variant !== 'compact' && (
         <div className={`mb-3 ${variant === 'large' ? 'flex-1 flex flex-col' : ''}`}>
-          <p className={`text-gray-600 dark:text-gray-400 ${
+          <p className={`text-veritas-primary/70 dark:text-veritas-eggshell/70 ${
             variant === 'large' ? 'text-sm line-clamp-3 flex-1' : 'text-sm line-clamp-2'
           }`}>
             {belief.article.excerpt}
@@ -328,7 +328,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         <div className={`pt-3 border-t border-gray-100 dark:border-gray-700 flex-shrink-0 ${
           variant === 'grid' || variant === 'large' ? 'space-y-2' : 'flex items-center justify-between'
         }`}>
-          <div className={`flex items-center text-gray-500 dark:text-gray-400 ${
+          <div className={`flex items-center text-veritas-primary/60 dark:text-veritas-eggshell/60 ${
             variant === 'grid' ? 'gap-2 text-xs' : variant === 'large' ? 'gap-3 text-xs' : 'gap-4 text-xs'
           }`}>
             <div className="flex items-center gap-1">
@@ -342,7 +342,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
           </div>
           
           {belief.category && (
-            <div className={`px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full ${
+            <div className={`px-2 py-1 bg-gray-100 dark:bg-veritas-eggshell/10 text-veritas-primary dark:text-veritas-eggshell rounded-full ${
               variant === 'grid' ? 'self-start text-xs' : variant === 'large' ? 'text-xs' : 'text-xs'
             }`}>
               {belief.category}

@@ -52,16 +52,16 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
 
   if (relatedBeliefs.length === 0) {
     return (
-      <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 shadow-2xl shadow-yellow-500/10">
+      <div className="backdrop-blur-xl bg-white dark:bg-veritas-darker-blue/80 border border-slate-200 dark:border-veritas-eggshell/10 rounded-3xl p-6 shadow-2xl shadow-yellow-500/10">
         <div className="flex items-center space-x-3 mb-4">
           <div className="p-2 rounded-xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10">
             <TrendingUp className="w-5 h-5 text-[#FFB800]" />
           </div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+          <h3 className="text-lg font-bold text-veritas-primary dark:text-veritas-eggshell">
             Related Beliefs
           </h3>
         </div>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70">
           No related beliefs found in this category.
         </p>
       </div>
@@ -76,10 +76,10 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
           <TrendingUp className="w-5 h-5 text-[#FFB800]" />
         </div>
         <div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+          <h3 className="text-lg font-bold text-veritas-primary dark:text-veritas-eggshell">
             Related Beliefs
           </h3>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
+          <p className="text-xs text-veritas-primary/70 dark:text-veritas-eggshell/70">
             From {belief.category || 'mixed categories'}
           </p>
         </div>
@@ -91,11 +91,11 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
           <div
             key={relatedBelief.id}
             onClick={() => onBeliefClick(relatedBelief.id)}
-            className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 hover:scale-[1.02] cursor-pointer group"
+            className="p-4 bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-2xl hover:bg-slate-100 dark:hover:bg-veritas-eggshell/5 transition-all duration-300 hover:scale-[1.02] cursor-pointer group"
           >
             {/* Category badge */}
             <div className="flex items-center justify-between mb-3">
-              <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gradient-to-r ${getCategoryGradient(relatedBelief.category || 'general')} text-slate-700 dark:text-slate-300 border border-white/20`}>
+              <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gradient-to-r ${getCategoryGradient(relatedBelief.category || 'general')} text-veritas-primary dark:text-veritas-eggshell border border-white/20`}>
                 {relatedBelief.category || 'general'}
               </span>
               <div className={`w-2 h-2 rounded-full ${
@@ -108,29 +108,29 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
             </div>
 
             {/* Title */}
-            <h4 className="font-medium text-slate-900 dark:text-slate-100 text-sm line-clamp-2 mb-3 group-hover:text-[#FFB800] transition-colors">
+            <h4 className="font-medium text-veritas-primary dark:text-veritas-eggshell text-sm line-clamp-2 mb-3 group-hover:text-[#FFB800] transition-colors">
               {relatedBelief.heading.title}
             </h4>
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="flex items-center space-x-1">
-                <Users className="w-3 h-3 text-slate-500" />
-                <span className="text-slate-600 dark:text-slate-400">
+                <Users className="w-3 h-3 text-veritas-primary/60 dark:text-veritas-eggshell/60" />
+                <span className="text-veritas-primary/70 dark:text-veritas-eggshell/70">
                   {relatedBelief.objectRankingScores.relevance}% relevance
                 </span>
               </div>
               <div className="flex items-center space-x-1">
-                <TrendingUp className="w-3 h-3 text-slate-500" />
-                <span className="text-slate-600 dark:text-slate-400">
+                <TrendingUp className="w-3 h-3 text-veritas-primary/60 dark:text-veritas-eggshell/60" />
+                <span className="text-veritas-primary/70 dark:text-veritas-eggshell/70">
                   {relatedBelief.objectRankingScores.truth}% truth
                 </span>
               </div>
             </div>
 
             {/* View indicator */}
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200 dark:border-veritas-eggshell/10">
+              <span className="text-xs text-veritas-primary/60 dark:text-veritas-eggshell/60">
                 {relatedBelief.objectRankingScores.informativeness}% informativeness
               </span>
               <Eye className="w-3 h-3 text-slate-400 group-hover:text-[#FFB800] transition-colors" />
@@ -140,8 +140,8 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
       </div>
 
       {/* View more link */}
-      <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-        <button className="w-full text-sm text-slate-600 dark:text-slate-400 hover:text-[#FFB800] transition-colors font-medium">
+      <div className="mt-4 pt-4 border-t border-slate-200 dark:border-veritas-eggshell/10">
+        <button className="w-full text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70 hover:text-[#FFB800] transition-colors font-medium">
           View all {belief.category} beliefs →
         </button>
       </div>
