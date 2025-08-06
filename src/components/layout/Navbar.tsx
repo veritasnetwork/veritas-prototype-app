@@ -85,13 +85,21 @@ const VeritasNavbar = () => {
   if (!mounted) {
     return (
       <nav className="hidden md:block fixed top-0 left-0 right-0 z-50 w-full">
-        <div className="bg-gradient-to-r from-slate-50/95 to-blue-50/95 dark:from-slate-900/95 dark:to-slate-800/95 backdrop-blur-xl">
+        <div className="bg-gradient-to-r from-slate-50/95 to-blue-50/95 dark:from-transparent dark:to-transparent dark:bg-veritas-darker-blue/95 backdrop-blur-xl dark:border-b dark:border-veritas-eggshell/10">
           <div className="relative flex items-center justify-between px-12 py-6">
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-[#1B365D] to-[#FFB800] rounded-2xl flex items-center justify-center">
-                <span className="font-black text-white text-xl">V</span>
+              <div className="w-12 h-12 relative">
+                <Image
+                  src="/icons/logo.png"
+                  alt="Veritas"
+                  width={48}
+                  height={48}
+                  className="w-full h-full object-contain"
+                  priority
+                  unoptimized
+                />
               </div>
-              <span className="ml-3 text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#1B365D] to-[#FFB800]">
+              <span className="ml-3 text-2xl font-semibold text-veritas-dark-blue dark:text-veritas-eggshell font-mono uppercase">
                 Veritas
               </span>
             </div>
@@ -125,8 +133,8 @@ const VeritasNavbar = () => {
         <div
           className={`relative transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             isScrolled
-              ? 'bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 rounded-3xl shadow-2xl shadow-yellow-500/10'
-              : 'bg-gradient-to-r from-slate-50/95 to-blue-50/95 dark:from-slate-900/95 dark:to-slate-800/95 backdrop-blur-xl'
+              ? 'bg-white/10 dark:bg-veritas-darker-blue/95 backdrop-blur-2xl border border-white/20 dark:border-veritas-eggshell/10 rounded-3xl shadow-2xl shadow-yellow-500/10'
+              : 'bg-gradient-to-r from-slate-50/95 to-blue-50/95 dark:from-transparent dark:to-transparent dark:bg-veritas-darker-blue/95 backdrop-blur-xl dark:border-b dark:border-veritas-eggshell/10'
           }`}
         >
           {/* Glassmorphism overlay for premium effect */}
@@ -134,7 +142,7 @@ const VeritasNavbar = () => {
             className={`absolute inset-0 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               isScrolled
                 ? 'bg-gradient-to-r from-yellow-500/5 to-orange-500/5 rounded-3xl'
-                : 'bg-gradient-to-r from-white/20 to-yellow-100/20 dark:from-slate-800/20 dark:to-slate-700/20'
+                : 'bg-gradient-to-r from-white/20 to-yellow-100/20 dark:from-transparent dark:to-transparent'
             }`}
           />
           
@@ -145,7 +153,7 @@ const VeritasNavbar = () => {
           >
             {/* Logo */}
             <div 
-              className="flex items-center cursor-pointer group"
+              className="flex items-center space-x-3 cursor-pointer group"
               onClick={() => handleNavigation('/')}
             >
               <div
@@ -153,22 +161,18 @@ const VeritasNavbar = () => {
                   isScrolled ? 'w-10 h-10' : 'w-12 h-12'
                 }`}
               >
-                <div className="w-full h-full bg-[#1B365D] rounded-2xl flex items-center justify-center p-2 group-hover:scale-110 transition-transform duration-300">
-                  <div className="w-full h-full rounded-full bg-white/20 flex items-center justify-center">
-                    <Image
-                      src="/icons/logo.png"
-                      alt="Veritas"
-                      width={isScrolled ? 20 : 24}
-                      height={isScrolled ? 20 : 24}
-                      className="w-full h-full object-contain rounded-full"
-                      priority
-                      unoptimized
-                    />
-                  </div>
-                </div>
+                <Image
+                  src="/icons/logo.png"
+                  alt="Veritas"
+                  width={isScrolled ? 40 : 48}
+                  height={isScrolled ? 40 : 48}
+                  className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
+                  priority
+                  unoptimized
+                />
               </div>
               <span
-                className={`ml-3 font-bold text-[#1B365D] dark:text-[#D4A574] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                className={`font-semibold text-veritas-dark-blue dark:text-veritas-eggshell font-mono uppercase transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                   isScrolled ? 'text-xl' : 'text-2xl'
                 }`}
               >
@@ -182,10 +186,10 @@ const VeritasNavbar = () => {
                 <button
                   key={item.href}
                   onClick={() => handleNavigation(item.href)}
-                  className={`relative px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
+                  className={`relative px-4 py-2 rounded-xl font-medium font-mono uppercase text-sm transition-all duration-300 hover:bg-gray-100 dark:hover:bg-veritas-eggshell/10 ${
                     isActiveRoute(item.href)
-                      ? 'text-[#1B365D] dark:text-[#D4A574]'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-[#1B365D] dark:hover:text-[#D4A574]'
+                      ? 'text-[#1B365D] dark:text-veritas-eggshell'
+                      : 'text-slate-600 dark:text-veritas-eggshell/70 hover:text-[#1B365D] dark:hover:text-veritas-eggshell'
                   }`}
                 >
                   {isActiveRoute(item.href) && (
@@ -201,19 +205,19 @@ const VeritasNavbar = () => {
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-3 rounded-2xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10 hover:from-[#FFB800]/30 hover:to-[#1B365D]/20 transition-all duration-300 group"
+                className="p-3 rounded-2xl bg-white/10 dark:bg-veritas-eggshell/10 hover:bg-white/20 dark:hover:bg-veritas-eggshell/20 transition-all duration-300 group border border-gray-200/50 dark:border-veritas-eggshell/10"
               >
                 {isDark ? (
-                  <Sun className="w-5 h-5 text-[#D4A574] group-hover:rotate-12 transition-transform duration-300" />
+                  <Sun className="w-5 h-5 text-veritas-secondary dark:text-veritas-eggshell group-hover:rotate-12 transition-transform duration-300" />
                 ) : (
-                  <Moon className="w-5 h-5 text-[#1B365D] group-hover:-rotate-12 transition-transform duration-300" />
+                  <Moon className="w-5 h-5 text-veritas-primary group-hover:-rotate-12 transition-transform duration-300" />
                 )}
               </button>
 
               {/* Login Button */}
               <button
                 onClick={handleLogin}
-                className="flex items-center space-x-2 px-6 py-3 rounded-2xl bg-[#1B365D] hover:bg-[#2D4A6B] text-white font-semibold shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300"
+                className="flex items-center space-x-2 px-6 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-veritas-primary/90 dark:hover:bg-veritas-light-blue/90 text-white dark:text-veritas-darker-blue font-semibold font-mono uppercase text-sm shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-light-blue/20"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Login</span>
@@ -242,31 +246,27 @@ const VeritasNavbar = () => {
             <div
               className={`pointer-events-auto flex items-center justify-between max-w-md mx-auto rounded-3xl px-6 py-3 transition-all duration-500 ${
                 isScrolled
-                  ? 'bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-yellow-500/10'
-                  : 'bg-white/5 dark:bg-slate-900/5 backdrop-blur-xl'
+                  ? 'bg-white/10 dark:bg-veritas-darker-blue/95 backdrop-blur-2xl border border-white/20 dark:border-veritas-eggshell/10 shadow-2xl shadow-yellow-500/10'
+                  : 'bg-white/5 dark:bg-veritas-darker-blue/90 backdrop-blur-xl border border-white/10 dark:border-veritas-eggshell/5'
               }`}
             >
               {/* Mobile Logo */}
               <div 
-                className="flex items-center cursor-pointer group"
+                className="flex items-center space-x-2 cursor-pointer group"
                 onClick={() => handleNavigation('/')}
               >
                 <div className="relative w-8 h-8">
-                  <div className="w-full h-full bg-[#1B365D] rounded-xl flex items-center justify-center p-1.5 group-hover:scale-110 transition-transform duration-300">
-                    <div className="w-full h-full rounded-full bg-white/20 flex items-center justify-center">
-                      <Image
-                        src="/icons/logo.png"
-                        alt="Veritas"
-                        width={16}
-                        height={16}
-                        className="w-full h-full object-contain rounded-full"
-                        priority
-                        unoptimized
-                      />
-                    </div>
-                  </div>
+                  <Image
+                    src="/icons/logo.png"
+                    alt="Veritas"
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
+                    priority
+                    unoptimized
+                  />
                 </div>
-                <span className="ml-2 text-lg font-bold text-[#1B365D] dark:text-[#D4A574]">
+                <span className="text-lg font-semibold text-veritas-dark-blue dark:text-veritas-eggshell font-mono uppercase">
                   Veritas
                 </span>
               </div>
@@ -274,12 +274,12 @@ const VeritasNavbar = () => {
               {/* Mobile Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-2 rounded-xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10 hover:from-[#FFB800]/30 hover:to-[#1B365D]/20 transition-all duration-300 group"
+                className="p-2 rounded-xl bg-white/10 dark:bg-veritas-eggshell/10 hover:bg-white/20 dark:hover:bg-veritas-eggshell/20 transition-all duration-300 group border border-gray-200/50 dark:border-veritas-eggshell/10"
               >
                 {isDark ? (
-                  <Sun className="w-4 h-4 text-[#D4A574] group-hover:rotate-12 transition-transform duration-300" />
+                  <Sun className="w-4 h-4 text-veritas-secondary dark:text-veritas-eggshell group-hover:rotate-12 transition-transform duration-300" />
                 ) : (
-                  <Moon className="w-4 h-4 text-[#1B365D] group-hover:-rotate-12 transition-transform duration-300" />
+                  <Moon className="w-4 h-4 text-veritas-primary group-hover:-rotate-12 transition-transform duration-300" />
                 )}
               </button>
             </div>
@@ -304,7 +304,7 @@ const VeritasNavbar = () => {
         >
           <div className="relative max-w-md mx-auto">
             {/* Glassmorphism container */}
-            <div className="relative bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30 rounded-3xl shadow-2xl shadow-yellow-500/10">
+            <div className="relative bg-white/10 dark:bg-veritas-darker-blue/95 backdrop-blur-2xl border border-white/20 dark:border-veritas-eggshell/10 rounded-3xl shadow-2xl shadow-yellow-500/10">
               {/* Premium gradient overlay */}
               <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 rounded-3xl" />
               
@@ -332,17 +332,17 @@ const VeritasNavbar = () => {
                       <Icon 
                         className={`w-6 h-6 transition-colors duration-300 ${
                           isActive 
-                            ? 'text-[#1B365D] dark:text-[#D4A574]' 
-                            : 'text-slate-500 dark:text-slate-400'
+                            ? 'text-veritas-primary dark:text-veritas-eggshell' 
+                            : 'text-slate-500 dark:text-veritas-eggshell/60'
                         }`} 
                       />
                       
                       {/* Label */}
                       <span
-                        className={`text-xs font-medium mt-1 transition-colors duration-300 ${
+                        className={`text-xs font-medium font-mono uppercase mt-1 transition-colors duration-300 ${
                           isActive 
-                            ? 'text-[#1B365D] dark:text-[#D4A574]' 
-                            : 'text-slate-500 dark:text-slate-400'
+                            ? 'text-veritas-primary dark:text-veritas-eggshell' 
+                            : 'text-slate-500 dark:text-veritas-eggshell/60'
                         }`}
                       >
                         {item.label}
@@ -359,17 +359,17 @@ const VeritasNavbar = () => {
       {/* Mobile menu overlay - Only show on mobile when menu is open */}
       {isMobile && isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm">
-          <div className="absolute top-24 left-4 right-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/30">
+          <div className="absolute top-24 left-4 right-4 bg-white/95 dark:bg-veritas-darker-blue/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-veritas-eggshell/10">
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-[#1B365D] dark:text-[#D4A574]">
+                <h3 className="text-lg font-semibold font-mono uppercase text-veritas-primary dark:text-veritas-eggshell">
                   Navigation
                 </h3>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10"
+                  className="p-2 rounded-xl bg-white/10 dark:bg-veritas-eggshell/10 hover:bg-white/20 dark:hover:bg-veritas-eggshell/20 transition-all duration-300"
                 >
-                  <X className="w-5 h-5 text-[#1B365D] dark:text-[#D4A574]" />
+                  <X className="w-5 h-5 text-veritas-primary dark:text-veritas-eggshell" />
                 </button>
               </div>
               
@@ -377,10 +377,10 @@ const VeritasNavbar = () => {
                 <button
                   key={item.href}
                   onClick={() => handleNavigation(item.href)}
-                  className={`w-full text-left p-4 rounded-2xl transition-all duration-300 ${
+                  className={`w-full text-left p-4 rounded-2xl font-mono uppercase text-sm transition-all duration-300 ${
                     isActiveRoute(item.href)
-                      ? 'bg-gradient-to-r from-[#FFB800]/20 to-[#1B365D]/10 text-[#1B365D] dark:text-[#D4A574]'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      ? 'bg-gradient-to-r from-veritas-secondary/20 to-veritas-primary/10 text-veritas-primary dark:text-veritas-eggshell'
+                      : 'text-slate-600 dark:text-veritas-eggshell/70 hover:bg-gray-100 dark:hover:bg-veritas-eggshell/10'
                   }`}
                 >
                   {item.label}
@@ -389,7 +389,7 @@ const VeritasNavbar = () => {
               
               <button
                 onClick={handleLogin}
-                className="w-full flex items-center justify-center space-x-2 p-4 rounded-2xl bg-[#1B365D] hover:bg-[#2D4A6B] text-white font-semibold transition-all duration-300"
+                className="w-full flex items-center justify-center space-x-2 p-4 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-veritas-primary/90 dark:hover:bg-veritas-light-blue/90 text-white dark:text-veritas-darker-blue font-semibold font-mono uppercase text-sm transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-light-blue/20"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Login</span>

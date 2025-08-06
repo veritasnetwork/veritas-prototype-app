@@ -33,12 +33,12 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
   const activeBelief = premierBeliefs[activeIndex];
 
   return (
-    <div className="w-full bg-white dark:bg-gray-900 mb-12 shadow-sm">
+    <div className="w-full bg-white dark:bg-veritas-darker-blue mb-12 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-[500px]">
           
           {/* Hero Card - Left Side (2/3 width on desktop) */}
-          <div className="lg:col-span-2 relative group cursor-pointer overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 shadow-2xl"
+          <div className="lg:col-span-2 relative group cursor-pointer overflow-hidden rounded-2xl bg-gradient-to-br from-veritas-dark-blue via-veritas-darker-blue to-veritas-dark-blue shadow-2xl"
                onClick={() => onBeliefClick(activeBelief.id)}>
             
             {/* Hero Image with Overlay */}

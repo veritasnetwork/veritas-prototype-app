@@ -42,7 +42,7 @@ export const MainFeed: React.FC<MainFeedProps> = ({ beliefs, loading = false }) 
   // Grid view - hide premier header, show enhanced grid
   if (viewMode === 'grid') {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-veritas-darker-blue">
         {/* Full-width grid container with minimal padding */}
         <div className="w-full px-4 sm:px-6">
           <BeliefCardGrid 
@@ -60,7 +60,7 @@ export const MainFeed: React.FC<MainFeedProps> = ({ beliefs, loading = false }) 
   // Mobile feed - single column, no premier header
   if (isMobile) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-veritas-darker-blue">
         <MobileFeed 
           beliefs={beliefs}
           onBeliefClick={handleBeliefClick}
@@ -72,7 +72,7 @@ export const MainFeed: React.FC<MainFeedProps> = ({ beliefs, loading = false }) 
 
   // Desktop feed - premier header + news feed
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-veritas-darker-blue">
       <div className="space-y-12">
         {/* Premier Header - Show skeleton when loading or actual header when loaded */}
         {loading ? (
