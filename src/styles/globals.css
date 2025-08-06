@@ -2,64 +2,79 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Import Inter font */
+/* Import Inter and JetBrains Mono fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap');
 
 /* Custom CSS Variables for Veritas Theme */
 :root {
-  /* Primary Colors */
-  --veritas-primary: #1B365D;
-  --veritas-secondary: #FFB800;
+  /* Primary Colors - Updated to match design spec */
+  --veritas-primary: #0C1D51;
+  --veritas-darker-blue: #050A1A;
+  --veritas-secondary: #EA900E;
+  --veritas-light-blue: #B9D9EB;
+  --veritas-eggshell: #F0EAD6;
+  --veritas-dark-grey: #1A1A1A;
+  
+  /* Legacy color mappings for backward compatibility */
   --veritas-slate-blue: #2D4A6B;
-  --veritas-golden-yellow: #F5A623;
+  --veritas-golden-yellow: #FFB800;
   
   /* Light Mode Colors */
   --background: #ffffff;
-  --foreground: #0f172a;
+  --foreground: #0C1D51;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #0C1D51;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #1B365D;
+  --popover-foreground: #0C1D51;
+  --primary: #0C1D51;
   --primary-foreground: #ffffff;
-  --secondary: #FFB800;
-  --secondary-foreground: #1B365D;
+  --secondary: #EA900E;
+  --secondary-foreground: #ffffff;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
-  --accent: #FFB800;
-  --accent-foreground: #1B365D;
+  --accent: #EA900E;
+  --accent-foreground: #ffffff;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #FFB800;
+  --ring: #EA900E;
   --radius: 1rem;
 }
 
 .dark {
-  /* Dark Mode Colors */
-  --veritas-primary: #1B365D;
-  --veritas-secondary: #D4A574;
+  /* Dark Mode Colors - Updated with design spec */
+  --veritas-primary: #0C1D51;
+  --veritas-darker-blue: #050A1A;
+  --veritas-secondary: #EA900E;
+  --veritas-light-blue: #B9D9EB;
+  --veritas-eggshell: #F0EAD6;
+  --veritas-dark-grey: #1A1A1A;
+  
+  /* Legacy colors for compatibility */
   --veritas-slate-blue: #1E293B;
-  --background: #0f172a;
-  --foreground: #f8fafc;
-  --card: #1e293b;
-  --card-foreground: #f8fafc;
-  --popover: #1e293b;
-  --popover-foreground: #f8fafc;
-  --primary: #D4A574;
-  --primary-foreground: #1B365D;
-  --secondary: #334155;
-  --secondary-foreground: #f8fafc;
+  --veritas-golden-yellow: #FFB800;
+  
+  --background: #050A1A;
+  --foreground: #F0EAD6;
+  --card: #0C1D51;
+  --card-foreground: #F0EAD6;
+  --popover: #0C1D51;
+  --popover-foreground: #F0EAD6;
+  --primary: #EA900E;
+  --primary-foreground: #0C1D51;
+  --secondary: #B9D9EB;
+  --secondary-foreground: #0C1D51;
   --muted: #334155;
-  --muted-foreground: #94a3b8;
-  --accent: #334155;
-  --accent-foreground: #f8fafc;
+  --muted-foreground: #B9D9EB;
+  --accent: #EA900E;
+  --accent-foreground: #0C1D51;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #334155;
   --input: #334155;
-  --ring: #1B365D;
+  --ring: #EA900E;
 }
 
 /* Base styles */
@@ -69,7 +84,7 @@
   }
   
   html {
-    font-family: 'Inter', var(--font-inter), system-ui, sans-serif;
+    font-family: 'JetBrains Mono', monospace;
     scroll-behavior: smooth;
   }
   
@@ -91,7 +106,7 @@
 @layer components {
   /* Premium glassmorphism effect */
   .glass-effect {
-    @apply bg-white/10 dark:bg-slate-900/10 backdrop-blur-2xl border border-white/20 dark:border-slate-700/30;
+    @apply bg-white/10 dark:bg-veritas-eggshell/5 backdrop-blur-2xl border border-white/20 dark:border-veritas-eggshell/20;
   }
   
   /* Premium gradient backgrounds */
@@ -100,26 +115,26 @@
   }
   
   .premium-gradient-dark {
-    @apply bg-gradient-to-br from-[#1B365D]/20 via-slate-900/50 to-[#D4A574]/10;
+    @apply bg-gradient-to-br from-[#0C1D51]/20 via-veritas-darker-blue/50 to-[#EA900E]/10;
   }
   
   /* Belief card styles */
   .belief-card {
-    @apply bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 hover:shadow-2xl hover:shadow-yellow-500/10 transform hover:scale-[1.02] transition-all duration-300;
+    @apply bg-white dark:bg-card rounded-2xl shadow-lg border border-slate-200 dark:border-veritas-eggshell/20 p-6 hover:shadow-2xl hover:shadow-veritas-orange/10 transform hover:scale-[1.02] transition-all duration-300;
   }
   
   /* Button styles */
   .btn-primary {
-    @apply bg-[#1B365D] hover:bg-[#2D4A6B] text-white px-6 py-3 rounded-2xl font-semibold shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300;
+    @apply bg-[#0C1D51] hover:bg-[#051225] text-white px-6 py-3 rounded-2xl font-semibold shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300;
   }
   
   .btn-secondary {
-    @apply bg-[#FFB800]/10 hover:bg-[#FFB800]/20 text-[#1B365D] dark:text-[#D4A574] px-6 py-3 rounded-2xl font-semibold border border-[#FFB800]/30 hover:border-[#FFB800]/50 transform hover:scale-105 transition-all duration-300;
+    @apply bg-[#EA900E]/10 hover:bg-[#EA900E]/20 text-[#0C1D51] dark:text-[#F0EAD6] px-6 py-3 rounded-2xl font-semibold border border-[#EA900E]/30 hover:border-[#EA900E]/50 transform hover:scale-105 transition-all duration-300;
   }
   
   /* Input styles */
   .input-premium {
-    @apply w-full px-6 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-[#FFB800] focus:border-transparent transition-all duration-300;
+    @apply w-full px-6 py-4 rounded-2xl border border-slate-200 dark:border-veritas-eggshell/20 bg-white dark:bg-card text-slate-900 dark:text-veritas-eggshell placeholder-slate-500 dark:placeholder-veritas-eggshell/40 focus:ring-2 focus:ring-[#EA900E] focus:border-transparent transition-all duration-300;
   }
   
   /* Modal/popup styles */
@@ -128,16 +143,16 @@
   }
   
   .modal-content {
-    @apply relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/30;
+    @apply relative bg-white/95 dark:bg-veritas-darker-blue/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-veritas-eggshell/20;
   }
   
   /* Text gradients */
   .text-gradient-primary {
-    @apply text-transparent bg-clip-text bg-gradient-to-r from-[#1B365D] to-[#FFB800];
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-[#0C1D51] to-[#EA900E];
   }
   
   .text-gradient-secondary {
-    @apply text-transparent bg-clip-text bg-gradient-to-r from-[#FFB800] to-[#1B365D];
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-[#EA900E] to-[#0C1D51];
   }
   
   /* Loading animations */
@@ -164,15 +179,15 @@
   }
   
   .custom-scrollbar::-webkit-scrollbar-track {
-    @apply bg-slate-100 dark:bg-slate-800 rounded-full;
+    @apply bg-slate-100 dark:bg-veritas-dark-blue rounded-full;
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-gradient-to-b from-[#FFB800] to-[#1B365D] rounded-full;
+    @apply bg-gradient-to-b from-[#EA900E] to-[#0C1D51] rounded-full;
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    @apply from-[#1B365D] to-[#FFB800];
+    @apply from-[#0C1D51] to-[#EA900E];
   }
 }
 
@@ -212,11 +227,11 @@
   
   /* Premium shadow utilities */
   .shadow-premium {
-    box-shadow: 0 10px 40px -10px rgba(255, 184, 0, 0.3);
+    box-shadow: 0 10px 40px -10px rgba(234, 144, 14, 0.3);
   }
   
   .shadow-premium-dark {
-    box-shadow: 0 10px 40px -10px rgba(27, 54, 93, 0.3);
+    box-shadow: 0 10px 40px -10px rgba(12, 29, 81, 0.3);
   }
   
   /* Animation utilities */
@@ -241,10 +256,10 @@
 
 @keyframes glow {
   from {
-    box-shadow: 0 0 20px -10px rgba(255, 184, 0, 0.5);
+    box-shadow: 0 0 20px -10px rgba(234, 144, 14, 0.5);
   }
   to {
-    box-shadow: 0 0 20px 5px rgba(255, 184, 0, 0.8);
+    box-shadow: 0 0 20px 5px rgba(234, 144, 14, 0.8);
   }
 }
 
@@ -285,19 +300,19 @@
 }
 
 :focus-visible {
-  outline: 2px solid rgb(255, 184, 0);
+  outline: 2px solid rgb(234, 144, 14);
   outline-offset: 2px;
 }
 
 /* Selection styles */
 ::selection {
-  background-color: rgba(255, 184, 0, 0.3);
-  color: rgb(27, 54, 93);
+  background-color: rgba(234, 144, 14, 0.3);
+  color: rgb(12, 29, 81);
 }
 
 .dark ::selection {
-  background-color: rgba(27, 54, 93, 0.3);
-  color: rgb(212, 165, 116);
+  background-color: rgba(12, 29, 81, 0.3);
+  color: rgb(240, 234, 214);
 }
 
 /* Print styles */

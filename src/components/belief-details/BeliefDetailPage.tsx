@@ -67,7 +67,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
 
   if (!belief) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+      <div className="min-h-screen bg-slate-50 dark:bg-veritas-darker-blue">
         <div className="container mx-auto px-4 py-12 max-w-4xl">
           <div className="text-center py-16">
             <div className="w-20 h-20 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center mx-auto mb-6">
@@ -81,7 +81,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
             </p>
             <button 
               onClick={handleBackToFeed}
-              className="px-6 py-3 bg-gradient-to-r from-amber-500 to-blue-600 dark:from-amber-400 dark:to-blue-500 text-white font-medium rounded-xl hover:shadow-lg transition-all duration-300"
+              className="px-6 py-3 bg-gradient-to-r from-veritas-secondary to-veritas-primary dark:from-veritas-secondary dark:to-veritas-primary text-white font-medium rounded-xl hover:shadow-lg transition-all duration-300"
             >
               Back to Feed
             </button>
@@ -92,35 +92,35 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+    <div className="min-h-screen bg-slate-50 dark:bg-veritas-darker-blue">
       {/* Simplified Header - No Heading Content */}
-      <div className="bg-gradient-to-r from-amber-500/10 to-blue-600/10 dark:from-amber-400/10 dark:to-blue-500/10 border-b border-slate-200 dark:border-slate-700 pt-20 md:pt-8">
+      <div className="bg-gradient-to-r from-veritas-secondary/10 to-veritas-secondary/5 dark:from-veritas-secondary/15 dark:to-veritas-secondary/5 border-b border-slate-200 dark:border-veritas-eggshell/10 pt-20 md:pt-8">
         <div className="container mx-auto px-4 py-6 max-w-7xl">
           {/* Breadcrumbs */}
           <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400 mb-4">
             <button 
               onClick={handleBackToFeed}
-              className="flex items-center space-x-2 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+              className="flex items-center space-x-2 hover:text-veritas-secondary dark:hover:text-veritas-secondary transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Feed</span>
             </button>
             <span>/</span>
-            <span className="text-amber-600 dark:text-amber-400">{belief.category}</span>
+            <span className="text-veritas-secondary dark:text-veritas-secondary">{belief.category}</span>
             <span>/</span>
             <span>Details</span>
           </div>
 
           {/* Category Badge & Actions */}
           <div className="flex items-center justify-between">
-            <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-700">
+            <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-veritas-secondary/10 dark:bg-veritas-secondary/20 text-veritas-secondary dark:text-veritas-eggshell border border-veritas-secondary/20 dark:border-veritas-secondary/30">
               {belief.category}
             </span>
             
             <div className="flex items-center space-x-3">
               <button 
                 onClick={handleShare}
-                className="p-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 border border-slate-200 dark:border-slate-600"
+                className="p-2 rounded-xl bg-white dark:bg-veritas-darker-blue/80 hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 border border-slate-200 dark:border-veritas-eggshell/10"
                 aria-label="Share this belief"
                 title="Share this belief"
               >
@@ -141,7 +141,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
             {/* Hero Image Section - News Style */}
             {belief.article?.thumbnail && (
               <div 
-                className={`relative w-full h-64 md:h-80 lg:h-96 rounded-2xl overflow-hidden mb-8 shadow-lg cursor-pointer transition-all duration-200 ${editingComponent === 'heading' ? 'ring-2 ring-amber-500' : 'hover:ring-1 hover:ring-amber-400'}`}
+                className={`relative w-full h-64 md:h-80 lg:h-96 rounded-2xl overflow-hidden mb-8 shadow-lg cursor-pointer transition-all duration-200 ${editingComponent === 'heading' ? 'ring-2 ring-veritas-secondary' : 'hover:ring-1 hover:ring-veritas-secondary/50'}`}
                 onClick={() => setEditingComponent('heading')}
               >
                 <Image 
@@ -152,9 +152,9 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                   priority
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-                <div className="absolute inset-0 bg-slate-900/20" />
+                <div className="absolute inset-0 bg-veritas-darker-blue/20" />
                 <div className="absolute bottom-6 left-6 right-6 text-white">
-                  <div className="text-xs uppercase tracking-wide font-medium mb-2 text-amber-300">
+                  <div className="text-xs uppercase tracking-wide font-medium mb-2 text-veritas-secondary">
                     Veritas Intelligence
                   </div>
                   <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight drop-shadow-lg">
@@ -175,7 +175,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
               {/* Heading Component (for cases without hero image) */}
               {!belief.article?.thumbnail && (
                 <div 
-                  className={`cursor-pointer transition-all duration-200 ${editingComponent === 'heading' ? 'ring-2 ring-amber-500' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} rounded-xl p-4`}
+                  className={`cursor-pointer transition-all duration-200 ${editingComponent === 'heading' ? 'ring-2 ring-veritas-secondary' : 'hover:bg-slate-100 dark:hover:bg-veritas-eggshell/5'} rounded-xl p-4`}
                   onClick={() => setEditingComponent('heading')}
                 >
                   <HeadingComponent 
@@ -189,7 +189,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
 
               {/* Article Component */}
               <div 
-                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'article' ? 'ring-2 ring-amber-500' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} rounded-xl p-4`}
+                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'article' ? 'ring-2 ring-veritas-secondary' : 'hover:bg-slate-100 dark:hover:bg-veritas-eggshell/5'} rounded-xl p-4`}
                 onClick={() => setEditingComponent('article')}
               >
                 <ArticleComponent 
@@ -202,7 +202,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
               
               {/* Chart Component */}
               <div 
-                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'chart' ? 'ring-2 ring-amber-500' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} rounded-xl p-4`}
+                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'chart' ? 'ring-2 ring-veritas-secondary' : 'hover:bg-slate-100 dark:hover:bg-veritas-eggshell/5'} rounded-xl p-4`}
                 onClick={() => setEditingComponent('chart')}
               >
                 <ChartComponent 
@@ -225,7 +225,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
             </div>
 
             {/* Related Information */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+            <div className="bg-white dark:bg-veritas-darker-blue/80 rounded-2xl p-6 border border-slate-200 dark:border-veritas-eggshell/10">
               <RelatedBeliefs 
                 belief={belief} 
                 onBeliefClick={handleBeliefClick}
@@ -236,7 +236,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
           {/* Full Width Sections - Span all 4 columns */}
           <div className="lg:col-span-4 mt-8 space-y-8">
             {/* Intelligence Evolution - 3 Line Charts */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+            <div className="bg-white dark:bg-veritas-darker-blue/80 rounded-2xl p-6 border border-slate-200 dark:border-veritas-eggshell/10">
               <IntelligenceEvolution belief={belief} />
             </div>
 
@@ -251,11 +251,11 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
       {/* Component Editing Modal */}
       {editingComponent && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full mx-4 overflow-hidden shadow-2xl">
+          <div className="bg-white dark:bg-veritas-darker-blue/95 rounded-3xl max-w-lg w-full mx-4 overflow-hidden shadow-2xl border border-white/20 dark:border-veritas-eggshell/10">
             <div className="p-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
-                  <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/20 to-blue-600/20">
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-veritas-secondary/20 to-veritas-primary/20">
                     <span className="text-xl">✏️</span>
                   </div>
                   <div>
@@ -277,7 +277,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
 
               <div className="space-y-6">
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500/20 to-blue-600/20 flex items-center justify-center mx-auto mb-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-veritas-secondary/20 to-veritas-primary/20 flex items-center justify-center mx-auto mb-4">
                     <span className="text-2xl">🚧</span>
                   </div>
                   <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
@@ -288,7 +288,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                   </p>
                   <button
                     onClick={() => setEditingComponent(null)}
-                    className="px-6 py-2 bg-gradient-to-r from-amber-500 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all duration-300"
+                    className="px-6 py-2 bg-gradient-to-r from-veritas-secondary to-veritas-primary text-white rounded-xl hover:shadow-lg transition-all duration-300"
                   >
                     Close
                   </button>

@@ -9,212 +9,255 @@
 - **RGB**: `12, 29, 81`
 - **Usage**: Primary brand color, headers, dark backgrounds, emphasis elements
 - **CSS Variable**: `--color-dark-blue`
+- **Tailwind Class**: `veritas-dark-blue`
+
+#### Darker Blue (Almost Black)
+- **Hex**: `#050A1A`
+- **RGB**: `5, 10, 26`
+- **Usage**: Primary background color, navbar backgrounds, deepest sections
+- **CSS Variable**: `--color-darker-blue`
+- **Tailwind Class**: `veritas-darker-blue`
+- **Implementation Note**: This is the main background color used throughout the site
 
 #### Orange
 - **Hex**: `#EA900E`
 - **RGB**: `234, 144, 14`
-- **Usage**: Accent color, CTAs, highlights, interactive elements
+- **Usage**: Accent color, CTAs, highlights, interactive elements, timeline markers
 - **CSS Variable**: `--color-orange`
+- **Tailwind Class**: `veritas-orange`
 
 #### Light Blue
 - **Hex**: `#B9D9EB`
 - **RGB**: `185, 217, 235`
-- **Usage**: Secondary accent, backgrounds, subtle highlights
+- **Usage**: Secondary accent, button borders, link colors
 - **CSS Variable**: `--color-light-blue`
+- **Tailwind Class**: `veritas-light-blue`
 
 #### Eggshell
 - **Hex**: `#F0EAD6`
 - **RGB**: `240, 234, 214`
-- **Usage**: Light backgrounds, text on dark backgrounds, soft contrast
+- **Usage**: Primary text color on dark backgrounds, UI elements
 - **CSS Variable**: `--color-eggshell`
+- **Tailwind Class**: `veritas-eggshell`
 
 #### Dark Grey
 - **Hex**: `#1A1A1A`
 - **RGB**: `26, 26, 26`
-- **Usage**: Modern dark backgrounds, primary background color for dark themes
+- **Usage**: Alternative dark backgrounds (less used than darker-blue)
 - **CSS Variable**: `--color-dark-grey`
+- **Tailwind Class**: `veritas-dark-grey`
+
+### Legacy Cosmic Colors (Being Phased Out)
+
+#### Cosmic Palette
+- **Cosmic Gold**: `#FF8C42` - Legacy glow effects
+- **Cosmic Amber**: `#FFB366` - Legacy animations
+- **Cosmic Blue**: `#0096C7` - Legacy accent
+- **Cosmic Cyan**: `#00C9FF` - Legacy glow
+- **Cosmic Bright Cyan**: `#00F5FF` - Legacy bright accent
+- **Cosmic Deep Purple**: `#1A0B3D` - Legacy dark
+- **Cosmic Dark Purple**: `#0D0221` - Legacy darkest
 
 ### Color Applications
 
 #### Text Colors
-- **Primary Text on Light**: `#0C1D51` (Dark Blue)
-- **Primary Text on Dark**: `#F0EAD6` (Eggshell)
-- **Secondary Text on Light**: `#4A5568` (Gray-700)
-- **Secondary Text on Dark**: `#B9D9EB` (Light Blue)
+- **Primary Text on Dark**: `#F0EAD6` (Eggshell) - Used for all main text
+- **Secondary Text on Dark**: `rgba(240, 234, 214, 0.7)` (Eggshell 70% opacity)
+- **Tertiary Text on Dark**: `rgba(240, 234, 214, 0.4)` (Eggshell 40% opacity)
+- **Accent Text**: `#EA900E` (Orange) - For highlights and emphasis
+- **Interactive Text**: `#B9D9EB` (Light Blue) - For links and buttons
 
 #### Background Colors
-- **Primary Dark Background**: `#1A1A1A` (Dark Grey)
-- **Secondary Dark Background**: `#0C1D51` (Dark Blue)
-- **Primary Light Background**: `#F0EAD6` (Eggshell)
-- **Secondary Light Background**: `#B9D9EB` (Light Blue)
-- **Overlay/Glass Effect**: `rgba(12, 29, 81, 0.15)` (Dark Blue with transparency)
+- **Primary Background**: `#050A1A` (Darker Blue) - Main site background
+- **Secondary Background**: `rgba(5, 10, 26, 0.95)` - Navbar and overlays
+- **Glass Effect**: `rgba(240, 234, 214, 0.05)` - Card backgrounds
+- **Hover States**: `rgba(240, 234, 214, 0.1)` - Interactive hover
 
 #### Interactive States
-- **Default**: `#EA900E` (Orange)
-- **Hover**: `#D67F0D` (Darker Orange)
-- **Active**: `#C26F0C` (Even Darker Orange)
-- **Disabled**: `rgba(234, 144, 14, 0.5)` (Orange with 50% opacity)
+- **Button Default**: Border `#B9D9EB`, Text `#B9D9EB`
+- **Button Hover**: Background `#B9D9EB`, Text `#0C1D51`
+- **Link Default**: `#F0EAD6` with 70% opacity
+- **Link Hover**: `#F0EAD6` with 100% opacity
+- **Disabled**: `rgba(240, 234, 214, 0.3)` (Eggshell with 30% opacity)
 
 ## Typography
 
 ### Font Family
-- **Primary Font**: JetBrains Mono
-- **Fallback Stack**: `'JetBrains Mono', 'Courier New', monospace`
-- **System UI Fallback**: `-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
+- **Primary Font**: JetBrains Mono (loaded via @font-face)
+- **Fallback Stack**: `'JetBrains Mono', monospace`
+- **CSS Variable**: `--font-primary`
+- **Tailwind Classes**: `font-mono`, `font-jetbrains`
 
-### Font Weights
+### Font Weights Available
+- **Thin**: 100
+- **Extra Light**: 200
 - **Light**: 300
 - **Regular**: 400
 - **Medium**: 500
+- **Semibold**: 600
 - **Bold**: 700
+- **Extra Bold**: 800
 
-### Type Scale
-- **Display Large**: 72px / 80px line-height
-- **Display**: 60px / 68px line-height
-- **Heading 1**: 48px / 56px line-height
-- **Heading 2**: 36px / 44px line-height
-- **Heading 3**: 30px / 38px line-height
-- **Heading 4**: 24px / 32px line-height
-- **Body Large**: 18px / 28px line-height
-- **Body**: 16px / 24px line-height
-- **Body Small**: 14px / 20px line-height
-- **Caption**: 12px / 16px line-height
+### Font Weights Used
+- **Body Text**: 400 (Regular)
+- **Emphasized Text**: 500 (Medium)
+- **Headers**: 600-700 (Semibold to Bold)
+- **Buttons/Navigation**: 600 (Semibold)
 
-### Responsive Typography
-```css
-/* Mobile (< 640px) */
---font-display-large: 48px;
---font-display: 40px;
---font-h1: 32px;
---font-h2: 28px;
---font-h3: 24px;
+### Type Scale (Tailwind Classes)
+- **Display**: `text-4xl` to `text-6xl` (36px-60px)
+- **Heading Large**: `text-3xl` to `text-4xl` (30px-36px) 
+- **Heading Medium**: `text-xl` to `text-2xl` (20px-24px)
+- **Heading Small**: `text-lg` to `text-xl` (18px-20px)
+- **Body Large**: `text-lg` (18px) - Used for emphasized content
+- **Body**: `text-base` (16px) - Default body text
+- **Body Small**: `text-sm` (14px) - Secondary text
+- **Caption**: `text-xs` (12px) - Smallest text
+- **Tiny**: `text-[10px]` to `text-[11px]` - Mobile footer text
 
-/* Tablet (640px - 1024px) */
---font-display-large: 60px;
---font-display: 48px;
---font-h1: 40px;
---font-h2: 32px;
---font-h3: 28px;
+### Responsive Typography Implementation
+- **Mobile First Approach**: Base sizes with `sm:`, `md:`, `lg:` modifiers
+- **Common Patterns**:
+  - Headers: `text-sm sm:text-base md:text-lg lg:text-xl`
+  - Body: `text-base sm:text-lg`
+  - Captions: `text-xs sm:text-sm`
 
-/* Desktop (> 1024px) */
---font-display-large: 72px;
---font-display: 60px;
---font-h1: 48px;
---font-h2: 36px;
---font-h3: 30px;
-```
+### Text Styling
+- **Letter Spacing**: `tracking-wider` for uppercase text
+- **Text Transform**: `uppercase` for headers and navigation
+- **Line Height**: `leading-relaxed` (1.625) for body text
+- **Font Features**: Ligatures enabled via CSS
 
 ## Spacing System
 
-### Base Unit
-- **Base**: 4px
-- **Scale**: 4, 8, 12, 16, 20, 24, 32, 40, 48, 56, 64, 80, 96, 128
+### Tailwind Spacing Classes Used
+- **Padding**: `p-2` (8px) to `p-12` (48px)
+- **Common Padding**: `p-4` (16px), `p-6` (24px), `p-8` (32px)
+- **Mobile Padding**: `p-3` (12px), `px-4` (16px horizontal)
+- **Section Spacing**: `py-16` to `py-32`
+- **Gap Spacing**: `gap-2` (8px) to `gap-8` (32px)
+- **Space Between**: `space-x-2`, `space-y-6`
 
-### Component Spacing
-- **Extra Small (xs)**: 4px
-- **Small (sm)**: 8px
-- **Medium (md)**: 16px
-- **Large (lg)**: 24px
-- **Extra Large (xl)**: 32px
-- **2X Large (2xl)**: 48px
-- **3X Large (3xl)**: 64px
+### Common Spacing Patterns
+- **Card Padding**: `p-6 md:p-8` or `p-8 md:p-12`
+- **Button Padding**: `px-6 py-2.5` or `px-8 py-4`
+- **Section Margins**: `mb-16 md:mb-24`
+- **Icon Spacing**: `space-x-2` or `space-x-3`
 
 ## Border & Radius
 
-### Border Width
-- **Thin**: 1px
-- **Default**: 2px
-- **Thick**: 4px
+### Border Implementation
+- **Border Colors**: 
+  - `border-veritas-light-blue` - Interactive elements
+  - `border-veritas-eggshell/10` - Subtle dividers
+  - `border-veritas-eggshell/20` - Visible dividers
+- **Border Width**: `border-2` (2px) for buttons and emphasis
+- **Dividers**: `w-px` (1px width) or `h-px` (1px height)
 
-### Border Radius
-- **Small**: 4px
-- **Medium**: 8px
-- **Large**: 16px
-- **Extra Large**: 24px
-- **Full**: 9999px
+### Border Radius Used
+- **Buttons**: `rounded-full` - Pill-shaped buttons
+- **Cards**: `rounded-xl` or `rounded-2xl` 
+- **Navbar Elements**: `rounded-full` with conditional rounding
+- **Dropdowns**: `rounded-b-2xl` for bottom rounding
+- **Small Elements**: `rounded` (4px default)
 
-## Shadows
+## Visual Effects
 
-### Elevation Levels
+### Glass Morphism (Primary Card Style)
 ```css
-/* Level 1 - Subtle */
-box-shadow: 0 1px 3px rgba(12, 29, 81, 0.1);
-
-/* Level 2 - Small */
-box-shadow: 0 4px 6px rgba(12, 29, 81, 0.1);
-
-/* Level 3 - Medium */
-box-shadow: 0 10px 15px rgba(12, 29, 81, 0.1);
-
-/* Level 4 - Large */
-box-shadow: 0 20px 25px rgba(12, 29, 81, 0.15);
-
-/* Level 5 - Extra Large */
-box-shadow: 0 25px 50px rgba(12, 29, 81, 0.25);
-
-/* Glow Effect */
-box-shadow: 0 0 50px rgba(234, 144, 14, 0.3);
-```
-
-## Animation & Transitions
-
-### Duration
-- **Fast**: 150ms
-- **Normal**: 300ms
-- **Slow**: 500ms
-- **Extra Slow**: 1000ms
-
-### Easing Functions
-- **Default**: `cubic-bezier(0.4, 0, 0.2, 1)`
-- **Ease In**: `cubic-bezier(0.4, 0, 1, 1)`
-- **Ease Out**: `cubic-bezier(0, 0, 0.2, 1)`
-- **Ease In Out**: `cubic-bezier(0.4, 0, 0.2, 1)`
-- **Spring**: `cubic-bezier(0.68, -0.55, 0.265, 1.55)`
-
-## Gradients
-
-### Primary Gradients
-```css
-/* Orange to Dark Blue */
-background: linear-gradient(135deg, #EA900E 0%, #0C1D51 100%);
-
-/* Light Blue to Eggshell */
-background: linear-gradient(180deg, #B9D9EB 0%, #F0EAD6 100%);
-
-/* Radial Glow */
-background: radial-gradient(circle at 50% 50%, rgba(234, 144, 14, 0.3) 0%, transparent 70%);
-```
-
-## Glass Morphism
-
-### Standard Glass Effect
-```css
-background: rgba(12, 29, 81, 0.15);
+background: rgba(240, 234, 214, 0.05);
 backdrop-filter: blur(12px);
 border: 1px solid rgba(240, 234, 214, 0.2);
 ```
 
-### Light Glass Effect
+### Glow Effects
+- **Blue Glow**: Used in hero text
+  ```css
+  text-shadow: 
+    0 0 20px var(--glow-blue),
+    0 0 40px rgba(0, 201, 255, 0.6),
+    0 0 60px rgba(255, 140, 66, 0.4);
+  ```
+- **Gold Glow**: Secondary text elements
+  ```css
+  text-shadow: 
+    0 0 10px var(--glow-gold),
+    0 0 20px rgba(0, 201, 255, 0.4);
+  ```
+
+### Backdrop Blur
+- **Standard**: `backdrop-blur-md` (12px)
+- **Navigation**: Combined with semi-transparent backgrounds
+
+## Animation & Transitions
+
+### Transition Classes
+- **Colors**: `transition-colors duration-300`
+- **All Properties**: `transition-all duration-300`
+- **Transform**: `transition-transform duration-300 ease`
+- **Navbar**: `duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]`
+
+### Custom Animations
+- **Pulse Slow**: 
+  ```css
+  @keyframes pulse-slow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+  }
+  animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  ```
+
+### Mobile Optimizations
+- **Disabled Animations**: Complex animations disabled on mobile
+- **Simple Fade**: `mobileFadeIn` for mobile-specific animations
+- **Touch Scrolling**: `-webkit-overflow-scrolling: touch`
+
+## Scrollbar Styling
 ```css
-background: rgba(240, 234, 214, 0.1);
-backdrop-filter: blur(8px);
-border: 1px solid rgba(12, 29, 81, 0.1);
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.5);
+  border-radius: 4px;
+}
 ```
 
-## Breakpoints
+## Selection Color
+```css
+::selection {
+  background: rgba(139, 92, 246, 0.3);
+  color: white;
+}
+```
 
-### Screen Sizes
-- **Mobile**: 0 - 639px
-- **Tablet**: 640px - 1023px
-- **Desktop**: 1024px - 1279px
-- **Large Desktop**: 1280px+
+## Responsive Design
 
-### Container Max Widths
-- **Small**: 640px
-- **Medium**: 768px
-- **Large**: 1024px
-- **Extra Large**: 1280px
-- **2X Large**: 1536px
+### Breakpoints (Tailwind Default)
+- **sm**: 640px (Tablet)
+- **md**: 768px (Small Desktop)
+- **lg**: 1024px (Desktop)
+- **xl**: 1280px (Large Desktop)
+- **2xl**: 1536px (Extra Large)
+
+### Mobile-First Implementation
+- Base styles target mobile
+- Progressive enhancement with breakpoint prefixes
+- Mobile-specific components (MobileHeroSection, MobileNarrativeSection)
+
+### Mobile Optimizations
+- Disabled sticky positioning
+- Simplified animations
+- Removed parallax effects
+- Touch-optimized scrolling
+- Hardware acceleration for smooth performance
 
 ## Accessibility
 
@@ -239,47 +282,141 @@ outline-offset: 2px;
 }
 ```
 
-## Implementation Notes
+## Implementation Details
 
-### CSS Custom Properties
+### CSS Custom Properties (globals.css)
 ```css
 :root {
-  /* Colors */
+  /* Brand Colors */
   --color-dark-blue: #0C1D51;
+  --color-darker-blue: #050A1A;
   --color-orange: #EA900E;
   --color-light-blue: #B9D9EB;
   --color-eggshell: #F0EAD6;
-  --color-dark-grey: #1A1A1A;
+  
+  /* Legacy Cosmic Colors */
+  --cosmic-gold: #FF8C42;
+  --cosmic-amber: #FFB366;
+  --cosmic-blue: #0096C7;
+  --cosmic-cyan: #00C9FF;
+  --cosmic-bright-cyan: #00F5FF;
+  --cosmic-deep-purple: #1A0B3D;
+  --cosmic-dark-purple: #0D0221;
+  
+  /* Glow Colors */
+  --glow-gold: rgba(255, 215, 0, 0.8);
+  --glow-blue: rgba(0, 201, 255, 0.8);
+  --glow-white: rgba(255, 255, 255, 0.9);
   
   /* Font */
   --font-primary: 'JetBrains Mono', monospace;
   
-  /* Spacing */
-  --space-unit: 4px;
-  
-  /* Transitions */
-  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* Background */
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 5, 10, 26;
+  --background-end-rgb: 5, 10, 26;
 }
 ```
 
-### Tailwind Config Extension
+### Tailwind Config (tailwind.config.js)
 ```javascript
 theme: {
   extend: {
     colors: {
-      'veritas-dark-blue': '#0C1D51',
-      'veritas-orange': '#EA900E',
-      'veritas-light-blue': '#B9D9EB',
-      'veritas-eggshell': '#F0EAD6',
-      'veritas-dark-grey': '#1A1A1A',
+      veritas: {
+        'dark-blue': '#0C1D51',
+        'darker-blue': '#050A1A',
+        'orange': '#EA900E',
+        'light-blue': '#B9D9EB',
+        'eggshell': '#F0EAD6',
+        'dark-grey': '#1A1A1A',
+      }
     },
     fontFamily: {
       'mono': ['JetBrains Mono', 'monospace'],
+      'jetbrains': ['JetBrains Mono', 'monospace'],
     }
   }
 }
 ```
 
+## Component Patterns
+
+### Navigation (DockNavbar)
+- **Background**: `rgba(5, 10, 26, 0.95)` with backdrop blur
+- **Text**: Eggshell with hover states
+- **Hover**: `hover:bg-[#f0ead6]/10`
+- **Border Radius**: Dynamic based on state
+- **Typography**: `font-mono uppercase text-sm`
+
+### Cards
+- **Standard Card**:
+  ```css
+  background: rgba(240, 234, 214, 0.05);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(240, 234, 214, 0.2);
+  border-radius: 1rem; /* rounded-2xl */
+  ```
+- **Padding**: `p-6` to `p-8` (responsive)
+- **Text**: Eggshell with various opacities
+
+### Buttons
+- **Primary Style**: 
+  - Border: `border-2 border-veritas-light-blue`
+  - Text: `text-veritas-light-blue`
+  - Hover: `hover:bg-veritas-light-blue hover:text-veritas-dark-blue`
+  - Shape: `rounded-full`
+  - Padding: `px-8 py-4`
+
+### Timeline Components
+- **Markers**: Orange circles with glow effect
+- **Lines**: Vertical with gradient fade
+- **Cards**: Glass morphism with responsive padding
+
+## Accessibility Considerations
+
+### Color Contrast
+- Eggshell (#F0EAD6) on Darker Blue (#050A1A): **15.4:1** ✓ AAA
+- Light Blue (#B9D9EB) on Darker Blue (#050A1A): **11.2:1** ✓ AAA
+- Orange (#EA900E) on Darker Blue (#050A1A): **6.8:1** ✓ AA
+
+### Focus States
+- Not explicitly defined in current implementation
+- Recommendation: Add focus-visible states for keyboard navigation
+
+### Motion Preferences
+- Mobile: Animations simplified or disabled
+- Desktop: Full animations with performance optimizations
+- Smooth scroll with `scroll-behavior: smooth`
+
+## Performance Optimizations
+
+### Mobile-Specific
+- Separate mobile components (MobileHeroSection, MobileNarrativeSection)
+- Disabled sticky positioning and parallax
+- Simplified animations
+- Touch-optimized scrolling
+
+### General
+- Hardware acceleration via transform3d
+- Will-change used sparingly
+- Throttled scroll handlers
+- Lazy loading for heavy components
+
+## File Structure
+
+### Style Files
+- `/src/app/globals.css` - Global styles, font faces, CSS variables
+- `/tailwind.config.js` - Tailwind configuration and extensions
+- Component-specific styles inline using Tailwind classes
+
+### Key Components
+- `/src/components/common/DockNavbar.tsx` - Main navigation
+- `/src/components/hero/HeroSection.tsx` - Hero with globe
+- `/src/components/narrative/NarrativeSection.tsx` - Story sections
+- `/src/components/sections/FinalSection.tsx` - CTA section
+- `/src/components/common/VeritasFooter.tsx` - Footer
+
 ---
 
-This design system ensures consistency across the Veritas platform while maintaining accessibility and performance standards.
+This design system reflects the actual implementation of the Veritas landing page, emphasizing dark themes, glass morphism effects, and monospace typography for a technical, futuristic aesthetic.

@@ -12,19 +12,32 @@ const config: Config = {
   darkMode: 'class', // Enable class-based dark mode
   theme: {
     extend: {
-      // Veritas Color Scheme
+      // Veritas Color Scheme - Updated with design spec
       colors: {
         veritas: {
-          primary: '#1B365D',      // Deep Navy
-          secondary: '#FFB800',    // Vibrant Yellow
+          'dark-blue': '#0C1D51',     // Primary Dark Blue
+          'darker-blue': '#050A1A',   // Main background color
+          'orange': '#EA900E',        // Primary Orange
+          'light-blue': '#B9D9EB',    // Supporting Light Blue
+          'eggshell': '#F0EAD6',      // Supporting Eggshell
+          'dark-grey': '#1A1A1A',     // Modern Dark Background
+          // Legacy colors for backward compatibility
+          'primary': '#0C1D51',
+          'secondary': '#EA900E',
           'slate-blue': '#2D4A6B',
-          'golden-yellow': '#F5A623',
+          'golden-yellow': '#FFB800',
           'muted-gold': '#D4A574',
         },
-        'veritas-primary': '#1B365D',
-        'veritas-secondary': '#FFB800',
-        'veritas-light-blue': '#E8F4FD',
-        'veritas-dark-blue': '#051225',
+        // Quick access aliases
+        'veritas-dark-blue': '#0C1D51',
+        'veritas-darker-blue': '#050A1A',
+        'veritas-orange': '#EA900E',
+        'veritas-light-blue': '#B9D9EB',
+        'veritas-eggshell': '#F0EAD6',
+        'veritas-dark-grey': '#1A1A1A',
+        // Legacy aliases
+        'veritas-primary': '#0C1D51',
+        'veritas-secondary': '#EA900E',
         background: 'var(--background)',
         foreground: 'var(--foreground)',
         card: 'var(--card)',
@@ -48,8 +61,10 @@ const config: Config = {
       
       // Premium Typography
       fontFamily: {
-        'inter': ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
-        'sans': ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
+        'sans': ['JetBrains Mono', 'monospace'],
+        'mono': ['JetBrains Mono', 'monospace'],
+        'jetbrains': ['JetBrains Mono', 'monospace'],
+        'inter': ['Inter', 'system-ui', 'sans-serif'], // Keep Inter as fallback option
       },
       
       // Premium Spacing
@@ -67,11 +82,11 @@ const config: Config = {
       
       // Premium Shadows
       boxShadow: {
-        'premium': '0 10px 40px -10px rgba(255, 184, 0, 0.3)',
-        'premium-dark': '0 10px 40px -10px rgba(27, 54, 93, 0.3)',
-        'glassmorphism': '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-        'glow': '0 0 20px rgba(255, 184, 0, 0.5)',
-        'glow-strong': '0 0 40px rgba(255, 184, 0, 0.8)',
+        'premium': '0 10px 40px -10px rgba(234, 144, 14, 0.3)',
+        'premium-dark': '0 10px 40px -10px rgba(12, 29, 81, 0.3)',
+        'glassmorphism': '0 8px 32px 0 rgba(12, 29, 81, 0.37)',
+        'glow': '0 0 20px rgba(234, 144, 14, 0.5)',
+        'glow-strong': '0 0 40px rgba(234, 144, 14, 0.8)',
       },
       
       // Premium Animations
@@ -91,8 +106,8 @@ const config: Config = {
           '50%': { transform: 'translateY(-10px)' },
         },
         glow: {
-          'from': { boxShadow: '0 0 20px -10px rgba(255, 184, 0, 0.5)' },
-          'to': { boxShadow: '0 0 20px 5px rgba(255, 184, 0, 0.8)' },
+          'from': { boxShadow: '0 0 20px -10px rgba(234, 144, 14, 0.5)' },
+          'to': { boxShadow: '0 0 20px 5px rgba(234, 144, 14, 0.8)' },
         },
         fadeIn: {
           'from': { opacity: '0' },
@@ -112,8 +127,9 @@ const config: Config = {
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        'veritas-gradient': 'linear-gradient(135deg, #1B365D 0%, #FFB800 100%)',
-        'veritas-gradient-reverse': 'linear-gradient(135deg, #FFB800 0%, #1B365D 100%)',
+        'veritas-gradient': 'linear-gradient(135deg, #0C1D51 0%, #EA900E 100%)',
+        'veritas-gradient-reverse': 'linear-gradient(135deg, #EA900E 0%, #0C1D51 100%)',
+        'veritas-gradient-soft': 'linear-gradient(180deg, #B9D9EB 0%, #F0EAD6 100%)',
         'glass-gradient': 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
       },
       
