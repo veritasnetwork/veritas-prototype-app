@@ -258,7 +258,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                       className="p-3 rounded-2xl bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 group shadow-lg hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10"
                       title={viewMode === 'feed' ? 'Switch to Grid View' : 'Switch to Feed View'}
                     >
-                      <Grid3X3 className="w-5 h-5 text-[#1B365D] dark:text-[#D4A574] group-hover:text-[#1B365D]/80 dark:group-hover:text-slate-900 group-hover:scale-110 transition-all duration-300" />
+                      <Grid3X3 className="w-5 h-5 text-veritas-primary dark:text-veritas-eggshell group-hover:text-veritas-primary/80 dark:group-hover:text-veritas-eggshell/80 group-hover:scale-110 transition-all duration-300" />
                     </button>
 
                     {/* Sort Dropdown */}
@@ -267,10 +267,10 @@ const FeedNav: React.FC<FeedNavProps> = ({
                         onClick={() => setShowSortDropdown(!showSortDropdown)}
                         className="flex items-center space-x-2 px-4 py-3 bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 rounded-2xl group shadow-lg hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10"
                       >
-                        <span className="text-sm font-medium text-[#1B365D] dark:text-veritas-eggshell group-hover:text-[#1B365D]/80 dark:group-hover:text-veritas-eggshell transition-colors duration-300">
+                        <span className="text-sm font-medium text-veritas-primary dark:text-veritas-eggshell group-hover:text-veritas-primary/80 dark:group-hover:text-veritas-eggshell/80 transition-colors duration-300">
                           {sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort'}
                         </span>
-                        <ChevronDown className="w-4 h-4 text-[#1B365D] dark:text-[#D4A574] group-hover:text-[#1B365D]/80 dark:group-hover:text-slate-900 group-hover:rotate-180 transition-all duration-300" />
+                        <ChevronDown className="w-4 h-4 text-veritas-primary dark:text-veritas-eggshell group-hover:text-veritas-primary/80 dark:group-hover:text-veritas-eggshell/80 group-hover:rotate-180 transition-all duration-300" />
                       </button>
 
                       {/* Fixed Dropdown Menu */}
@@ -310,16 +310,16 @@ const FeedNav: React.FC<FeedNavProps> = ({
                       className="p-3 rounded-2xl bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 group shadow-lg hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10"
                     >
                       {isDark ? (
-                        <Sun className="w-5 h-5 text-[#D4A574] group-hover:text-slate-900 group-hover:rotate-12 transition-all duration-300" />
+                        <Sun className="w-5 h-5 text-veritas-eggshell group-hover:text-veritas-eggshell/80 group-hover:rotate-12 transition-all duration-300" />
                       ) : (
-                        <Moon className="w-5 h-5 text-[#1B365D] group-hover:text-[#1B365D]/80 group-hover:-rotate-12 transition-all duration-300" />
+                        <Moon className="w-5 h-5 text-veritas-primary group-hover:text-veritas-primary/80 group-hover:-rotate-12 transition-all duration-300" />
                       )}
                     </button>
 
                     {/* Login Button */}
                     <button
                       onClick={handleLogin}
-                      className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] hover:from-[#2D4A6B] hover:to-[#1B365D] text-white font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-[#1B365D]/20"
+                      className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-veritas-primary/90 dark:hover:bg-veritas-light-blue/90 text-white dark:text-veritas-darker-blue font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-light-blue/20"
                     >
                       <LogIn className="w-4 h-4" />
                       <span>Login</span>
@@ -341,7 +341,9 @@ const FeedNav: React.FC<FeedNavProps> = ({
                               onClick={() => onCategoryChange(item.id)}
                               className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all duration-300 transform hover:scale-105 shadow-lg border flex-shrink-0 ${
                                 activeCategory === item.id
-                                  ? 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25 border-[#1B365D]/30'
+                                  ? item.id === 'trending' 
+                                    ? 'text-white dark:text-veritas-darker-blue bg-veritas-primary dark:bg-veritas-light-blue shadow-lg shadow-veritas-primary/25 dark:shadow-veritas-light-blue/25 border-veritas-primary/30 dark:border-veritas-light-blue/30'
+                                    : 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25 border-[#1B365D]/30'
                                   : 'text-slate-700 dark:text-veritas-eggshell/70 hover:text-[#1B365D]/80 dark:hover:text-veritas-eggshell bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 hover:shadow-xl border-slate-200 dark:border-veritas-eggshell/10'
                               }`}
                             >
@@ -535,20 +537,20 @@ const FeedNav: React.FC<FeedNavProps> = ({
                   {/* Filter Toggle */}
                   <button
                     onClick={() => setShowMobileFilters(!showMobileFilters)}
-                    className="p-2 rounded-xl bg-[#FFB800]/10 hover:bg-[#FFB800]/20 transition-all duration-300"
+                    className="p-2 rounded-xl bg-veritas-secondary/10 dark:bg-veritas-eggshell/10 hover:bg-veritas-secondary/20 dark:hover:bg-veritas-eggshell/20 transition-all duration-300"
                   >
-                    <Filter className="w-4 h-4 text-[#1B365D] dark:text-[#D4A574]" />
+                    <Filter className="w-4 h-4 text-veritas-primary dark:text-veritas-eggshell" />
                   </button>
 
                   {/* Theme Toggle */}
                   <button
                     onClick={toggleTheme}
-                    className="p-2 rounded-xl bg-[#FFB800]/10 hover:bg-[#FFB800]/20 transition-all duration-300 group"
+                    className="p-2 rounded-xl bg-veritas-secondary/10 dark:bg-veritas-eggshell/10 hover:bg-veritas-secondary/20 dark:hover:bg-veritas-eggshell/20 transition-all duration-300 group"
                   >
                     {isDark ? (
-                      <Sun className="w-4 h-4 text-[#D4A574] group-hover:rotate-12 transition-transform duration-300" />
+                      <Sun className="w-4 h-4 text-veritas-secondary dark:text-veritas-eggshell group-hover:rotate-12 transition-transform duration-300" />
                     ) : (
-                      <Moon className="w-4 h-4 text-[#1B365D] group-hover:-rotate-12 transition-transform duration-300" />
+                      <Moon className="w-4 h-4 text-veritas-primary group-hover:-rotate-12 transition-transform duration-300" />
                     )}
                   </button>
                 </div>
@@ -588,7 +590,9 @@ const FeedNav: React.FC<FeedNavProps> = ({
                             }}
                             className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
                               activeCategory === item.id
-                                ? 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25'
+                                ? item.id === 'trending' 
+                                  ? 'text-white dark:text-veritas-darker-blue bg-veritas-primary dark:bg-veritas-light-blue shadow-lg shadow-veritas-primary/25 dark:shadow-veritas-light-blue/25'
+                                  : 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25'
                                 : 'text-gray-700 dark:text-veritas-eggshell/70 bg-gray-100 dark:bg-transparent hover:bg-gray-200 dark:hover:bg-veritas-eggshell/10'
                             }`}
                           >

@@ -217,7 +217,7 @@ const VeritasNavbar = () => {
               {/* Login Button */}
               <button
                 onClick={handleLogin}
-                className="flex items-center space-x-2 px-6 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-eggshell/20 hover:bg-veritas-primary/90 dark:hover:bg-veritas-eggshell/30 text-white dark:text-veritas-eggshell font-semibold font-mono uppercase text-sm shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-eggshell/20"
+                className="flex items-center space-x-2 px-6 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-veritas-primary/90 dark:hover:bg-veritas-light-blue/90 text-white dark:text-veritas-darker-blue font-semibold font-mono uppercase text-sm shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-light-blue/20"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Login</span>
@@ -389,7 +389,7 @@ const VeritasNavbar = () => {
               
               <button
                 onClick={handleLogin}
-                className="w-full flex items-center justify-center space-x-2 p-4 rounded-2xl bg-veritas-primary dark:bg-veritas-eggshell/20 hover:bg-veritas-primary/90 dark:hover:bg-veritas-eggshell/30 text-white dark:text-veritas-eggshell font-semibold font-mono uppercase text-sm transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-eggshell/20"
+                className="w-full flex items-center justify-center space-x-2 p-4 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-veritas-primary/90 dark:hover:bg-veritas-light-blue/90 text-white dark:text-veritas-darker-blue font-semibold font-mono uppercase text-sm transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-light-blue/20"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Login</span>
