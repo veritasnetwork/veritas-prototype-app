@@ -265,43 +265,49 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     <div className="relative">
                       <button
                         onClick={() => setShowSortDropdown(!showSortDropdown)}
-                        className="flex items-center space-x-2 px-4 py-3 bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 rounded-2xl group shadow-lg hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10"
+                        className={`flex items-center justify-between w-44 px-4 py-3 transition-all duration-300 shadow-lg hover:shadow-xl border ${
+                          showSortDropdown 
+                            ? 'rounded-t-2xl bg-gray-50 dark:bg-veritas-eggshell/10' 
+                            : 'rounded-2xl hover:scale-105'
+                        } bg-white dark:bg-veritas-darker-blue/95 hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 border-slate-200 dark:border-veritas-eggshell/10`}
                       >
-                        <span className="text-sm font-medium text-veritas-primary dark:text-veritas-eggshell group-hover:text-veritas-primary/80 dark:group-hover:text-veritas-eggshell/80 transition-colors duration-300">
+                        <span className="text-sm font-medium font-mono uppercase text-veritas-primary dark:text-veritas-eggshell transition-colors duration-300">
                           {sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort'}
                         </span>
-                        <ChevronDown className="w-4 h-4 text-veritas-primary dark:text-veritas-eggshell group-hover:text-veritas-primary/80 dark:group-hover:text-veritas-eggshell/80 group-hover:rotate-180 transition-all duration-300" />
+                        <ChevronDown className={`w-4 h-4 text-veritas-primary dark:text-veritas-eggshell transition-transform duration-300 flex-shrink-0 ${
+                          showSortDropdown ? 'rotate-180' : ''
+                        }`} />
                       </button>
 
-                      {/* Fixed Dropdown Menu */}
-                      {showSortDropdown && (
-                        <div className="absolute right-0 mt-3 w-48 z-50">
-                          {/* Enhanced Dropdown aura effect */}
-                          <div className="absolute -inset-1 bg-gradient-to-r from-white/30 via-white/20 to-white/30 dark:from-slate-800/30 dark:via-slate-800/20 dark:to-slate-800/30 rounded-3xl blur-xl pointer-events-none"></div>
-                          <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/20 via-[#FFB800]/10 to-[#1B365D]/20 dark:from-[#FFB800]/15 dark:via-[#D4A574]/10 dark:to-[#1B365D]/15 rounded-2xl blur-lg pointer-events-none"></div>
-                          
-                          <div className="relative bg-white/95 dark:bg-veritas-darker-blue/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.2)] border border-white/60 dark:border-veritas-eggshell/10 py-2 px-6 transition-all duration-300">
-                            {/* Inner border highlight */}
-                            <div className="absolute inset-0 rounded-2xl border border-white/80 dark:border-slate-500/80 pointer-events-none"></div>
-                            {sortOptions.map((option) => (
-                              <button
-                                key={option.value}
-                                onClick={() => {
-                                  onSortChange(option.value);
-                                  setShowSortDropdown(false);
-                                }}
-                                className={`w-full text-left px-4 py-3 text-sm font-medium transition-all duration-300 hover:scale-[1.02] mx-2 my-1 rounded-xl ${
-                                  sortBy === option.value
-                                    ? 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25'
-                                    : 'text-slate-700 dark:text-slate-300 hover:text-[#1B365D] dark:hover:text-[#D4A574] hover:bg-gradient-to-r hover:from-[#FFB800]/20 hover:to-[#1B365D]/10'
-                                }`}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
+                      {/* Dropdown Menu */}
+                      <div className={`absolute top-full left-0 right-0 z-50 rounded-b-2xl overflow-hidden transition-all duration-300 ease-out ${
+                        showSortDropdown 
+                          ? 'opacity-100 translate-y-0 max-h-[200px]' 
+                          : 'opacity-0 -translate-y-1 max-h-0 pointer-events-none'
+                      }`}>
+                        <div className="bg-white dark:bg-veritas-darker-blue/95 backdrop-blur-xl border-x border-b border-slate-200 dark:border-veritas-eggshell/10 rounded-b-2xl shadow-lg">
+                          {sortOptions.map((option, index) => (
+                            <button
+                              key={option.value}
+                              onClick={() => {
+                                onSortChange(option.value);
+                                setShowSortDropdown(false);
+                              }}
+                              className={`w-full text-left px-4 py-3 text-sm font-medium font-mono uppercase transition-all duration-300 ${
+                                sortBy === option.value
+                                  ? 'bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue'
+                                  : 'text-slate-700 dark:text-veritas-eggshell hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10'
+                              } ${
+                                index === 0 ? 'border-t border-slate-200/50 dark:border-veritas-eggshell/5' : ''
+                              } ${
+                                index === sortOptions.length - 1 ? 'rounded-b-2xl' : ''
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
                         </div>
-                      )}
+                      </div>
                     </div>
 
                     {/* Theme Toggle */}
@@ -606,44 +612,48 @@ const FeedNav: React.FC<FeedNavProps> = ({
 
                   {/* Sort Options - Custom Dropdown to Match Desktop */}
                   <div className="relative">
-                    <label className="text-xs font-medium text-gray-700 dark:text-slate-300 mb-2 block">Sort By</label>
+                    <label className="text-xs font-medium text-gray-700 dark:text-veritas-eggshell mb-2 block">Sort By</label>
                     <button
                       onClick={() => setShowMobileSortDropdown(!showMobileSortDropdown)}
-                      className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium bg-white/95 dark:bg-transparent backdrop-blur-xl rounded-2xl shadow-lg hover:shadow-xl border border-white/60 dark:border-veritas-eggshell/10 text-[#1B365D] dark:text-veritas-eggshell hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 focus:outline-none focus:ring-2 focus:ring-veritas-orange/50 focus:border-veritas-orange/50 transition-all duration-300 hover:scale-[1.02]"
+                      className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium font-mono uppercase backdrop-blur-xl shadow-lg hover:shadow-xl border transition-all duration-300 ${
+                        showMobileSortDropdown 
+                          ? 'rounded-t-xl bg-gray-50 dark:bg-veritas-eggshell/10' 
+                          : 'rounded-xl hover:scale-[1.02]'
+                      } bg-white dark:bg-veritas-darker-blue/95 hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 border-slate-200 dark:border-veritas-eggshell/10 text-veritas-primary dark:text-veritas-eggshell`}
                     >
-                      <span>{sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort'}</span>
-                      <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${showMobileSortDropdown ? 'rotate-180' : ''}`} />
+                      <span className="truncate">{sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort'}</span>
+                      <ChevronDown className={`w-4 h-4 flex-shrink-0 ml-2 transition-transform duration-300 ${showMobileSortDropdown ? 'rotate-180' : ''}`} />
                     </button>
 
                     {/* Mobile Sort Dropdown Menu */}
-                    {showMobileSortDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-2 z-50">
-                        {/* Enhanced Dropdown aura effect */}
-                        <div className="absolute -inset-1 bg-gradient-to-r from-white/30 via-white/20 to-white/30 dark:from-slate-800/30 dark:via-slate-800/20 dark:to-slate-800/30 rounded-2xl blur-xl pointer-events-none"></div>
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/20 via-[#FFB800]/10 to-[#1B365D]/20 dark:from-[#FFB800]/15 dark:via-[#D4A574]/10 dark:to-[#1B365D]/15 rounded-xl blur-lg pointer-events-none"></div>
-                        
-                        <div className="relative bg-white/95 dark:bg-veritas-darker-blue/95 backdrop-blur-xl rounded-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.2)] border border-white/60 dark:border-veritas-eggshell/10 py-2 px-4 transition-all duration-300">
-                          {/* Inner border highlight */}
-                          <div className="absolute inset-0 rounded-xl border border-white/80 dark:border-slate-500/80 pointer-events-none"></div>
-                          {sortOptions.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => {
-                                onSortChange(option.value);
-                                setShowMobileSortDropdown(false);
-                              }}
-                              className={`w-full text-left px-4 py-3 text-sm font-medium transition-all duration-300 hover:scale-[1.02] mx-2 my-1 rounded-lg ${
-                                sortBy === option.value
-                                  ? 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25'
-                                  : 'text-slate-700 dark:text-slate-300 hover:text-[#1B365D] dark:hover:text-[#D4A574] hover:bg-gradient-to-r hover:from-[#FFB800]/20 hover:to-[#1B365D]/10'
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
+                    <div className={`absolute top-full left-0 right-0 z-50 rounded-b-xl overflow-hidden transition-all duration-300 ease-out ${
+                      showMobileSortDropdown 
+                        ? 'opacity-100 translate-y-0 max-h-[200px]' 
+                        : 'opacity-0 -translate-y-1 max-h-0 pointer-events-none'
+                    }`}>
+                      <div className="bg-white dark:bg-veritas-darker-blue/95 backdrop-blur-xl border-x border-b border-slate-200 dark:border-veritas-eggshell/10 rounded-b-xl shadow-lg">
+                        {sortOptions.map((option, index) => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              onSortChange(option.value);
+                              setShowMobileSortDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-3 text-sm font-medium font-mono uppercase transition-all duration-300 ${
+                              sortBy === option.value
+                                ? 'bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue'
+                                : 'text-slate-700 dark:text-veritas-eggshell hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10'
+                            } ${
+                              index === 0 ? 'border-t border-slate-200/50 dark:border-veritas-eggshell/5' : ''
+                            } ${
+                              index === sortOptions.length - 1 ? 'rounded-b-xl' : ''
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               )}

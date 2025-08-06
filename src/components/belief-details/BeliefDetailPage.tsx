@@ -73,10 +73,10 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
             <div className="w-20 h-20 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🔍</span>
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-4">
+            <h1 className="text-3xl font-bold text-veritas-primary dark:text-veritas-eggshell mb-4">
               Information Not Found
             </h1>
-            <p className="text-slate-600 dark:text-slate-400 mb-8">
+            <p className="text-veritas-primary/70 dark:text-veritas-eggshell/70 mb-8">
               The information with ID &quot;{beliefId}&quot; could not be found.
             </p>
             <button 
@@ -97,7 +97,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
       <div className="bg-gradient-to-r from-veritas-secondary/10 to-veritas-secondary/5 dark:from-veritas-secondary/15 dark:to-veritas-secondary/5 border-b border-slate-200 dark:border-veritas-eggshell/10 pt-20 md:pt-8">
         <div className="container mx-auto px-4 py-6 max-w-7xl">
           {/* Breadcrumbs */}
-          <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400 mb-4">
+          <div className="flex items-center space-x-2 text-sm text-veritas-primary dark:text-veritas-eggshell mb-4">
             <button 
               onClick={handleBackToFeed}
               className="flex items-center space-x-2 hover:text-veritas-secondary dark:hover:text-veritas-secondary transition-colors"
@@ -259,17 +259,17 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                     <span className="text-xl">✏️</span>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                    <h3 className="text-xl font-bold text-veritas-primary dark:text-veritas-eggshell">
                       Edit {editingComponent} Component
                     </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70">
                       Propose changes to information components
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setEditingComponent(null)}
-                  className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700"
+                  className="p-2 text-veritas-primary/60 hover:text-veritas-primary dark:text-veritas-eggshell/60 dark:hover:text-veritas-eggshell transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10"
                 >
                   ✕
                 </button>
@@ -280,10 +280,10 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-veritas-secondary/20 to-veritas-primary/20 flex items-center justify-center mx-auto mb-4">
                     <span className="text-2xl">🚧</span>
                   </div>
-                  <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                  <h4 className="text-lg font-semibold text-veritas-primary dark:text-veritas-eggshell mb-2">
                     Coming Soon
                   </h4>
-                  <p className="text-slate-600 dark:text-slate-400 mb-4">
+                  <p className="text-veritas-primary/70 dark:text-veritas-eggshell/70 mb-4">
                     Component editing functionality is under development.
                   </p>
                   <button
