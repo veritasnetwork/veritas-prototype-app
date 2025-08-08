@@ -242,7 +242,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                       <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
                         type="text"
-                        placeholder="Search beliefs, topics, or users..."
+                        placeholder="Search topics..."
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
                         className="w-full pl-12 pr-4 py-3 bg-white dark:bg-veritas-eggshell/5 border border-slate-200 dark:border-veritas-eggshell/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-veritas-orange/50 focus:border-veritas-orange/50 text-slate-900 dark:text-veritas-eggshell placeholder-slate-500 dark:placeholder-veritas-eggshell/40 backdrop-blur-lg transition-all duration-300 shadow-none dark:shadow-inner"
@@ -255,26 +255,26 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     {/* View Toggle */}
                     <button
                       onClick={() => onViewModeChange(viewMode === 'feed' ? 'grid' : 'feed')}
-                      className="p-3 rounded-2xl bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 group shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10"
+                      className="p-3 rounded-2xl bg-white dark:bg-transparent hover:bg-veritas-dark-blue dark:hover:bg-veritas-eggshell/10 transition-all duration-200 ease-in-out group shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10 hover:border-transparent dark:hover:border-veritas-eggshell/10"
                       title={viewMode === 'feed' ? 'Switch to Grid View' : 'Switch to Feed View'}
                     >
-                      <Grid3X3 className="w-5 h-5 text-veritas-primary dark:text-veritas-eggshell group-hover:text-veritas-primary/80 dark:group-hover:text-veritas-eggshell/80 group-hover:scale-110 transition-all duration-300" />
+                      <Grid3X3 className="w-5 h-5 text-veritas-primary dark:text-veritas-eggshell group-hover:text-white dark:group-hover:text-veritas-eggshell/80 group-hover:scale-110 transition-all duration-300" />
                     </button>
 
                     {/* Sort Dropdown */}
                     <div className="relative">
                       <button
                         onClick={() => setShowSortDropdown(!showSortDropdown)}
-                        className={`flex items-center justify-between w-44 px-4 py-3 transition-all duration-300 shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl border ${
+                        className={`group flex items-center justify-between w-44 px-4 py-3 transition-all duration-300 shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl border ${
                           showSortDropdown 
                             ? 'rounded-t-2xl bg-gray-50 dark:bg-veritas-eggshell/10' 
                             : 'rounded-2xl hover:scale-105'
-                        } bg-white dark:bg-veritas-darker-blue/95 hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 border-slate-200 dark:border-veritas-eggshell/10`}
+                        } bg-white dark:bg-veritas-darker-blue/95 hover:bg-veritas-dark-blue dark:hover:bg-veritas-eggshell/10 border-slate-200 dark:border-veritas-eggshell/10 hover:border-transparent dark:hover:border-veritas-eggshell/10`}
                       >
-                        <span className="text-sm font-medium font-mono uppercase text-veritas-primary dark:text-veritas-eggshell transition-colors duration-300">
+                        <span className="text-sm font-medium font-mono uppercase text-veritas-primary dark:text-veritas-eggshell group-hover:text-white dark:group-hover:text-veritas-eggshell transition-colors duration-300">
                           {sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort'}
                         </span>
-                        <ChevronDown className={`w-4 h-4 text-veritas-primary dark:text-veritas-eggshell transition-transform duration-300 flex-shrink-0 ${
+                        <ChevronDown className={`w-4 h-4 text-veritas-primary dark:text-veritas-eggshell group-hover:text-white dark:group-hover:text-veritas-eggshell transition-transform duration-300 flex-shrink-0 ${
                           showSortDropdown ? 'rotate-180' : ''
                         }`} />
                       </button>
@@ -313,19 +313,19 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     {/* Theme Toggle */}
                     <button
                       onClick={toggleTheme}
-                      className="p-3 rounded-2xl bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 group shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10"
+                      className="p-3 rounded-2xl bg-white dark:bg-transparent hover:bg-veritas-dark-blue dark:hover:bg-veritas-eggshell/10 transition-all duration-200 ease-in-out group shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10 hover:border-transparent dark:hover:border-veritas-eggshell/10"
                     >
                       {isDark ? (
                         <Sun className="w-5 h-5 text-veritas-eggshell group-hover:text-veritas-eggshell/80 group-hover:rotate-12 transition-all duration-300" />
                       ) : (
-                        <Moon className="w-5 h-5 text-veritas-primary group-hover:text-veritas-primary/80 group-hover:-rotate-12 transition-all duration-300" />
+                        <Moon className="w-5 h-5 text-veritas-primary group-hover:text-white dark:group-hover:text-veritas-eggshell/80 group-hover:-rotate-12 transition-all duration-300" />
                       )}
                     </button>
 
                     {/* Login Button */}
                     <button
                       onClick={handleLogin}
-                      className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-veritas-primary/90 dark:hover:bg-veritas-light-blue/90 text-white dark:text-veritas-darker-blue font-semibold shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-light-blue/20"
+                      className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-white dark:hover:bg-veritas-light-blue/90 hover:text-veritas-dark-blue text-white dark:text-veritas-darker-blue font-semibold shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl transform hover:scale-105 transition-all duration-200 ease-in-out border-2 border-veritas-primary dark:border-veritas-light-blue/20 hover:border-veritas-dark-blue dark:hover:border-veritas-light-blue/20"
                     >
                       <LogIn className="w-4 h-4" />
                       <span>Login</span>
@@ -345,15 +345,15 @@ const FeedNav: React.FC<FeedNavProps> = ({
                             <button
                               key={item.id}
                               onClick={() => onCategoryChange(item.id)}
-                              className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all duration-300 transform hover:scale-105 shadow-none dark:shadow-lg border flex-shrink-0 ${
+                              className={`group flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out transform hover:scale-105 shadow-none dark:shadow-lg border flex-shrink-0 ${
                                 activeCategory === item.id
                                   ? item.id === 'trending' 
-                                    ? 'text-white dark:text-veritas-darker-blue bg-veritas-primary dark:bg-veritas-light-blue shadow-none dark:shadow-lg dark:shadow-veritas-light-blue/25 border-veritas-primary/30 dark:border-veritas-light-blue/30'
-                                    : 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-none dark:shadow-lg dark:shadow-[#1B365D]/25 border-[#1B365D]/30'
-                                  : 'text-slate-700 dark:text-veritas-eggshell/70 hover:text-[#1B365D]/80 dark:hover:text-veritas-eggshell bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 hover:shadow-none dark:hover:shadow-xl border-slate-200 dark:border-veritas-eggshell/10'
+                                    ? 'text-white dark:text-veritas-darker-blue bg-veritas-primary dark:bg-veritas-light-blue shadow-none border-veritas-primary dark:border-veritas-light-blue/30'
+                                    : 'text-white bg-veritas-dark-blue dark:bg-veritas-light-blue/20 shadow-none dark:shadow-lg dark:shadow-[#1B365D]/25 border-veritas-dark-blue dark:border-veritas-eggshell/20'
+                                  : 'text-slate-700 dark:text-veritas-eggshell/70 hover:text-white dark:hover:text-veritas-eggshell bg-white dark:bg-transparent hover:bg-veritas-dark-blue dark:hover:bg-veritas-eggshell/10 hover:shadow-none dark:hover:shadow-xl border-slate-200 dark:border-veritas-eggshell/10 hover:border-transparent dark:hover:border-veritas-eggshell/10'
                               }`}
                             >
-                              {Icon && <Icon className="w-4 h-4" />}
+                              {Icon && <Icon className="w-4 h-4 transition-colors duration-200" />}
                               <span>{item.label}</span>
                             </button>
                           );
@@ -387,7 +387,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                           <div className="relative px-3 py-2 bg-veritas-orange/30 dark:bg-veritas-orange/10 backdrop-blur-xl rounded-2xl border border-veritas-orange/40 dark:border-veritas-orange/20">
                             <div className="flex items-center space-x-2">
                               <div className="relative">
-                                <DollarSign className="w-4 h-4 text-veritas-orange dark:text-veritas-orange/60" />
+                                <DollarSign className="w-4 h-4 text-amber-700 dark:text-veritas-orange/60" />
                                 {!isNetworkLoading && (
                                   <div className="absolute inset-0 text-veritas-orange/80 dark:text-veritas-orange/50 animate-pulse opacity-50">
                                     <DollarSign className="w-4 h-4" />
@@ -395,13 +395,13 @@ const FeedNav: React.FC<FeedNavProps> = ({
                                 )}
                               </div>
                               <div className="text-xs">
-                                <div className="text-veritas-orange dark:text-veritas-orange/70 font-medium">Stake</div>
-                                <div className={`font-bold text-veritas-orange dark:text-veritas-orange/80 mt-1 ${isNetworkLoading ? 'animate-pulse' : ''}`}>
+                                <div className="text-amber-700 dark:text-veritas-orange/70 font-medium">Stake</div>
+                                <div className={`font-bold text-amber-700 dark:text-veritas-orange/80 mt-1 ${isNetworkLoading ? 'animate-pulse' : ''}`}>
                                   {isNetworkLoading ? (
                                     <div className="flex items-center space-x-0.5 h-4">
-                                      <div className="w-1.5 h-1.5 bg-veritas-orange dark:bg-veritas-orange/60 rounded-full animate-bounce"></div>
-                                      <div className="w-1.5 h-1.5 bg-veritas-orange dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                      <div className="w-1.5 h-1.5 bg-veritas-orange dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                      <div className="w-1.5 h-1.5 bg-amber-700 dark:bg-veritas-orange/60 rounded-full animate-bounce"></div>
+                                      <div className="w-1.5 h-1.5 bg-amber-700 dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                      <div className="w-1.5 h-1.5 bg-amber-700 dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                                     </div>
                                   ) : (
                                     `${(networkMetrics.totalStake / 1000000).toFixed(1)}M`
@@ -570,7 +570,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                   </div>
                   <input
                     type="text"
-                    placeholder="Search beliefs..."
+                    placeholder="Search topics..."
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-veritas-eggshell/10 rounded-xl leading-5 bg-white dark:bg-veritas-eggshell/5 placeholder-gray-500 dark:placeholder-veritas-eggshell/40 focus:outline-none focus:ring-2 focus:ring-veritas-orange focus:border-veritas-orange text-gray-900 dark:text-veritas-eggshell shadow-sm text-sm"
@@ -678,12 +678,11 @@ const FeedNav: React.FC<FeedNavProps> = ({
           }}
         >
           <div className="relative max-w-xs mx-auto">
-            {/* Multi-layer Mobile Glassmorphism */}
-            <div className="absolute -inset-2 bg-gradient-to-r from-white/30 via-white/20 to-white/30 dark:from-slate-800/30 dark:via-slate-800/20 dark:to-slate-800/30 rounded-[2rem] blur-2xl pointer-events-none"></div>
-            <div className="absolute -inset-1 bg-gradient-to-br from-[#FFB800]/25 via-[#FFB800]/15 to-[#1B365D]/25 dark:from-[#FFB800]/20 dark:via-[#D4A574]/15 dark:to-[#1B365D]/20 rounded-3xl blur-xl pointer-events-none"></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-white/40 via-transparent to-white/40 dark:from-slate-900/40 dark:via-transparent dark:to-slate-900/40 rounded-3xl blur-lg pointer-events-none"></div>
+            {/* Subtle Mobile Glassmorphism */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10 dark:from-slate-800/10 dark:via-slate-800/5 dark:to-slate-800/10 rounded-[2rem] blur-xl pointer-events-none"></div>
+            <div className="absolute -inset-0.5 bg-gradient-to-br from-veritas-orange/10 via-transparent to-veritas-light-blue/10 dark:from-veritas-orange/5 dark:via-transparent dark:to-veritas-light-blue/5 rounded-3xl blur-md pointer-events-none"></div>
             
-            <div className="relative bg-white/20 dark:bg-veritas-darker-blue/95 backdrop-blur-[40px] border border-white/30 dark:border-veritas-eggshell/10 rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.2)]">
+            <div className="relative bg-white/20 dark:bg-veritas-darker-blue/95 backdrop-blur-[40px] border border-white/30 dark:border-veritas-eggshell/10 rounded-3xl">
               {/* Inner border highlight */}
               <div className="absolute inset-0 rounded-3xl border border-white/40 dark:border-veritas-eggshell/5 pointer-events-none"></div>
               
@@ -708,7 +707,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     >
                       {/* Active indicator background */}
                       {isActive && (
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/30 to-[#1B365D]/20 rounded-2xl shadow-lg" />
+                        <div className="absolute inset-0 bg-veritas-orange/20 dark:bg-veritas-light-blue/20 rounded-2xl" />
                       )}
                       
                       {/* Icon */}
