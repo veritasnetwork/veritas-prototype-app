@@ -65,24 +65,24 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
               </div>
             )}
 
-            {/* Hero Content - Always eggshell text since image background */}
-            <div className="relative z-10 h-full flex flex-col justify-end p-8 text-veritas-eggshell">
+            {/* Hero Content - Always white text since image background */}
+            <div className="relative z-10 h-full flex flex-col justify-end p-8 text-white">
               
               {/* Title */}
-              <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-4 drop-shadow-lg text-veritas-eggshell">
+              <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-4 drop-shadow-lg text-white">
                 {activeBelief.heading.title}
               </h1>
               
               {/* Context/Subtitle */}
               {activeBelief.heading.context && (
-                <p className="text-xl text-veritas-eggshell/90 leading-relaxed mb-4 drop-shadow">
+                <p className="text-xl text-white/90 leading-relaxed mb-4 drop-shadow">
                   {activeBelief.heading.context}
                 </p>
               )}
               
               {/* Article Excerpt */}
               {activeBelief.article?.excerpt && (
-                <p className="text-lg text-veritas-eggshell/80 leading-relaxed mb-6 line-clamp-2 drop-shadow">
+                <p className="text-lg text-white/80 leading-relaxed mb-6 line-clamp-2 drop-shadow">
                   {activeBelief.article.excerpt}
                 </p>
               )}
@@ -91,20 +91,20 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
               <div className="flex items-center gap-4 mb-4">
                 <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full">
                   <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  <span className="text-sm font-medium text-veritas-eggshell">
+                  <span className="text-sm font-medium text-white">
                     Truth Score: {activeBelief.objectRankingScores.truth}%
                   </span>
                 </div>
                 <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  <span className="text-sm font-medium text-veritas-eggshell">
+                  <span className="text-sm font-medium text-white">
                     Relevance: {activeBelief.objectRankingScores.relevance}%
                   </span>
                 </div>
               </div>
               
               {/* Read More CTA */}
-              <div className="text-sm text-veritas-eggshell/70 font-medium">
+              <div className="text-sm text-white/70 font-medium">
                 Click to explore full analysis →
               </div>
             </div>
@@ -124,7 +124,7 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
                 className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-all duration-200 shadow-lg cursor-pointer"
                 style={{ pointerEvents: 'auto' }}
               >
-                <ChevronRight className="w-6 h-6 pointer-events-none text-veritas-eggshell" />
+                <ChevronRight className="w-6 h-6 pointer-events-none text-white" />
               </button>
             )}
           </div>
