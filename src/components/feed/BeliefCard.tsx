@@ -45,11 +45,11 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
       case 'mobile':
         return 'bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200 border-0 rounded-none';
       case 'news':
-        return 'bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl hover:shadow-blue-500/10 dark:hover:shadow-blue-400/20 transition-all duration-500 cursor-pointer group border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:ring-2 hover:ring-blue-100 dark:hover:ring-blue-900/30 overflow-hidden hover:-translate-y-1';
+        return 'bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl hover:shadow-veritas-light-blue/10 dark:hover:shadow-veritas-light-blue/20 transition-all duration-200 cursor-pointer group border border-gray-200 dark:border-gray-700 hover:border-veritas-light-blue dark:hover:border-veritas-light-blue overflow-hidden';
       case 'large':
-        return 'bg-white dark:bg-gray-800 rounded-2xl shadow-2xl hover:shadow-3xl hover:shadow-blue-500/10 dark:hover:shadow-blue-400/20 transition-all duration-500 cursor-pointer group border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:ring-2 hover:ring-blue-100 dark:hover:ring-blue-900/30 overflow-hidden hover:-translate-y-1';
+        return 'bg-white dark:bg-gray-800 rounded-2xl shadow-2xl hover:shadow-3xl hover:shadow-veritas-light-blue/10 dark:hover:shadow-veritas-light-blue/20 transition-all duration-200 cursor-pointer group border border-gray-200 dark:border-gray-700 hover:border-veritas-light-blue dark:hover:border-veritas-light-blue overflow-hidden';
       default:
-        return 'bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-gray-200 dark:border-gray-700';
+        return 'bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-700 hover:border-veritas-light-blue dark:hover:border-veritas-light-blue';
     }
   };
 
@@ -99,7 +99,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
                 alt={belief.heading.title}
                 width={400}
                 height={320}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                className="w-full h-full object-cover"
                 unoptimized
               />
             ) : (
@@ -199,7 +199,6 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         ${getCardSizing()}
         ${getVariantStyles()}
         belief-card cursor-pointer group relative overflow-hidden
-        ${variant === 'mobile' ? 'hover:scale-100' : 'hover:scale-[1.02]'}
         ${variant === 'feed' ? 'p-6' : variant === 'compact' ? 'p-3' : variant === 'large' ? 'p-4 flex flex-col' : 'p-4'}
       `}
       onClick={handleClick}

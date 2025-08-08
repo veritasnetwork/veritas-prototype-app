@@ -61,8 +61,8 @@ const ComponentUnderstandingModal: React.FC<{
           </button>
           
           <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 mb-4 pr-10">
-            <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex-shrink-0">
-              <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" />
+            <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-veritas-primary dark:bg-veritas-eggshell flex-shrink-0">
+              <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-white dark:text-veritas-primary" />
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="text-lg sm:text-2xl font-bold text-veritas-primary dark:text-veritas-eggshell leading-tight">
@@ -146,7 +146,7 @@ const ComponentUnderstandingModal: React.FC<{
           </div>
 
           {/* Current Support */}
-          <div className="bg-slate-50 dark:bg-veritas-darker-blue/80/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-veritas-eggshell/10">
+          <div className="bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-veritas-eggshell/10">
             <h4 className="font-bold text-veritas-primary dark:text-veritas-eggshell mb-2 sm:mb-3 text-base sm:text-lg">
               Currently Supported
             </h4>
@@ -158,10 +158,10 @@ const ComponentUnderstandingModal: React.FC<{
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-slate-50 dark:bg-veritas-darker-blue/80/50 border-t border-slate-200 dark:border-veritas-eggshell/10">
+        <div className="flex-shrink-0 px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-slate-50 dark:bg-veritas-darker-blue/60 border-t border-slate-200 dark:border-veritas-eggshell/10">
           <button
             onClick={onContributeToTruth}
-            className="w-full py-3 sm:py-4 px-4 sm:px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl sm:rounded-2xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 hover:scale-[1.02] active:scale-95 text-sm sm:text-base"
+            className="w-full py-3 sm:py-4 px-4 sm:px-6 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-xl sm:rounded-2xl font-semibold hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 text-sm sm:text-base"
           >
             <div className="flex items-center justify-center space-x-2">
               <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -243,10 +243,8 @@ const BeliefSubmissionModal: React.FC<{
   };
 
   const getValueColor = (value: number) => {
-    if (value >= 80) return 'from-emerald-500 to-emerald-600';
-    if (value >= 60) return 'from-blue-500 to-blue-600';
-    if (value >= 40) return 'from-amber-500 to-amber-600';
-    return 'from-red-500 to-red-600';
+    // Always return Veritas orange for consistency
+    return 'bg-veritas-orange';
   };
 
   // Handle escape key to close modal
@@ -283,8 +281,8 @@ const BeliefSubmissionModal: React.FC<{
           }
         }}
       >
-        <div className="bg-white dark:bg-veritas-darker-blue rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] sm:max-h-[80vh] overflow-y-auto p-6 sm:p-8 text-center shadow-2xl">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+        <div className="bg-white dark:bg-veritas-darker-blue/95 rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] sm:max-h-[80vh] overflow-y-auto p-6 sm:p-8 text-center shadow-2xl border border-slate-200 dark:border-veritas-eggshell/10">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
             <Check className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
           </div>
           <h3 className="text-lg sm:text-2xl font-bold text-veritas-primary dark:text-veritas-eggshell mb-3 sm:mb-4">
@@ -334,8 +332,8 @@ const BeliefSubmissionModal: React.FC<{
           </button>
           
           <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 mb-4 pr-10">
-            <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex-shrink-0">
-              <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" />
+            <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-veritas-primary dark:bg-veritas-eggshell flex-shrink-0">
+              <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-white dark:text-veritas-primary" />
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="text-lg sm:text-2xl font-bold text-veritas-primary dark:text-veritas-eggshell leading-tight">
@@ -388,7 +386,7 @@ const BeliefSubmissionModal: React.FC<{
                     How confident you are in your assessment
                   </p>
                 </div>
-                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gradient-to-r ${getValueColor(certainty)} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
+                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full ${getValueColor(certainty)} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
                   {certainty}%
                 </div>
               </div>
@@ -419,7 +417,7 @@ const BeliefSubmissionModal: React.FC<{
                     What you personally think is true
                   </p>
                 </div>
-                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gradient-to-r ${getValueColor(truthValue)} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
+                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full ${getValueColor(truthValue)} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
                   {truthValue}%
                 </div>
               </div>
@@ -450,7 +448,7 @@ const BeliefSubmissionModal: React.FC<{
                     What you think others will say
                   </p>
                 </div>
-                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gradient-to-r ${getValueColor(othersWillSay)} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
+                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full ${getValueColor(othersWillSay)} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
                   {othersWillSay}%
                 </div>
               </div>
@@ -478,19 +476,19 @@ const BeliefSubmissionModal: React.FC<{
               width: 20px;
               height: 20px;
               border-radius: 50%;
-              background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+              background: #EA900E;
               cursor: pointer;
-              box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+              box-shadow: 0 2px 8px rgba(234, 144, 14, 0.4);
             }
             
             .slider::-moz-range-thumb {
               width: 20px;
               height: 20px;
               border-radius: 50%;
-              background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+              background: #EA900E;
               cursor: pointer;
               border: none;
-              box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+              box-shadow: 0 2px 8px rgba(234, 144, 14, 0.4);
             }
             
             .slider::-webkit-slider-track {
@@ -535,15 +533,15 @@ const BeliefSubmissionModal: React.FC<{
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-slate-50 dark:bg-veritas-darker-blue/80/50 border-t border-slate-200 dark:border-veritas-eggshell/10">
+        <div className="flex-shrink-0 px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-slate-50 dark:bg-veritas-darker-blue/60 border-t border-slate-200 dark:border-veritas-eggshell/10">
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
             className={`
-              w-full py-3 sm:py-4 px-4 sm:px-6 rounded-xl sm:rounded-2xl font-semibold text-white transition-all duration-300 text-sm sm:text-base
+              w-full py-3 sm:py-4 px-4 sm:px-6 rounded-xl sm:rounded-2xl font-semibold transition-all duration-300 text-sm sm:text-base
               ${isSubmitting 
-                ? 'bg-slate-400 cursor-not-allowed' 
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:shadow-lg hover:shadow-blue-500/25 active:scale-95 hover:from-blue-700 hover:to-purple-700'
+                ? 'bg-slate-400 text-white cursor-not-allowed' 
+                : 'bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue hover:shadow-lg active:scale-95 hover:scale-105'
               }
             `}
           >
@@ -589,7 +587,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({ belief }) => {
       {!hasSubmitted ? (
         <button
           onClick={() => setShowComponentModal(true)}
-          className="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 hover:scale-[1.02] active:scale-95"
+          className="w-full py-4 px-6 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-2xl font-semibold hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
         >
           <div className="flex items-center justify-center space-x-2">
             <TrendingUp className="w-5 h-5" />

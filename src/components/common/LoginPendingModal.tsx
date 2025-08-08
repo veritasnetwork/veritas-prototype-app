@@ -43,46 +43,27 @@ export const LoginPendingModal: React.FC<LoginPendingModalProps> = ({ isOpen, on
         }
       }}
     >
-      <div className="bg-white dark:bg-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+      <div className="bg-white dark:bg-veritas-darker-blue/95 rounded-2xl sm:rounded-3xl w-full max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-veritas-eggshell/10">
         {/* Header */}
-        <div className="relative px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-gradient-to-br from-slate-50 to-white dark:from-slate-700 dark:to-slate-800 border-b border-slate-200 dark:border-slate-600 flex-shrink-0">
+        <div className="relative px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-white dark:bg-veritas-darker-blue/95 border-b border-slate-200 dark:border-veritas-eggshell/10 flex-shrink-0">
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-veritas-primary/60 hover:text-veritas-primary dark:text-veritas-eggshell/60 dark:hover:text-veritas-eggshell transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10"
           >
             <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
           
           <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 mb-4 pr-10">
-            <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex-shrink-0">
-              <LogIn className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" />
+            <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-veritas-primary dark:bg-veritas-eggshell flex-shrink-0">
+              <LogIn className="w-6 h-6 sm:w-8 sm:h-8 text-white dark:text-veritas-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
+              <h2 className="text-lg sm:text-2xl font-bold text-veritas-primary dark:text-veritas-eggshell leading-tight">
                 Login Coming Soon
               </h2>
-              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-tight">
+              <p className="text-sm sm:text-base text-veritas-primary/70 dark:text-veritas-eggshell/70 leading-tight">
                 Authentication features in development
               </p>
-            </div>
-          </div>
-
-          {/* Veritas Logo Display */}
-          <div className="bg-slate-100 dark:bg-slate-700 rounded-xl sm:rounded-2xl p-3 sm:p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#1B365D] rounded-lg flex items-center justify-center p-2 flex-shrink-0">
-                <div className="w-full h-full rounded-full bg-white/20 flex items-center justify-center">
-                  <span className="text-white font-bold text-sm sm:text-base">V</span>
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm sm:text-base">
-                  Veritas Intelligence Platform
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                  Decentralized information intelligence
-                </p>
-              </div>
             </div>
           </div>
         </div>
@@ -142,16 +123,16 @@ export const LoginPendingModal: React.FC<LoginPendingModalProps> = ({ isOpen, on
           </div>
 
           {/* Current Access */}
-          <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-600">
+          <div className="bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-veritas-eggshell/10">
             <div className="flex items-start space-x-3 sm:space-x-4">
-              <div className="p-2 sm:p-3 bg-slate-100 dark:bg-slate-600/50 rounded-lg sm:rounded-xl flex-shrink-0">
-                <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-400" />
+              <div className="p-2 sm:p-3 bg-veritas-primary/10 dark:bg-veritas-eggshell/10 rounded-lg sm:rounded-xl flex-shrink-0">
+                <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-veritas-primary dark:text-veritas-eggshell" />
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-2 sm:mb-3 text-base sm:text-lg">
+                <h4 className="font-bold text-veritas-primary dark:text-veritas-eggshell mb-2 sm:mb-3 text-base sm:text-lg">
                   Explore Now Without Login
                 </h4>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm sm:text-base">
+                <p className="text-veritas-primary/70 dark:text-veritas-eggshell/70 leading-relaxed text-sm sm:text-base">
                   You can browse all beliefs, read articles, view charts, and explore the intelligence 
                   platform without an account. Full interaction features will require login once available.
                 </p>
@@ -161,17 +142,17 @@ export const LoginPendingModal: React.FC<LoginPendingModalProps> = ({ isOpen, on
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-slate-50 dark:bg-slate-700/50 border-t border-slate-200 dark:border-slate-600">
+        <div className="flex-shrink-0 px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-slate-50 dark:bg-veritas-darker-blue/60 border-t border-slate-200 dark:border-veritas-eggshell/10">
           <button
             onClick={onClose}
-            className="w-full py-3 sm:py-4 px-4 sm:px-6 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-xl sm:rounded-2xl font-semibold hover:shadow-lg hover:shadow-slate-500/25 transition-all duration-300 hover:scale-[1.02] active:scale-95 text-sm sm:text-base"
+            className="w-full py-3 sm:py-4 px-4 sm:px-6 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-xl sm:rounded-2xl font-semibold hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 text-sm sm:text-base"
           >
             <div className="flex items-center justify-center space-x-2">
               <span>Continue Exploring</span>
             </div>
           </button>
 
-          <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-2 sm:mt-3">
+          <p className="text-xs text-center text-veritas-primary/60 dark:text-veritas-eggshell/60 mt-2 sm:mt-3">
             Login functionality coming soon to enhance your Veritas experience
           </p>
         </div>
