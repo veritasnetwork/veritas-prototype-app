@@ -60,7 +60,7 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
             
             {/* Category Badge - Top Left Corner */}
             {activeBelief.category && (
-              <div className="absolute top-6 left-6 z-20 inline-flex items-center px-4 py-2 bg-veritas-primary dark:bg-veritas-light-blue backdrop-blur-sm text-white dark:text-veritas-darker-blue text-sm font-medium font-mono uppercase rounded-full shadow-lg border border-veritas-primary/20 dark:border-veritas-light-blue/20">
+              <div className="absolute top-6 left-6 z-20 inline-flex items-center px-4 py-2 bg-veritas-primary dark:bg-veritas-light-blue backdrop-blur-sm text-white dark:text-veritas-darker-blue text-sm font-medium uppercase rounded-full shadow-lg border border-veritas-primary/20 dark:border-veritas-light-blue/20">
                 {activeBelief.category.toUpperCase()}
               </div>
             )}

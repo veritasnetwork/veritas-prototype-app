@@ -115,7 +115,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
             
             {/* Category Badge - Top Left */}
             {belief.category && (
-              <div className="absolute top-4 left-4 inline-flex items-center px-3 py-1 bg-veritas-primary dark:bg-veritas-light-blue backdrop-blur-sm text-white dark:text-veritas-darker-blue text-xs font-medium font-mono uppercase rounded-full border border-veritas-primary/20 dark:border-veritas-light-blue/20">
+              <div className="absolute top-4 left-4 inline-flex items-center px-3 py-1 bg-veritas-primary dark:bg-veritas-light-blue backdrop-blur-sm text-white dark:text-veritas-darker-blue text-xs font-medium uppercase rounded-full border border-veritas-primary/20 dark:border-veritas-light-blue/20">
                 {belief.category.toUpperCase()}
               </div>
             )}
