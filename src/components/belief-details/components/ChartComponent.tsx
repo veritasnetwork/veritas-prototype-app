@@ -72,8 +72,8 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
     loadCharts();
   }, [actualBeliefId, showOnlyFeedChart]);
 
-  const chartHeight = variant === 'card' ? 'h-full' : 'h-64';
-  const wrapperMargin = variant === 'card' ? '' : 'my-4';
+  const chartHeight = variant === 'card' ? 'h-full' : variant === 'news' ? 'h-40' : 'h-64';
+  const wrapperMargin = variant === 'card' ? '' : variant === 'news' ? '' : 'my-4';
 
   // Loading state
   if (loading) {
@@ -190,8 +190,8 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
 
     return (
       <div key={config.id} className={`${index > 0 && variant !== 'card' ? 'mt-6' : ''} ${variant === 'card' ? 'h-full' : ''}`}>
-        {variant === 'detail' && (
-          <h4 className="text-sm font-medium text-veritas-primary dark:text-veritas-eggshell mb-2">
+        {(variant === 'detail' || variant === 'news') && (
+          <h4 className={`font-medium text-veritas-primary dark:text-veritas-eggshell mb-2 ${variant === 'news' ? 'text-xs' : 'text-sm'}`}>
             {config.title}
           </h4>
         )}
@@ -200,9 +200,9 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
             {chartElement}
           </ResponsiveContainer>
         </div>
-        {variant === 'detail' && (
+        {(variant === 'detail' || variant === 'news') && (
           <div className="mt-2">
-            <p className="text-xs text-veritas-primary/50 dark:text-veritas-eggshell/50">
+            <p className={`text-veritas-primary/50 dark:text-veritas-eggshell/50 ${variant === 'news' ? 'text-xs line-clamp-2' : 'text-xs'}`}>
               {config.description}
             </p>
           </div>
