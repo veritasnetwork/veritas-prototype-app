@@ -71,7 +71,7 @@ const VeritasFooter = () => {
                   height={32}
                   className="w-full h-full object-contain"
                   priority
-                  sizes="32px"
+                  unoptimized
                 />
               </div>
               <span className="font-semibold text-veritas-dark-blue dark:text-veritas-eggshell font-mono uppercase text-sm sm:text-base">
