@@ -29,13 +29,13 @@ export const Modal: React.FC<ModalProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-        <div className={`relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full ${sizeClasses[size]}`}>
+        <div className={`relative bg-white dark:bg-veritas-darker-blue/95 rounded-3xl shadow-2xl border border-slate-200 dark:border-veritas-eggshell/10 w-full ${sizeClasses[size]}`}>
           {title && (
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-veritas-eggshell/10">
+              <h2 className="text-xl font-semibold text-veritas-primary dark:text-veritas-eggshell">{title}</h2>
               <button
                 onClick={onClose}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors duration-200"
+                className="text-veritas-primary/60 hover:text-veritas-primary dark:text-veritas-eggshell/60 dark:hover:text-veritas-eggshell transition-colors duration-200 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10"
               >
                 <X size={24} />
               </button>
