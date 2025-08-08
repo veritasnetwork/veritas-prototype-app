@@ -1,7 +1,7 @@
 import { HeadingData, ArticleData } from './belief.types';
 
 export type ComponentType = 'heading' | 'chart' | 'article' | 'metadata';
-export type ComponentVariant = 'card' | 'detail';
+export type ComponentVariant = 'card' | 'detail' | 'news';
 
 export interface HeadingComponentProps {
   heading: HeadingData;
