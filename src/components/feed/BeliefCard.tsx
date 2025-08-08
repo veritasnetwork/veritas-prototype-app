@@ -174,16 +174,14 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
               </div>
             </div>
             
-            {/* Middle: Chart */}
+            {/* Middle: Chart with Title and Description */}
             <div className="flex-1 mb-2">
-                              <div className="h-56 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <ChartComponent 
-                    charts={[]} 
-                    beliefId={belief.id}
-                    variant="card" 
-                    showOnlyFeedChart={true} 
-                  />
-                </div>
+              <ChartComponent 
+                charts={[]} 
+                beliefId={belief.id}
+                variant="news" 
+                showOnlyFeedChart={true} 
+              />
             </div>
             
           

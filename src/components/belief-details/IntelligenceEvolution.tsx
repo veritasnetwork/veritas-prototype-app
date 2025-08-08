@@ -149,7 +149,7 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
               
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={historicalData} margin={{ top: 10, right: 15, left: 15, bottom: 10 }}>
+                  <LineChart data={historicalData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                     <XAxis 
                       dataKey="date" 

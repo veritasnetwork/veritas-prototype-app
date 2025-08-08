@@ -47,16 +47,9 @@
 - **CSS Variable**: `--color-dark-grey`
 - **Tailwind Class**: `veritas-dark-grey`
 
-### Legacy Cosmic Colors (Being Phased Out)
+### Legacy Cosmic Colors (REMOVED)
 
-#### Cosmic Palette
-- **Cosmic Gold**: `#FF8C42` - Legacy glow effects
-- **Cosmic Amber**: `#FFB366` - Legacy animations
-- **Cosmic Blue**: `#0096C7` - Legacy accent
-- **Cosmic Cyan**: `#00C9FF` - Legacy glow
-- **Cosmic Bright Cyan**: `#00F5FF` - Legacy bright accent
-- **Cosmic Deep Purple**: `#1A0B3D` - Legacy dark
-- **Cosmic Dark Purple**: `#0D0221` - Legacy darkest
+All cosmic colors have been successfully removed from the codebase. The application now exclusively uses the Veritas brand colors.
 
 ### Color Applications
 
@@ -204,20 +197,10 @@ backdrop-filter: blur(12px);
 border: 1px solid rgba(240, 234, 214, 0.2);
 ```
 
-### Glow Effects
-- **Blue Glow**: Used in hero text
-  ```css
-  text-shadow: 
-    0 0 20px var(--glow-blue),
-    0 0 40px rgba(0, 201, 255, 0.6),
-    0 0 60px rgba(255, 140, 66, 0.4);
-  ```
-- **Gold Glow**: Secondary text elements
-  ```css
-  text-shadow: 
-    0 0 10px var(--glow-gold),
-    0 0 20px rgba(0, 201, 255, 0.4);
-  ```
+### Shadow Effects
+- **Removed**: All glow and gradient shadow effects have been removed
+- **Current Implementation**: Clean, flat design with solid colors
+- **Box Shadows**: Minimal use, primarily for depth on cards
 
 ### Backdrop Blur
 - **Standard**: `backdrop-blur-md` (12px)
@@ -226,10 +209,11 @@ border: 1px solid rgba(240, 234, 214, 0.2);
 ## Animation & Transitions
 
 ### Transition Classes
-- **Colors**: `transition-colors duration-300`
-- **All Properties**: `transition-all duration-300`
-- **Transform**: `transition-transform duration-300 ease`
+- **Colors**: `transition-colors duration-200` - Reduced from 300ms for snappier response
+- **All Properties**: `transition-all duration-200`
+- **Transform**: `transition-transform duration-200 ease`
 - **Navbar**: `duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]`
+- **Hover States**: No lift animations on belief cards, only border color changes
 
 ### Custom Animations
 - **Pulse Slow**: 
@@ -240,6 +224,10 @@ border: 1px solid rgba(240, 234, 214, 0.2);
   }
   animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   ```
+- **Skeleton Loading**:
+  - Shimmer effect: `via-veritas-light-blue/5`
+  - Background colors: Match actual component colors
+  - Uses Veritas brand colors exclusively
 
 ### Mobile Optimizations
 - **Disabled Animations**: Complex animations disabled on mobile
@@ -328,14 +316,7 @@ outline-offset: 2px;
   --color-light-blue: #B9D9EB;
   --color-eggshell: #F0EAD6;
   
-  /* Legacy Cosmic Colors */
-  --cosmic-gold: #FF8C42;
-  --cosmic-amber: #FFB366;
-  --cosmic-blue: #0096C7;
-  --cosmic-cyan: #00C9FF;
-  --cosmic-bright-cyan: #00F5FF;
-  --cosmic-deep-purple: #1A0B3D;
-  --cosmic-dark-purple: #0D0221;
+  /* Legacy colors removed - using only Veritas brand colors */
   
   /* Glow Colors */
   --glow-gold: rgba(255, 215, 0, 0.8);
@@ -384,6 +365,15 @@ theme: {
 - **Text**: Standard text color scheme (dark blue/eggshell)
 - **Logo**: Simple text styling without background container
 - **Typography**: `font-mono uppercase`
+- **Network Metrics**:
+  - Stake card: Muted Veritas orange background (solid, no gradient)
+  - Agents card: Veritas light blue background (solid, no gradient)
+  - Icons: White on colored backgrounds
+- **Network Status Pill**: `w-28` width to accommodate "Syncing" text
+- **Category Pills**: 
+  - Parent container: `overflow-y-visible` to prevent hover cutoff
+  - No `overflow-hidden` on parent
+- **Trending Button**: No shadow effects, clean border design
 
 #### Sort Dropdown
 - **Connected Design**: Rounded top when open, seamless connection to dropdown
@@ -394,13 +384,17 @@ theme: {
 ### Cards
 - **Standard Card**:
   ```css
-  background: rgba(240, 234, 214, 0.05);
+  background: white (light mode) / rgba(5, 10, 26, 0.8) (dark mode);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(240, 234, 214, 0.2);
-  border-radius: 1rem; /* rounded-2xl */
+  border: 1px solid rgba(240, 234, 214, 0.1);
+  border-radius: 1.5rem; /* rounded-3xl */
   ```
 - **Padding**: `p-6` to `p-8` (responsive)
-- **Text**: Eggshell with various opacities
+- **Text**: Follows standard text color scheme
+- **Hover Effects**: 
+  - Border color change to `border-veritas-light-blue`
+  - No lift or scale animations
+  - Duration: 200ms for immediate response
 
 ### Buttons
 - **Primary Style**: 
@@ -491,16 +485,41 @@ theme: {
 ### Component-Specific Implementations
 
 #### BeliefCard
-- **Feed Variant**: Glassmorphism with hover effects
+- **Feed Variant**: Clean card design with solid backgrounds
 - **News Variant**: Image overlay with eggshell text
 - **Grid View**: Removed unnecessary headings
 - **Divider**: `border-veritas-eggshell/20` in dark mode
+- **Hover Animation**: 
+  - Border changes to `border-veritas-light-blue`
+  - No lift effect (`hover:-translate-y-1` removed)
+  - No scale effect (`hover:scale-[1.02]` removed)
+  - Transition duration: 200ms (reduced from 500ms)
 
 #### BeliefDetailPage
 - **Hero Text**: Always eggshell for image overlays
 - **Breadcrumbs**: Standard text color scheme
 - **Components**: HeadingComponent, ArticleComponent, ChartComponent all follow text scheme
-- **Related Beliefs**: Card-based with hover effects
+- **Component Editing Modals**:
+  - Background: `dark:bg-veritas-darker-blue/95`
+  - Icon containers: Solid Veritas colors (no gradients)
+  - Buttons: Solid backgrounds, no gradients
+- **Action Panel**:
+  - Header: `dark:from-veritas-darker-blue dark:to-veritas-darker-blue/90`
+  - Belief topic card: `dark:bg-black/30` with `dark:border-white/10`
+  - Submit button: Solid `bg-veritas-orange`
+  - Sliders: Solid orange thumbs (#EA900E), no gradients
+  - Value badges: Always `bg-veritas-orange`
+- **Related Beliefs**:
+  - Single card design (outer wrapper removed)
+  - Category labels: Solid colors, no gradients
+  - Icon containers: Solid Veritas colors
+- **Community Discussion**:
+  - Styled consistently with Intelligence Evolution
+  - Icon: Solid color background matching section theme
+  - No orange shadow effects
+- **Intelligence Evolution**:
+  - Icons: Solid color backgrounds
+  - Chart colors maintained for data clarity
 
 #### PremierHeader
 - **Category Badge**: Matches login button styling
@@ -519,6 +538,8 @@ theme: {
 2. **Interactive Elements**: Use consistent hover states
 3. **Opacity Levels**: 60%, 70%, 80% for text hierarchy
 4. **Borders**: 10%, 20% opacity for subtle/visible dividers
+5. **No Gradients**: Solid colors preferred over gradients for UI elements
+6. **CSS Opacity Syntax**: Use single opacity values (e.g., `/60`), never double (avoid `/80/50`)
 
 #### Dark Mode Transitions
 1. **Gradients**: Neutralize with `dark:from-transparent dark:to-transparent`
