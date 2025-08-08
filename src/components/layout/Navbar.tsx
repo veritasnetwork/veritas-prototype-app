@@ -56,9 +56,9 @@ const VeritasNavbar = () => {
   ];
 
   const desktopNavItems = [
-    { label: 'Feed', href: '/' },
-    { label: 'Explore', href: '/?view=grid' },
-    { label: 'About', href: '/about' },
+    { label: 'Feed', href: '/', isExternal: false },
+    { label: 'Explore', href: '/?view=grid', isExternal: false },
+    { label: 'About', href: 'https://veritas.computer/', isExternal: true },
   ];
 
   const isActiveRoute = (href: string) => {
@@ -67,8 +67,19 @@ const VeritasNavbar = () => {
     return pathname.startsWith(href);
   };
 
-  const handleNavigation = (href: string) => {
-    router.push(href);
+  const handleNavigation = (href: string, isExternal: boolean = false) => {
+    if (isExternal) {
+      window.open(href, '_blank', 'noopener,noreferrer');
+    } else if (href.includes('?view=grid')) {
+      // Navigate to feed page with grid view query param
+      router.push('/');
+      // Use setTimeout to ensure navigation completes before adding query param
+      setTimeout(() => {
+        router.push('/?view=grid');
+      }, 100);
+    } else {
+      router.push(href);
+    }
     setIsMobileMenuOpen(false);
   };
 
@@ -185,14 +196,14 @@ const VeritasNavbar = () => {
               {desktopNavItems.map((item) => (
                 <button
                   key={item.href}
-                  onClick={() => handleNavigation(item.href)}
+                  onClick={() => handleNavigation(item.href, item.isExternal)}
                   className={`relative px-4 py-2 rounded-xl font-medium font-mono uppercase text-sm transition-all duration-300 hover:bg-gray-100 dark:hover:bg-veritas-eggshell/10 ${
-                    isActiveRoute(item.href)
+                    !item.isExternal && isActiveRoute(item.href)
                       ? 'text-[#1B365D] dark:text-veritas-eggshell'
                       : 'text-slate-600 dark:text-veritas-eggshell/70 hover:text-[#1B365D] dark:hover:text-veritas-eggshell'
                   }`}
                 >
-                  {isActiveRoute(item.href) && (
+                  {!item.isExternal && isActiveRoute(item.href) && (
                     <div className="absolute inset-0 bg-gradient-to-r from-[#FFB800]/20 to-[#1B365D]/10 rounded-xl transition-all duration-300" />
                   )}
                   <span className="relative">{item.label}</span>
@@ -205,19 +216,19 @@ const VeritasNavbar = () => {
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-3 rounded-2xl bg-white/10 dark:bg-veritas-eggshell/10 hover:bg-white/20 dark:hover:bg-veritas-eggshell/20 transition-all duration-300 group border border-gray-200/50 dark:border-veritas-eggshell/10"
+                className="p-3 rounded-2xl bg-white/10 dark:bg-veritas-eggshell/10 hover:bg-veritas-dark-blue dark:hover:bg-veritas-eggshell/20 transition-all duration-200 ease-in-out group border border-gray-200/50 dark:border-veritas-eggshell/10 hover:border-transparent dark:hover:border-veritas-eggshell/10"
               >
                 {isDark ? (
                   <Sun className="w-5 h-5 text-veritas-secondary dark:text-veritas-eggshell group-hover:rotate-12 transition-transform duration-300" />
                 ) : (
-                  <Moon className="w-5 h-5 text-veritas-primary group-hover:-rotate-12 transition-transform duration-300" />
+                  <Moon className="w-5 h-5 text-veritas-primary group-hover:text-white dark:group-hover:text-veritas-eggshell group-hover:-rotate-12 transition-transform duration-300" />
                 )}
               </button>
 
               {/* Login Button */}
               <button
                 onClick={handleLogin}
-                className="flex items-center space-x-2 px-6 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-veritas-primary/90 dark:hover:bg-veritas-light-blue/90 text-white dark:text-veritas-darker-blue font-semibold font-mono uppercase text-sm shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-light-blue/20"
+                className="flex items-center space-x-2 px-6 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-white dark:hover:bg-veritas-light-blue/90 hover:text-veritas-dark-blue text-white dark:text-veritas-darker-blue font-semibold font-mono uppercase text-sm shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-200 ease-in-out border-2 border-veritas-primary dark:border-veritas-light-blue/20 hover:border-veritas-dark-blue dark:hover:border-veritas-light-blue/20"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Login</span>
@@ -302,11 +313,17 @@ const VeritasNavbar = () => {
               : 'scale(0.95) translateY(100%)'
           }}
         >
-          <div className="relative max-w-md mx-auto">
-            {/* Glassmorphism container */}
-            <div className="relative bg-white/10 dark:bg-veritas-darker-blue/95 backdrop-blur-2xl border border-white/20 dark:border-veritas-eggshell/10 rounded-3xl shadow-2xl shadow-yellow-500/10">
+          <div className="relative max-w-xs mx-auto">
+            {/* Subtle Mobile Glassmorphism */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10 dark:from-slate-800/10 dark:via-slate-800/5 dark:to-slate-800/10 rounded-[2rem] blur-xl pointer-events-none"></div>
+            <div className="absolute -inset-0.5 bg-gradient-to-br from-veritas-orange/10 via-transparent to-veritas-light-blue/10 dark:from-veritas-orange/5 dark:via-transparent dark:to-veritas-light-blue/5 rounded-3xl blur-md pointer-events-none"></div>
+            
+            <div className="relative bg-white/20 dark:bg-veritas-darker-blue/95 backdrop-blur-[40px] border border-white/30 dark:border-veritas-eggshell/10 rounded-3xl">
+              {/* Inner border highlight */}
+              <div className="absolute inset-0 rounded-3xl border border-white/40 dark:border-veritas-eggshell/5 pointer-events-none"></div>
+              
               {/* Premium gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 rounded-3xl" />
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/4 via-transparent to-blue-500/4 dark:from-yellow-500/3 dark:via-transparent dark:to-blue-400/3 rounded-3xl mix-blend-overlay pointer-events-none"></div>
               
               <div className="relative flex items-center justify-around px-6 py-4">
                 {navItems.map((item) => {
@@ -325,24 +342,24 @@ const VeritasNavbar = () => {
                     >
                       {/* Active indicator background */}
                       {isActive && (
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/30 to-[#1B365D]/20 rounded-2xl" />
+                        <div className="absolute inset-0 bg-veritas-orange/20 dark:bg-veritas-light-blue/20 rounded-2xl" />
                       )}
                       
                       {/* Icon */}
                       <Icon 
-                        className={`w-6 h-6 transition-colors duration-300 ${
+                        className={`w-6 h-6 transition-colors duration-300 relative z-10 ${
                           isActive 
-                            ? 'text-veritas-primary dark:text-veritas-eggshell' 
-                            : 'text-slate-500 dark:text-veritas-eggshell/60'
+                            ? 'text-[#1B365D] dark:text-[#D4A574]' 
+                            : 'text-slate-500 dark:text-slate-400'
                         }`} 
                       />
                       
                       {/* Label */}
                       <span
-                        className={`text-xs font-medium font-mono uppercase mt-1 transition-colors duration-300 ${
+                        className={`text-xs font-medium transition-colors duration-300 relative z-10 ${
                           isActive 
-                            ? 'text-veritas-primary dark:text-veritas-eggshell' 
-                            : 'text-slate-500 dark:text-veritas-eggshell/60'
+                            ? 'text-[#1B365D] dark:text-[#D4A574]' 
+                            : 'text-slate-500 dark:text-slate-400'
                         }`}
                       >
                         {item.label}
@@ -376,9 +393,9 @@ const VeritasNavbar = () => {
               {desktopNavItems.map((item) => (
                 <button
                   key={item.href}
-                  onClick={() => handleNavigation(item.href)}
+                  onClick={() => handleNavigation(item.href, item.isExternal)}
                   className={`w-full text-left p-4 rounded-2xl font-mono uppercase text-sm transition-all duration-300 ${
-                    isActiveRoute(item.href)
+                    !item.isExternal && isActiveRoute(item.href)
                       ? 'bg-gradient-to-r from-veritas-secondary/20 to-veritas-primary/10 text-veritas-primary dark:text-veritas-eggshell'
                       : 'text-slate-600 dark:text-veritas-eggshell/70 hover:bg-gray-100 dark:hover:bg-veritas-eggshell/10'
                   }`}
