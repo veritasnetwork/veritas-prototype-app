@@ -194,23 +194,23 @@ const FeedNav: React.FC<FeedNavProps> = ({
           <div className="relative">
             {/* Multi-layer Glassmorphism Container with Enhanced Aura Effect */}
             {/* Outer glow - largest blur for ambient light */}
-            <div className="absolute -inset-2 bg-gradient-to-r from-white/30 via-white/20 to-white/30 dark:from-slate-800/30 dark:via-slate-800/20 dark:to-slate-800/30 rounded-[2rem] blur-2xl pointer-events-none"></div>
+            <div className="absolute -inset-2 bg-transparent dark:bg-gradient-to-r dark:from-slate-800/30 dark:via-slate-800/20 dark:to-slate-800/30 rounded-[2rem] blur-2xl pointer-events-none"></div>
             
-            {/* Middle aura - medium blur for color depth */}
-            <div className="absolute -inset-1 bg-gradient-to-br from-[#FFB800]/25 via-[#FFB800]/15 to-[#1B365D]/25 dark:from-[#FFB800]/20 dark:via-[#D4A574]/15 dark:to-[#1B365D]/20 rounded-3xl blur-xl pointer-events-none"></div>
+            {/* Middle aura - medium blur for color depth - only in dark mode */}
+            <div className="absolute -inset-1 dark:bg-gradient-to-br dark:from-[#FFB800]/20 dark:via-[#D4A574]/15 dark:to-[#1B365D]/20 rounded-3xl blur-xl pointer-events-none"></div>
             
-            {/* Inner halo - subtle blur for refined edge */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white/40 via-transparent to-white/40 dark:from-slate-900/40 dark:via-transparent dark:to-slate-900/40 rounded-3xl blur-lg pointer-events-none"></div>
+            {/* Inner halo - subtle blur for refined edge - only in dark mode */}
+            <div className="absolute inset-0 dark:bg-gradient-to-r dark:from-slate-900/40 dark:via-transparent dark:to-slate-900/40 rounded-3xl blur-lg pointer-events-none"></div>
             
-            <div className="relative bg-white/20 dark:bg-veritas-darker-blue/95 backdrop-blur-[40px] border border-white/30 dark:border-veritas-eggshell/10 rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.2)] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)]">
-              {/* Inner border highlight */}
-              <div className="absolute inset-0 rounded-3xl border border-white/40 dark:border-veritas-eggshell/5 pointer-events-none"></div>
+            <div className="relative bg-veritas-eggshell/95 dark:bg-veritas-darker-blue/95 backdrop-blur-[40px] border border-veritas-eggshell/50 dark:border-veritas-eggshell/10 rounded-3xl shadow-none dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.2)] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)]">
+              {/* Inner border highlight - only in dark mode */}
+              <div className="absolute inset-0 rounded-3xl border border-transparent dark:border-veritas-eggshell/5 pointer-events-none"></div>
               
-              {/* Premium gradient overlay with better blending */}
-              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/4 via-transparent to-blue-500/4 dark:from-yellow-500/3 dark:via-transparent dark:to-blue-400/3 rounded-3xl mix-blend-overlay pointer-events-none"></div>
+              {/* Premium gradient overlay - only in dark mode */}
+              <div className="absolute inset-0 dark:bg-gradient-to-br dark:from-yellow-500/3 dark:via-transparent dark:to-blue-400/3 rounded-3xl mix-blend-overlay pointer-events-none"></div>
               
-              {/* Subtle frost texture overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/2 to-transparent dark:via-slate-400/2 rounded-3xl pointer-events-none"></div>
+              {/* Subtle frost texture overlay - only in dark mode */}
+              <div className="absolute inset-0 dark:bg-gradient-to-r dark:from-transparent dark:via-slate-400/2 dark:to-transparent rounded-3xl pointer-events-none"></div>
               
               <div className="relative">
                 {/* Main dock bar */}
@@ -245,7 +245,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                         placeholder="Search beliefs, topics, or users..."
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-white/30 dark:bg-veritas-eggshell/5 border border-white/40 dark:border-veritas-eggshell/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-veritas-orange/50 focus:border-veritas-orange/50 text-slate-900 dark:text-veritas-eggshell placeholder-slate-500 dark:placeholder-veritas-eggshell/40 backdrop-blur-lg transition-all duration-300 shadow-inner"
+                        className="w-full pl-12 pr-4 py-3 bg-white dark:bg-veritas-eggshell/5 border border-slate-200 dark:border-veritas-eggshell/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-veritas-orange/50 focus:border-veritas-orange/50 text-slate-900 dark:text-veritas-eggshell placeholder-slate-500 dark:placeholder-veritas-eggshell/40 backdrop-blur-lg transition-all duration-300 shadow-none dark:shadow-inner"
                       />
                     </div>
                   </div>
@@ -255,7 +255,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     {/* View Toggle */}
                     <button
                       onClick={() => onViewModeChange(viewMode === 'feed' ? 'grid' : 'feed')}
-                      className="p-3 rounded-2xl bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 group shadow-lg hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10"
+                      className="p-3 rounded-2xl bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 group shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10"
                       title={viewMode === 'feed' ? 'Switch to Grid View' : 'Switch to Feed View'}
                     >
                       <Grid3X3 className="w-5 h-5 text-veritas-primary dark:text-veritas-eggshell group-hover:text-veritas-primary/80 dark:group-hover:text-veritas-eggshell/80 group-hover:scale-110 transition-all duration-300" />
@@ -265,7 +265,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     <div className="relative">
                       <button
                         onClick={() => setShowSortDropdown(!showSortDropdown)}
-                        className={`flex items-center justify-between w-44 px-4 py-3 transition-all duration-300 shadow-lg hover:shadow-xl border ${
+                        className={`flex items-center justify-between w-44 px-4 py-3 transition-all duration-300 shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl border ${
                           showSortDropdown 
                             ? 'rounded-t-2xl bg-gray-50 dark:bg-veritas-eggshell/10' 
                             : 'rounded-2xl hover:scale-105'
@@ -285,7 +285,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                           ? 'opacity-100 translate-y-0 max-h-[200px]' 
                           : 'opacity-0 -translate-y-1 max-h-0 pointer-events-none'
                       }`}>
-                        <div className="bg-white dark:bg-veritas-darker-blue/95 backdrop-blur-xl border-x border-b border-slate-200 dark:border-veritas-eggshell/10 rounded-b-2xl shadow-lg">
+                        <div className="bg-white dark:bg-veritas-darker-blue/95 backdrop-blur-xl border-x border-b border-slate-200 dark:border-veritas-eggshell/10 rounded-b-2xl shadow-none dark:shadow-lg">
                           {sortOptions.map((option, index) => (
                             <button
                               key={option.value}
@@ -313,7 +313,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     {/* Theme Toggle */}
                     <button
                       onClick={toggleTheme}
-                      className="p-3 rounded-2xl bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 group shadow-lg hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10"
+                      className="p-3 rounded-2xl bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 group shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl hover:scale-105 border border-slate-200 dark:border-veritas-eggshell/10"
                     >
                       {isDark ? (
                         <Sun className="w-5 h-5 text-veritas-eggshell group-hover:text-veritas-eggshell/80 group-hover:rotate-12 transition-all duration-300" />
@@ -325,7 +325,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     {/* Login Button */}
                     <button
                       onClick={handleLogin}
-                      className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-veritas-primary/90 dark:hover:bg-veritas-light-blue/90 text-white dark:text-veritas-darker-blue font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-light-blue/20"
+                      className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-veritas-primary/90 dark:hover:bg-veritas-light-blue/90 text-white dark:text-veritas-darker-blue font-semibold shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-light-blue/20"
                     >
                       <LogIn className="w-4 h-4" />
                       <span>Login</span>
@@ -334,7 +334,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                 </div>
 
                 {/* Category Pills */}
-                <div className="border-t border-white/20 dark:border-slate-700/30">
+                <div className="border-t border-veritas-primary/10 dark:border-slate-700/30">
                   <div className="flex items-center justify-between px-8 pt-6 pb-8">
                     {/* Category buttons with proper spacing */}
                     <div className="flex-1 min-w-0 mr-6 overflow-hidden">
@@ -345,12 +345,12 @@ const FeedNav: React.FC<FeedNavProps> = ({
                             <button
                               key={item.id}
                               onClick={() => onCategoryChange(item.id)}
-                              className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all duration-300 transform hover:scale-105 shadow-lg border flex-shrink-0 ${
+                              className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all duration-300 transform hover:scale-105 shadow-none dark:shadow-lg border flex-shrink-0 ${
                                 activeCategory === item.id
                                   ? item.id === 'trending' 
-                                    ? 'text-white dark:text-veritas-darker-blue bg-veritas-primary dark:bg-veritas-light-blue shadow-lg shadow-veritas-primary/25 dark:shadow-none border-veritas-primary/30 dark:border-veritas-light-blue/30'
-                                    : 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25 border-[#1B365D]/30'
-                                  : 'text-slate-700 dark:text-veritas-eggshell/70 hover:text-[#1B365D]/80 dark:hover:text-veritas-eggshell bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 hover:shadow-xl border-slate-200 dark:border-veritas-eggshell/10'
+                                    ? 'text-white dark:text-veritas-darker-blue bg-veritas-primary dark:bg-veritas-light-blue shadow-none dark:shadow-lg dark:shadow-veritas-light-blue/25 border-veritas-primary/30 dark:border-veritas-light-blue/30'
+                                    : 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-none dark:shadow-lg dark:shadow-[#1B365D]/25 border-[#1B365D]/30'
+                                  : 'text-slate-700 dark:text-veritas-eggshell/70 hover:text-[#1B365D]/80 dark:hover:text-veritas-eggshell bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 hover:shadow-none dark:hover:shadow-xl border-slate-200 dark:border-veritas-eggshell/10'
                               }`}
                             >
                               {Icon && <Icon className="w-4 h-4" />}
@@ -383,25 +383,25 @@ const FeedNav: React.FC<FeedNavProps> = ({
                       <div className="flex items-center space-x-3">
                         {/* Total Stake */}
                         <div className="relative group w-20">
-                          <div className="absolute -inset-1 bg-veritas-orange/10 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
-                          <div className="relative px-3 py-2 bg-veritas-orange/10 dark:bg-veritas-orange/10 backdrop-blur-xl rounded-2xl border border-veritas-orange/20 dark:border-veritas-orange/20">
+                          <div className="absolute -inset-1 bg-veritas-orange/20 dark:bg-veritas-orange/10 rounded-2xl blur opacity-40 dark:opacity-25 group-hover:opacity-60 dark:group-hover:opacity-40 transition duration-300"></div>
+                          <div className="relative px-3 py-2 bg-veritas-orange/30 dark:bg-veritas-orange/10 backdrop-blur-xl rounded-2xl border border-veritas-orange/40 dark:border-veritas-orange/20">
                             <div className="flex items-center space-x-2">
                               <div className="relative">
-                                <DollarSign className="w-4 h-4 text-veritas-orange/70 dark:text-veritas-orange/60" />
+                                <DollarSign className="w-4 h-4 text-veritas-orange dark:text-veritas-orange/60" />
                                 {!isNetworkLoading && (
-                                  <div className="absolute inset-0 text-veritas-orange/60 dark:text-veritas-orange/50 animate-pulse opacity-50">
+                                  <div className="absolute inset-0 text-veritas-orange/80 dark:text-veritas-orange/50 animate-pulse opacity-50">
                                     <DollarSign className="w-4 h-4" />
                                   </div>
                                 )}
                               </div>
                               <div className="text-xs">
-                                <div className="text-veritas-orange/80 dark:text-veritas-orange/70 font-medium">Stake</div>
-                                <div className={`font-bold text-veritas-orange/90 dark:text-veritas-orange/80 mt-1 ${isNetworkLoading ? 'animate-pulse' : ''}`}>
+                                <div className="text-veritas-orange dark:text-veritas-orange/70 font-medium">Stake</div>
+                                <div className={`font-bold text-veritas-orange dark:text-veritas-orange/80 mt-1 ${isNetworkLoading ? 'animate-pulse' : ''}`}>
                                   {isNetworkLoading ? (
                                     <div className="flex items-center space-x-0.5 h-4">
-                                      <div className="w-1.5 h-1.5 bg-veritas-orange/70 dark:bg-veritas-orange/60 rounded-full animate-bounce"></div>
-                                      <div className="w-1.5 h-1.5 bg-veritas-orange/70 dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                      <div className="w-1.5 h-1.5 bg-veritas-orange/70 dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                      <div className="w-1.5 h-1.5 bg-veritas-orange dark:bg-veritas-orange/60 rounded-full animate-bounce"></div>
+                                      <div className="w-1.5 h-1.5 bg-veritas-orange dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                      <div className="w-1.5 h-1.5 bg-veritas-orange dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                                     </div>
                                   ) : (
                                     `${(networkMetrics.totalStake / 1000000).toFixed(1)}M`
@@ -414,25 +414,25 @@ const FeedNav: React.FC<FeedNavProps> = ({
 
                         {/* Total Agents */}
                         <div className="relative group w-24">
-                          <div className="absolute -inset-1 bg-veritas-light-blue/15 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
-                          <div className="relative px-3 py-2 bg-veritas-light-blue/10 dark:bg-veritas-light-blue/10 backdrop-blur-xl rounded-2xl border border-veritas-light-blue/20 dark:border-veritas-light-blue/20">
+                          <div className="absolute -inset-1 bg-veritas-primary/20 dark:bg-veritas-light-blue/15 rounded-2xl blur opacity-40 dark:opacity-25 group-hover:opacity-60 dark:group-hover:opacity-40 transition duration-300"></div>
+                          <div className="relative px-3 py-2 bg-veritas-primary/20 dark:bg-veritas-light-blue/10 backdrop-blur-xl rounded-2xl border border-veritas-primary/30 dark:border-veritas-light-blue/20">
                             <div className="flex items-center space-x-2">
                               <div className="relative">
-                                <Users className="w-4 h-4 text-veritas-light-blue dark:text-veritas-light-blue" />
+                                <Users className="w-4 h-4 text-veritas-primary dark:text-veritas-light-blue" />
                                 {!isNetworkLoading && (
-                                  <div className="absolute inset-0 text-veritas-light-blue animate-pulse opacity-50">
+                                  <div className="absolute inset-0 text-veritas-primary dark:text-veritas-light-blue animate-pulse opacity-50">
                                     <Users className="w-4 h-4" />
                                   </div>
                                 )}
                               </div>
                               <div className="text-xs">
-                                <div className="text-veritas-light-blue/80 dark:text-veritas-light-blue/80 font-medium">Agents</div>
-                                <div className={`font-bold text-veritas-light-blue dark:text-veritas-light-blue mt-1 ${isNetworkLoading ? 'animate-pulse' : ''}`}>
+                                <div className="text-veritas-primary dark:text-veritas-light-blue/80 font-medium">Agents</div>
+                                <div className={`font-bold text-veritas-primary dark:text-veritas-light-blue mt-1 ${isNetworkLoading ? 'animate-pulse' : ''}`}>
                                   {isNetworkLoading ? (
                                     <div className="flex items-center space-x-0.5 h-4">
-                                      <div className="w-1.5 h-1.5 bg-veritas-light-blue rounded-full animate-bounce"></div>
-                                      <div className="w-1.5 h-1.5 bg-veritas-light-blue rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                      <div className="w-1.5 h-1.5 bg-veritas-light-blue rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                      <div className="w-1.5 h-1.5 bg-veritas-primary dark:bg-veritas-light-blue rounded-full animate-bounce"></div>
+                                      <div className="w-1.5 h-1.5 bg-veritas-primary dark:bg-veritas-light-blue rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                      <div className="w-1.5 h-1.5 bg-veritas-primary dark:bg-veritas-light-blue rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                                     </div>
                                   ) : (
                                     `${networkMetrics.totalAgents.toLocaleString()}`
@@ -445,15 +445,15 @@ const FeedNav: React.FC<FeedNavProps> = ({
 
                         {/* Network Status */}
                         <div className="relative group w-28">
-                          <div className={`absolute -inset-1 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300 ${
+                          <div className={`absolute -inset-1 rounded-2xl blur opacity-40 dark:opacity-25 group-hover:opacity-60 dark:group-hover:opacity-40 transition duration-300 ${
                             isNetworkLoading || !networkMetrics.isConnected 
-                              ? 'bg-red-500/15' 
-                              : 'bg-green-500/15'
+                              ? 'bg-red-500/20 dark:bg-red-500/15' 
+                              : 'bg-green-500/20 dark:bg-green-500/15'
                           }`}></div>
                           <div className={`relative px-3 py-2 backdrop-blur-xl rounded-2xl border transition-all duration-300 ${
                             isNetworkLoading 
-                              ? 'bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/20' 
-                              : 'bg-green-500/10 dark:bg-green-500/10 border-green-500/20 dark:border-green-500/20'
+                              ? 'bg-amber-500/30 dark:bg-amber-500/10 border-amber-500/40 dark:border-amber-500/20' 
+                              : 'bg-green-500/30 dark:bg-green-500/10 border-green-500/40 dark:border-green-500/20'
                           }`}>
                             <div className="flex items-center space-x-2">
                               <div className="relative">
@@ -615,7 +615,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                     <label className="text-xs font-medium text-gray-700 dark:text-veritas-eggshell mb-2 block">Sort By</label>
                     <button
                       onClick={() => setShowMobileSortDropdown(!showMobileSortDropdown)}
-                      className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium font-mono uppercase backdrop-blur-xl shadow-lg hover:shadow-xl border transition-all duration-300 ${
+                      className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium font-mono uppercase backdrop-blur-xl shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl border transition-all duration-300 ${
                         showMobileSortDropdown 
                           ? 'rounded-t-xl bg-gray-50 dark:bg-veritas-eggshell/10' 
                           : 'rounded-xl hover:scale-[1.02]'
@@ -631,7 +631,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                         ? 'opacity-100 translate-y-0 max-h-[200px]' 
                         : 'opacity-0 -translate-y-1 max-h-0 pointer-events-none'
                     }`}>
-                      <div className="bg-white dark:bg-veritas-darker-blue/95 backdrop-blur-xl border-x border-b border-slate-200 dark:border-veritas-eggshell/10 rounded-b-xl shadow-lg">
+                      <div className="bg-white dark:bg-veritas-darker-blue/95 backdrop-blur-xl border-x border-b border-slate-200 dark:border-veritas-eggshell/10 rounded-b-xl shadow-none dark:shadow-lg">
                         {sortOptions.map((option, index) => (
                           <button
                             key={option.value}
