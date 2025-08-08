@@ -225,12 +225,10 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
             </div>
 
             {/* Related Information */}
-            <div className="bg-white dark:bg-veritas-darker-blue/80 rounded-2xl p-6 border border-slate-200 dark:border-veritas-eggshell/10">
-              <RelatedBeliefs 
-                belief={belief} 
-                onBeliefClick={handleBeliefClick}
-              />
-            </div>
+            <RelatedBeliefs 
+              belief={belief} 
+              onBeliefClick={handleBeliefClick}
+            />
           </div>
 
           {/* Full Width Sections - Span all 4 columns */}
@@ -250,13 +248,15 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
 
       {/* Component Editing Modal */}
       {editingComponent && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-veritas-darker-blue/95 rounded-3xl max-w-lg w-full mx-4 overflow-hidden shadow-2xl border border-white/20 dark:border-veritas-eggshell/10">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-veritas-darker-blue/95 rounded-3xl max-w-lg w-full mx-4 overflow-hidden shadow-2xl border border-slate-200 dark:border-veritas-eggshell/10">
             <div className="p-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
-                  <div className="p-3 rounded-2xl bg-gradient-to-br from-veritas-secondary/20 to-veritas-primary/20">
-                    <span className="text-xl">✏️</span>
+                  <div className="p-3 rounded-2xl bg-veritas-primary dark:bg-veritas-eggshell">
+                    <svg className="w-6 h-6 text-white dark:text-veritas-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-veritas-primary dark:text-veritas-eggshell">
@@ -271,14 +271,18 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                   onClick={() => setEditingComponent(null)}
                   className="p-2 text-veritas-primary/60 hover:text-veritas-primary dark:text-veritas-eggshell/60 dark:hover:text-veritas-eggshell transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10"
                 >
-                  ✕
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
 
               <div className="space-y-6">
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-veritas-secondary/20 to-veritas-primary/20 flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">🚧</span>
+                  <div className="w-16 h-16 rounded-full bg-veritas-primary/10 dark:bg-veritas-eggshell/10 flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-veritas-primary dark:text-veritas-eggshell" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                    </svg>
                   </div>
                   <h4 className="text-lg font-semibold text-veritas-primary dark:text-veritas-eggshell mb-2">
                     Coming Soon
@@ -288,7 +292,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                   </p>
                   <button
                     onClick={() => setEditingComponent(null)}
-                    className="px-6 py-2 bg-gradient-to-r from-veritas-secondary to-veritas-primary text-white rounded-xl hover:shadow-lg transition-all duration-300"
+                    className="px-6 py-2 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue font-medium rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300"
                   >
                     Close
                   </button>

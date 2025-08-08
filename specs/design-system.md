@@ -61,24 +61,57 @@
 ### Color Applications
 
 #### Text Colors
-- **Primary Text on Dark**: `#F0EAD6` (Eggshell) - Used for all main text
-- **Secondary Text on Dark**: `rgba(240, 234, 214, 0.7)` (Eggshell 70% opacity)
-- **Tertiary Text on Dark**: `rgba(240, 234, 214, 0.4)` (Eggshell 40% opacity)
+
+##### Light Mode
+- **Primary Text**: `#0C1D51` (Dark Blue) - Main text color
+- **Secondary Text**: `rgba(12, 29, 81, 0.7)` (Dark Blue 70% opacity)
+- **Tertiary Text**: `rgba(12, 29, 81, 0.6)` (Dark Blue 60% opacity)
+- **Hero/Image Overlay Text**: `#F0EAD6` (Eggshell) - Always eggshell for readability
+
+##### Dark Mode
+- **Primary Text**: `#F0EAD6` (Eggshell) - Main text color
+- **Secondary Text**: `rgba(240, 234, 214, 0.7)` (Eggshell 70% opacity)
+- **Tertiary Text**: `rgba(240, 234, 214, 0.6)` (Eggshell 60% opacity)
+- **Hero/Image Overlay Text**: `#F0EAD6` (Eggshell) - Consistent in both modes
+
+##### Universal
 - **Accent Text**: `#EA900E` (Orange) - For highlights and emphasis
-- **Interactive Text**: `#B9D9EB` (Light Blue) - For links and buttons
+- **Interactive Text**: `#B9D9EB` (Light Blue) - For links and special buttons
 
 #### Background Colors
+
+##### Light Mode
+- **Primary Background**: `#FFFFFF` (White) - Main site background
+- **Secondary Background**: `bg-slate-50` - Cards and sections
+- **Navbar**: `bg-gradient-to-r from-slate-50/95 to-blue-50/95` with backdrop blur
+- **Hover States**: `hover:bg-slate-100`
+
+##### Dark Mode
 - **Primary Background**: `#050A1A` (Darker Blue) - Main site background
 - **Secondary Background**: `rgba(5, 10, 26, 0.95)` - Navbar and overlays
 - **Glass Effect**: `rgba(240, 234, 214, 0.05)` - Card backgrounds
-- **Hover States**: `rgba(240, 234, 214, 0.1)` - Interactive hover
+- **Component Backgrounds**: `bg-veritas-darker-blue/60` to `/80` for varying depths
+- **Hover States**: `hover:bg-veritas-eggshell/5` - Subtle interactive hover
 
 #### Interactive States
-- **Button Default**: Border `#B9D9EB`, Text `#B9D9EB`
-- **Button Hover**: Background `#B9D9EB`, Text `#0C1D51`
-- **Link Default**: `#F0EAD6` with 70% opacity
-- **Link Hover**: `#F0EAD6` with 100% opacity
-- **Disabled**: `rgba(240, 234, 214, 0.3)` (Eggshell with 30% opacity)
+
+##### Buttons
+- **Login/Primary Buttons**:
+  - Light Mode: `bg-veritas-primary text-white`
+  - Dark Mode: `bg-veritas-light-blue text-veritas-darker-blue`
+  - Hover: Scale and shadow effects
+
+- **Secondary Buttons**:
+  - Default: Border-based with transparent background
+  - Hover: Filled background with inverted text color
+
+##### Links
+- **Light Mode**: `text-veritas-primary` → hover: darker shade
+- **Dark Mode**: `text-veritas-eggshell/70` → hover: full opacity
+
+##### Disabled States
+- Light Mode: `text-veritas-primary/30`
+- Dark Mode: `text-veritas-eggshell/30`
 
 ## Typography
 
@@ -148,11 +181,12 @@
 
 ### Border Implementation
 - **Border Colors**: 
-  - `border-veritas-light-blue` - Interactive elements
-  - `border-veritas-eggshell/10` - Subtle dividers
-  - `border-veritas-eggshell/20` - Visible dividers
-- **Border Width**: `border-2` (2px) for buttons and emphasis
+  - Light Mode: `border-slate-200` - Standard dividers
+  - Dark Mode: `border-veritas-eggshell/10` - Subtle dividers
+  - Dark Mode: `border-veritas-eggshell/20` - Visible dividers
+- **Border Width**: `border` (1px) for cards, `border-2` (2px) for emphasis
 - **Dividers**: `w-px` (1px width) or `h-px` (1px height)
+- **Special**: Connected dropdown design with conditional border radius
 
 ### Border Radius Used
 - **Buttons**: `rounded-full` - Pill-shaped buttons
@@ -342,12 +376,20 @@ theme: {
 
 ## Component Patterns
 
-### Navigation (DockNavbar)
-- **Background**: `rgba(5, 10, 26, 0.95)` with backdrop blur
-- **Text**: Eggshell with hover states
-- **Hover**: `hover:bg-[#f0ead6]/10`
-- **Border Radius**: Dynamic based on state
-- **Typography**: `font-mono uppercase text-sm`
+### Navigation Components
+
+#### FeedNav & Navbar
+- **Light Mode Background**: `bg-gradient-to-r from-slate-50/95 to-blue-50/95`
+- **Dark Mode Background**: `bg-veritas-darker-blue/95` with backdrop blur
+- **Text**: Standard text color scheme (dark blue/eggshell)
+- **Logo**: Simple text styling without background container
+- **Typography**: `font-mono uppercase`
+
+#### Sort Dropdown
+- **Connected Design**: Rounded top when open, seamless connection to dropdown
+- **Open State**: `rounded-t-2xl bg-gray-50 dark:bg-veritas-eggshell/10`
+- **Closed State**: `rounded-2xl hover:scale-105`
+- **Width**: Fixed `w-44` to prevent text cutoff
 
 ### Cards
 - **Standard Card**:
@@ -417,6 +459,77 @@ theme: {
 - `/src/components/sections/FinalSection.tsx` - CTA section
 - `/src/components/common/VeritasFooter.tsx` - Footer
 
+### Graph and Chart Styling
+
+#### Standard Charts (ChartComponent)
+- **Light Mode**: Lines/bars use `#0C1D51` (Dark Blue)
+- **Dark Mode**: Lines/bars use `#F0EAD6` (Eggshell)
+- **Dynamic color detection**: Uses MutationObserver to detect theme changes
+- **Axis text**: `text-veritas-primary/60 dark:text-veritas-eggshell/60`
+- **Tooltips**: Custom styled with theme-aware backgrounds
+
+#### Intelligence Evolution (Multi-colored)
+- **Truth Score**: 
+  - Light Mode: `#0C1D51` (Dark Blue)
+  - Dark Mode: `#B9D9EB` (Light Blue)
+- **Relevance Score**: `#EA900E` (Orange) - consistent in both modes
+- **Informativeness**: `#F0EAD6` (Eggshell) - consistent in both modes
+- **Icon Backgrounds**: Solid colors matching chart colors
+- **Main Section Icon**: 
+  - Light Mode: White icon on dark blue background
+  - Dark Mode: Dark blue icon on eggshell background
+
+### Logo Implementation
+
+#### Logo Styling Guidelines
+- **Simple Text**: `VERITAS` in uppercase, no background container
+- **Typography**: `font-mono uppercase tracking-wider`
+- **Text Color**: Follows standard text color scheme
+- **Footer Logo**: Located at `/icons/logo.png`
+- **Size**: Responsive sizing with Tailwind classes
+
+### Component-Specific Implementations
+
+#### BeliefCard
+- **Feed Variant**: Glassmorphism with hover effects
+- **News Variant**: Image overlay with eggshell text
+- **Grid View**: Removed unnecessary headings
+- **Divider**: `border-veritas-eggshell/20` in dark mode
+
+#### BeliefDetailPage
+- **Hero Text**: Always eggshell for image overlays
+- **Breadcrumbs**: Standard text color scheme
+- **Components**: HeadingComponent, ArticleComponent, ChartComponent all follow text scheme
+- **Related Beliefs**: Card-based with hover effects
+
+#### PremierHeader
+- **Category Badge**: Matches login button styling
+- **Hero Overlay**: Text always eggshell
+- **Image Gradient**: Maintains readability
+
+#### Footer
+- **Background**: Solid dark blue, no gradients
+- **Text**: Eggshell with opacity variations
+- **Links**: Hover effects with full opacity
+
+### Implementation Best Practices
+
+#### Color Usage
+1. **Text on Images**: Always use eggshell for readability
+2. **Interactive Elements**: Use consistent hover states
+3. **Opacity Levels**: 60%, 70%, 80% for text hierarchy
+4. **Borders**: 10%, 20% opacity for subtle/visible dividers
+
+#### Dark Mode Transitions
+1. **Gradients**: Neutralize with `dark:from-transparent dark:to-transparent`
+2. **Backgrounds**: Use `/60` to `/80` opacity for depth
+3. **Hover States**: Subtle with `/5` opacity changes
+
+#### Responsive Design
+1. **Mobile First**: Base styles, then breakpoint enhancements
+2. **Typography**: Scale appropriately with screen size
+3. **Spacing**: Adjust padding/margins for mobile
+
 ---
 
-This design system reflects the actual implementation of the Veritas landing page, emphasizing dark themes, glass morphism effects, and monospace typography for a technical, futuristic aesthetic.
+This design system reflects the complete implementation of the Veritas branding across the application, with careful attention to light/dark mode transitions, accessibility, and visual consistency. The system emphasizes clean, professional aesthetics with the monospace JetBrains Mono font and a carefully curated color palette that works harmoniously in both light and dark themes.

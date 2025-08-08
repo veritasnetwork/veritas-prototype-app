@@ -35,27 +35,13 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
 
   const relatedBeliefs = getRelatedBeliefs();
 
-  const getCategoryGradient = (category: string): string => {
-    switch (category.toLowerCase()) {
-      case 'finance':
-        return 'from-[#FFB800]/20 to-[#F5A623]/10';
-      case 'politics':
-        return 'from-[#1B365D]/20 to-[#2D4A6B]/10';
-      case 'sports':
-        return 'from-[#3B82F6]/20 to-[#2563EB]/10'; // Blue variants
-      case 'technology':
-        return 'from-[#FCD34D]/20 to-[#F59E0B]/10'; // Yellow variants
-      default:
-        return 'from-[#1B365D]/20 to-[#FFB800]/10'; // Blue to yellow
-    }
-  };
 
   if (relatedBeliefs.length === 0) {
     return (
-      <div className="backdrop-blur-xl bg-white dark:bg-veritas-darker-blue/80 border border-slate-200 dark:border-veritas-eggshell/10 rounded-3xl p-6 shadow-2xl shadow-yellow-500/10">
+      <div className="backdrop-blur-xl bg-white dark:bg-veritas-darker-blue/80 border border-slate-200 dark:border-veritas-eggshell/10 rounded-3xl p-6 md:p-8 shadow-2xl">
         <div className="flex items-center space-x-3 mb-4">
-          <div className="p-2 rounded-xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10">
-            <TrendingUp className="w-5 h-5 text-[#FFB800]" />
+          <div className="p-3 rounded-2xl bg-veritas-primary dark:bg-veritas-eggshell">
+            <TrendingUp className="w-6 h-6 text-white dark:text-veritas-primary" />
           </div>
           <h3 className="text-lg font-bold text-veritas-primary dark:text-veritas-eggshell">
             Related Beliefs
@@ -69,11 +55,11 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
   }
 
   return (
-    <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 shadow-2xl shadow-yellow-500/10">
+    <div className="backdrop-blur-xl bg-white dark:bg-veritas-darker-blue/80 border border-slate-200 dark:border-veritas-eggshell/10 rounded-3xl p-6 md:p-8 shadow-2xl">
       {/* Header */}
       <div className="flex items-center space-x-3 mb-6">
-        <div className="p-2 rounded-xl bg-gradient-to-br from-[#FFB800]/20 to-[#1B365D]/10">
-          <TrendingUp className="w-5 h-5 text-[#FFB800]" />
+        <div className="p-3 rounded-2xl bg-veritas-primary dark:bg-veritas-eggshell">
+          <TrendingUp className="w-6 h-6 text-white dark:text-veritas-primary" />
         </div>
         <div>
           <h3 className="text-lg font-bold text-veritas-primary dark:text-veritas-eggshell">
@@ -91,11 +77,11 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
           <div
             key={relatedBelief.id}
             onClick={() => onBeliefClick(relatedBelief.id)}
-            className="p-4 bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-2xl hover:bg-slate-100 dark:hover:bg-veritas-eggshell/5 transition-all duration-300 hover:scale-[1.02] cursor-pointer group"
+            className="p-4 bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-2xl hover:bg-slate-100 dark:hover:bg-veritas-eggshell/5 transition-all duration-300 cursor-pointer group"
           >
             {/* Category badge */}
             <div className="flex items-center justify-between mb-3">
-              <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gradient-to-r ${getCategoryGradient(relatedBelief.category || 'general')} text-veritas-primary dark:text-veritas-eggshell border border-white/20`}>
+              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-veritas-primary/10 dark:bg-veritas-eggshell/10 text-veritas-primary dark:text-veritas-eggshell border border-veritas-primary/20 dark:border-veritas-eggshell/20">
                 {relatedBelief.category || 'general'}
               </span>
               <div className={`w-2 h-2 rounded-full ${
@@ -108,7 +94,7 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
             </div>
 
             {/* Title */}
-            <h4 className="font-medium text-veritas-primary dark:text-veritas-eggshell text-sm line-clamp-2 mb-3 group-hover:text-[#FFB800] transition-colors">
+            <h4 className="font-medium text-veritas-primary dark:text-veritas-eggshell text-sm line-clamp-2 mb-3 group-hover:text-veritas-orange transition-colors">
               {relatedBelief.heading.title}
             </h4>
 
@@ -133,7 +119,7 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
               <span className="text-xs text-veritas-primary/60 dark:text-veritas-eggshell/60">
                 {relatedBelief.objectRankingScores.informativeness}% informativeness
               </span>
-              <Eye className="w-3 h-3 text-slate-400 group-hover:text-[#FFB800] transition-colors" />
+              <Eye className="w-3 h-3 text-slate-400 group-hover:text-veritas-orange transition-colors" />
             </div>
           </div>
         ))}
@@ -141,7 +127,7 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
 
       {/* View more link */}
       <div className="mt-4 pt-4 border-t border-slate-200 dark:border-veritas-eggshell/10">
-        <button className="w-full text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70 hover:text-[#FFB800] transition-colors font-medium">
+        <button className="w-full text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70 hover:text-veritas-orange transition-colors font-medium">
           View all {belief.category} beliefs →
         </button>
       </div>
