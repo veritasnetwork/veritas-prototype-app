@@ -35,20 +35,6 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
 
   const relatedBeliefs = getRelatedBeliefs();
 
-  const getCategoryGradient = (category: string): string => {
-    switch (category.toLowerCase()) {
-      case 'finance':
-        return 'from-[#FFB800]/20 to-[#F5A623]/10';
-      case 'politics':
-        return 'from-[#1B365D]/20 to-[#2D4A6B]/10';
-      case 'sports':
-        return 'from-[#3B82F6]/20 to-[#2563EB]/10'; // Blue variants
-      case 'technology':
-        return 'from-[#FCD34D]/20 to-[#F59E0B]/10'; // Yellow variants
-      default:
-        return 'from-[#1B365D]/20 to-[#FFB800]/10'; // Blue to yellow
-    }
-  };
 
   if (relatedBeliefs.length === 0) {
     return (

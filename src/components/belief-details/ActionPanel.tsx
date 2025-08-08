@@ -242,7 +242,7 @@ const BeliefSubmissionModal: React.FC<{
     }
   };
 
-  const getValueColor = (value: number) => {
+  const getValueColor = () => {
     // Always return Veritas orange for consistency
     return 'bg-veritas-orange';
   };
@@ -386,7 +386,7 @@ const BeliefSubmissionModal: React.FC<{
                     How confident you are in your assessment
                   </p>
                 </div>
-                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full ${getValueColor(certainty)} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
+                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full ${getValueColor()} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
                   {certainty}%
                 </div>
               </div>
@@ -417,7 +417,7 @@ const BeliefSubmissionModal: React.FC<{
                     What you personally think is true
                   </p>
                 </div>
-                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full ${getValueColor(truthValue)} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
+                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full ${getValueColor()} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
                   {truthValue}%
                 </div>
               </div>
@@ -448,7 +448,7 @@ const BeliefSubmissionModal: React.FC<{
                     What you think others will say
                   </p>
                 </div>
-                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full ${getValueColor(othersWillSay)} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
+                <div className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full ${getValueColor()} text-white font-bold text-sm sm:text-lg flex-shrink-0`}>
                   {othersWillSay}%
                 </div>
               </div>
