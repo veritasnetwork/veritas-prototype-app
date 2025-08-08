@@ -17,6 +17,43 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
 }) => {
   // Charts will be loaded directly by ChartComponent
   
+  // Helper function to get the optimal image source
+  const getOptimalImageSrc = () => {
+    if (!belief.article.thumbnail) return null;
+    
+    // For feed/grid views, use thumbnail if available
+    if (variant === 'feed' || variant === 'grid' || variant === 'compact' || variant === 'mobile') {
+      // Check if a thumbnail version exists
+      const extension = belief.article.thumbnail.split('.').pop();
+      const basePath = belief.article.thumbnail.replace(`.${extension}`, '');
+      const thumbnailPath = `${basePath}-thumb.webp`;
+      
+      // Return thumbnail path for smaller views
+      return thumbnailPath;
+    }
+    
+    // For large/news variants and detail pages, use full quality image
+    return belief.article.thumbnail;
+  };
+  
+  // Get placeholder image or use article thumbnail
+  const getImageSrc = () => {
+    if (belief.article.thumbnail) {
+      return belief.article.thumbnail;
+    }
+    // Generate a placeholder based on category
+    const categoryColors = {
+      'politics': 'bg-blue-500',
+      'finance': 'bg-green-500',
+      'sports': 'bg-orange-500',
+      'technology': 'bg-purple-500',
+      'health': 'bg-red-500',
+      'science': 'bg-indigo-500',
+      'entertainment': 'bg-pink-500',
+      'default': 'bg-gray-500'
+    };
+    return categoryColors[belief.category as keyof typeof categoryColors] || categoryColors.default;
+  };
 
   
     // Card sizing based on variant
@@ -57,25 +94,6 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
     onClick(belief.id);
   };
   
-  // Get placeholder image or use article thumbnail
-  const getImageSrc = () => {
-    if (belief.article.thumbnail) {
-      return belief.article.thumbnail;
-    }
-    // Generate a placeholder based on category
-    const categoryColors = {
-      'politics': 'bg-blue-500',
-      'finance': 'bg-green-500',
-      'sports': 'bg-orange-500',
-      'technology': 'bg-purple-500',
-      'health': 'bg-red-500',
-      'science': 'bg-indigo-500',
-      'entertainment': 'bg-pink-500',
-      'default': 'bg-gray-500'
-    };
-    return categoryColors[belief.category as keyof typeof categoryColors] || categoryColors.default;
-  };
-  
   // Mock participant count and time
   const participantCount = Math.floor(Math.random() * 500) + 50;
   const timeAgo = Math.floor(Math.random() * 12) + 1;
@@ -95,12 +113,15 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
           <div className="relative w-1/2 overflow-hidden">
             {belief.article.thumbnail ? (
               <Image 
-                src={belief.article.thumbnail}
+                src={getOptimalImageSrc() || belief.article.thumbnail}
                 alt={belief.heading.title}
                 width={400}
                 height={320}
                 className="w-full h-full object-cover"
-                unoptimized
+                sizes="(max-width: 768px) 100vw, 50vw"
+                loading="lazy"
+                placeholder="blur"
+                blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k="
               />
             ) : (
               <div className={`w-full h-full ${getImageSrc()} flex items-center justify-center`}>
@@ -207,14 +228,17 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
         <div className="flex-shrink-0">
           {belief.article.thumbnail ? (
             <Image 
-              src={belief.article.thumbnail}
+              src={getOptimalImageSrc() || belief.article.thumbnail}
               alt={belief.heading.title}
               width={variant === 'large' ? 80 : 80}
               height={variant === 'large' ? 80 : 80}
               className={`object-cover rounded-lg border-2 border-gray-100 dark:border-gray-700 ${
                 variant === 'compact' ? 'w-12 h-12' : variant === 'large' ? 'w-20 h-20' : 'w-20 h-20'
               }`}
-              unoptimized
+              sizes="80px"
+              loading="lazy"
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k="
             />
           ) : (
             <div className={`rounded-lg ${getImageSrc()} flex items-center justify-center ${

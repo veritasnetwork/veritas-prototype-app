@@ -31,11 +31,8 @@ export const BeliefFeed: React.FC<BeliefFeedProps> = ({
       setIsLoading(true);
       setShowContent(false);
     } else {
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-        setTimeout(() => setShowContent(true), 100);
-      }, 800);
-      return () => clearTimeout(timer);
+      setIsLoading(false);
+      setShowContent(true);
     }
   }, [loading]);
 

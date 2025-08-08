@@ -228,7 +228,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                         height={40}
                         className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
                         priority
-                        unoptimized
+                        sizes="40px"
                       />
                     </div>
                     <span className="text-xl font-semibold text-veritas-dark-blue dark:text-veritas-eggshell font-mono uppercase">
@@ -242,7 +242,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                       <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
                         type="text"
-                        placeholder="Search beliefs, topics, or users..."
+                        placeholder="Search topics..."
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
                         className="w-full pl-12 pr-4 py-3 bg-white dark:bg-veritas-eggshell/5 border border-slate-200 dark:border-veritas-eggshell/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-veritas-orange/50 focus:border-veritas-orange/50 text-slate-900 dark:text-veritas-eggshell placeholder-slate-500 dark:placeholder-veritas-eggshell/40 backdrop-blur-lg transition-all duration-300 shadow-none dark:shadow-inner"
@@ -530,7 +530,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                       height={32}
                       className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
                       priority
-                      unoptimized
+                      sizes="32px"
                     />
                   </div>
                   <span className="text-lg font-semibold text-veritas-dark-blue dark:text-veritas-eggshell font-mono uppercase">

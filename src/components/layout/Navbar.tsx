@@ -96,7 +96,7 @@ const VeritasNavbar = () => {
                   height={48}
                   className="w-full h-full object-contain"
                   priority
-                  unoptimized
+                  sizes="48px"
                 />
               </div>
               <span className="ml-3 text-2xl font-semibold text-veritas-dark-blue dark:text-veritas-eggshell font-mono uppercase">
@@ -168,7 +168,7 @@ const VeritasNavbar = () => {
                   height={isScrolled ? 40 : 48}
                   className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
                   priority
-                  unoptimized
+                  sizes="48px"
                 />
               </div>
               <span
@@ -263,7 +263,7 @@ const VeritasNavbar = () => {
                     height={32}
                     className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
                     priority
-                    unoptimized
+                    sizes="48px"
                   />
                 </div>
                 <span className="text-lg font-semibold text-veritas-dark-blue dark:text-veritas-eggshell font-mono uppercase">
