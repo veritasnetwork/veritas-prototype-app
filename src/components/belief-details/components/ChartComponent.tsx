@@ -125,6 +125,25 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
 
     const yDomain = calculateYDomain(data, config.type);
 
+    const formatValue = (value: number) => {
+      // Format large numbers with K/M suffix
+      if (Math.abs(value) >= 1000000) {
+        return `${(value / 1000000).toFixed(1)}M`;
+      } else if (Math.abs(value) >= 1000) {
+        return `${(value / 1000).toFixed(1)}K`;
+      }
+      // For smaller numbers, use appropriate decimal places
+      if (value % 1 === 0) {
+        return value.toString();
+      }
+      // Check if the number has many decimal places (likely a floating point error)
+      const decimalPlaces = (value.toString().split('.')[1] || '').length;
+      if (decimalPlaces > 2) {
+        return value.toFixed(2);
+      }
+      return value.toFixed(1);
+    };
+
     const customTooltip = (props: { active?: boolean; payload?: Array<{ name: string; value: number }>; label?: string | number }) => {
       const { active, payload, label } = props;
       if (active && payload && payload.length) {
@@ -132,7 +151,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
           <div className="bg-white dark:bg-veritas-darker-blue/90 px-3 py-2 border border-gray-200 dark:border-veritas-eggshell/10 rounded-lg shadow-lg">
             <p className="text-sm font-medium text-veritas-primary dark:text-veritas-eggshell">{`${label}`}</p>
             <p className="text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70">
-              {`${payload[0].name}: ${payload[0].value}`}
+              {`${payload[0].name}: ${formatValue(payload[0].value)}`}
             </p>
           </div>
         );
@@ -141,7 +160,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
     };
 
     const chartElement = config.type === 'line' ? (
-      <LineChart data={data} margin={{ top: 10, right: 15, left: 15, bottom: 10 }}>
+      <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
         <XAxis 
           dataKey="x" 
           axisLine={false}
@@ -154,8 +173,21 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
           tickLine={false}
           tick={{ fontSize: 10, fill: 'currentColor' }}
           className="text-veritas-primary/60 dark:text-veritas-eggshell/60"
-          width={variant === 'card' ? 25 : 35}
+          width={variant === 'card' ? 30 : 40}
           domain={yDomain}
+          tickFormatter={(value) => {
+            // Format large numbers with K/M suffix
+            if (Math.abs(value) >= 1000000) {
+              return `${(value / 1000000).toFixed(1)}M`;
+            } else if (Math.abs(value) >= 1000) {
+              return `${(value / 1000).toFixed(1)}K`;
+            }
+            // For smaller numbers, use appropriate decimal places
+            if (value % 1 === 0) {
+              return value.toString();
+            }
+            return value.toFixed(1);
+          }}
         />
         <Tooltip content={customTooltip} />
         <Line 
@@ -168,7 +200,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
         />
       </LineChart>
     ) : (
-      <BarChart data={data} margin={{ top: 10, right: 15, left: 15, bottom: 10 }}>
+      <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
         <XAxis 
           dataKey="x" 
           axisLine={false}
@@ -181,7 +213,20 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
           tickLine={false}
           tick={{ fontSize: 10, fill: 'currentColor' }}
           className="text-veritas-primary/60 dark:text-veritas-eggshell/60"
-          width={variant === 'card' ? 25 : 35}
+          width={variant === 'card' ? 30 : 40}
+          tickFormatter={(value) => {
+            // Format large numbers with K/M suffix
+            if (Math.abs(value) >= 1000000) {
+              return `${(value / 1000000).toFixed(1)}M`;
+            } else if (Math.abs(value) >= 1000) {
+              return `${(value / 1000).toFixed(1)}K`;
+            }
+            // For smaller numbers, use appropriate decimal places
+            if (value % 1 === 0) {
+              return value.toString();
+            }
+            return value.toFixed(1);
+          }}
         />
         <Tooltip content={customTooltip} />
         <Bar dataKey="y" fill={color} radius={[2, 2, 0, 0]} />
