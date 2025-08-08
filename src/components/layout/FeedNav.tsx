@@ -387,7 +387,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                           <div className="relative px-3 py-2 bg-veritas-orange/30 dark:bg-veritas-orange/10 backdrop-blur-xl rounded-2xl border border-veritas-orange/40 dark:border-veritas-orange/20">
                             <div className="flex items-center space-x-2">
                               <div className="relative">
-                                <DollarSign className="w-4 h-4 text-veritas-orange dark:text-veritas-orange/60" />
+                                <DollarSign className="w-4 h-4 text-amber-700 dark:text-veritas-orange/60" />
                                 {!isNetworkLoading && (
                                   <div className="absolute inset-0 text-veritas-orange/80 dark:text-veritas-orange/50 animate-pulse opacity-50">
                                     <DollarSign className="w-4 h-4" />
@@ -395,13 +395,13 @@ const FeedNav: React.FC<FeedNavProps> = ({
                                 )}
                               </div>
                               <div className="text-xs">
-                                <div className="text-veritas-orange dark:text-veritas-orange/70 font-medium">Stake</div>
-                                <div className={`font-bold text-veritas-orange dark:text-veritas-orange/80 mt-1 ${isNetworkLoading ? 'animate-pulse' : ''}`}>
+                                <div className="text-amber-700 dark:text-veritas-orange/70 font-medium">Stake</div>
+                                <div className={`font-bold text-amber-700 dark:text-veritas-orange/80 mt-1 ${isNetworkLoading ? 'animate-pulse' : ''}`}>
                                   {isNetworkLoading ? (
                                     <div className="flex items-center space-x-0.5 h-4">
-                                      <div className="w-1.5 h-1.5 bg-veritas-orange dark:bg-veritas-orange/60 rounded-full animate-bounce"></div>
-                                      <div className="w-1.5 h-1.5 bg-veritas-orange dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                      <div className="w-1.5 h-1.5 bg-veritas-orange dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                      <div className="w-1.5 h-1.5 bg-amber-700 dark:bg-veritas-orange/60 rounded-full animate-bounce"></div>
+                                      <div className="w-1.5 h-1.5 bg-amber-700 dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                      <div className="w-1.5 h-1.5 bg-amber-700 dark:bg-veritas-orange/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                                     </div>
                                   ) : (
                                     `${(networkMetrics.totalStake / 1000000).toFixed(1)}M`
