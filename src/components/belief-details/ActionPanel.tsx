@@ -52,7 +52,7 @@ const ComponentUnderstandingModal: React.FC<{
     >
       <div className="bg-white dark:bg-veritas-darker-blue rounded-2xl sm:rounded-3xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="relative px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-gradient-to-br from-slate-50 to-white dark:from-slate-700 dark:to-slate-800 border-b border-slate-200 dark:border-veritas-eggshell/10 flex-shrink-0">
+        <div className="relative px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-gradient-to-br from-slate-50 to-white dark:from-veritas-darker-blue dark:to-veritas-darker-blue/90 border-b border-slate-200 dark:border-veritas-eggshell/10 flex-shrink-0">
           <button
             onClick={onClose}
             className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10"
@@ -75,7 +75,7 @@ const ComponentUnderstandingModal: React.FC<{
           </div>
 
           {/* Belief Topic Display */}
-          <div className="bg-slate-100 dark:bg-veritas-darker-blue/80 rounded-xl sm:rounded-2xl p-3 sm:p-4">
+          <div className="bg-slate-100 dark:bg-black/30 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-slate-200/50 dark:border-white/10">
             <div className="flex items-start space-x-3">
               {belief.article?.thumbnail && (
                 <Image 
@@ -323,7 +323,7 @@ const BeliefSubmissionModal: React.FC<{
     >
       <div className="bg-white dark:bg-veritas-darker-blue rounded-2xl sm:rounded-3xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="relative px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-gradient-to-br from-slate-50 to-white dark:from-slate-700 dark:to-slate-800 border-b border-slate-200 dark:border-veritas-eggshell/10 flex-shrink-0">
+        <div className="relative px-4 sm:px-6 md:px-8 py-4 sm:py-6 bg-gradient-to-br from-slate-50 to-white dark:from-veritas-darker-blue dark:to-veritas-darker-blue/90 border-b border-slate-200 dark:border-veritas-eggshell/10 flex-shrink-0">
           <button
             onClick={onClose}
             className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10"
@@ -346,7 +346,7 @@ const BeliefSubmissionModal: React.FC<{
           </div>
 
           {/* Belief Topic Display */}
-          <div className="bg-slate-100 dark:bg-veritas-darker-blue/80 rounded-2xl p-4">
+          <div className="bg-slate-100 dark:bg-black/30 rounded-2xl p-4 border border-slate-200/50 dark:border-white/10">
             <div className="flex items-start space-x-3">
               {belief.article?.thumbnail && (
                 <Image 
