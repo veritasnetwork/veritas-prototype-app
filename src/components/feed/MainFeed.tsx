@@ -31,22 +31,22 @@ export const MainFeed: React.FC<MainFeedProps> = ({ beliefs, loading = false }) 
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Separate premier and regular beliefs
-  const premierBeliefs = beliefs.filter(belief => belief.isPremier);
-  const regularBeliefs = beliefs.filter(belief => !belief.isPremier);
+  // Use algorithm-ranked content: top 3 for premier, next 10 for feed
+  const premierBeliefs = beliefs.slice(0, 3);  // Top 3 based on algorithm
+  const regularBeliefs = beliefs.slice(3, 13); // Next 10 for main feed (total max 13)
 
   const handleBeliefClick = (beliefId: string) => {
     router.push(`/belief/${beliefId}`);
   };
 
-  // Grid view - hide premier header, show enhanced grid
+  // Grid view - show max 10 items
   if (viewMode === 'grid') {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-veritas-darker-blue">
         {/* Full-width grid container with minimal padding */}
         <div className="w-full px-4 sm:px-6">
           <BeliefCardGrid 
-            beliefs={beliefs}
+            beliefs={beliefs.slice(0, 10)} // Limit to 10 items
             loading={loading}
             columns={3} // Fixed 3 columns for desktop grid view
             onLoadMore={() => {}}
@@ -57,12 +57,12 @@ export const MainFeed: React.FC<MainFeedProps> = ({ beliefs, loading = false }) 
     );
   }
 
-  // Mobile feed - single column, no premier header
+  // Mobile feed - single column, limit to 10 items
   if (isMobile) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-veritas-darker-blue">
         <MobileFeed 
-          beliefs={beliefs}
+          beliefs={beliefs.slice(0, 10)} // Limit to 10 items
           onBeliefClick={handleBeliefClick}
           loading={loading}
         />
@@ -74,7 +74,7 @@ export const MainFeed: React.FC<MainFeedProps> = ({ beliefs, loading = false }) 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-veritas-darker-blue">
       <div className="space-y-12">
-        {/* Premier Header - Show skeleton when loading or actual header when loaded */}
+        {/* Premier Header - Top 3 from algorithm ranking */}
         {loading ? (
           <SkeletonPremierHeader />
         ) : (

@@ -47,9 +47,9 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
       
       data.push({
         date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        truth: Math.max(0, Math.min(100, belief.objectRankingScores.truth + truthVariation)),
-        relevance: Math.max(0, Math.min(100, belief.objectRankingScores.relevance + relevanceVariation)),
-        informativeness: Math.max(0, Math.min(100, belief.objectRankingScores.informativeness + infoVariation))
+        truth: Math.max(0, Math.min(100, (belief.objectRankingScores?.truth || 0) + truthVariation)),
+        relevance: Math.max(0, Math.min(100, (belief.objectRankingScores?.relevance || 0) + relevanceVariation)),
+        informativeness: Math.max(0, Math.min(100, (belief.objectRankingScores?.informativeness || 0) + infoVariation))
       });
     }
     
@@ -66,7 +66,7 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
       icon: Target,
       color: isDarkMode ? '#B9D9EB' : '#0C1D51',  // Light blue in dark mode, dark blue in light mode
       bgColor: isDarkMode ? '#B9D9EB' : '#0C1D51',  // For inline style
-      currentValue: belief.objectRankingScores.truth
+      currentValue: belief.objectRankingScores?.truth || 0
     },
     {
       key: 'relevance', 
@@ -74,7 +74,7 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
       icon: Brain,
       color: '#EA900E',  // Veritas orange (same in both modes)
       bgColor: '#EA900E',  // For inline style
-      currentValue: belief.objectRankingScores.relevance
+      currentValue: belief.objectRankingScores?.relevance || 0
     },
     {
       key: 'informativeness',
@@ -82,7 +82,7 @@ export const IntelligenceEvolution: React.FC<IntelligenceEvolutionProps> = ({ be
       icon: TrendingUp,
       color: '#F0EAD6',  // Veritas eggshell (same in both modes)
       bgColor: '#F0EAD6',  // For inline style
-      currentValue: belief.objectRankingScores.informativeness
+      currentValue: belief.objectRankingScores?.informativeness || 0
     }
   ];
 

@@ -206,7 +206,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                 onClick={() => setEditingComponent('chart')}
               >
                 <ChartComponent 
-                  charts={belief.charts} 
+                  charts={belief.charts || []} 
                   beliefId={belief.id}
                   variant="detail" 
                 />

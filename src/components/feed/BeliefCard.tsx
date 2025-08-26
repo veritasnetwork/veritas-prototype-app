@@ -152,13 +152,13 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
                 <div className="flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                    {belief.objectRankingScores.truth}% Truth
+                    {belief.objectRankingScores?.truth || 0}% Truth
                   </span>
                 </div>
                 <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 rounded-full">
                   <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                   <span className="text-sm font-medium text-blue-700 dark:text-blue-400">
-                    {belief.objectRankingScores.relevance}% Relevance
+                    {belief.objectRankingScores?.relevance || 0}% Relevance
                   </span>
                 </div>
               </div>
@@ -254,7 +254,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
             <div className={`font-bold text-green-600 dark:text-green-400 ${
               variant === 'compact' ? 'text-sm' : variant === 'large' ? 'text-base md:text-lg' : 'text-lg'
             }`}>
-              {belief.objectRankingScores.truth}%
+              {belief.objectRankingScores?.truth || 0}%
             </div>
             <div className="text-veritas-primary dark:text-veritas-eggshell text-xs">
               Truth
@@ -264,7 +264,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
             <div className={`font-bold text-blue-600 dark:text-blue-400 ${
               variant === 'compact' ? 'text-sm' : variant === 'large' ? 'text-base md:text-lg' : 'text-lg'
             }`}>
-              {belief.objectRankingScores.relevance}%
+              {belief.objectRankingScores?.relevance || 0}%
             </div>
             <div className="text-veritas-primary dark:text-veritas-eggshell text-xs">
               Relevance
@@ -274,7 +274,7 @@ export const BeliefCard: React.FC<BeliefCardProps> = ({
           {variant === 'large' && (
             <div className="flex items-center gap-1 flex-shrink-0">
               <div className="font-bold text-purple-600 dark:text-purple-400 text-base md:text-lg">
-                {belief.objectRankingScores.informativeness}%
+                {belief.objectRankingScores?.informativeness || 0}%
               </div>
               <div className="text-veritas-primary dark:text-veritas-eggshell text-xs">
                 Info

@@ -1,8 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useState, useMemo } from 'react';
-import { FilterStatus, SortOption, Belief, ViewMode } from '@/types/belief.types';
-import { getAllBeliefs, searchBeliefs, sortBeliefs, getBeliefsByCategory, getBeliefsByStatus } from '@/lib/data';
+import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import { FilterStatus, SortOption, Belief, Content, ViewMode } from '@/types/belief.types';
+import { Algorithm } from '@/types/algorithm.types';
+import { getAllBeliefs, getAllContent, getAllAlgorithms } from '@/lib/data';
+import { rankContent } from '@/lib/algorithmEngine';
 
 interface FeedContextType {
   // State
@@ -15,6 +17,10 @@ interface FeedContextType {
   filteredBeliefs: Belief[];
   allBeliefs: Belief[];
   
+  // Algorithm-related
+  currentAlgorithm: Algorithm | null;
+  rankedContent: Content[];
+  
   // Actions
   setSearchQuery: (query: string) => void;
   setActiveCategory: (category: string) => void;
@@ -22,6 +28,7 @@ interface FeedContextType {
   setFilterStatus: (status: FilterStatus) => void;
   setViewMode: (mode: ViewMode) => void;
   handleFilterToggle: (filter: string) => void;
+  setCurrentAlgorithm: (algorithm: Algorithm) => void;
 }
 
 const FeedContext = createContext<FeedContextType | undefined>(undefined);
@@ -34,64 +41,62 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
+  const [currentAlgorithm, setCurrentAlgorithm] = useState<Algorithm | null>(null);
+
+  // Initialize with first preset algorithm
+  useEffect(() => {
+    const algorithms = getAllAlgorithms();
+    if (algorithms.length > 0 && !currentAlgorithm) {
+      setCurrentAlgorithm(algorithms[0]); // Default to "Balanced Discovery"
+    }
+  }, [currentAlgorithm]);
 
   // Data
   const allBeliefs = getAllBeliefs();
+  const allContent = getAllContent();
 
-  // Filter and sort beliefs
-  const filteredBeliefs = useMemo(() => {
-    let beliefs = allBeliefs;
-
-    // Apply search
+  // Rank content using algorithm
+  const rankedContent = useMemo(() => {
+    if (!currentAlgorithm) return allContent;
+    
+    let content = allContent;
+    
+    // Apply search filter to content
     if (searchQuery.trim()) {
-      const searchResults = searchBeliefs(searchQuery);
-      beliefs = beliefs.filter(b => searchResults.some(sb => sb.id === b.id));
+      const lowercaseQuery = searchQuery.toLowerCase();
+      content = content.filter(c => 
+        c.heading.title.toLowerCase().includes(lowercaseQuery) ||
+        c.article.content.toLowerCase().includes(lowercaseQuery) ||
+        c.article.headline?.toLowerCase().includes(lowercaseQuery)
+      );
     }
-
-    // Apply category filter
-    if (activeCategory !== 'trending' && activeCategory !== 'new') {
-      const categoryResults = getBeliefsByCategory(activeCategory);
-      beliefs = beliefs.filter(b => categoryResults.some(cb => cb.id === b.id));
-    }
-
+    
     // Apply status filter
     if (filterStatus !== 'all') {
-      const statusResults = getBeliefsByStatus(filterStatus);
-      beliefs = beliefs.filter(b => statusResults.some(sb => sb.id === b.id));
-    }
-
-    // Apply quick filters
-    if (!activeFilters.includes('all') && activeFilters.length > 0) {
-      beliefs = beliefs.filter(belief => {
-        return activeFilters.some(filter => {
-          switch (filter) {
-            case 'breaking-news':
-              // High informativeness indicates breaking/noteworthy content
-              return belief.objectRankingScores.informativeness > 75;
-            case 'high-stakes':
-              // High truth score indicates high-stakes/important information
-              return belief.objectRankingScores.truth > 85;
-            case 'ending-soon':
-              // High relevance indicates time-sensitive content
-              return belief.objectRankingScores.relevance > 80;
-            case 'recently-active':
-              // Combination of high relevance and informativeness
-              return belief.objectRankingScores.relevance > 70 && belief.objectRankingScores.informativeness > 70;
-            case 'high-consensus':
-              // High truth score indicates strong consensus/confidence
-              return belief.objectRankingScores.truth > 90;
-            default:
-              return true;
-          }
-        });
+      content = content.filter(c => {
+        if (filterStatus === 'resolved') return c.status === 'resolved';
+        if (filterStatus === 'closed') return c.status === 'resolved'; // Map closed to resolved for backward compatibility
+        return true;
       });
     }
+    
+    // Rank using algorithm
+    return rankContent(content, currentAlgorithm);
+  }, [allContent, searchQuery, filterStatus, currentAlgorithm]);
 
-    // Apply sorting
-    beliefs = sortBeliefs(beliefs, sortBy);
-
-    return beliefs;
-  }, [allBeliefs, searchQuery, activeCategory, filterStatus, activeFilters, sortBy]);
+  // Convert ranked content to beliefs for backward compatibility
+  const filteredBeliefs = useMemo(() => {
+    return rankedContent.map(content => ({
+      ...content,
+      objectRankingScores: {
+        truth: content.signals.truth?.currentValue || 0,
+        relevance: content.signals.relevance?.currentValue || 0,
+        informativeness: content.signals.informativeness?.currentValue || 0
+      },
+      charts: [],
+      category: undefined
+    } as Belief));
+  }, [rankedContent]);
 
   // Handle filter toggle
   const handleFilterToggle = (filter: string) => {
@@ -139,12 +144,15 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     viewMode,
     filteredBeliefs,
     allBeliefs,
+    currentAlgorithm,
+    rankedContent,
     setSearchQuery,
     setActiveCategory,
     setSortBy,
     setFilterStatus,
     setViewMode: handleViewModeChange,
     handleFilterToggle,
+    setCurrentAlgorithm,
   };
 
   return (

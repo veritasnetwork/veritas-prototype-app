@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Belief } from '@/types/belief.types';
 import { BeliefCard } from './BeliefCard';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Sparkles } from 'lucide-react';
+import { useFeed } from '@/contexts/FeedContext';
 
 interface PremierHeaderProps {
   premierBeliefs: Belief[];
@@ -16,6 +17,7 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
   onBeliefClick
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const { currentAlgorithm } = useFeed();
 
   // Auto-cycle through beliefs every 6 seconds
   useEffect(() => {
@@ -35,6 +37,24 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
   return (
     <div className="w-full bg-white dark:bg-veritas-darker-blue mb-12 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Algorithm Indicator */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-2">
+            <h2 className="text-xl font-bold text-veritas-primary dark:text-veritas-eggshell">
+              Top Ranked Content
+            </h2>
+            <span className="text-sm text-gray-500 dark:text-veritas-eggshell/50">
+              by {currentAlgorithm?.name || 'Algorithm'}
+            </span>
+            {currentAlgorithm?.type === 'user' && (
+              <Sparkles className="w-4 h-4 text-veritas-secondary dark:text-veritas-orange" />
+            )}
+          </div>
+          <span className="text-xs text-gray-400 dark:text-veritas-eggshell/40">
+            Top 3 of {premierBeliefs.length} shown
+          </span>
+        </div>
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-[500px]">
           
           {/* Hero Card - Left Side (2/3 width on desktop) */}
@@ -92,13 +112,13 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
                 <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full">
                   <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                   <span className="text-sm font-medium text-white">
-                    Truth Score: {activeBelief.objectRankingScores.truth}%
+                    Truth Score: {activeBelief.objectRankingScores?.truth || 0}%
                   </span>
                 </div>
                 <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   <span className="text-sm font-medium text-white">
-                    Relevance: {activeBelief.objectRankingScores.relevance}%
+                    Relevance: {activeBelief.objectRankingScores?.relevance || 0}%
                   </span>
                 </div>
               </div>
