@@ -40,7 +40,7 @@ export const ContentCard: React.FC<ContentCardProps> = ({
       case 'grid':
         return 'w-full max-w-sm min-h-[280px]'; // Grid view cards with minimum height
       case 'news':
-        return 'w-full h-80'; // News-style horizontal cards with fixed height
+        return 'w-full h-[22rem]'; // News-style horizontal cards with increased height to handle 2-line descriptions
       case 'large':
         return 'w-full h-72 md:h-80'; // Reduced height for more compact grid layout
       default: // 'feed'
