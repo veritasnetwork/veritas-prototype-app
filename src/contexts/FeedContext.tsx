@@ -14,8 +14,10 @@ interface FeedContextType {
   sortBy: SortOption;
   filterStatus: FilterStatus;
   viewMode: ViewMode;
-  filteredBeliefs: Belief[];
+  filteredBeliefs: Belief[]; // Legacy - for backward compatibility
+  filteredContents: Content[]; // New - primary content array
   allBeliefs: Belief[];
+  allContents: Content[];
   
   // Algorithm-related
   currentAlgorithm: Algorithm | null;
@@ -31,7 +33,7 @@ interface FeedContextType {
   setCurrentAlgorithm: (algorithm: Algorithm) => void;
 }
 
-const FeedContext = createContext<FeedContextType | undefined>(undefined);
+export const FeedContext = createContext<FeedContextType | undefined>(undefined);
 
 export function FeedProvider({ children }: { children: React.ReactNode }) {
   // State management
@@ -43,11 +45,46 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
   const [currentAlgorithm, setCurrentAlgorithm] = useState<Algorithm | null>(null);
 
-  // Initialize with first preset algorithm
+  // Initialize algorithm from localStorage or use first preset
   useEffect(() => {
     const algorithms = getAllAlgorithms();
     if (algorithms.length > 0 && !currentAlgorithm) {
-      setCurrentAlgorithm(algorithms[0]); // Default to "Balanced Discovery"
+      // Try to load saved algorithm from localStorage
+      if (typeof window !== 'undefined') {
+        const savedAlgorithmId = localStorage.getItem('veritas-current-algorithm');
+        if (savedAlgorithmId) {
+          // Check if it's a custom algorithm (starts with 'custom-')
+          if (savedAlgorithmId.startsWith('custom-')) {
+            // Try to load the custom algorithm from localStorage
+            const savedCustomAlgorithm = localStorage.getItem('veritas-custom-algorithm');
+            if (savedCustomAlgorithm) {
+              try {
+                const customAlgorithm = JSON.parse(savedCustomAlgorithm);
+                setCurrentAlgorithm(customAlgorithm);
+                return;
+              } catch (e) {
+                console.error('Failed to parse saved custom algorithm:', e);
+              }
+            }
+          } else {
+            // It's a preset algorithm
+            const savedAlgorithm = algorithms.find(a => a.id === savedAlgorithmId);
+            if (savedAlgorithm) {
+              setCurrentAlgorithm(savedAlgorithm);
+              return;
+            }
+          }
+        }
+        
+        // No saved preference found - set default and save it
+        const defaultAlgorithm = algorithms[0]; // "Balanced Discovery"
+        setCurrentAlgorithm(defaultAlgorithm);
+        // Save the default to localStorage so it persists
+        localStorage.setItem('veritas-current-algorithm', defaultAlgorithm.id);
+      } else {
+        // Server-side or window not available yet
+        setCurrentAlgorithm(algorithms[0]);
+      }
     }
   }, [currentAlgorithm]);
 
@@ -135,6 +172,21 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Handle algorithm change with localStorage persistence
+  const handleAlgorithmChange = (algorithm: Algorithm) => {
+    setCurrentAlgorithm(algorithm);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('veritas-current-algorithm', algorithm.id);
+      // If it's a custom algorithm, save the full algorithm object
+      if (algorithm.type === 'user') {
+        localStorage.setItem('veritas-custom-algorithm', JSON.stringify(algorithm));
+      } else {
+        // Remove custom algorithm from storage if switching to preset
+        localStorage.removeItem('veritas-custom-algorithm');
+      }
+    }
+  };
+
   const contextValue: FeedContextType = {
     searchQuery,
     activeCategory,
@@ -143,7 +195,9 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     filterStatus,
     viewMode,
     filteredBeliefs,
+    filteredContents: rankedContent, // New - provide rankedContent as filteredContents
     allBeliefs,
+    allContents: allContent,
     currentAlgorithm,
     rankedContent,
     setSearchQuery,
@@ -152,7 +206,7 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     setFilterStatus,
     setViewMode: handleViewModeChange,
     handleFilterToggle,
-    setCurrentAlgorithm,
+    setCurrentAlgorithm: handleAlgorithmChange,
   };
 
   return (

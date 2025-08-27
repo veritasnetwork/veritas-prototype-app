@@ -1,6 +1,6 @@
 'use client';
 
-export const SkeletonBeliefDetailPage: React.FC = () => {
+export const SkeletonContentDetailPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-veritas-darker-blue">
       {/* Simplified Header Skeleton */}
@@ -94,80 +94,56 @@ export const SkeletonBeliefDetailPage: React.FC = () => {
 
           </div>
 
-          {/* Sidebar skeleton */}
-          <div className="lg:col-span-1 space-y-6">
-            
-            {/* Simplified Action Panel Skeleton */}
-            <div className="space-y-4 animate-pulse">
-              {/* Share Your Understanding Button Skeleton */}
-              <div className="h-14 w-full bg-veritas-orange/20 rounded-2xl shimmer" />
-              
-              {/* Info Notice Skeleton */}
-              <div className="p-3 bg-slate-100 dark:bg-veritas-primary/10 rounded-xl border border-slate-200 dark:border-veritas-primary/20">
-                <div className="h-3 w-full bg-slate-200 dark:bg-veritas-primary/30 rounded shimmer" />
-              </div>
-            </div>
-
-            {/* Related Information Skeleton */}
-            <div className="backdrop-blur-xl bg-white dark:bg-veritas-darker-blue/80 rounded-3xl p-6 border border-slate-200 dark:border-veritas-eggshell/10 animate-pulse">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-5 h-5 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
-                  <div className="h-6 w-36 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
-                </div>
-                {[1, 2, 3, 4].map((index) => (
-                  <div key={index} className="p-4 bg-slate-50 dark:bg-veritas-eggshell/5 rounded-xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="h-4 w-16 bg-slate-200 dark:bg-veritas-eggshell/15 rounded shimmer" />
-                      <div className="w-3 h-3 bg-slate-200 dark:bg-veritas-eggshell/15 rounded-full shimmer" />
-                    </div>
-                    <div className="h-4 w-full bg-slate-200 dark:bg-veritas-eggshell/15 rounded shimmer" />
-                    <div className="h-4 w-3/4 bg-slate-200 dark:bg-veritas-eggshell/15 rounded shimmer" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            
+          {/* Empty Sidebar - No content in actual page */}
+          <div className="lg:col-span-1">
+            {/* Right column is empty in the actual ContentDetailPage */}
           </div>
 
           {/* Full Width Sections - Span all 4 columns */}
           <div className="lg:col-span-4 mt-12 space-y-8">
             
-            {/* Intelligence Evolution - 3 Line Charts Skeleton */}
+            {/* Relevance Signals Skeleton */}
             <div className="backdrop-blur-xl bg-white dark:bg-veritas-darker-blue/80 rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-veritas-eggshell/10 animate-pulse">
               <div className="space-y-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-6 h-6 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
-                  <div className="h-7 w-48 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
+                {/* Header with Title and Controls */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-2xl bg-slate-200 dark:bg-veritas-eggshell/10 shimmer">
+                      <div className="w-6 h-6" />
+                    </div>
+                    <div className="h-7 w-40 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {/* View Mode Toggle */}
+                    <div className="w-48 h-10 bg-slate-200 dark:bg-veritas-eggshell/10 rounded-full shimmer" />
+                    {/* Validate Button */}
+                    <div className="w-36 h-10 bg-veritas-primary/20 dark:bg-veritas-light-blue/20 rounded-xl shimmer" />
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Truth Chart */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-emerald-500/30 rounded shimmer" />
-                      <div className="h-5 w-20 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
+                
+                {/* Signal Progress Bars Grid - Default Summary View */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {[...Array(15)].map((_, index) => (
+                    <div key={index} className="bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-xl p-4">
+                      {/* Signal Name and Value */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-slate-300 dark:bg-veritas-eggshell/20 rounded-full shimmer" />
+                          <div className="h-4 w-24 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
+                        </div>
+                        <div className="h-4 w-10 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
+                      </div>
+                      {/* Progress Bar */}
+                      <div className="w-full h-2 bg-gray-200 dark:bg-veritas-darker-blue/80 rounded-full overflow-hidden">
+                        <div className="h-full w-3/4 bg-slate-300 dark:bg-veritas-eggshell/30 rounded-full shimmer" />
+                      </div>
+                      {/* Metadata */}
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="h-3 w-20 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
+                        <div className="h-3 w-12 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
+                      </div>
                     </div>
-                    <div className="h-40 w-full bg-slate-100 dark:bg-veritas-eggshell/5 rounded-lg shimmer" />
-                    <div className="h-4 w-16 bg-slate-200 dark:bg-veritas-eggshell/10 rounded mx-auto shimmer" />
-                  </div>
-                  {/* Relevance Chart */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-veritas-light-blue/30 rounded shimmer" />
-                      <div className="h-5 w-24 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
-                    </div>
-                    <div className="h-40 w-full bg-slate-100 dark:bg-veritas-eggshell/5 rounded-lg shimmer" />
-                    <div className="h-4 w-16 bg-slate-200 dark:bg-veritas-eggshell/10 rounded mx-auto shimmer" />
-                  </div>
-                  {/* Informativeness Chart */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-veritas-orange/30 rounded shimmer" />
-                      <div className="h-5 w-28 bg-slate-200 dark:bg-veritas-eggshell/10 rounded shimmer" />
-                    </div>
-                    <div className="h-40 w-full bg-slate-100 dark:bg-veritas-eggshell/5 rounded-lg shimmer" />
-                    <div className="h-4 w-16 bg-slate-200 dark:bg-veritas-eggshell/10 rounded mx-auto shimmer" />
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>

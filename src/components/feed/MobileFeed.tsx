@@ -1,17 +1,17 @@
 'use client';
 
-import { Belief } from '@/types/belief.types';
-import { BeliefCard } from './BeliefCard';
+import { Content } from '@/types/content.types';
+import { ContentCard } from './ContentCard';
 
 interface MobileFeedProps {
-  beliefs: Belief[];
-  onBeliefClick: (beliefId: string) => void;
+  contents: Content[];
+  onContentClick: (contentId: string) => void;
   loading?: boolean;
 }
 
 export const MobileFeed: React.FC<MobileFeedProps> = ({
-  beliefs,
-  onBeliefClick,
+  contents,
+  onContentClick,
   loading = false
 }) => {
   if (loading) {
@@ -45,7 +45,7 @@ export const MobileFeed: React.FC<MobileFeedProps> = ({
     );
   }
 
-  if (beliefs.length === 0) {
+  if (contents.length === 0) {
     return (
       <div className="px-4 py-16 pb-32 text-center">
         <p className="text-gray-500 dark:text-gray-400 text-lg">
@@ -57,15 +57,15 @@ export const MobileFeed: React.FC<MobileFeedProps> = ({
 
   return (
     <div className="space-y-1 pb-32">
-      {beliefs.map((belief) => (
+      {contents.map((content) => (
         <div 
-          key={belief.id}
+          key={content.id}
           className="border-b border-gray-100 dark:border-gray-800 last:border-b-0"
         >
-          <BeliefCard 
-            belief={belief} 
+          <ContentCard 
+            content={content} 
             variant="mobile"
-            onClick={() => onBeliefClick(belief.id)}
+            onClick={() => onContentClick(content.id)}
           />
         </div>
       ))}
