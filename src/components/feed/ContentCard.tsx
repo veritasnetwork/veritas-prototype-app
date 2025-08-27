@@ -314,7 +314,7 @@ export const ContentCard: React.FC<ContentCardProps> = ({
             </div>
             
             {/* Bottom Right: Metadata */}
-            <div className="flex items-center justify-end gap-4 text-xs text-veritas-primary/70 dark:text-veritas-eggshell/70">
+            <div className="flex items-center justify-end gap-4 text-xs text-veritas-primary/70 dark:text-veritas-eggshell/70 mt-2">
               <div className="flex items-center gap-1">
                 <Users className="w-3 h-3" />
                 <span>{participantCount} participants</span>
