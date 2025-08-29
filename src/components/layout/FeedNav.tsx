@@ -12,7 +12,6 @@ import {
   Moon,
   Grid3X3,
   Filter,
-  CircleDot,
   Users,
   DollarSign
 } from 'lucide-react';
@@ -49,7 +48,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
   const [isNetworkLoading, setIsNetworkLoading] = useState(true);
   const [networkMetrics, setNetworkMetrics] = useState({
     totalStake: 0,
-    totalAgents: 0,
+    totalValidators: 0,
     isConnected: false
   });
   
@@ -88,7 +87,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
       setIsNetworkLoading(false);
       setNetworkMetrics({
         totalStake: 2847532, // Simulated total stake
-        totalAgents: 1247, // Simulated total agents
+        totalValidators: 1247, // Simulated total validators
         isConnected: true
       });
     }, 10000); // 10 seconds loading
@@ -98,7 +97,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
       if (isNetworkLoading) {
         setNetworkMetrics({
           totalStake: Math.floor(Math.random() * 100000) + 2000000,
-          totalAgents: Math.floor(Math.random() * 200) + 1000,
+          totalValidators: Math.floor(Math.random() * 200) + 1000,
           isConnected: true // Keep connected during syncing
         });
       }
@@ -293,7 +292,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                           </div>
                         </div>
 
-                        {/* Total Agents */}
+                        {/* Total Validators */}
                         <div className="relative group w-24">
                           <div className="absolute -inset-1 bg-veritas-primary/20 dark:bg-veritas-light-blue/15 rounded-2xl blur opacity-40 dark:opacity-25 group-hover:opacity-60 dark:group-hover:opacity-40 transition duration-300"></div>
                           <div className="relative px-3 py-2 bg-veritas-primary/20 dark:bg-veritas-light-blue/10 backdrop-blur-xl rounded-2xl border border-veritas-primary/30 dark:border-veritas-light-blue/20">
@@ -307,7 +306,7 @@ const FeedNav: React.FC<FeedNavProps> = ({
                                 )}
                               </div>
                               <div className="text-xs">
-                                <div className="text-veritas-primary dark:text-veritas-light-blue/80 font-medium">Agents</div>
+                                <div className="text-veritas-primary dark:text-veritas-light-blue/80 font-medium">Validators</div>
                                 <div className={`font-bold text-veritas-primary dark:text-veritas-light-blue mt-1 ${isNetworkLoading ? 'animate-pulse' : ''}`}>
                                   {isNetworkLoading ? (
                                     <div className="flex items-center space-x-0.5 h-4">
@@ -316,48 +315,8 @@ const FeedNav: React.FC<FeedNavProps> = ({
                                       <div className="w-1.5 h-1.5 bg-veritas-primary dark:bg-veritas-light-blue rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                                     </div>
                                   ) : (
-                                    `${networkMetrics.totalAgents.toLocaleString()}`
+                                    `${networkMetrics.totalValidators.toLocaleString()}`
                                   )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Network Status */}
-                        <div className="relative group w-28">
-                          <div className={`absolute -inset-1 rounded-2xl blur opacity-40 dark:opacity-25 group-hover:opacity-60 dark:group-hover:opacity-40 transition duration-300 ${
-                            isNetworkLoading || !networkMetrics.isConnected 
-                              ? 'bg-red-500/20 dark:bg-red-500/15' 
-                              : 'bg-green-500/20 dark:bg-green-500/15'
-                          }`}></div>
-                          <div className={`relative px-3 py-2 backdrop-blur-xl rounded-2xl border transition-all duration-300 ${
-                            isNetworkLoading 
-                              ? 'bg-amber-500/30 dark:bg-amber-500/10 border-amber-500/40 dark:border-amber-500/20' 
-                              : 'bg-green-500/30 dark:bg-green-500/10 border-green-500/40 dark:border-green-500/20'
-                          }`}>
-                            <div className="flex items-center space-x-2">
-                              <div className="relative">
-                                <CircleDot 
-                                  className={`w-4 h-4 transition-all duration-500 ${
-                                    isNetworkLoading 
-                                      ? 'text-amber-600 dark:text-amber-400' 
-                                      : 'text-green-600 dark:text-green-400'
-                                  }`} 
-                                />
-                                {!isNetworkLoading && networkMetrics.isConnected && (
-                                  <div className="absolute inset-0 text-green-600 dark:text-green-400 animate-ping opacity-50">
-                                    <CircleDot className="w-4 h-4" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="text-xs font-semibold">
-                                <div className={`transition-all duration-300 ${
-                                  isNetworkLoading 
-                                    ? 'text-amber-700 dark:text-amber-300' 
-                                    : 'text-green-700 dark:text-green-300'
-                                }`}>
-                                  {isNetworkLoading ? 'Syncing...' : 'Live'}
                                 </div>
                               </div>
                             </div>

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Sliders, TrendingUp, Shield, Zap, Globe, Brain, ChevronRight } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Algorithm, SignalConfig } from '@/types/algorithm.types';
 import { getAllAlgorithms, getAllSignalConfigs } from '@/lib/data';
 import { createCustomAlgorithm, normalizeWeights } from '@/lib/algorithmEngine';
@@ -25,7 +26,7 @@ export const AlgorithmPickerModal: React.FC<AlgorithmPickerModalProps> = ({
   const [signalConfigs, setSignalConfigs] = useState<SignalConfig[]>([]);
   const [customWeights, setCustomWeights] = useState<{ [key: string]: number }>({});
   const [customName, setCustomName] = useState('My Algorithm');
-  const [hoveredAlgorithm, setHoveredAlgorithm] = useState<string | null>(null);
+  const [selectedPresetAlgorithm, setSelectedPresetAlgorithm] = useState<Algorithm | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -47,6 +48,12 @@ export const AlgorithmPickerModal: React.FC<AlgorithmPickerModalProps> = ({
           defaultWeights[signal.key] = signal.defaultWeight;
         });
         setCustomWeights(defaultWeights);
+        // Set selected preset algorithm to current algorithm if it's a preset
+        if (currentAlgorithm) {
+          setSelectedPresetAlgorithm(currentAlgorithm);
+        } else if (algorithms.length > 0) {
+          setSelectedPresetAlgorithm(algorithms[0]);
+        }
       }
     }
   }, [isOpen, currentAlgorithm]);
@@ -70,8 +77,13 @@ export const AlgorithmPickerModal: React.FC<AlgorithmPickerModalProps> = ({
   };
 
   const handleSelectPreset = (algorithm: Algorithm) => {
+    setSelectedPresetAlgorithm(algorithm);
     onSelectAlgorithm(algorithm);
     onClose();
+  };
+  
+  const handlePresetClick = (algorithm: Algorithm) => {
+    setSelectedPresetAlgorithm(algorithm);
   };
 
   const getIconForAlgorithm = (algorithmId: string) => {
@@ -85,6 +97,13 @@ export const AlgorithmPickerModal: React.FC<AlgorithmPickerModalProps> = ({
     };
     return iconMap[algorithmId] || Sliders;
   };
+  
+  const getSignalColors = () => [
+    '#1B365D', '#4BA3F5', '#FFB800', '#FF6B6B', 
+    '#4ECDC4', '#95E77E', '#9B59B6', '#F39C12',
+    '#E74C3C', '#3498DB', '#2ECC71', '#E67E22',
+    '#1ABC9C', '#34495E', '#FFC0CB', '#9B59B6'
+  ];
 
   const getCategoryColor = (category: string) => {
     const colors: { [key: string]: string } = {
@@ -96,6 +115,29 @@ export const AlgorithmPickerModal: React.FC<AlgorithmPickerModalProps> = ({
     };
     return colors[category] || 'from-gray-500 to-gray-600';
   };
+
+  // Memoize chart data to prevent recalculation - normalize weights to percentages
+  const chartData = useMemo(() => {
+    if (!selectedPresetAlgorithm || signalConfigs.length === 0) return [];
+    
+    // Calculate total weight
+    const totalWeight = Object.values(selectedPresetAlgorithm.weights)
+      .filter(weight => weight > 0)
+      .reduce((sum, weight) => sum + weight, 0);
+    
+    // Normalize to percentages
+    return Object.entries(selectedPresetAlgorithm.weights)
+      .filter(([, weight]) => weight > 0)
+      .map(([key, weight]) => ({
+        name: signalConfigs.find(s => s.key === key)?.name || key,
+        value: Math.round((weight / totalWeight) * 100), // Normalized percentage
+        rawWeight: weight, // Keep raw weight for reference
+        key
+      }));
+  }, [selectedPresetAlgorithm, signalConfigs]);
+
+  // Memoize colors
+  const signalColors = useMemo(() => getSignalColors(), []);
 
   if (!isOpen) return null;
 
@@ -154,18 +196,125 @@ export const AlgorithmPickerModal: React.FC<AlgorithmPickerModalProps> = ({
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(90vh-200px)]">
           {activeTab === 'presets' ? (
-            <div className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {presetAlgorithms.map(algorithm => {
-                  const Icon = getIconForAlgorithm(algorithm.id);
-                  const isSelected = currentAlgorithm?.id === algorithm.id;
+            <div className="p-8 space-y-8">
+              {/* Algorithm Summary Section - Expanded */}
+              {selectedPresetAlgorithm && signalConfigs.length > 0 && (
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-veritas-eggshell/5 dark:to-veritas-eggshell/10 rounded-3xl p-6 border-2 border-gray-200 dark:border-veritas-eggshell/10 shadow-lg animate-fade-in">
+                  <h3 className="text-2xl font-bold text-veritas-primary dark:text-veritas-eggshell mb-6 flex items-center">
+                    <span className="mr-3">Algorithm Overview:</span>
+                    <span className="text-veritas-secondary dark:text-veritas-orange">{selectedPresetAlgorithm.name}</span>
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+                    {/* Left: Enhanced Pie Chart - height determined by content */}
+                    <div className="flex flex-col">
+                      <h4 className="text-lg font-semibold text-gray-700 dark:text-veritas-eggshell/90 mb-6 text-center">
+                        Normalised Signal Weight Distribution For Chosen Algorithm
+                      </h4>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <PieChart>
+                          <Pie
+                            data={chartData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={110}
+                            innerRadius={45}
+                            fill="#8884d8"
+                            dataKey="value"
+                            animationBegin={0}
+                            animationDuration={600}
+                            animationEasing="ease-out"
+                          >
+                            {chartData.map((_, index) => (
+                              <Cell key={`cell-${index}`} fill={signalColors[index % signalColors.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value: number) => `${value}%`}
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                              border: '1px solid #ccc',
+                              borderRadius: '8px'
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      
+                      {/* Custom Legend Below Chart */}
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        {chartData.map((item, index) => (
+                          <div key={item.key} className="flex items-center space-x-2 text-sm">
+                            <div 
+                              className="w-4 h-4 rounded-full flex-shrink-0" 
+                              style={{ backgroundColor: signalColors[index % signalColors.length] }}
+                            />
+                            <span className="text-gray-600 dark:text-veritas-eggshell/70 truncate">
+                              {item.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Right: Enhanced Signal List with Progress Bars - fixed height matching left column */}
+                    <div className="bg-white dark:bg-veritas-darker-blue/40 rounded-2xl p-6 border border-gray-200 dark:border-veritas-eggshell/10 h-[460px] flex flex-col">
+                      <h4 className="text-lg font-semibold text-gray-700 dark:text-veritas-eggshell/90 mb-6">
+                        Detailed Signal Weightings
+                      </h4>
+                      <div className="space-y-4 overflow-y-auto pr-3 flex-1">
+                        {Object.entries(selectedPresetAlgorithm.weights)
+                          .filter(([, weight]) => weight > 0)
+                          .sort(([,a], [,b]) => b - a)
+                          .map(([key, weight]) => (
+                            <div key={key} className="group">
+                              <div className="flex items-center justify-between text-sm mb-2">
+                                <span className="text-gray-700 dark:text-veritas-eggshell/80 font-medium group-hover:text-veritas-primary dark:group-hover:text-veritas-light-blue transition-colors">
+                                  {signalConfigs.find(s => s.key === key)?.name || key}
+                                </span>
+                                <span className="font-bold text-gray-800 dark:text-veritas-eggshell bg-gray-100 dark:bg-veritas-eggshell/10 px-2 py-1 rounded-lg">
+                                  {weight}
+                                </span>
+                              </div>
+                              <div className="w-full h-3 bg-gray-200 dark:bg-veritas-eggshell/10 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-veritas-secondary dark:bg-veritas-orange rounded-full transition-all duration-500 ease-out"
+                                  style={{ width: `${Math.min(weight, 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Preset Algorithm Cards */}
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-700 dark:text-veritas-eggshell/90">
+                    Select a Preset Algorithm
+                  </h3>
+                  {selectedPresetAlgorithm && selectedPresetAlgorithm.id !== currentAlgorithm?.id && (
+                    <button
+                      onClick={() => handleSelectPreset(selectedPresetAlgorithm)}
+                      className="px-6 py-2.5 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-xl font-medium hover:bg-veritas-dark-blue dark:hover:bg-veritas-light-blue/90 transition-colors"
+                    >
+                      Apply {selectedPresetAlgorithm.name}
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {presetAlgorithms.map(algorithm => {
+                    const Icon = getIconForAlgorithm(algorithm.id);
+                    const isSelected = selectedPresetAlgorithm?.id === algorithm.id;
                   
                   return (
                     <button
                       key={algorithm.id}
-                      onClick={() => handleSelectPreset(algorithm)}
-                      onMouseEnter={() => setHoveredAlgorithm(algorithm.id)}
-                      onMouseLeave={() => setHoveredAlgorithm(null)}
+                      onClick={() => handlePresetClick(algorithm)}
+                      onDoubleClick={() => handleSelectPreset(algorithm)}
                       className={`relative p-6 rounded-2xl border-2 text-left transition-all duration-300 ${
                         isSelected
                           ? 'border-veritas-primary dark:border-veritas-light-blue bg-veritas-primary/5 dark:bg-veritas-light-blue/10'
@@ -190,55 +339,62 @@ export const AlgorithmPickerModal: React.FC<AlgorithmPickerModalProps> = ({
                         </div>
                         
                         <div className="flex-1">
-                          <h3 className="font-semibold text-veritas-primary dark:text-veritas-eggshell mb-1">
+                          <h3 className="font-semibold text-veritas-primary dark:text-veritas-eggshell mb-3">
                             {algorithm.name}
                           </h3>
-                          <p className="text-sm text-gray-600 dark:text-veritas-eggshell/60 mb-3">
-                            {algorithm.description}
-                          </p>
                           
-                          {/* Stats */}
-                          <div className="flex items-center space-x-4 text-xs">
+                          {/* Stats - Only show users count */}
+                          <div className="flex items-center text-xs mb-4">
                             <div className="flex items-center space-x-1">
                               <span className="text-gray-500 dark:text-veritas-eggshell/40">Users:</span>
                               <span className="font-medium text-gray-700 dark:text-veritas-eggshell/70">
                                 {algorithm.popularity?.toLocaleString() || '0'}
                               </span>
                             </div>
-                            <div className="flex items-center space-x-1">
-                              <span className="text-gray-500 dark:text-veritas-eggshell/40">Performance:</span>
-                              <span className="font-medium text-gray-700 dark:text-veritas-eggshell/70">
-                                {algorithm.performance || 0}%
-                              </span>
-                            </div>
                           </div>
                           
-                          {/* Preview top signals on hover */}
-                          {hoveredAlgorithm === algorithm.id && (
-                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-veritas-eggshell/10">
-                              <div className="text-xs text-gray-500 dark:text-veritas-eggshell/40 mb-2">
-                                Top Weighted Signals:
-                              </div>
-                              {Object.entries(algorithm.weights)
+                          {/* Top signals - Always visible */}
+                          <div className="pt-3 border-t border-gray-200 dark:border-veritas-eggshell/10">
+                            <div className="text-xs text-gray-500 dark:text-veritas-eggshell/40 mb-2">
+                              Top Weighted Signals:
+                            </div>
+                            {(() => {
+                              const totalWeight = Object.values(algorithm.weights)
+                                .filter(w => w > 0)
+                                .reduce((sum, w) => sum + w, 0);
+                              
+                              return Object.entries(algorithm.weights)
                                 .sort(([,a], [,b]) => b - a)
                                 .slice(0, 3)
-                                .map(([key, weight]) => (
-                                  <div key={key} className="flex items-center justify-between text-xs mb-1">
-                                    <span className="text-gray-600 dark:text-veritas-eggshell/60">
-                                      {signalConfigs.find(s => s.key === key)?.name || key}
-                                    </span>
-                                    <span className="font-medium text-gray-700 dark:text-veritas-eggshell/70">
-                                      {weight}%
-                                    </span>
-                                  </div>
-                                ))}
-                            </div>
-                          )}
+                                .map(([key, weight]) => {
+                                  const percentage = Math.round((weight / totalWeight) * 100);
+                                  return (
+                                    <div key={key} className="mb-2">
+                                      <div className="flex items-center justify-between text-xs mb-1">
+                                        <span className="text-gray-600 dark:text-veritas-eggshell/60">
+                                          {signalConfigs.find(s => s.key === key)?.name || key}
+                                        </span>
+                                        <span className="font-medium text-gray-700 dark:text-veritas-eggshell/70">
+                                          {percentage}%
+                                        </span>
+                                      </div>
+                                      <div className="w-full h-1.5 bg-gray-200 dark:bg-veritas-eggshell/10 rounded-full overflow-hidden">
+                                        <div 
+                                          className="h-full bg-veritas-primary dark:bg-veritas-light-blue rounded-full transition-all duration-300"
+                                          style={{ width: `${percentage}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                            })()}
+                          </div>
                         </div>
                       </div>
                     </button>
                   );
                 })}
+                </div>
               </div>
             </div>
           ) : (

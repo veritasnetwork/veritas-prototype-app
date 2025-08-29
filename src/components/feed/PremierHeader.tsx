@@ -35,7 +35,7 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
   const activeContent = premierContents[activeIndex];
 
   return (
-    <div className="w-full bg-white dark:bg-veritas-darker-blue mb-12 shadow-sm">
+    <div className="w-full bg-white dark:bg-veritas-darker-blue shadow-sm">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Algorithm Indicator */}
         <div className="flex items-center justify-between mb-6">
@@ -176,7 +176,7 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
         
         {/* Dots Indicator */}
         {premierContents.length > 1 && (
-          <div className="flex justify-center mt-6 gap-2">
+          <div className="flex justify-center mt-8 gap-2">
             {premierContents.map((_, index) => (
               <button
                 key={index}

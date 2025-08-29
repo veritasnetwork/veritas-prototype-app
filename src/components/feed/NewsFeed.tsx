@@ -17,14 +17,8 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4">
-        {/* Section Header Skeleton */}
-        <div className="mb-8">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-2 animate-pulse"></div>
-          <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-64 animate-pulse"></div>
-        </div>
-        
         {/* Single Column News Skeleton */}
-        <div className="space-y-8">
+        <div className="space-y-8 py-6">
           {[...Array(3)].map((_, index) => (
             <div key={index} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg h-80 animate-pulse">
               <div className="flex h-full">
@@ -101,16 +95,6 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 pb-16 py-6">
-      {/* Section Header */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-veritas-eggshell mb-2">
-          Latest Insights
-        </h2>
-        <p className="text-gray-600 dark:text-veritas-eggshell/70 text-lg">
-          Discover what the community is exploring
-        </p>
-      </div>
-      
       {/* Single Column Layout */}
       <div className="space-y-8">
         {contents.map((content, index) => (
