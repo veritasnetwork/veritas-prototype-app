@@ -73,7 +73,7 @@ export const MainFeed: React.FC<MainFeedProps> = ({ contents, loading = false })
   // Desktop feed - premier header + news feed
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-veritas-darker-blue">
-      <div className="space-y-12">
+      <div className="space-y-8">
         {/* Premier Header - Top 3 from algorithm ranking */}
         {loading ? (
           <SkeletonPremierHeader />

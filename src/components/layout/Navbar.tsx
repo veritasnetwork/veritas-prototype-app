@@ -13,8 +13,8 @@ import {
   User, 
   Sun, 
   Moon, 
-  X,
-  LogIn
+  X
+  // LogIn - Disabled
 } from 'lucide-react';
 
 const VeritasNavbar = () => {
@@ -83,10 +83,11 @@ const VeritasNavbar = () => {
     setIsMobileMenuOpen(false);
   };
 
-  const handleLogin = () => {
-    openLoginModal();
-    setIsMobileMenuOpen(false);
-  };
+  // Login handler - Disabled
+  // const handleLogin = () => {
+  //   openLoginModal();
+  //   setIsMobileMenuOpen(false);
+  // };
 
   const handleProfileClick = () => {
     openLoginModal();
@@ -225,14 +226,14 @@ const VeritasNavbar = () => {
                 )}
               </button>
 
-              {/* Login Button */}
-              <button
+              {/* Login Button - Disabled */}
+              {/* <button
                 onClick={handleLogin}
                 className="flex items-center space-x-2 px-6 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-white dark:hover:bg-veritas-light-blue/90 hover:text-veritas-dark-blue text-white dark:text-veritas-darker-blue font-semibold font-mono uppercase text-sm shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-200 ease-in-out border-2 border-veritas-primary dark:border-veritas-light-blue/20 hover:border-veritas-dark-blue dark:hover:border-veritas-light-blue/20"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Login</span>
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
@@ -404,13 +405,14 @@ const VeritasNavbar = () => {
                 </button>
               ))}
               
-              <button
+              {/* Login Button - Disabled */}
+              {/* <button
                 onClick={handleLogin}
                 className="w-full flex items-center justify-center space-x-2 p-4 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-veritas-primary/90 dark:hover:bg-veritas-light-blue/90 text-white dark:text-veritas-darker-blue font-semibold font-mono uppercase text-sm transition-all duration-300 border border-veritas-primary/20 dark:border-veritas-light-blue/20"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Login</span>
-              </button>
+              </button> */}
             </div>
           </div>
         </div>

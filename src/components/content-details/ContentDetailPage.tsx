@@ -14,7 +14,7 @@ import { RelevanceSignals } from './RelevanceSignals';
 // import { ActionPanel } from './ActionPanel';
 import { SkeletonContentDetailPage } from './skeleton/SkeletonContentDetailPage';
 import { getBeliefById } from '@/lib/data';
-import { ArrowLeft, Share2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
@@ -55,18 +55,19 @@ export const ContentDetailPage: React.FC<ContentDetailPageProps> = ({
     router.push('/');
   };
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: content?.heading.title || 'Veritas Intelligence',
-        text: content?.article.excerpt || content?.article.content.slice(0, 100) + '...' || 'Check out this intelligence on Veritas',
-        url: window.location.href,
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      // You could add a toast notification here for user feedback
-    }
-  };
+  // Share functionality removed - can be re-enabled if needed
+  // const handleShare = () => {
+  //   if (navigator.share) {
+  //     navigator.share({
+  //       title: content?.heading.title || 'Veritas Intelligence',
+  //       text: content?.article.excerpt || content?.article.content.slice(0, 100) + '...' || 'Check out this intelligence on Veritas',
+  //       url: window.location.href,
+  //     });
+  //   } else {
+  //     navigator.clipboard.writeText(window.location.href);
+  //     // You could add a toast notification here for user feedback
+  //   }
+  // };
 
   if (isLoading) {
     return <SkeletonContentDetailPage />;
@@ -100,34 +101,17 @@ export const ContentDetailPage: React.FC<ContentDetailPageProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-veritas-darker-blue">
-      {/* Simplified Header - No Heading Content */}
-      <div className="bg-gradient-to-r from-veritas-secondary/10 to-veritas-secondary/5 dark:from-veritas-secondary/15 dark:to-veritas-secondary/5 border-b border-slate-200 dark:border-veritas-eggshell/10 pt-20 md:pt-8">
-        <div className="container mx-auto px-4 py-6 max-w-7xl">
-          {/* Simplified Header with Back Button and Share */}
-          <div className="flex items-center justify-between">
-            {/* Back to Feed Button with simple breadcrumb */}
-            <div className="flex items-center space-x-2 text-sm text-veritas-primary dark:text-veritas-eggshell">
-              <button 
-                onClick={handleBackToFeed}
-                className="flex items-center space-x-2 hover:text-veritas-secondary dark:hover:text-veritas-secondary transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Feed</span>
-              </button>
-              <span>/</span>
-              <span className="text-veritas-secondary dark:text-veritas-secondary">Details</span>
-            </div>
-            
-            {/* Share Button */}
-            <button 
-              onClick={handleShare}
-              className="p-2 rounded-xl bg-white dark:bg-veritas-darker-blue/80 hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 border border-slate-200 dark:border-veritas-eggshell/10"
-              aria-label="Share this content"
-              title="Share this content"
-            >
-              <Share2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-            </button>
-          </div>
+      {/* Minimal Header - Same background as page */}
+      <div className="bg-slate-50 dark:bg-veritas-darker-blue pt-20 md:pt-4">
+        <div className="container mx-auto px-4 py-3 max-w-7xl">
+          {/* Simple Back to Feed Button */}
+          <button 
+            onClick={handleBackToFeed}
+            className="flex items-center space-x-2 text-sm text-veritas-primary/70 dark:text-veritas-eggshell/70 hover:text-veritas-primary dark:hover:text-veritas-eggshell transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Feed</span>
+          </button>
         </div>
       </div>
 

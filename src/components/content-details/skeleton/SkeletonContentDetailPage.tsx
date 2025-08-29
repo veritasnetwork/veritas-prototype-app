@@ -3,31 +3,13 @@
 export const SkeletonContentDetailPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-veritas-darker-blue">
-      {/* Simplified Header Skeleton */}
-      <div className="bg-gradient-to-r from-slate-100 to-white dark:from-veritas-darker-blue dark:to-veritas-darker-blue/90 border-b border-slate-200 dark:border-veritas-eggshell/10 pt-20 md:pt-8 animate-pulse">
-        <div className="container mx-auto px-4 py-6 max-w-7xl">
-          {/* Breadcrumbs skeleton */}
-          <div className="flex items-center space-x-2 mb-4">
-            <div className="h-4 w-16 bg-slate-300 dark:bg-veritas-eggshell/20 rounded shimmer" />
-            <div className="w-1 h-1 bg-slate-300 dark:bg-veritas-eggshell/20 rounded-full shimmer" />
-            <div className="h-4 w-20 bg-slate-300 dark:bg-veritas-eggshell/20 rounded shimmer" />
-            <div className="w-1 h-1 bg-slate-300 dark:bg-veritas-eggshell/20 rounded-full shimmer" />
-            <div className="h-4 w-16 bg-slate-300 dark:bg-veritas-eggshell/20 rounded shimmer" />
-          </div>
-
-          {/* Category Badge & Actions skeleton */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="h-6 w-24 bg-veritas-orange/20 rounded-full shimmer" />
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-emerald-500/30 rounded-full shimmer" />
-                <div className="h-4 w-20 bg-slate-300 dark:bg-veritas-eggshell/20 rounded shimmer" />
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-slate-200 dark:bg-veritas-eggshell/10 rounded-xl shimmer" />
-              <div className="w-10 h-10 bg-slate-200 dark:bg-veritas-eggshell/10 rounded-xl shimmer" />
-            </div>
+      {/* Minimal Header Skeleton - Same background as page */}
+      <div className="bg-slate-50 dark:bg-veritas-darker-blue pt-20 md:pt-4 animate-pulse">
+        <div className="container mx-auto px-4 py-3 max-w-7xl">
+          {/* Simple Back to Feed Button skeleton */}
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-slate-300 dark:bg-veritas-eggshell/20 rounded shimmer" />
+            <div className="h-4 w-24 bg-slate-300 dark:bg-veritas-eggshell/20 rounded shimmer" />
           </div>
         </div>
       </div>
