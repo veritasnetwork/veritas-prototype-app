@@ -27,6 +27,7 @@ export const MetadataComponent: React.FC<MetadataComponentProps> = ({
         return 'text-green-600 dark:text-green-400';
       case 'resolved':
         return 'text-blue-600 dark:text-blue-400';
+      // 'closed' status no longer exists, but kept for backward compatibility
       case 'closed':
         return 'text-gray-600 dark:text-gray-400';
       default:
@@ -77,17 +78,17 @@ export const MetadataComponent: React.FC<MetadataComponentProps> = ({
         {/* Core Information Intelligence Metrics */}
         <div className="flex flex-col">
           <span className="font-medium">Truth Score</span>
-          <span className="text-slate-900 dark:text-slate-100">{belief.objectRankingScores.truth}%</span>
+          <span className="text-slate-900 dark:text-slate-100">{belief.objectRankingScores?.truth || 0}%</span>
         </div>
         
         <div className="flex flex-col">
           <span className="font-medium">Relevance Score</span>
-          <span className="text-slate-900 dark:text-slate-100">{belief.objectRankingScores.relevance}%</span>
+          <span className="text-slate-900 dark:text-slate-100">{belief.objectRankingScores?.relevance || 0}%</span>
         </div>
         
         <div className="flex flex-col">
           <span className="font-medium">Informativeness Score</span>
-          <span className="text-slate-900 dark:text-slate-100">{belief.objectRankingScores.informativeness}%</span>
+          <span className="text-slate-900 dark:text-slate-100">{belief.objectRankingScores?.informativeness || 0}%</span>
         </div>
 
         <div className="flex flex-col">
@@ -102,7 +103,7 @@ export const MetadataComponent: React.FC<MetadataComponentProps> = ({
         <div className="flex flex-col">
           <span className="font-medium">Available Charts</span>
           <span className="text-slate-900 dark:text-slate-100">
-            {belief.charts.length}
+            {belief.charts?.length || 0}
           </span>
         </div>
 

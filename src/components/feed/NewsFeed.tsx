@@ -1,17 +1,17 @@
 'use client';
 
-import { Belief } from '@/types/belief.types';
-import { BeliefCard } from './BeliefCard';
+import { Content } from '@/types/content.types';
+import { ContentCard } from './ContentCard';
 
 interface NewsFeedProps {
-  beliefs: Belief[];
-  onBeliefClick: (beliefId: string) => void;
+  contents: Content[];
+  onContentClick: (contentId: string) => void;
   loading?: boolean;
 }
 
 export const NewsFeed: React.FC<NewsFeedProps> = ({
-  beliefs,
-  onBeliefClick,
+  contents,
+  onContentClick,
   loading = false
 }) => {
   if (loading) {
@@ -89,7 +89,7 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({
     );
   }
 
-  if (beliefs.length === 0) {
+  if (contents.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
         <p className="text-gray-500 dark:text-gray-400 text-lg">
@@ -113,16 +113,16 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({
       
       {/* Single Column Layout */}
       <div className="space-y-8">
-        {beliefs.map((belief, index) => (
+        {contents.map((content, index) => (
           <div 
-            key={belief.id}
+            key={content.id}
             className="animate-in fade-in duration-500"
             style={{ animationDelay: `${index * 100}ms` }}
           >
-            <BeliefCard 
-              belief={belief} 
+            <ContentCard 
+              content={content} 
               variant="news"
-              onClick={() => onBeliefClick(belief.id)}
+              onClick={() => onContentClick(content.id)}
             />
           </div>
         ))}

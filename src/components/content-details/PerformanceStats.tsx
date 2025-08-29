@@ -14,6 +14,7 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
     switch (status) {
       case 'resolved':
         return 'text-[#FFB800]'; // Brand yellow for resolved
+      // 'closed' status no longer exists, but kept for backward compatibility
       case 'closed':
         return 'text-slate-500';
       default:
@@ -27,7 +28,7 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
     {
       icon: TrendingUp,
       label: 'Truth Score',
-      value: `${belief.objectRankingScores.truth}%`,
+      value: `${belief.objectRankingScores?.truth || 0}%`,
       change: null,
       color: 'text-[#10B981]',
       bgGradient: 'from-[#10B981]/20 to-[#059669]/10'
@@ -35,7 +36,7 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
     {
       icon: Users,
       label: 'Relevance Score',
-      value: `${belief.objectRankingScores.relevance}%`,
+      value: `${belief.objectRankingScores?.relevance || 0}%`,
       change: null,
       color: 'text-[#3B82F6]',
       bgGradient: 'from-[#3B82F6]/20 to-[#2563EB]/10'
@@ -43,7 +44,7 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
     {
       icon: BarChart,
       label: 'Informativeness Score',
-      value: `${belief.objectRankingScores.informativeness}%`,
+      value: `${belief.objectRankingScores?.informativeness || 0}%`,
       change: null,
       color: 'text-[#FFB800]',
       bgGradient: 'from-[#FFB800]/20 to-[#F5A623]/10'
@@ -76,7 +77,7 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
     {
       icon: Clock,
       label: 'Charts Available',
-      value: belief.charts.length.toString(),
+      value: (belief.charts?.length || 0).toString(),
       change: null,
       color: 'text-slate-500',
       bgGradient: 'from-slate-500/20 to-slate-600/10'
@@ -140,7 +141,7 @@ export const PerformanceStats: React.FC<PerformanceStatsProps> = ({ belief }) =>
           <div className="flex justify-between">
             <span className="text-slate-600 dark:text-slate-400">Average Quality Score:</span>
             <span className="font-semibold text-slate-900 dark:text-slate-100">
-              {Math.round((belief.objectRankingScores.truth + belief.objectRankingScores.relevance + belief.objectRankingScores.informativeness) / 3)}%
+              {Math.round(((belief.objectRankingScores?.truth || 0) + (belief.objectRankingScores?.relevance || 0) + (belief.objectRankingScores?.informativeness || 0)) / 3)}%
             </span>
           </div>
         </div>

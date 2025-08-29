@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { ChartComponentProps } from '@/types/component.types';
-import { RenderableChart } from '@/types/belief.types';
-import { getChartsForBelief, getFeedChart } from '@/lib/chartData';
+import { RenderableChart } from '@/types/content.types';
+import { getChartsForContent, getFeedChart } from '@/lib/chartData';
 
 export const ChartComponent: React.FC<ChartComponentProps> = ({
   charts,
-  beliefId,
+  contentId,
+  beliefId, // Legacy prop for backward compatibility
   variant,
   showOnlyFeedChart = false,
   isEditable = false,
@@ -37,16 +38,16 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  // Use beliefId prop or extract from legacy charts prop structure  
-  const actualBeliefId = beliefId || (charts && charts.length > 0 ? 
-    (charts[0] as { metadata?: { beliefId?: string }; beliefId?: string })?.metadata?.beliefId || 
-    (charts[0] as { metadata?: { beliefId?: string }; beliefId?: string })?.beliefId : 
+  // Use contentId prop, fall back to beliefId for backward compatibility
+  const actualContentId = contentId || beliefId || (charts && charts.length > 0 ? 
+    (charts[0] as { metadata?: { contentId?: string }; beliefId?: string })?.metadata?.contentId || 
+    (charts[0] as { metadata?: { contentId?: string }; beliefId?: string })?.beliefId : 
     undefined);
 
   useEffect(() => {
     async function loadCharts() {
-      if (!actualBeliefId) {
-        setError('No belief ID found');
+      if (!actualContentId) {
+        setError('No content ID found');
         setLoading(false);
         return;
       }
@@ -54,10 +55,10 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
       try {
         setLoading(true);
         if (showOnlyFeedChart) {
-          const feedChart = await getFeedChart(actualBeliefId);
+          const feedChart = await getFeedChart(actualContentId);
           setRenderableCharts(feedChart ? [feedChart] : []);
         } else {
-          const allCharts = await getChartsForBelief(actualBeliefId);
+          const allCharts = await getChartsForContent(actualContentId);
           setRenderableCharts(allCharts);
         }
         setError(null);
@@ -70,7 +71,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
     }
 
     loadCharts();
-  }, [actualBeliefId, showOnlyFeedChart]);
+  }, [actualContentId, showOnlyFeedChart]);
 
   const chartHeight = variant === 'card' ? 'h-full' : variant === 'news' ? 'h-40' : 'h-64';
   const wrapperMargin = variant === 'card' ? '' : variant === 'news' ? '' : 'my-4';

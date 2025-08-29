@@ -1,24 +1,24 @@
 'use client';
 
 import React from 'react';
-import { Belief } from '@/types/belief.types';
-import { BeliefCard } from './BeliefCard';
+import { Content } from '@/types/content.types';
+import { ContentCard } from './ContentCard';
 
 export type CardSize = 'small' | 'medium' | 'large' | 'extra-large';
 export type CardLayout = 'vertical' | 'horizontal' | 'minimal';
 
-interface BeliefCardVariantsProps {
-  belief: Belief;
+interface ContentCardVariantsProps {
+  content: Content;
   size?: CardSize;
   layout?: CardLayout;
   showChart?: boolean;
   showMetadata?: boolean;
-  onClick: (beliefId: string) => void;
+  onClick: (contentId: string) => void;
   className?: string;
 }
 
-export const BeliefCardVariants: React.FC<BeliefCardVariantsProps> = ({
-  belief,
+export const ContentCardVariants: React.FC<ContentCardVariantsProps> = ({
+  content,
   size = 'medium',
   layout = 'vertical',
   onClick,
@@ -60,8 +60,8 @@ export const BeliefCardVariants: React.FC<BeliefCardVariantsProps> = ({
 
   return (
     <div className={getCardClasses()}>
-      <BeliefCard
-        belief={belief}
+      <ContentCard
+        content={content}
         variant={getVariant()}
         onClick={onClick}
       />
@@ -70,12 +70,12 @@ export const BeliefCardVariants: React.FC<BeliefCardVariantsProps> = ({
 };
 
 // Pre-configured variants for common use cases
-export const SmallBeliefCard: React.FC<{ belief: Belief; onClick: (id: string) => void }> = ({
-  belief,
+export const SmallContentCard: React.FC<{ content: Content; onClick: (id: string) => void }> = ({
+  content,
   onClick
 }) => (
-  <BeliefCardVariants
-    belief={belief}
+  <ContentCardVariants
+    content={content}
     size="small"
     layout="vertical"
     showChart={false}
@@ -84,12 +84,12 @@ export const SmallBeliefCard: React.FC<{ belief: Belief; onClick: (id: string) =
   />
 );
 
-export const MediumBeliefCard: React.FC<{ belief: Belief; onClick: (id: string) => void }> = ({
-  belief,
+export const MediumContentCard: React.FC<{ content: Content; onClick: (id: string) => void }> = ({
+  content,
   onClick
 }) => (
-  <BeliefCardVariants
-    belief={belief}
+  <ContentCardVariants
+    content={content}
     size="medium"
     layout="vertical"
     showChart={false}
@@ -98,12 +98,12 @@ export const MediumBeliefCard: React.FC<{ belief: Belief; onClick: (id: string) 
   />
 );
 
-export const LargeBeliefCard: React.FC<{ belief: Belief; onClick: (id: string) => void }> = ({
-  belief,
+export const LargeContentCard: React.FC<{ content: Content; onClick: (id: string) => void }> = ({
+  content,
   onClick
 }) => (
-  <BeliefCardVariants
-    belief={belief}
+  <ContentCardVariants
+    content={content}
     size="large"
     layout="vertical"
     showChart={true}
@@ -112,12 +112,12 @@ export const LargeBeliefCard: React.FC<{ belief: Belief; onClick: (id: string) =
   />
 );
 
-export const ExtraLargeBeliefCard: React.FC<{ belief: Belief; onClick: (id: string) => void }> = ({
-  belief,
+export const ExtraLargeContentCard: React.FC<{ content: Content; onClick: (id: string) => void }> = ({
+  content,
   onClick
 }) => (
-  <BeliefCardVariants
-    belief={belief}
+  <ContentCardVariants
+    content={content}
     size="extra-large"
     layout="vertical"
     showChart={true}
@@ -127,12 +127,12 @@ export const ExtraLargeBeliefCard: React.FC<{ belief: Belief; onClick: (id: stri
 );
 
 // Specialized layout variants
-export const HorizontalBeliefCard: React.FC<{ belief: Belief; onClick: (id: string) => void }> = ({
-  belief,
+export const HorizontalContentCard: React.FC<{ content: Content; onClick: (id: string) => void }> = ({
+  content,
   onClick
 }) => (
-  <BeliefCardVariants
-    belief={belief}
+  <ContentCardVariants
+    content={content}
     size="large"
     layout="horizontal"
     showChart={true}
@@ -141,12 +141,12 @@ export const HorizontalBeliefCard: React.FC<{ belief: Belief; onClick: (id: stri
   />
 );
 
-export const MinimalBeliefCard: React.FC<{ belief: Belief; onClick: (id: string) => void }> = ({
-  belief,
+export const MinimalContentCard: React.FC<{ content: Content; onClick: (id: string) => void }> = ({
+  content,
   onClick
 }) => (
-  <BeliefCardVariants
-    belief={belief}
+  <ContentCardVariants
+    content={content}
     size="small"
     layout="minimal"
     showChart={false}
@@ -156,8 +156,8 @@ export const MinimalBeliefCard: React.FC<{ belief: Belief; onClick: (id: string)
 );
 
 // Responsive card that adapts to container size
-export const ResponsiveBeliefCard: React.FC<{ 
-  belief: Belief; 
+export const ResponsiveContentCard: React.FC<{ 
+  content: Content; 
   onClick: (id: string) => void;
   breakpoints?: {
     sm?: CardSize;
@@ -166,7 +166,7 @@ export const ResponsiveBeliefCard: React.FC<{
     xl?: CardSize;
   };
 }> = ({
-  belief,
+  content,
   onClick,
   breakpoints = {
     sm: 'small',
@@ -179,8 +179,8 @@ export const ResponsiveBeliefCard: React.FC<{
     <div className="w-full">
       {/* Small screens */}
       <div className="block sm:hidden">
-        <BeliefCardVariants
-          belief={belief}
+        <ContentCardVariants
+          content={content}
           size={breakpoints.sm || 'small'}
           onClick={onClick}
         />
@@ -188,8 +188,8 @@ export const ResponsiveBeliefCard: React.FC<{
       
       {/* Medium screens */}
       <div className="hidden sm:block md:hidden">
-        <BeliefCardVariants
-          belief={belief}
+        <ContentCardVariants
+          content={content}
           size={breakpoints.md || 'medium'}
           onClick={onClick}
         />
@@ -197,8 +197,8 @@ export const ResponsiveBeliefCard: React.FC<{
       
       {/* Large screens */}
       <div className="hidden md:block lg:hidden">
-        <BeliefCardVariants
-          belief={belief}
+        <ContentCardVariants
+          content={content}
           size={breakpoints.lg || 'large'}
           onClick={onClick}
         />
@@ -206,8 +206,8 @@ export const ResponsiveBeliefCard: React.FC<{
       
       {/* Extra large screens */}
       <div className="hidden lg:block">
-        <BeliefCardVariants
-          belief={belief}
+        <ContentCardVariants
+          content={content}
           size={breakpoints.xl || 'extra-large'}
           onClick={onClick}
         />
@@ -217,12 +217,12 @@ export const ResponsiveBeliefCard: React.FC<{
 };
 
 // Grid-specific variants for different column layouts
-export const GridBeliefCard: React.FC<{ 
-  belief: Belief; 
+export const GridContentCard: React.FC<{ 
+  content: Content; 
   onClick: (id: string) => void;
   columns?: number;
 }> = ({
-  belief,
+  content,
   onClick,
   columns = 3
 }) => {
@@ -236,8 +236,8 @@ export const GridBeliefCard: React.FC<{
   };
 
   return (
-    <BeliefCardVariants
-      belief={belief}
+    <ContentCardVariants
+      content={content}
       size={getSize()}
       layout="vertical"
       showChart={columns <= 3}
@@ -248,15 +248,15 @@ export const GridBeliefCard: React.FC<{
 };
 
 // Feed-specific card variant
-export const FeedBeliefCard: React.FC<{ 
-  belief: Belief; 
+export const FeedContentCard: React.FC<{ 
+  content: Content; 
   onClick: (id: string) => void;
 }> = ({
-  belief,
+  content,
   onClick
 }) => (
-  <BeliefCardVariants
-    belief={belief}
+  <ContentCardVariants
+    content={content}
     size="extra-large"
     layout="vertical"
     showChart={true}

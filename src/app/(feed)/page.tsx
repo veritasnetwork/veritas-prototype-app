@@ -7,7 +7,7 @@ import { useFeed } from '@/contexts/FeedContext';
 // This component receives feed state via FeedContext from the layout
 export default function FeedPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const { filteredBeliefs } = useFeed();
+  const { filteredContents } = useFeed();
 
   // Enhanced loading with staggered reveal
   useEffect(() => {
@@ -20,7 +20,7 @@ export default function FeedPage() {
 
   return (
     <MainFeed 
-      beliefs={filteredBeliefs}
+      contents={filteredContents}
       loading={isLoading}
     />
   );

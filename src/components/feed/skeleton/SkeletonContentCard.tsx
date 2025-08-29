@@ -1,11 +1,11 @@
 'use client';
 
-interface SkeletonBeliefCardProps {
+interface SkeletonContentCardProps {
   theme?: 'light' | 'dark';
   variant?: 'feed' | 'grid' | 'large' | 'news';
 }
 
-export const SkeletonBeliefCard: React.FC<SkeletonBeliefCardProps> = ({
+export const SkeletonContentCard: React.FC<SkeletonContentCardProps> = ({
   variant = 'feed'
 }) => {
   // Get sizing based on variant

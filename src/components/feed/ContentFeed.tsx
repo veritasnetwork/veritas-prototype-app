@@ -1,21 +1,21 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Belief } from '@/types/belief.types';
-import { BeliefCard } from './BeliefCard';
-import { SkeletonBeliefCard } from './skeleton/SkeletonBeliefCard';
+import { Content } from '@/types/content.types';
+import { ContentCard } from './ContentCard';
+import { SkeletonContentCard } from './skeleton/SkeletonContentCard';
 import { useRouter } from 'next/navigation';
 import { Brain, TrendingUp, Sparkles } from 'lucide-react';
 
-interface BeliefFeedProps {
-  beliefs: Belief[];
+interface ContentFeedProps {
+  contents: Content[];
   loading?: boolean;
   onLoadMore?: () => void;
   hasMore?: boolean;
 }
 
-export const BeliefFeed: React.FC<BeliefFeedProps> = ({
-  beliefs,
+export const ContentFeed: React.FC<ContentFeedProps> = ({
+  contents,
   loading = false,
   onLoadMore,
   hasMore = false
@@ -51,24 +51,24 @@ export const BeliefFeed: React.FC<BeliefFeedProps> = ({
         if (onLoadMore) {
           onLoadMore();
         } else {
-          // Load more cards from current beliefs
-          setVisibleCards(prev => Math.min(prev + 10, beliefs.length));
+          // Load more cards from current contents
+          setVisibleCards(prev => Math.min(prev + 10, contents.length));
         }
       }
     };
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isLoading, hasMore, beliefs.length, onLoadMore]);
+  }, [isLoading, hasMore, contents.length, onLoadMore]);
 
-  const handleBeliefClick = (beliefId: string) => {
-    router.push(`/belief/${beliefId}`);
+  const handleContentClick = (contentId: string) => {
+    router.push(`/content/${contentId}`);
   };
 
-  // Get beliefs to display
-  const visibleBeliefs = useMemo(() => {
-    return beliefs.slice(0, visibleCards);
-  }, [beliefs, visibleCards]);
+  // Get contents to display
+  const visibleContents = useMemo(() => {
+    return contents.slice(0, visibleCards);
+  }, [contents, visibleCards]);
 
   // Loading skeleton
   if (isLoading) {
@@ -81,7 +81,7 @@ export const BeliefFeed: React.FC<BeliefFeedProps> = ({
               className="animate-in fade-in duration-300"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <SkeletonBeliefCard />
+              <SkeletonContentCard />
             </div>
           ))}
         </div>
@@ -90,7 +90,7 @@ export const BeliefFeed: React.FC<BeliefFeedProps> = ({
   }
 
   // Empty state
-  if (!loading && beliefs.length === 0) {
+  if (!loading && contents.length === 0) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16">
         <div className="text-center space-y-6">
@@ -105,10 +105,10 @@ export const BeliefFeed: React.FC<BeliefFeedProps> = ({
           
           <div className="space-y-2">
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-              No beliefs found
+              No content found
             </h3>
             <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-              Be the first to share your insights! Create a belief to start engaging with the community.
+              Be the first to share your insights! Create content to start engaging with the community.
             </p>
           </div>
           
@@ -118,7 +118,7 @@ export const BeliefFeed: React.FC<BeliefFeedProps> = ({
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
             >
               <TrendingUp className="w-4 h-4" />
-              Create Belief
+              Create Content
             </button>
             <button 
               onClick={() => router.push('/explore')}
@@ -144,37 +144,37 @@ export const BeliefFeed: React.FC<BeliefFeedProps> = ({
         </p>
       </div>
 
-      {/* Belief Cards */}
+      {/* Content Cards */}
       <div className={`space-y-6 ${showContent ? 'animate-in fade-in duration-500' : 'opacity-0'}`}>
-        {visibleBeliefs.map((belief, index) => (
+        {visibleContents.map((content, index) => (
           <div
-            key={belief.id}
+            key={content.id}
             className="animate-in slide-in-from-bottom duration-300"
             style={{ animationDelay: `${index * 50}ms` }}
           >
-            <BeliefCard
-              belief={belief}
+            <ContentCard
+              content={content}
               variant="feed"
-              onClick={handleBeliefClick}
+              onClick={handleContentClick}
             />
           </div>
         ))}
       </div>
 
       {/* Load More / Loading Indicator */}
-      {(visibleCards < beliefs.length || hasMore) && (
+      {(visibleCards < contents.length || hasMore) && (
         <div className="mt-8 flex justify-center">
           <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-            <span className="text-sm">Loading more beliefs...</span>
+            <span className="text-sm">Loading more content...</span>
           </div>
         </div>
       )}
 
       {/* End of feed indicator */}
-      {!hasMore && visibleCards >= beliefs.length && beliefs.length > 0 && (
+      {!hasMore && visibleCards >= contents.length && contents.length > 0 && (
         <div className="mt-12 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-full text-sm text-gray-600 dark:text-gray-400">
             <Sparkles className="w-4 h-4" />
