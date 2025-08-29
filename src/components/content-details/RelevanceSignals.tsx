@@ -221,9 +221,6 @@ export const RelevanceSignals: React.FC<RelevanceSignalsProps> = ({ belief }) =>
                 {/* Metadata */}
                 <div className="flex items-center justify-between mt-2 text-xs text-veritas-primary/50 dark:text-veritas-eggshell/50">
                   <span>{signal.metadata.contributors} contributors</span>
-                  {signal.metadata.volatility && (
-                    <span>±{(signal.metadata.volatility * 100).toFixed(0)}%</span>
-                  )}
                 </div>
               </div>
             );
@@ -305,9 +302,6 @@ export const RelevanceSignals: React.FC<RelevanceSignalsProps> = ({ belief }) =>
                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-veritas-eggshell/10">
                   <div className="flex items-center justify-between text-xs text-veritas-primary/60 dark:text-veritas-eggshell/60">
                     <span>{signal.metadata.contributors} contributors</span>
-                    {signal.metadata.volatility && (
-                      <span>Vol: {(signal.metadata.volatility * 100).toFixed(0)}%</span>
-                    )}
                   </div>
                 </div>
               </div>

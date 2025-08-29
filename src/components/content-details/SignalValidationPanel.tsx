@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Info, CheckCircle, Loader2 } from 'lucide-react';
+import { X, Info, CheckCircle, Loader2, Clock } from 'lucide-react';
 import { Belief } from '@/types/belief.types';
 import { Algorithm } from '@/types/algorithm.types';
 import { ensureContentSignals, getSignalColor } from '@/lib/signals-utils';
@@ -35,6 +35,40 @@ export const SignalValidationPanel: React.FC<SignalValidationPanelProps> = ({
   const [mounted, setMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [timeUntilScoring, setTimeUntilScoring] = useState<string>('');
+  
+  // Calculate time until next epoch (4-hour epochs starting at midnight UTC)
+  const calculateTimeUntilNextEpoch = () => {
+    const now = new Date();
+    const currentHour = now.getUTCHours();
+    const currentMinutes = now.getUTCMinutes();
+    const currentSeconds = now.getUTCSeconds();
+    
+    // Epochs at 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+    const epochHours = [0, 4, 8, 12, 16, 20];
+    
+    // Find next epoch hour
+    let nextEpochHour = epochHours.find(h => h > currentHour);
+    if (!nextEpochHour && nextEpochHour !== 0) {
+      nextEpochHour = epochHours[0]; // Next day at midnight
+    }
+    
+    // Calculate time difference
+    let hoursUntil = nextEpochHour - currentHour;
+    if (hoursUntil <= 0) {
+      hoursUntil += 24; // Next day
+    }
+    
+    const minutesUntil = 59 - currentMinutes;
+    const secondsUntil = 59 - currentSeconds;
+    
+    // Adjust hours if minutes are negative
+    const totalMinutes = (hoursUntil - 1) * 60 + minutesUntil;
+    const displayHours = Math.floor(totalMinutes / 60);
+    const displayMinutes = totalMinutes % 60;
+    
+    return `${displayHours}h ${displayMinutes}m ${secondsUntil}s`;
+  };
 
   // Detect dark mode
   useEffect(() => {
@@ -53,6 +87,21 @@ export const SignalValidationPanel: React.FC<SignalValidationPanelProps> = ({
   // Portal mounting
   useEffect(() => {
     setMounted(true);
+  }, []);
+  
+  // Update countdown timer every second
+  useEffect(() => {
+    const updateTimer = () => {
+      setTimeUntilScoring(calculateTimeUntilNextEpoch());
+    };
+    
+    // Initial update
+    updateTimer();
+    
+    // Update every second
+    const interval = setInterval(updateTimer, 1000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Initialize signal updates when modal opens
@@ -186,13 +235,28 @@ export const SignalValidationPanel: React.FC<SignalValidationPanelProps> = ({
               Adjust signal values based on your belief and what you think others believe
             </p>
           </div>
-          <button
-            onClick={handleClose}
-            className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-veritas-eggshell/10 transition-colors"
-            disabled={isSubmitting}
-          >
-            <X className="w-5 h-5 text-gray-500 dark:text-veritas-eggshell/60" />
-          </button>
+          
+          <div className="flex items-center space-x-6">
+            {/* Countdown Timer */}
+            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-veritas-eggshell/60">
+              <Clock className="w-4 h-4" />
+              <div>
+                <span className="text-xs uppercase tracking-wider opacity-70">Next scoring in</span>
+                <div className="font-mono font-medium text-veritas-primary dark:text-veritas-eggshell">
+                  {timeUntilScoring || 'Loading...'}
+                </div>
+              </div>
+            </div>
+            
+            {/* Close Button */}
+            <button
+              onClick={handleClose}
+              className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-veritas-eggshell/10 transition-colors"
+              disabled={isSubmitting}
+            >
+              <X className="w-5 h-5 text-gray-500 dark:text-veritas-eggshell/60" />
+            </button>
+          </div>
         </div>
 
         {/* Main Content */}
