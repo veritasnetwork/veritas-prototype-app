@@ -6,25 +6,21 @@ import { FeedProvider, useFeed } from '@/contexts/FeedContext';
 function FeedNavWrapper() {
   const {
     searchQuery,
-    activeCategory,
-    sortBy,
     viewMode,
+    currentAlgorithm,
     setSearchQuery,
-    setActiveCategory,
-    setSortBy,
     setViewMode,
+    setCurrentAlgorithm,
   } = useFeed();
 
   return (
     <FeedNav
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
-      activeCategory={activeCategory}
-      onCategoryChange={setActiveCategory}
-      sortBy={sortBy}
-      onSortChange={setSortBy}
       viewMode={viewMode}
       onViewModeChange={setViewMode}
+      currentAlgorithm={currentAlgorithm}
+      onAlgorithmChange={setCurrentAlgorithm}
     />
   );
 }

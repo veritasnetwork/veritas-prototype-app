@@ -1,0 +1,176 @@
+{
+  "signals": [
+    {
+      "key": "truth",
+      "name": "Truth Score",
+      "description": "Factual accuracy and verifiability of claims",
+      "category": "accuracy",
+      "defaultWeight": 50,
+      "color": "#0C1D51",
+      "icon": "Shield"
+    },
+    {
+      "key": "relevance",
+      "name": "Relevance",
+      "description": "Current importance and timeliness",
+      "category": "impact",
+      "defaultWeight": 50,
+      "color": "#EA900E",
+      "icon": "Target"
+    },
+    {
+      "key": "informativeness",
+      "name": "Informativeness",
+      "description": "Novel information and learning value",
+      "category": "quality",
+      "defaultWeight": 50,
+      "color": "#B9D9EB",
+      "icon": "Brain"
+    },
+    {
+      "key": "breaking_news",
+      "name": "Breaking News",
+      "description": "Recency and urgency of information",
+      "category": "temporal",
+      "defaultWeight": 30,
+      "color": "#FF6B6B",
+      "icon": "Zap"
+    },
+    {
+      "key": "scientific_accuracy",
+      "name": "Scientific Accuracy",
+      "description": "Adherence to scientific method and peer review",
+      "category": "accuracy",
+      "defaultWeight": 40,
+      "color": "#4ECDC4",
+      "icon": "Microscope"
+    },
+    {
+      "key": "global_impact",
+      "name": "Global Impact",
+      "description": "Worldwide significance and reach",
+      "category": "impact",
+      "defaultWeight": 35,
+      "color": "#95E77E",
+      "icon": "Globe"
+    },
+    {
+      "key": "actionability",
+      "name": "Actionability",
+      "description": "Practical steps and implementable insights",
+      "category": "quality",
+      "defaultWeight": 30,
+      "color": "#FFD93D",
+      "icon": "CheckSquare"
+    },
+    {
+      "key": "controversy",
+      "name": "Controversy Level",
+      "description": "Degree of debate and disagreement",
+      "category": "engagement",
+      "defaultWeight": 20,
+      "color": "#FF8C42",
+      "icon": "MessageSquare"
+    },
+    {
+      "key": "source_credibility",
+      "name": "Source Credibility",
+      "description": "Reputation and track record of sources",
+      "category": "accuracy",
+      "defaultWeight": 45,
+      "color": "#6C5CE7",
+      "icon": "Award"
+    },
+    {
+      "key": "emotional_impact",
+      "name": "Emotional Impact",
+      "description": "Emotional resonance and human interest",
+      "category": "engagement",
+      "defaultWeight": 25,
+      "color": "#FD79A8",
+      "icon": "Heart"
+    },
+    {
+      "key": "technical_depth",
+      "name": "Technical Depth",
+      "description": "Level of technical detail and expertise",
+      "category": "quality",
+      "defaultWeight": 35,
+      "color": "#00B894",
+      "icon": "Code"
+    },
+    {
+      "key": "virality_potential",
+      "name": "Virality Potential",
+      "description": "Likelihood of widespread sharing",
+      "category": "engagement",
+      "defaultWeight": 20,
+      "color": "#FDCB6E",
+      "icon": "Share2"
+    },
+    {
+      "key": "local_relevance",
+      "name": "Local Relevance",
+      "description": "Impact and importance to your region",
+      "category": "impact",
+      "defaultWeight": 25,
+      "color": "#A29BFE",
+      "icon": "MapPin"
+    },
+    {
+      "key": "educational_value",
+      "name": "Educational Value",
+      "description": "Learning potential and knowledge gain",
+      "category": "quality",
+      "defaultWeight": 40,
+      "color": "#74B9FF",
+      "icon": "BookOpen"
+    },
+    {
+      "key": "future_impact",
+      "name": "Future Impact",
+      "description": "Long-term significance and consequences",
+      "category": "impact",
+      "defaultWeight": 30,
+      "color": "#55A3FF",
+      "icon": "TrendingUp"
+    }
+  ],
+  "categories": {
+    "accuracy": {
+      "name": "Accuracy & Truth",
+      "description": "Signals related to factual correctness and verification",
+      "color": "#0C1D51",
+      "icon": "Shield"
+    },
+    "impact": {
+      "name": "Impact & Relevance",
+      "description": "Signals related to importance, significance, and reach",
+      "color": "#EA900E",
+      "icon": "Target"
+    },
+    "quality": {
+      "name": "Content Quality",
+      "description": "Signals related to depth, clarity, and educational value",
+      "color": "#B9D9EB",
+      "icon": "Star"
+    },
+    "temporal": {
+      "name": "Time Sensitivity",
+      "description": "Signals related to recency, timing, and urgency",
+      "color": "#FF6B6B",
+      "icon": "Clock"
+    },
+    "engagement": {
+      "name": "Engagement",
+      "description": "Signals related to user interaction, emotion, and sharing",
+      "color": "#FFD93D",
+      "icon": "Users"
+    }
+  },
+  "presets": {
+    "core": ["truth", "relevance", "informativeness"],
+    "essential": ["truth", "relevance", "informativeness", "breaking_news", "source_credibility"],
+    "comprehensive": ["truth", "relevance", "informativeness", "breaking_news", "scientific_accuracy", "global_impact", "actionability", "source_credibility"]
+  }
+}

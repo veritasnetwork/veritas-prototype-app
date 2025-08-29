@@ -1,8 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useState, useMemo } from 'react';
-import { FilterStatus, SortOption, Belief, ViewMode } from '@/types/belief.types';
-import { getAllBeliefs, searchBeliefs, sortBeliefs, getBeliefsByCategory, getBeliefsByStatus } from '@/lib/data';
+import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import { FilterStatus, SortOption, Belief, Content, ViewMode } from '@/types/belief.types';
+import { Algorithm } from '@/types/algorithm.types';
+import { getAllBeliefs, getAllContent, getAllAlgorithms } from '@/lib/data';
+import { rankContent } from '@/lib/algorithmEngine';
 
 interface FeedContextType {
   // State
@@ -12,8 +14,14 @@ interface FeedContextType {
   sortBy: SortOption;
   filterStatus: FilterStatus;
   viewMode: ViewMode;
-  filteredBeliefs: Belief[];
+  filteredBeliefs: Belief[]; // Legacy - for backward compatibility
+  filteredContents: Content[]; // New - primary content array
   allBeliefs: Belief[];
+  allContents: Content[];
+  
+  // Algorithm-related
+  currentAlgorithm: Algorithm | null;
+  rankedContent: Content[];
   
   // Actions
   setSearchQuery: (query: string) => void;
@@ -22,9 +30,10 @@ interface FeedContextType {
   setFilterStatus: (status: FilterStatus) => void;
   setViewMode: (mode: ViewMode) => void;
   handleFilterToggle: (filter: string) => void;
+  setCurrentAlgorithm: (algorithm: Algorithm) => void;
 }
 
-const FeedContext = createContext<FeedContextType | undefined>(undefined);
+export const FeedContext = createContext<FeedContextType | undefined>(undefined);
 
 export function FeedProvider({ children }: { children: React.ReactNode }) {
   // State management
@@ -34,64 +43,97 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
+  const [currentAlgorithm, setCurrentAlgorithm] = useState<Algorithm | null>(null);
+
+  // Initialize algorithm from localStorage or use first preset
+  useEffect(() => {
+    const algorithms = getAllAlgorithms();
+    if (algorithms.length > 0 && !currentAlgorithm) {
+      // Try to load saved algorithm from localStorage
+      if (typeof window !== 'undefined') {
+        const savedAlgorithmId = localStorage.getItem('veritas-current-algorithm');
+        if (savedAlgorithmId) {
+          // Check if it's a custom algorithm (starts with 'custom-')
+          if (savedAlgorithmId.startsWith('custom-')) {
+            // Try to load the custom algorithm from localStorage
+            const savedCustomAlgorithm = localStorage.getItem('veritas-custom-algorithm');
+            if (savedCustomAlgorithm) {
+              try {
+                const customAlgorithm = JSON.parse(savedCustomAlgorithm);
+                setCurrentAlgorithm(customAlgorithm);
+                return;
+              } catch (e) {
+                console.error('Failed to parse saved custom algorithm:', e);
+              }
+            }
+          } else {
+            // It's a preset algorithm
+            const savedAlgorithm = algorithms.find(a => a.id === savedAlgorithmId);
+            if (savedAlgorithm) {
+              setCurrentAlgorithm(savedAlgorithm);
+              return;
+            }
+          }
+        }
+        
+        // No saved preference found - set default and save it
+        const defaultAlgorithm = algorithms[0]; // "Balanced Discovery"
+        setCurrentAlgorithm(defaultAlgorithm);
+        // Save the default to localStorage so it persists
+        localStorage.setItem('veritas-current-algorithm', defaultAlgorithm.id);
+      } else {
+        // Server-side or window not available yet
+        setCurrentAlgorithm(algorithms[0]);
+      }
+    }
+  }, [currentAlgorithm]);
 
   // Data
   const allBeliefs = getAllBeliefs();
+  const allContent = getAllContent();
 
-  // Filter and sort beliefs
-  const filteredBeliefs = useMemo(() => {
-    let beliefs = allBeliefs;
-
-    // Apply search
+  // Rank content using algorithm
+  const rankedContent = useMemo(() => {
+    if (!currentAlgorithm) return allContent;
+    
+    let content = allContent;
+    
+    // Apply search filter to content
     if (searchQuery.trim()) {
-      const searchResults = searchBeliefs(searchQuery);
-      beliefs = beliefs.filter(b => searchResults.some(sb => sb.id === b.id));
+      const lowercaseQuery = searchQuery.toLowerCase();
+      content = content.filter(c => 
+        c.heading.title.toLowerCase().includes(lowercaseQuery) ||
+        c.article.content.toLowerCase().includes(lowercaseQuery) ||
+        c.article.headline?.toLowerCase().includes(lowercaseQuery)
+      );
     }
-
-    // Apply category filter
-    if (activeCategory !== 'trending' && activeCategory !== 'new') {
-      const categoryResults = getBeliefsByCategory(activeCategory);
-      beliefs = beliefs.filter(b => categoryResults.some(cb => cb.id === b.id));
-    }
-
+    
     // Apply status filter
     if (filterStatus !== 'all') {
-      const statusResults = getBeliefsByStatus(filterStatus);
-      beliefs = beliefs.filter(b => statusResults.some(sb => sb.id === b.id));
-    }
-
-    // Apply quick filters
-    if (!activeFilters.includes('all') && activeFilters.length > 0) {
-      beliefs = beliefs.filter(belief => {
-        return activeFilters.some(filter => {
-          switch (filter) {
-            case 'breaking-news':
-              // High informativeness indicates breaking/noteworthy content
-              return belief.objectRankingScores.informativeness > 75;
-            case 'high-stakes':
-              // High truth score indicates high-stakes/important information
-              return belief.objectRankingScores.truth > 85;
-            case 'ending-soon':
-              // High relevance indicates time-sensitive content
-              return belief.objectRankingScores.relevance > 80;
-            case 'recently-active':
-              // Combination of high relevance and informativeness
-              return belief.objectRankingScores.relevance > 70 && belief.objectRankingScores.informativeness > 70;
-            case 'high-consensus':
-              // High truth score indicates strong consensus/confidence
-              return belief.objectRankingScores.truth > 90;
-            default:
-              return true;
-          }
-        });
+      content = content.filter(c => {
+        if (filterStatus === 'resolved') return c.status === 'resolved';
+        if (filterStatus === 'closed') return c.status === 'resolved'; // Map closed to resolved for backward compatibility
+        return true;
       });
     }
+    
+    // Rank using algorithm
+    return rankContent(content, currentAlgorithm);
+  }, [allContent, searchQuery, filterStatus, currentAlgorithm]);
 
-    // Apply sorting
-    beliefs = sortBeliefs(beliefs, sortBy);
-
-    return beliefs;
-  }, [allBeliefs, searchQuery, activeCategory, filterStatus, activeFilters, sortBy]);
+  // Convert ranked content to beliefs for backward compatibility
+  const filteredBeliefs = useMemo(() => {
+    return rankedContent.map(content => ({
+      ...content,
+      objectRankingScores: {
+        truth: content.signals.truth?.currentValue || 0,
+        relevance: content.signals.relevance?.currentValue || 0,
+        informativeness: content.signals.informativeness?.currentValue || 0
+      },
+      charts: [],
+      category: undefined
+    } as Belief));
+  }, [rankedContent]);
 
   // Handle filter toggle
   const handleFilterToggle = (filter: string) => {
@@ -130,6 +172,21 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Handle algorithm change with localStorage persistence
+  const handleAlgorithmChange = (algorithm: Algorithm) => {
+    setCurrentAlgorithm(algorithm);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('veritas-current-algorithm', algorithm.id);
+      // If it's a custom algorithm, save the full algorithm object
+      if (algorithm.type === 'user') {
+        localStorage.setItem('veritas-custom-algorithm', JSON.stringify(algorithm));
+      } else {
+        // Remove custom algorithm from storage if switching to preset
+        localStorage.removeItem('veritas-custom-algorithm');
+      }
+    }
+  };
+
   const contextValue: FeedContextType = {
     searchQuery,
     activeCategory,
@@ -138,13 +195,18 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     filterStatus,
     viewMode,
     filteredBeliefs,
+    filteredContents: rankedContent, // New - provide rankedContent as filteredContents
     allBeliefs,
+    allContents: allContent,
+    currentAlgorithm,
+    rankedContent,
     setSearchQuery,
     setActiveCategory,
     setSortBy,
     setFilterStatus,
     setViewMode: handleViewModeChange,
     handleFilterToggle,
+    setCurrentAlgorithm: handleAlgorithmChange,
   };
 
   return (

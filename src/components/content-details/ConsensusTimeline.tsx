@@ -40,7 +40,7 @@ export const ConsensusTimeline: React.FC<ConsensusTimelineProps> = ({ belief }) 
     }> = [];
     
     // Get timeline data from charts (especially continuous charts)
-    belief.charts.forEach(chart => {
+    belief.charts?.forEach(chart => {
       if (chart.type === 'continuous') {
         const continuousData = chart.data as import('@/types/belief.types').ContinuousData;
         if (continuousData.timeline) {
@@ -61,7 +61,7 @@ export const ConsensusTimeline: React.FC<ConsensusTimelineProps> = ({ belief }) 
     if (belief.createdAt) {
       timelineEvents.push({
         date: belief.createdAt,
-        value: Math.round((belief.objectRankingScores.truth + belief.objectRankingScores.relevance + belief.objectRankingScores.informativeness) / 3),
+        value: Math.round(((belief.objectRankingScores?.truth || 0) + (belief.objectRankingScores?.relevance || 0) + (belief.objectRankingScores?.informativeness || 0)) / 3),
         event: 'Information object created',
         chartTitle: 'Initial Assessment',
         type: 'creation'
@@ -183,19 +183,19 @@ export const ConsensusTimeline: React.FC<ConsensusTimelineProps> = ({ belief }) 
           <div className="flex justify-between items-center">
             <span className="text-slate-600 dark:text-slate-400">Truth Score:</span>
             <span className="font-semibold text-slate-900 dark:text-slate-100">
-              {belief.objectRankingScores.truth}%
+              {belief.objectRankingScores?.truth || 0}%
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-slate-600 dark:text-slate-400">Relevance Score:</span>
             <span className="font-semibold text-slate-900 dark:text-slate-100">
-              {belief.objectRankingScores.relevance}%
+              {belief.objectRankingScores?.relevance || 0}%
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-slate-600 dark:text-slate-400">Informativeness:</span>
             <span className="font-semibold text-slate-900 dark:text-slate-100">
-              {belief.objectRankingScores.informativeness}%
+              {belief.objectRankingScores?.informativeness || 0}%
             </span>
           </div>
         </div>

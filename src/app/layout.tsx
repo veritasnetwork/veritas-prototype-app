@@ -20,18 +20,18 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: {
     template: '%s | Veritas',
-    default: 'Veritas - Belief Prediction Platform'
+    default: 'Veritas - Content Discovery Platform'
   },
-  description: 'Veritas is a revolutionary belief prediction platform that combines the wisdom of crowds with advanced forecasting techniques to help you make better decisions.',
+  description: 'Veritas is a decentralized content ranking and discovery platform that uses collective intelligence and customizable algorithms to help you find quality information.',
   keywords: [
-    'prediction market',
-    'belief prediction',
-    'forecasting',
-    'crowd wisdom',
-    'decision making',
-    'probability',
-    'consensus',
-    'market prediction'
+    'content discovery',
+    'content ranking',
+    'information curation',
+    'signal aggregation',
+    'algorithmic ranking',
+    'collective intelligence',
+    'quality content',
+    'decentralized curation'
   ],
   authors: [
     {
@@ -48,8 +48,8 @@ export const metadata: Metadata = {
   },
   metadataBase: new URL('https://veritas.com'),
   openGraph: {
-    title: 'Veritas - Belief Prediction Platform',
-    description: 'Harness the power of collective intelligence to predict outcomes and make better decisions.',
+    title: 'Veritas - Content Discovery Platform',
+    description: 'Discover quality content ranked by collective intelligence and customizable algorithms.',
     url: 'https://veritas.com',
     siteName: 'Veritas',
     images: [
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
         url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Veritas Belief Prediction Platform'
+        alt: 'Veritas Content Discovery Platform'
       }
     ],
     locale: 'en_US',
@@ -65,8 +65,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Veritas - Belief Prediction Platform',
-    description: 'Harness the power of collective intelligence to predict outcomes and make better decisions.',
+    title: 'Veritas - Content Discovery Platform',
+    description: 'Discover quality content ranked by collective intelligence and customizable algorithms.',
     images: ['/og-image.jpg'],
   },
   robots: {

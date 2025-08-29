@@ -1,4 +1,4 @@
-import { HeadingData, ArticleData } from './belief.types';
+import { HeadingData, ArticleData } from './content.types';
 
 export type ComponentType = 'heading' | 'chart' | 'article' | 'metadata';
 export type ComponentVariant = 'card' | 'detail' | 'news';
@@ -20,7 +20,8 @@ export interface ArticleComponentProps {
 
 export interface ChartComponentProps {
   charts: unknown[]; // Keep for backward compatibility
-  beliefId?: string; // New prop for identifying the belief
+  contentId?: string; // New prop for identifying the content
+  beliefId?: string; // Legacy prop for backward compatibility
   variant: ComponentVariant;
   showOnlyFeedChart?: boolean;
   isEditable?: boolean;
@@ -30,7 +31,8 @@ export interface ChartComponentProps {
 export interface EditableComponent {
   id: string;
   type: ComponentType;
-  beliefId: string;
+  contentId: string;
+  beliefId?: string; // Legacy prop for backward compatibility
   currentVersion: Record<string, unknown>;
   proposedChanges: Array<{
     id: string;

@@ -5,44 +5,51 @@ import { Belief } from '@/types/belief.types';
 import { HeadingComponent } from './components/HeadingComponent';
 import { ChartComponent } from './components/ChartComponent';
 import { ArticleComponent } from './components/ArticleComponent';
-import { IntelligenceEvolution } from './IntelligenceEvolution';
-import { CommentsSection } from './CommentsSection';
-import { ActionPanel } from './ActionPanel';
-import { RelatedBeliefs } from './RelatedBeliefs';
-import { SkeletonBeliefDetailPage } from './skeleton/SkeletonBeliefDetailPage';
+import { RelevanceSignals } from './RelevanceSignals';
+
+// CommentsSection temporarily disabled - can be re-enabled by uncommenting the import and render section below
+// import { CommentsSection } from './CommentsSection';
+
+// ActionPanel preserved but not imported - can be re-enabled later
+// import { ActionPanel } from './ActionPanel';
+import { SkeletonContentDetailPage } from './skeleton/SkeletonContentDetailPage';
 import { getBeliefById } from '@/lib/data';
 import { ArrowLeft, Share2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
-interface BeliefDetailPageProps {
-  beliefId: string;
+interface ContentDetailPageProps {
+  contentId: string;
 }
 
-export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
-  beliefId
+export const ContentDetailPage: React.FC<ContentDetailPageProps> = ({
+  contentId
 }) => {
-  const [belief, setBelief] = useState<Belief | null>(null);
-  const [editingComponent, setEditingComponent] = useState<string | null>(null);
+  const [content, setContent] = useState<Belief | null>(null);
+  // Component editing temporarily disabled - can be re-enabled by uncommenting
+  // const [editingComponent, setEditingComponent] = useState<string | null>(null);
+  
+  // We keep this variable even though it's unused to preserve any conditional styling
+  // and make re-enabling the editing feature easier (just uncomment the state above)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const editingComponent = null;
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchBelief = () => {
-      const foundBelief = getBeliefById(beliefId);
-      setBelief(foundBelief);
+    const fetchContent = () => {
+      const foundContent = getBeliefById(contentId);
+      setContent(foundContent);
       
       setTimeout(() => {
         setIsLoading(false);
       }, 800);
     };
 
-    fetchBelief();
-  }, [beliefId]);
+    fetchContent();
+  }, [contentId]);
 
-  const handleBeliefClick = (newBeliefId: string) => {
-    router.push(`/belief/${newBeliefId}`);
-  };
+  // Removed handleContentClick - was used for RelatedBeliefs navigation
 
   const handleBackToFeed = () => {
     router.push('/');
@@ -51,8 +58,8 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: belief?.heading.title || 'Veritas Intelligence',
-        text: belief?.article.excerpt || belief?.article.content.slice(0, 100) + '...' || 'Check out this intelligence on Veritas',
+        title: content?.heading.title || 'Veritas Intelligence',
+        text: content?.article.excerpt || content?.article.content.slice(0, 100) + '...' || 'Check out this intelligence on Veritas',
         url: window.location.href,
       });
     } else {
@@ -62,10 +69,10 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
   };
 
   if (isLoading) {
-    return <SkeletonBeliefDetailPage />;
+    return <SkeletonContentDetailPage />;
   }
 
-  if (!belief) {
+  if (!content) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-veritas-darker-blue">
         <div className="container mx-auto px-4 py-12 max-w-4xl">
@@ -77,7 +84,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
               Information Not Found
             </h1>
             <p className="text-veritas-primary/70 dark:text-veritas-eggshell/70 mb-8">
-              The information with ID &quot;{beliefId}&quot; could not be found.
+              The information with ID &quot;{contentId}&quot; could not be found.
             </p>
             <button 
               onClick={handleBackToFeed}
@@ -96,37 +103,30 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
       {/* Simplified Header - No Heading Content */}
       <div className="bg-gradient-to-r from-veritas-secondary/10 to-veritas-secondary/5 dark:from-veritas-secondary/15 dark:to-veritas-secondary/5 border-b border-slate-200 dark:border-veritas-eggshell/10 pt-20 md:pt-8">
         <div className="container mx-auto px-4 py-6 max-w-7xl">
-          {/* Breadcrumbs */}
-          <div className="flex items-center space-x-2 text-sm text-veritas-primary dark:text-veritas-eggshell mb-4">
-            <button 
-              onClick={handleBackToFeed}
-              className="flex items-center space-x-2 hover:text-veritas-secondary dark:hover:text-veritas-secondary transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Feed</span>
-            </button>
-            <span>/</span>
-            <span className="text-veritas-secondary dark:text-veritas-secondary">{belief.category}</span>
-            <span>/</span>
-            <span>Details</span>
-          </div>
-
-          {/* Category Badge & Actions */}
+          {/* Simplified Header with Back Button and Share */}
           <div className="flex items-center justify-between">
-            <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-veritas-secondary/10 dark:bg-veritas-secondary/20 text-veritas-secondary dark:text-veritas-eggshell border border-veritas-secondary/20 dark:border-veritas-secondary/30">
-              {belief.category}
-            </span>
-            
-            <div className="flex items-center space-x-3">
+            {/* Back to Feed Button with simple breadcrumb */}
+            <div className="flex items-center space-x-2 text-sm text-veritas-primary dark:text-veritas-eggshell">
               <button 
-                onClick={handleShare}
-                className="p-2 rounded-xl bg-white dark:bg-veritas-darker-blue/80 hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 border border-slate-200 dark:border-veritas-eggshell/10"
-                aria-label="Share this belief"
-                title="Share this belief"
+                onClick={handleBackToFeed}
+                className="flex items-center space-x-2 hover:text-veritas-secondary dark:hover:text-veritas-secondary transition-colors"
               >
-                <Share2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                <ArrowLeft className="w-4 h-4" />
+                <span>Feed</span>
               </button>
+              <span>/</span>
+              <span className="text-veritas-secondary dark:text-veritas-secondary">Details</span>
             </div>
+            
+            {/* Share Button */}
+            <button 
+              onClick={handleShare}
+              className="p-2 rounded-xl bg-white dark:bg-veritas-darker-blue/80 hover:bg-slate-100 dark:hover:bg-veritas-eggshell/10 transition-all duration-300 border border-slate-200 dark:border-veritas-eggshell/10"
+              aria-label="Share this content"
+              title="Share this content"
+            >
+              <Share2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            </button>
           </div>
         </div>
       </div>
@@ -139,14 +139,14 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
           <div className="lg:col-span-3">
             
             {/* Hero Image Section - News Style */}
-            {belief.article?.thumbnail && (
+            {content.article?.thumbnail && (
               <div 
-                className={`relative w-full h-64 md:h-80 lg:h-96 rounded-2xl overflow-hidden mb-8 shadow-lg cursor-pointer transition-all duration-200 ${editingComponent === 'heading' ? 'ring-2 ring-veritas-secondary' : 'hover:ring-1 hover:ring-veritas-secondary/50'}`}
-                onClick={() => setEditingComponent('heading')}
+                className={`relative w-full h-64 md:h-80 lg:h-96 rounded-2xl overflow-hidden mb-8 shadow-lg transition-all duration-200`}
+                // onClick={() => setEditingComponent('heading')} // Component editing disabled
               >
                 <Image 
-                  src={belief.article.thumbnail}
-                  alt={belief.heading.title}
+                  src={content.article.thumbnail}
+                  alt={content.heading.title}
                   fill
                   className="object-cover"
                   priority
@@ -158,11 +158,11 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
                     Veritas Intelligence
                   </div>
                   <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight drop-shadow-lg">
-                    {belief.heading.title}
+                    {content.heading.title}
                   </h1>
-                  {belief.heading.context && (
+                  {content.heading.context && (
                     <p className="text-lg text-gray-200 mt-2 drop-shadow">
-                      {belief.heading.context}
+                      {content.heading.context}
                     </p>
                   )}
                 </div>
@@ -173,41 +173,41 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
             <div className="space-y-8">
               
               {/* Heading Component (for cases without hero image) */}
-              {!belief.article?.thumbnail && (
+              {!content.article?.thumbnail && (
                 <div 
-                  className={`cursor-pointer transition-all duration-200 ${editingComponent === 'heading' ? 'ring-2 ring-veritas-secondary' : 'hover:bg-slate-100 dark:hover:bg-veritas-eggshell/5'} rounded-xl p-4`}
-                  onClick={() => setEditingComponent('heading')}
+                  className={`transition-all duration-200 rounded-xl p-4`}
+                  // onClick={() => setEditingComponent('heading')} // Component editing disabled
                 >
                   <HeadingComponent 
-                    heading={belief.heading} 
+                    heading={content.heading} 
                     variant="detail" 
-                    isEditable={true}
-                    onEdit={() => setEditingComponent('heading')}
+                    isEditable={false} // Was true - component editing disabled
+                    onEdit={() => {}} // Was setEditingComponent('heading')
                   />
                 </div>
               )}
 
               {/* Article Component */}
               <div 
-                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'article' ? 'ring-2 ring-veritas-secondary' : 'hover:bg-slate-100 dark:hover:bg-veritas-eggshell/5'} rounded-xl p-4`}
-                onClick={() => setEditingComponent('article')}
+                className={`transition-all duration-200 rounded-xl p-4`}
+                // onClick={() => setEditingComponent('article')} // Component editing disabled
               >
                 <ArticleComponent 
-                  article={belief.article} 
+                  article={content.article} 
                   variant="detail" 
-                  isEditable={true}
-                  onEdit={() => setEditingComponent('article')}
+                  isEditable={false} // Was true - component editing disabled
+                  onEdit={() => {}} // Was setEditingComponent('article')
                 />
               </div>
               
               {/* Chart Component */}
               <div 
-                className={`cursor-pointer transition-all duration-200 ${editingComponent === 'chart' ? 'ring-2 ring-veritas-secondary' : 'hover:bg-slate-100 dark:hover:bg-veritas-eggshell/5'} rounded-xl p-4`}
-                onClick={() => setEditingComponent('chart')}
+                className={`transition-all duration-200 rounded-xl p-4`}
+                // onClick={() => setEditingComponent('chart')} // Component editing disabled
               >
                 <ChartComponent 
-                  charts={belief.charts} 
-                  beliefId={belief.id}
+                  charts={content.charts || []} 
+                  beliefId={content.id}
                   variant="detail" 
                 />
               </div>           
@@ -216,38 +216,38 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
 
           </div>
 
-          {/* Sidebar - 1 column on desktop */}
-          <div className="lg:col-span-1 space-y-6">
-            
-            {/* Take Action - Prominent Position */}
-            <div data-action-panel>
-              <ActionPanel belief={belief} />
-            </div>
-
-            {/* Related Information */}
-            <RelatedBeliefs 
-              belief={belief} 
-              onBeliefClick={handleBeliefClick}
-            />
+          {/* Sidebar - 1 column on desktop (kept empty for now) */}
+          <div className="lg:col-span-1">
+            {/* This column is intentionally left empty for future use */}
           </div>
 
           {/* Full Width Sections - Span all 4 columns */}
-          <div className="lg:col-span-4 mt-8 space-y-8">
-            {/* Intelligence Evolution - 3 Line Charts */}
+          <div className="lg:col-span-4 space-y-8">
+            {/* Relevance Signals - Multiple Signal Charts */}
             <div className="bg-white dark:bg-veritas-darker-blue/80 rounded-2xl p-6 border border-slate-200 dark:border-veritas-eggshell/10">
-              <IntelligenceEvolution belief={belief} />
+              <RelevanceSignals belief={content} />
             </div>
 
-            {/* Community Discussion */}
-            <div>
-              <CommentsSection belief={belief} />
-            </div>
+            {/* Community Discussion - TEMPORARILY DISABLED */}
+            {/* To re-enable: 
+                1. Uncomment the import statement at the top of the file
+                2. Uncomment the div block below
+            */}
+            {/* <div>
+              <CommentsSection belief={content} />
+            </div> */}
           </div>
         </div>
       </div>
 
-      {/* Component Editing Modal */}
-      {editingComponent && (
+      {/* Component Editing Modal - TEMPORARILY DISABLED */}
+      {/* To re-enable component editing:
+          1. Uncomment the editingComponent state variable at the top
+          2. Restore onClick handlers in each component section
+          3. Set isEditable={true} on components
+          4. Uncomment this entire modal block below
+      */}
+      {/* {editingComponent && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-veritas-darker-blue/95 rounded-3xl max-w-lg w-full mx-4 overflow-hidden shadow-2xl border border-slate-200 dark:border-veritas-eggshell/10">
             <div className="p-8">
@@ -301,7 +301,7 @@ export const BeliefDetailPage: React.FC<BeliefDetailPageProps> = ({
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };

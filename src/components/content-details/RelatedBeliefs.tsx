@@ -22,14 +22,14 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
     // If we have beliefs in same category, return them (limit 4)
     if (categoryBeliefs.length > 0) {
       return categoryBeliefs
-        .sort((a, b) => b.objectRankingScores.truth - a.objectRankingScores.truth) // Sort by truth score
+        .sort((a, b) => (b.objectRankingScores?.truth || 0) - (a.objectRankingScores?.truth || 0)) // Sort by truth score
         .slice(0, 4);
     }
     
     // Fallback: return other beliefs sorted by truth score
     return allBeliefs
       .filter(b => b.id !== belief.id)
-      .sort((a, b) => b.objectRankingScores.truth - a.objectRankingScores.truth)
+      .sort((a, b) => (b.objectRankingScores?.truth || 0) - (a.objectRankingScores?.truth || 0))
       .slice(0, 4);
   };
 
@@ -87,9 +87,9 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
               <div className={`w-2 h-2 rounded-full ${
                 relatedBelief.status === 'resolved'
                   ? 'bg-blue-400'
-                  : relatedBelief.status === 'closed'
-                  ? 'bg-slate-400'
-                  : 'bg-emerald-400 animate-pulse'
+                  : relatedBelief.status === 'active'
+                  ? 'bg-emerald-400 animate-pulse'
+                  : 'bg-slate-400'
               }`} />
             </div>
 
@@ -103,13 +103,13 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
               <div className="flex items-center space-x-1">
                 <Users className="w-3 h-3 text-veritas-primary/60 dark:text-veritas-eggshell/60" />
                 <span className="text-veritas-primary/70 dark:text-veritas-eggshell/70">
-                  {relatedBelief.objectRankingScores.relevance}% relevance
+                  {relatedBelief.objectRankingScores?.relevance || 0}% relevance
                 </span>
               </div>
               <div className="flex items-center space-x-1">
                 <TrendingUp className="w-3 h-3 text-veritas-primary/60 dark:text-veritas-eggshell/60" />
                 <span className="text-veritas-primary/70 dark:text-veritas-eggshell/70">
-                  {relatedBelief.objectRankingScores.truth}% truth
+                  {relatedBelief.objectRankingScores?.truth || 0}% truth
                 </span>
               </div>
             </div>
@@ -117,7 +117,7 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
             {/* View indicator */}
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200 dark:border-veritas-eggshell/10">
               <span className="text-xs text-veritas-primary/60 dark:text-veritas-eggshell/60">
-                {relatedBelief.objectRankingScores.informativeness}% informativeness
+                {relatedBelief.objectRankingScores?.informativeness || 0}% informativeness
               </span>
               <Eye className="w-3 h-3 text-slate-400 group-hover:text-veritas-orange transition-colors" />
             </div>

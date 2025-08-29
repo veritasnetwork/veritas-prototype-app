@@ -41,7 +41,53 @@ export interface ComponentChange {
   createdAt: string;
 }
 
-// NEW: Information Intelligence Structure
+// NEW: Signal and Content Types for Veritas 2.0
+export interface SignalDataPoint {
+  timestamp: string;              // ISO timestamp
+  value: number;                  // Signal value at this time (0-100)
+  epochNumber?: number;           // Optional: which epoch this was from
+}
+
+export interface Signal {
+  key: string;                    // Unique identifier (e.g., 'truth', 'relevance')
+  name: string;                    // Display name (e.g., 'Truth Score')
+  currentValue: number;            // Current value (0-100)
+  historicalData: SignalDataPoint[];
+  metadata: {
+    contributors: number;          // Number of people who've contributed
+    lastUpdated: string;          // ISO timestamp
+    stake?: number;               // Optional: total stake on this signal
+    volatility?: number;          // Optional: how much it changes
+  };
+}
+
+export interface SignalCollection {
+  [signalKey: string]: Signal;
+}
+
+// Content Structure (formerly Belief)
+export interface Content {
+  id: string;
+  
+  // Content information (unchanged)
+  heading: HeadingData;
+  article: ArticleData;
+  
+  // NEW: Multiple signals replace objectRankingScores
+  signals: SignalCollection;
+  
+  // Metadata
+  isPremier?: boolean;
+  createdAt: string;
+  updatedAt: string;
+  status?: 'active' | 'resolved';
+  
+  // REMOVED: category (now a signal)
+  // REMOVED: objectRankingScores (replaced by signals)
+  // REMOVED: charts array (generated from signal data)
+}
+
+// Legacy Information Intelligence Structure (kept for backward compatibility)
 export interface ObjectRankingScores {
   truth: number;        // 0-100
   relevance: number;    // 0-100
@@ -178,19 +224,14 @@ export interface ChartData {
   metadata?: ChartMetadata;
 }
 
-// NEW: Main Belief Interface
-export interface Belief {
-  id: string;
-  isPremier?: boolean; // NEW: For featuring in premier header
-  objectRankingScores: ObjectRankingScores;
-  heading: HeadingData;
-  article: ArticleData;
-  charts: ChartData[];
-  
-  // Legacy fields (keep for backward compatibility)
+// NEW: Main Belief Interface (extends Content for backward compatibility)
+export interface Belief extends Content {
+  // Legacy fields for backward compatibility during migration
+  objectRankingScores?: ObjectRankingScores;
+  charts?: ChartData[];
   category?: string;
-  status?: 'resolved' | 'closed';
-  createdAt?: string;
+  // Note: status is inherited from Content with type 'active' | 'resolved'
+  // We don't redefine it here to avoid type conflicts
 }
 
 // Keep existing types but update as needed

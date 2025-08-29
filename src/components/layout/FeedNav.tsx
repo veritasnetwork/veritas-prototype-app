@@ -7,51 +7,42 @@ import Image from 'next/image';
 import { 
   Home, 
   Search, 
-  Plus, 
   User, 
   Sun, 
   Moon,
-  TrendingUp,
-  ChevronDown,
   Grid3X3,
-  LogIn,
   Filter,
   CircleDot,
   Users,
   DollarSign
 } from 'lucide-react';
-import { SortOption, ViewMode } from '@/types/belief.types';
+import { ViewMode } from '@/types/belief.types';
+import { Algorithm } from '@/types/algorithm.types';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { useLoginModal } from '@/hooks/useLoginModal';
 import { LoginPendingModal } from '@/components/common/LoginPendingModal';
-import beliefData from '@/data/beliefs.json';
+import { AlgorithmStatusBar } from '@/components/algorithm/AlgorithmStatusBar';
 
 interface FeedNavProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  activeCategory: string;
-  onCategoryChange: (category: string) => void;
-  sortBy: SortOption;
-  onSortChange: (sort: SortOption) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  currentAlgorithm: Algorithm | null;
+  onAlgorithmChange: (algorithm: Algorithm) => void;
 }
 
 const FeedNav: React.FC<FeedNavProps> = ({
   searchQuery,
   onSearchChange,
-  activeCategory,
-  onCategoryChange,
-  sortBy,
-  onSortChange,
   viewMode,
   onViewModeChange,
+  currentAlgorithm,
+  onAlgorithmChange,
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [showMobileSortDropdown, setShowMobileSortDropdown] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   
   // Network metrics state
@@ -124,35 +115,6 @@ const FeedNav: React.FC<FeedNavProps> = ({
     { icon: User, label: 'Profile', href: '/profile', id: 'profile' },
   ];
 
-  // Get unique categories from actual belief data
-  const getUniqueCategories = () => {
-    const categorySet = new Set<string>();
-    beliefData.forEach((belief: { category?: string }) => {
-      if (belief.category) {
-        categorySet.add(belief.category);
-      }
-    });
-    return Array.from(categorySet);
-  };
-
-  const categories = getUniqueCategories();
-  const categoryItems = [
-    { id: 'trending', label: 'Trending', icon: TrendingUp },
-    { id: 'new', label: 'New', icon: Plus },
-    ...categories.map(cat => ({ 
-      id: cat, 
-      label: cat.charAt(0).toUpperCase() + cat.slice(1), 
-      icon: undefined 
-    }))
-  ];
-
-  // Simplified sort options (Sprint 2 requirement)
-  const sortOptions = [
-    { value: 'relevance' as SortOption, label: 'Relevance' },
-    { value: 'truth' as SortOption, label: 'Truth' },
-    { value: 'informativeness' as SortOption, label: 'Informativeness' }
-  ];
-
 
 
   const isActiveRoute = (href: string) => {
@@ -162,10 +124,6 @@ const FeedNav: React.FC<FeedNavProps> = ({
 
   const handleNavigation = (href: string) => {
     router.push(href);
-  };
-
-  const handleLogin = () => {
-    openLoginModal();
   };
 
   const handleProfileClick = () => {
@@ -261,55 +219,6 @@ const FeedNav: React.FC<FeedNavProps> = ({
                       <Grid3X3 className="w-5 h-5 text-veritas-primary dark:text-veritas-eggshell group-hover:text-white dark:group-hover:text-veritas-eggshell/80 group-hover:scale-110 transition-all duration-300" />
                     </button>
 
-                    {/* Sort Dropdown */}
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowSortDropdown(!showSortDropdown)}
-                        className={`group flex items-center justify-between w-44 px-4 py-3 transition-all duration-300 shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl border ${
-                          showSortDropdown 
-                            ? 'rounded-t-2xl bg-gray-50 dark:bg-veritas-eggshell/10' 
-                            : 'rounded-2xl hover:scale-105'
-                        } bg-white dark:bg-veritas-darker-blue/95 hover:bg-veritas-dark-blue dark:hover:bg-veritas-eggshell/10 border-slate-200 dark:border-veritas-eggshell/10 hover:border-transparent dark:hover:border-veritas-eggshell/10`}
-                      >
-                        <span className="text-sm font-medium font-mono uppercase text-veritas-primary dark:text-veritas-eggshell group-hover:text-white dark:group-hover:text-veritas-eggshell transition-colors duration-300">
-                          {sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort'}
-                        </span>
-                        <ChevronDown className={`w-4 h-4 text-veritas-primary dark:text-veritas-eggshell group-hover:text-white dark:group-hover:text-veritas-eggshell transition-transform duration-300 flex-shrink-0 ${
-                          showSortDropdown ? 'rotate-180' : ''
-                        }`} />
-                      </button>
-
-                      {/* Dropdown Menu */}
-                      <div className={`absolute top-full left-0 right-0 z-50 rounded-b-2xl overflow-hidden transition-all duration-300 ease-out ${
-                        showSortDropdown 
-                          ? 'opacity-100 translate-y-0 max-h-[200px]' 
-                          : 'opacity-0 -translate-y-1 max-h-0 pointer-events-none'
-                      }`}>
-                        <div className="bg-white dark:bg-veritas-darker-blue/95 backdrop-blur-xl border-x border-b border-slate-200 dark:border-veritas-eggshell/10 rounded-b-2xl shadow-none dark:shadow-lg">
-                          {sortOptions.map((option, index) => (
-                            <button
-                              key={option.value}
-                              onClick={() => {
-                                onSortChange(option.value);
-                                setShowSortDropdown(false);
-                              }}
-                              className={`w-full text-left px-4 py-3 text-sm font-medium font-mono uppercase transition-all duration-300 ${
-                                sortBy === option.value
-                                  ? 'bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue'
-                                  : 'text-slate-700 dark:text-veritas-eggshell hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10'
-                              } ${
-                                index === 0 ? 'border-t border-slate-200/50 dark:border-veritas-eggshell/5' : ''
-                              } ${
-                                index === sortOptions.length - 1 ? 'rounded-b-2xl' : ''
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
                     {/* Theme Toggle */}
                     <button
                       onClick={toggleTheme}
@@ -321,45 +230,17 @@ const FeedNav: React.FC<FeedNavProps> = ({
                         <Moon className="w-5 h-5 text-veritas-primary group-hover:text-white dark:group-hover:text-veritas-eggshell/80 group-hover:-rotate-12 transition-all duration-300" />
                       )}
                     </button>
-
-                    {/* Login Button */}
-                    <button
-                      onClick={handleLogin}
-                      className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-veritas-primary dark:bg-veritas-light-blue hover:bg-white dark:hover:bg-veritas-light-blue/90 hover:text-veritas-dark-blue text-white dark:text-veritas-darker-blue font-semibold shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl transform hover:scale-105 transition-all duration-200 ease-in-out border-2 border-veritas-primary dark:border-veritas-light-blue/20 hover:border-veritas-dark-blue dark:hover:border-veritas-light-blue/20"
-                    >
-                      <LogIn className="w-4 h-4" />
-                      <span>Login</span>
-                    </button>
                   </div>
                 </div>
 
-                {/* Category Pills */}
+                {/* Algorithm Selector Section */}
                 <div className="border-t border-veritas-primary/10 dark:border-slate-700/30">
-                  <div className="flex items-center justify-between px-8 pt-6 pb-8">
-                    {/* Category buttons with proper spacing */}
-                    <div className="flex-1 min-w-0 mr-6 overflow-hidden">
-                      <div className="flex items-center space-x-3 overflow-x-auto overflow-y-visible scrollbar-hide py-2 px-2">
-                        {categoryItems.map((item) => {
-                          const Icon = item.icon;
-                          return (
-                            <button
-                              key={item.id}
-                              onClick={() => onCategoryChange(item.id)}
-                              className={`group flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out transform hover:scale-105 shadow-none dark:shadow-lg border flex-shrink-0 ${
-                                activeCategory === item.id
-                                  ? item.id === 'trending' 
-                                    ? 'text-white dark:text-veritas-darker-blue bg-veritas-primary dark:bg-veritas-light-blue shadow-none border-veritas-primary dark:border-veritas-light-blue/30'
-                                    : 'text-white bg-veritas-dark-blue dark:bg-veritas-light-blue/20 shadow-none dark:shadow-lg dark:shadow-[#1B365D]/25 border-veritas-dark-blue dark:border-veritas-eggshell/20'
-                                  : 'text-slate-700 dark:text-veritas-eggshell/70 hover:text-white dark:hover:text-veritas-eggshell bg-white dark:bg-transparent hover:bg-veritas-dark-blue dark:hover:bg-veritas-eggshell/10 hover:shadow-none dark:hover:shadow-xl border-slate-200 dark:border-veritas-eggshell/10 hover:border-transparent dark:hover:border-veritas-eggshell/10'
-                              }`}
-                            >
-                              {Icon && <Icon className="w-4 h-4 transition-colors duration-200" />}
-                              <span>{item.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                  <div className="flex items-center justify-between px-8 pt-6 pb-8 space-x-6">
+                    {/* Algorithm Status Bar */}
+                    <AlgorithmStatusBar
+                      currentAlgorithm={currentAlgorithm}
+                      onAlgorithmChange={onAlgorithmChange}
+                    />
 
                     {/* Live Network Status Dashboard */}
                     <div className="flex items-center space-x-4 flex-shrink-0">
@@ -578,83 +459,17 @@ const FeedNav: React.FC<FeedNavProps> = ({
                 </div>
               </div>
 
-              {/* Expandable Mobile Filters - Match Desktop */}
+              {/* Expandable Mobile Filters - Algorithm Selector */}
               {showMobileFilters && (
-                <div className="border-t border-gray-200 dark:border-slate-700 px-6 py-3 space-y-4">
-                  {/* Categories - Match Desktop */}
-                  <div>
-                    <label className="text-xs font-medium text-gray-700 dark:text-slate-300 mb-2 block">Categories</label>
-                    <div className="flex flex-wrap gap-2">
-                      {categoryItems.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              onCategoryChange(item.id);
-                              setShowMobileFilters(false);
-                            }}
-                            className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
-                              activeCategory === item.id
-                                ? item.id === 'trending' 
-                                  ? 'text-white dark:text-veritas-darker-blue bg-veritas-primary dark:bg-veritas-light-blue shadow-lg shadow-veritas-primary/25 dark:shadow-none'
-                                  : 'text-white bg-gradient-to-r from-[#1B365D] to-[#2D4A6B] shadow-lg shadow-[#1B365D]/25'
-                                : 'text-gray-700 dark:text-veritas-eggshell/70 bg-gray-100 dark:bg-transparent hover:bg-gray-200 dark:hover:bg-veritas-eggshell/10'
-                            }`}
-                          >
-                            {Icon && <Icon className="w-3 h-3" />}
-                            <span>{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Sort Options - Custom Dropdown to Match Desktop */}
-                  <div className="relative">
-                    <label className="text-xs font-medium text-gray-700 dark:text-veritas-eggshell mb-2 block">Sort By</label>
-                    <button
-                      onClick={() => setShowMobileSortDropdown(!showMobileSortDropdown)}
-                      className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium font-mono uppercase backdrop-blur-xl shadow-none dark:shadow-lg hover:shadow-none dark:hover:shadow-xl border transition-all duration-300 ${
-                        showMobileSortDropdown 
-                          ? 'rounded-t-xl bg-gray-50 dark:bg-veritas-eggshell/10' 
-                          : 'rounded-xl hover:scale-[1.02]'
-                      } bg-white dark:bg-veritas-darker-blue/95 hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10 border-slate-200 dark:border-veritas-eggshell/10 text-veritas-primary dark:text-veritas-eggshell`}
-                    >
-                      <span className="truncate">{sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort'}</span>
-                      <ChevronDown className={`w-4 h-4 flex-shrink-0 ml-2 transition-transform duration-300 ${showMobileSortDropdown ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {/* Mobile Sort Dropdown Menu */}
-                    <div className={`absolute top-full left-0 right-0 z-50 rounded-b-xl overflow-hidden transition-all duration-300 ease-out ${
-                      showMobileSortDropdown 
-                        ? 'opacity-100 translate-y-0 max-h-[200px]' 
-                        : 'opacity-0 -translate-y-1 max-h-0 pointer-events-none'
-                    }`}>
-                      <div className="bg-white dark:bg-veritas-darker-blue/95 backdrop-blur-xl border-x border-b border-slate-200 dark:border-veritas-eggshell/10 rounded-b-xl shadow-none dark:shadow-lg">
-                        {sortOptions.map((option, index) => (
-                          <button
-                            key={option.value}
-                            onClick={() => {
-                              onSortChange(option.value);
-                              setShowMobileSortDropdown(false);
-                            }}
-                            className={`w-full text-left px-4 py-3 text-sm font-medium font-mono uppercase transition-all duration-300 ${
-                              sortBy === option.value
-                                ? 'bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue'
-                                : 'text-slate-700 dark:text-veritas-eggshell hover:bg-gray-50 dark:hover:bg-veritas-eggshell/10'
-                            } ${
-                              index === 0 ? 'border-t border-slate-200/50 dark:border-veritas-eggshell/5' : ''
-                            } ${
-                              index === sortOptions.length - 1 ? 'rounded-b-xl' : ''
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                <div className="border-t border-gray-200 dark:border-slate-700 px-6 py-3">
+                  <div className="text-xs font-medium text-gray-700 dark:text-slate-300 mb-3">Algorithm</div>
+                  <AlgorithmStatusBar
+                    currentAlgorithm={currentAlgorithm}
+                    onAlgorithmChange={(algo) => {
+                      onAlgorithmChange(algo);
+                      setShowMobileFilters(false);
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -738,16 +553,6 @@ const FeedNav: React.FC<FeedNavProps> = ({
         </div>
       )}
 
-      {/* Click outside to close dropdowns */}
-      {(showSortDropdown || showMobileSortDropdown) && (
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => {
-            setShowSortDropdown(false);
-            setShowMobileSortDropdown(false);
-          }}
-        />
-      )}
 
       {/* Login Pending Modal */}
       <LoginPendingModal 
