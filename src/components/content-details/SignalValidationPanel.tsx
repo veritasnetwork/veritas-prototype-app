@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Info, CheckCircle, Loader2, Clock } from 'lucide-react';
-import { Belief } from '@/types/belief.types';
+import { Content } from '@/types/content.types';
 import { Algorithm } from '@/types/algorithm.types';
 import { ensureContentSignals, getSignalColor } from '@/lib/signals-utils';
 
@@ -17,7 +17,7 @@ export interface SignalUpdates {
 interface SignalValidationPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  belief: Belief;
+  belief: Content;
   currentAlgorithm?: Algorithm | null; // Pass algorithm from parent component
   onSubmit?: (updates: SignalUpdates) => void;
 }

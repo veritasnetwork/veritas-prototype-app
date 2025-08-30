@@ -1,15 +1,35 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
-import { Content, Belief } from '@/types/content.types';
+import { 
+  Content, 
+  ContentType,
+  isNewsContent, 
+  isOpinionContent, 
+  isConversationContent, 
+  isBlogContent, 
+  Belief 
+} from '@/types/content.types';
 import { ContentCard } from './ContentCard';
-import { ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronRight, Sparkles, FileText, MessageSquare, Users, BookOpen } from 'lucide-react';
 import { useFeed } from '@/contexts/FeedContext';
+import { rankContent } from '@/lib/algorithmEngine';
+import { getAllContent } from '@/lib/data';
 
 interface PremierHeaderProps {
   premierContents: Content[];
   onContentClick: (contentId: string) => void;
+}
+
+type ViewType = 'all' | ContentType;
+
+interface ContentByType {
+  all: Content[];
+  news: Content[];
+  opinion: Content[];
+  conversation: Content[];
+  blog: Content[];
 }
 
 export const PremierHeader: React.FC<PremierHeaderProps> = ({
@@ -17,31 +37,254 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
   onContentClick
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
-  const { currentAlgorithm } = useFeed();
+  const [activeView, setActiveView] = useState<ViewType>('all');
+  const { currentAlgorithm, rankedContent } = useFeed();
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [contentCache, setContentCache] = useState<ContentByType | null>(null);
+
+  // Fetch and cache content by type
+  const fetchAndCacheContent = useCallback(() => {
+    if (!currentAlgorithm) {
+      return {
+        all: premierContents.slice(0, 3),
+        news: [] as Content[],
+        opinion: [] as Content[],
+        conversation: [] as Content[],
+        blog: [] as Content[]
+      };
+    }
+
+    // Use rankedContent from context if available, otherwise get all content
+    const allContent = rankedContent.length > 0 ? rankedContent : getAllContent();
+    
+    // Get top 3 overall (already ranked by context)
+    const topOverall = allContent.slice(0, 3);
+    
+    // Filter and rank each content type separately
+    const newsContent = rankContent(
+      allContent.filter(c => isNewsContent(c)),
+      currentAlgorithm
+    ).slice(0, 3);
+    
+    const opinionContent = rankContent(
+      allContent.filter(c => isOpinionContent(c)),
+      currentAlgorithm
+    ).slice(0, 3);
+    
+    const conversationContent = rankContent(
+      allContent.filter(c => isConversationContent(c)),
+      currentAlgorithm
+    ).slice(0, 3);
+    
+    const blogContent = rankContent(
+      allContent.filter(c => isBlogContent(c)),
+      currentAlgorithm
+    ).slice(0, 3);
+
+    return {
+      all: topOverall,
+      news: newsContent,
+      opinion: opinionContent,
+      conversation: conversationContent,
+      blog: blogContent
+    };
+  }, [premierContents, currentAlgorithm, rankedContent]);
+
+  // Initialize and update cache when algorithm changes
+  useEffect(() => {
+    const newCache = fetchAndCacheContent();
+    setContentCache(newCache);
+  }, [fetchAndCacheContent]);
+
+  // Get current view's content from cache
+  const currentViewContent = useMemo(() => {
+    if (!contentCache) return [];
+    return contentCache[activeView] || [];
+  }, [contentCache, activeView]);
+
+  // Reset index when view changes
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [activeView]);
 
   // Auto-cycle through contents every 6 seconds
   useEffect(() => {
-    if (premierContents.length <= 1) return;
+    if (currentViewContent.length <= 1) return;
     
     const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % premierContents.length);
+      setActiveIndex((prev) => (prev + 1) % currentViewContent.length);
     }, 6000);
 
     return () => clearInterval(interval);
-  }, [premierContents.length]);
+  }, [currentViewContent.length]);
 
-  if (!premierContents.length) return null;
+  // Handle view change with smooth transition
+  const handleViewChange = useCallback((view: ViewType) => {
+    if (view === activeView) return;
+    
+    // Start transition
+    setIsTransitioning(true);
+    
+    // Use requestAnimationFrame for smoother transitions
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        setActiveView(view);
+        setActiveIndex(0);
+        
+        // End transition after a short delay
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            setIsTransitioning(false);
+          }, 50);
+        });
+      }, 150);
+    });
+  }, [activeView]);
 
-  const activeContent = premierContents[activeIndex];
+  // Handle navigation to next content
+  const handleNextContent = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveIndex((prev) => (prev + 1) % currentViewContent.length);
+  }, [currentViewContent.length]);
+
+  // 5-dot navigation configuration
+  const viewOptions: Array<{ 
+    value: ViewType; 
+    label: string; 
+    icon: React.ReactNode; 
+    color: string;
+    bgGradient: string;
+  }> = [
+    { 
+      value: 'all', 
+      label: 'All', 
+      icon: null, 
+      color: 'bg-gray-500',
+      bgGradient: 'from-gray-500 to-gray-600'
+    },
+    { 
+      value: 'news', 
+      label: 'News', 
+      icon: <FileText className="h-3 w-3" />, 
+      color: 'bg-blue-500',
+      bgGradient: 'from-blue-500 to-blue-600'
+    },
+    { 
+      value: 'opinion', 
+      label: 'Opinion', 
+      icon: <MessageSquare className="h-3 w-3" />, 
+      color: 'bg-purple-500',
+      bgGradient: 'from-purple-500 to-purple-600'
+    },
+    { 
+      value: 'conversation', 
+      label: 'Conversation', 
+      icon: <Users className="h-3 w-3" />, 
+      color: 'bg-green-500',
+      bgGradient: 'from-green-500 to-green-600'
+    },
+    { 
+      value: 'blog', 
+      label: 'Blog', 
+      icon: <BookOpen className="h-3 w-3" />, 
+      color: 'bg-orange-500',
+      bgGradient: 'from-orange-500 to-orange-600'
+    },
+  ];
+
+  // Loading state while cache is being built
+  if (!contentCache) {
+    return (
+      <div className="w-full bg-white dark:bg-veritas-darker-blue shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-6"></div>
+            <div className="h-[500px] bg-gray-200 dark:bg-gray-700 rounded-2xl"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state for current view
+  if (!currentViewContent.length) {
+    return (
+      <div className="w-full bg-white dark:bg-veritas-darker-blue shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {/* Header with 5-Dot Navigation */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-2">
+              <h2 className="text-xl font-bold text-veritas-primary dark:text-veritas-eggshell">
+                Top Ranked {activeView === 'all' ? 'Content' : activeView.charAt(0).toUpperCase() + activeView.slice(1)}
+              </h2>
+            </div>
+            
+            {/* 5-Dot Navigation System */}
+            <div className="flex items-center gap-3 md:gap-4">
+              {viewOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => handleViewChange(option.value)}
+                  className="group relative flex items-center"
+                  title={option.label}
+                >
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className={`
+                        w-3 h-3 rounded-full transition-all duration-300
+                        ${activeView === option.value
+                          ? `${option.color} scale-125 ring-2 ring-white dark:ring-gray-800 ring-offset-2 ring-offset-transparent shadow-lg`
+                          : `${option.color} opacity-40 hover:opacity-70 hover:scale-110`
+                        }
+                      `}
+                    />
+                    <span 
+                      className={`
+                        hidden sm:inline-block text-xs font-medium transition-all duration-200
+                        ${activeView === option.value
+                          ? 'text-gray-700 dark:text-gray-300 opacity-100'
+                          : 'text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100'
+                        }
+                      `}
+                    >
+                      {option.label}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="text-center py-24 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+            <p className="text-gray-500 dark:text-gray-400 text-lg">
+              No {activeView === 'all' ? '' : activeView} content available
+            </p>
+            {activeView !== 'all' && (
+              <button
+                onClick={() => handleViewChange('all')}
+                className="mt-4 text-sm text-veritas-blue hover:text-veritas-dark-blue transition-colors"
+              >
+                View all content →
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const activeContent = currentViewContent[Math.min(activeIndex, currentViewContent.length - 1)];
+  const activeOption = viewOptions.find(v => v.value === activeView);
 
   return (
     <div className="w-full bg-white dark:bg-veritas-darker-blue shadow-sm">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Algorithm Indicator */}
+        {/* Header with Algorithm Indicator and 5-Dot Navigation */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-2">
             <h2 className="text-xl font-bold text-veritas-primary dark:text-veritas-eggshell">
-              Top Ranked Content
+              Top Ranked {activeView === 'all' ? 'Content' : activeView.charAt(0).toUpperCase() + activeView.slice(1)}
             </h2>
             <span className="text-sm text-gray-500 dark:text-veritas-eggshell/50">
               by {currentAlgorithm?.name || 'Algorithm'}
@@ -50,147 +293,269 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
               <Sparkles className="w-4 h-4 text-veritas-secondary dark:text-veritas-orange" />
             )}
           </div>
-          <span className="text-xs text-gray-400 dark:text-veritas-eggshell/40">
-            Top 3 of {premierContents.length} shown
-          </span>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-[500px]">
           
-          {/* Hero Card - Left Side (2/3 width on desktop) */}
-          <div className="lg:col-span-2 relative group cursor-pointer overflow-hidden rounded-2xl bg-gradient-to-br from-veritas-dark-blue via-veritas-darker-blue to-veritas-dark-blue shadow-2xl"
-               onClick={() => onContentClick(activeContent.id)}>
-            
-            {/* Hero Image with Overlay */}
-            {activeContent.article?.thumbnail && (
-              <>
-                <div className="absolute inset-0">
-                  <Image 
-                    src={activeContent.article.thumbnail} 
-                    alt={activeContent.heading.title}
-                    width={800}
-                    height={500}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    unoptimized
-                  />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
-              </>
-            )}
-            
-            {/* Category Badge - Top Left Corner */}
-            {((activeContent as Belief).category || activeContent.signals?.category?.name) && (
-              <div className="absolute top-6 left-6 z-20 inline-flex items-center px-4 py-2 bg-veritas-primary dark:bg-veritas-light-blue backdrop-blur-sm text-white dark:text-veritas-darker-blue text-sm font-medium uppercase rounded-full shadow-lg border border-veritas-primary/20 dark:border-veritas-light-blue/20">
-                {((activeContent as Belief).category || activeContent.signals?.category?.name || '').toUpperCase()}
-              </div>
-            )}
-
-            {/* Hero Content - Always white text since image background */}
-            <div className="relative z-10 h-full flex flex-col justify-end p-8 text-white">
-              
-              {/* Title */}
-              <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-4 drop-shadow-lg text-white">
-                {activeContent.heading.title}
-              </h1>
-              
-              {/* Context/Subtitle */}
-              {activeContent.heading.context && (
-                <p className="text-xl text-white/90 leading-relaxed mb-4 drop-shadow">
-                  {activeContent.heading.context}
-                </p>
-              )}
-              
-              {/* Article Excerpt */}
-              {activeContent.article?.excerpt && (
-                <p className="text-lg text-white/80 leading-relaxed mb-6 line-clamp-2 drop-shadow">
-                  {activeContent.article.excerpt}
-                </p>
-              )}
-              
-              {/* Truth Score Badges */}
-              <div className="flex items-center gap-4 mb-4">
-                <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full">
-                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  <span className="text-sm font-medium text-white">
-                    Truth Score: {(activeContent as Belief).objectRankingScores?.truth || activeContent.signals?.truth?.currentValue || 0}%
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  <span className="text-sm font-medium text-white">
-                    Relevance: {(activeContent as Belief).objectRankingScores?.relevance || activeContent.signals?.relevance?.currentValue || 0}%
-                  </span>
-                </div>
-              </div>
-              
-              {/* Read More CTA */}
-              <div className="text-sm text-white/70 font-medium">
-                Click to explore full analysis →
-              </div>
-            </div>
-            
-            {/* Navigation Controls */}
-            {premierContents.length > 1 && (
-              <button 
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setActiveIndex((prev) => (prev + 1) % premierContents.length);
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-all duration-200 shadow-lg cursor-pointer"
-                style={{ pointerEvents: 'auto' }}
+          {/* 5-Dot Navigation System */}
+          <div className="flex items-center gap-3 md:gap-4">
+            {viewOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => handleViewChange(option.value)}
+                className="group relative flex items-center"
+                title={option.label}
               >
-                <ChevronRight className="w-6 h-6 pointer-events-none text-white" />
+                <div className="flex items-center gap-2">
+                  {/* Dot with enhanced visual feedback */}
+                  <div 
+                    className={`
+                      relative w-3 h-3 rounded-full transition-all duration-300
+                      ${activeView === option.value
+                        ? `${option.color} scale-125 shadow-lg`
+                        : `${option.color} opacity-40 hover:opacity-70 hover:scale-110`
+                      }
+                    `}
+                  >
+                    {activeView === option.value && (
+                      <div className="absolute inset-0 rounded-full ring-2 ring-white dark:ring-gray-800 ring-offset-2 ring-offset-transparent animate-pulse" />
+                    )}
+                  </div>
+                  {/* Label - visible on hover or when active */}
+                  <span 
+                    className={`
+                      hidden sm:inline-block text-xs font-medium transition-all duration-200 whitespace-nowrap
+                      ${activeView === option.value
+                        ? 'text-gray-700 dark:text-gray-300 opacity-100'
+                        : 'text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100'
+                      }
+                    `}
+                  >
+                    {option.label}
+                    {contentCache && contentCache[option.value].length > 0 && (
+                      <span className="ml-1 text-gray-400">
+                        ({contentCache[option.value].length})
+                      </span>
+                    )}
+                  </span>
+                </div>
               </button>
-            )}
-          </div>
-          
-          {/* Small Grid - Right Side (1/3 width on desktop) */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-veritas-primary dark:text-veritas-eggshell mb-4">
-              Featured Insights
-            </h3>
-            {premierContents.slice(0, 3).map((content) => (
-              <div 
-                key={content.id}
-                className="cursor-pointer transition-all duration-300 rounded-xl hover:transform hover:scale-[1.02] hover:shadow-lg"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onContentClick(content.id);
-                }}
-              >
-                <ContentCard 
-                  content={content} 
-                  variant="compact"
-                  onClick={(contentId: string) => onContentClick(contentId)}
-                />
-              </div>
             ))}
           </div>
         </div>
         
-        {/* Dots Indicator */}
-        {premierContents.length > 1 && (
+        {/* Content Grid with Enhanced Transition */}
+        <div 
+          className={`
+            transition-all duration-300 transform
+            ${isTransitioning 
+              ? 'opacity-0 scale-95' 
+              : 'opacity-100 scale-100'
+            }
+          `}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-[500px]">
+            
+            {/* Hero Card - Left Side (2/3 width on desktop) */}
+            <div 
+              className={`
+                lg:col-span-2 relative group cursor-pointer overflow-hidden rounded-2xl shadow-2xl
+                bg-gradient-to-br ${activeOption?.bgGradient || 'from-veritas-dark-blue to-veritas-darker-blue'}
+              `}
+              onClick={() => onContentClick(activeContent.id)}
+            >
+              
+              {/* Hero Image with Overlay */}
+              {'article' in activeContent && activeContent.article?.thumbnail && (
+                <>
+                  <div className="absolute inset-0">
+                    <Image 
+                      src={activeContent.article.thumbnail} 
+                      alt={activeContent.heading.title}
+                      width={800}
+                      height={500}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      unoptimized
+                    />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
+                </>
+              )}
+              
+              {/* Content Type Badge */}
+              <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
+                {activeView !== 'all' && (
+                  <div className="inline-flex items-center px-3 py-1.5 bg-white/20 backdrop-blur-sm text-white text-xs font-medium uppercase rounded-full shadow-lg border border-white/10">
+                    {viewOptions.find(v => v.value === activeView)?.icon}
+                    <span className="ml-1">{activeView}</span>
+                  </div>
+                )}
+                {((activeContent as Belief).category || activeContent.signals?.category?.name) && (
+                  <div className="inline-flex items-center px-3 py-1.5 bg-veritas-primary/80 dark:bg-veritas-light-blue/80 backdrop-blur-sm text-white dark:text-veritas-darker-blue text-xs font-medium uppercase rounded-full shadow-lg border border-veritas-primary/20 dark:border-veritas-light-blue/20">
+                    {((activeContent as Belief).category || activeContent.signals?.category?.name || '').toUpperCase()}
+                  </div>
+                )}
+              </div>
+
+              {/* Hero Content */}
+              <div className="relative z-10 h-full flex flex-col justify-end p-8 text-white">
+                
+                {/* Title */}
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight mb-4 drop-shadow-lg">
+                  {activeContent.heading.title}
+                </h1>
+                
+                {/* Context/Subtitle */}
+                {activeContent.heading.context && (
+                  <p className="text-lg md:text-xl text-white/90 leading-relaxed mb-4 drop-shadow">
+                    {activeContent.heading.context}
+                  </p>
+                )}
+                
+                {/* Type-specific content preview */}
+                {'article' in activeContent && activeContent.article?.excerpt && (
+                  <p className="text-base md:text-lg text-white/80 leading-relaxed mb-6 line-clamp-2 drop-shadow">
+                    {activeContent.article.excerpt}
+                  </p>
+                )}
+                {'description' in activeContent && activeContent.description && (
+                  <p className="text-base md:text-lg text-white/80 leading-relaxed mb-6 line-clamp-2 drop-shadow">
+                    {activeContent.description}
+                  </p>
+                )}
+                {'question' in activeContent && activeContent.question && (
+                  <p className="text-base md:text-lg text-white/80 leading-relaxed mb-6 line-clamp-2 drop-shadow">
+                    {activeContent.question}
+                  </p>
+                )}
+                
+                {/* Signal Scores */}
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  {activeContent.signals?.truth && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full">
+                      <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                      <span className="text-sm font-medium text-white">
+                        Truth: {activeContent.signals.truth.currentValue || 0}%
+                      </span>
+                    </div>
+                  )}
+                  {activeContent.signals?.relevance && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                      <span className="text-sm font-medium text-white">
+                        Relevance: {activeContent.signals.relevance.currentValue || 0}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Read More CTA */}
+                <div className="text-sm text-white/70 font-medium">
+                  Click to explore full analysis →
+                </div>
+              </div>
+              
+              {/* Navigation Controls */}
+              {currentViewContent.length > 1 && (
+                <button 
+                  onClick={handleNextContent}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-all duration-200 shadow-lg"
+                  aria-label="Next content"
+                >
+                  <ChevronRight className="w-6 h-6 text-white" />
+                </button>
+              )}
+            </div>
+            
+            {/* Small Grid - Right Side */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-veritas-primary dark:text-veritas-eggshell mb-4">
+                Top {activeView === 'all' ? 'Featured' : activeView.charAt(0).toUpperCase() + activeView.slice(1)} Insights
+              </h3>
+              
+              {/* Display all items in current view */}
+              {currentViewContent.map((content, index) => (
+                <div 
+                  key={content.id}
+                  className={`
+                    cursor-pointer transition-all duration-300 rounded-xl 
+                    hover:transform hover:scale-[1.02] hover:shadow-lg
+                    ${index === activeIndex ? 'ring-2 ring-veritas-blue ring-opacity-50' : ''}
+                  `}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Set as active or navigate
+                    if (index === activeIndex) {
+                      onContentClick(content.id);
+                    } else {
+                      setActiveIndex(index);
+                    }
+                  }}
+                >
+                  <ContentCard 
+                    content={content} 
+                    variant="compact"
+                    onClick={onContentClick}
+                  />
+                </div>
+              ))}
+              
+              {/* Fill empty slots if needed */}
+              {currentViewContent.length < 3 && (
+                <div className="space-y-4">
+                  {Array.from({ length: 3 - currentViewContent.length }).map((_, index) => (
+                    <div 
+                      key={`empty-${index}`}
+                      className="h-24 rounded-xl bg-gray-100 dark:bg-gray-800/50 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-700"
+                    >
+                      <p className="text-xs text-gray-400">
+                        {activeView === 'all' ? 'No more content' : `No more ${activeView} content`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Content Dots Indicator */}
+        {currentViewContent.length > 1 && (
           <div className="flex justify-center mt-8 gap-2">
-            {premierContents.map((_, index) => (
+            {currentViewContent.map((_, index) => (
               <button
-                key={index}
+                key={`dot-${index}`}
                 onClick={() => setActiveIndex(index)}
-                className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                  index === activeIndex 
-                    ? 'bg-veritas-primary dark:bg-veritas-eggshell scale-110 shadow-lg' 
+                className={`
+                  w-2 h-2 rounded-full transition-all duration-300
+                  ${index === activeIndex 
+                    ? 'bg-veritas-primary dark:bg-veritas-eggshell w-8 shadow-lg' 
                     : 'bg-gray-300 dark:bg-veritas-eggshell/30 hover:bg-gray-400 dark:hover:bg-veritas-eggshell/50'
-                }`}
+                  }
+                `}
+                aria-label={`View content ${index + 1}`}
               />
             ))}
           </div>
         )}
+        
+        {/* Stats Bar */}
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex flex-wrap justify-center gap-6 text-xs text-gray-500 dark:text-gray-400">
+            {Object.entries(contentCache).map(([type, items]) => {
+              if (type === 'all' || items.length === 0) return null;
+              return (
+                <div key={type} className="flex items-center gap-1">
+                  <span className="font-medium capitalize">{type}:</span>
+                  <span>{items.length} items</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
-}; 
+};

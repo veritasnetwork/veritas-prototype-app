@@ -1,4 +1,5 @@
-import { Signal, SignalDataPoint, SignalCollection, Content } from '@/types/belief.types';
+import { Signal, SignalDataPoint, SignalCollection } from '@/types/belief.types';
+import { Content } from '@/types/content.types';
 
 // Define additional signals that should be present on all content
 const ADDITIONAL_SIGNAL_CONFIGS = [
