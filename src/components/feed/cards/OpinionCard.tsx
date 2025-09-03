@@ -24,6 +24,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
   onClick,
   layout = 'half'
 }) => {
+  void layout; // Layout is handled by parent grid
   const [isValidating, setIsValidating] = useState(false);
   
   const handleClick = () => {
@@ -84,10 +85,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
     if (variant === 'mobile') return 'w-full';
     if (variant === 'premier') return 'w-full h-48';
     
-    // Half width for opinion cards in feed
-    if (layout === 'half') {
-      return 'w-full lg:w-[calc(50%-0.5rem)]';
-    }
+    // Always use full width - the parent grid handles the actual sizing
     return 'w-full';
   };
   

@@ -23,6 +23,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
   onClick,
   layout = 'half'
 }) => {
+  void layout; // Layout is handled by parent grid
   const handleClick = () => {
     onClick(content.id);
   };
@@ -83,10 +84,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
     if (variant === 'mobile') return 'w-full';
     if (variant === 'premier') return 'w-full h-56';
     
-    // Half width for conversation cards in feed
-    if (layout === 'half') {
-      return 'w-full lg:w-[calc(50%-0.5rem)]';
-    }
+    // Always use full width - the parent grid handles the actual sizing
     return 'w-full';
   };
   

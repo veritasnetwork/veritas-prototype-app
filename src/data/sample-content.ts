@@ -752,7 +752,7 @@ DeFi's permissionless nature, global accessibility, and cost efficiency make it 
       credibility: 'high',
       headline: 'DeFi adoption in emerging markets is outpacing developed nations by 300%',
       excerpt: 'Traditional banking infrastructure limitations have created a unique opportunity for DeFi protocols to serve underbanked populations. This analysis explores why decentralized finance is often the superior choice for financial services in developing economies.',
-      thumbnail: '/images/blog/defi-emerging-markets.jpg'
+      thumbnail: '/images/blog/defi-emerging-markets.webp'
     },
     author: 'Sarah Chen',
     authorBio: 'DeFi researcher and emerging markets specialist with 8+ years analyzing financial technology adoption in developing economies.',
@@ -815,7 +815,7 @@ As infrastructure improves and education increases, stablecoins are positioned t
       credibility: 'high',
       headline: 'African stablecoin usage grew 400% in 2024',
       excerpt: 'From Lagos to Nairobi, digital dollars are becoming the preferred method for cross-border transactions, challenging traditional remittance services and reshaping continental trade.',
-      thumbnail: '/images/blog/stablecoins-africa.jpg'
+      thumbnail: '/images/blog/stablecoins-africa.webp'
     },
     author: 'Michael Okafor',
     authorBio: 'Financial journalist covering African fintech and blockchain adoption. Based in Lagos, Nigeria.',
@@ -880,7 +880,7 @@ PoS isn't inherently bad, but we must acknowledge its trade-offs. Hybrid models,
       credibility: 'high',
       headline: 'Major PoS networks show increasing validator concentration',
       excerpt: 'While Proof-of-Stake solves the energy problem, it introduces new centralization risks and governance challenges that threaten the core values of blockchain technology.',
-      thumbnail: '/images/blog/pos-analysis.jpg'
+      thumbnail: '/images/blog/pos-analysis.avif'
     },
     author: 'Alex Thompson',
     authorBio: 'Blockchain researcher and consensus mechanism specialist with focus on decentralization metrics.',
@@ -1017,7 +1017,7 @@ Sovereign rollups aren't replacing L1s or general-purpose L2s—they're expandin
       credibility: 'high',
       headline: 'Sovereign rollup deployments increase 500% in Q1 2024',
       excerpt: 'Application-specific blockchains using sovereign rollup architecture are solving the scalability trilemma while maintaining independence.',
-      thumbnail: '/images/blog/sovereign-rollups.jpg'
+      thumbnail: '/images/blog/sovereign-rollups.avif'
     },
     author: 'David Kim',
     authorBio: 'Blockchain architect and scalability researcher focusing on modular blockchain designs.',
@@ -1089,7 +1089,7 @@ The future of infrastructure isn't corporate—it's crowdsourced, incentivized, 
       credibility: 'high',
       headline: 'DePIN networks reach $3B in total value locked',
       excerpt: 'Decentralized Physical Infrastructure Networks are proving that crypto incentives can build real-world infrastructure faster and cheaper than traditional methods.',
-      thumbnail: '/images/blog/depin-networks.jpg'
+      thumbnail: '/images/blog/depin-networks.webp'
     },
     author: 'Jennifer Walsh',
     authorBio: 'Infrastructure economist and DePIN protocol advisor specializing in token incentive design.',
@@ -1164,7 +1164,7 @@ In 10 years, we'll wonder how we ever built systems without ZK proofs.`,
       credibility: 'high',
       headline: 'ZK-rollup transaction volume surpasses optimistic rollups',
       excerpt: 'Zero-knowledge proofs have evolved from academic theory to production systems, enabling private and scalable applications across industries.',
-      thumbnail: '/images/blog/zk-proofs.jpg'
+      thumbnail: '/images/blog/zk-proofs.png'
     },
     author: 'Robert Zhang',
     authorBio: 'Cryptography researcher and ZK protocol developer with focus on practical implementations.',
@@ -1243,7 +1243,7 @@ Love them or hate them, meme coins are crypto's id—raw, unfiltered, and surpri
       credibility: 'medium',
       headline: 'Meme coin market cap exceeds $50 billion',
       excerpt: 'Beyond speculation, meme coins reveal fundamental truths about market psychology, community dynamics, and the attention economy.',
-      thumbnail: '/images/blog/meme-coins.jpg'
+      thumbnail: '/images/blog/meme-coins.avif'
     },
     author: 'Tyler Brooks',
     authorBio: 'Market psychologist and crypto trader analyzing social dynamics in financial markets.',
@@ -1322,7 +1322,7 @@ RWAs aren't replacing traditional finance—they're upgrading it. The revolution
       credibility: 'high',
       headline: 'Tokenized RWA volume surpasses $10 billion',
       excerpt: 'Real-world asset tokenization is moving from proof-of-concept to production, with major institutions leading the charge toward a $16 trillion market.',
-      thumbnail: '/images/blog/rwa-tokenization.jpg'
+      thumbnail: '/images/blog/rwa-tokenization.webp'
     },
     author: 'Amanda Chen',
     authorBio: 'Capital markets strategist specializing in asset tokenization and institutional DeFi adoption.',
@@ -1398,7 +1398,7 @@ The real question isn't whether we need L3s, but whether developers can build be
       credibility: 'high',
       headline: 'Layer 3 deployments reach 50+ chains',
       excerpt: 'The Layer 3 debate reveals fundamental questions about blockchain scalability, specialization, and the limits of abstraction.',
-      thumbnail: '/images/blog/layer3-debate.jpg'
+      thumbnail: '/images/blog/layer3-debate.webp'
     },
     author: 'Marcus Powell',
     authorBio: 'Blockchain architect and scaling solutions researcher with focus on multi-layer ecosystems.',

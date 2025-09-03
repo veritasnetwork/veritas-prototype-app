@@ -540,21 +540,6 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
             ))}
           </div>
         )}
-        
-        {/* Stats Bar */}
-        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex flex-wrap justify-center gap-6 text-xs text-gray-500 dark:text-gray-400">
-            {Object.entries(contentCache).map(([type, items]) => {
-              if (type === 'all' || items.length === 0) return null;
-              return (
-                <div key={type} className="flex items-center gap-1">
-                  <span className="font-medium capitalize">{type}:</span>
-                  <span>{items.length} items</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
     </div>
   );

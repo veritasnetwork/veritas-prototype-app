@@ -67,10 +67,13 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   }
   
   if (isBlogContent(content)) {
+    // Use 'news' variant for full-width blog content in feed view (similar layout)
+    const blogVariant = variant === 'feed' && layout === 'full' ? 'news' : variant;
+    
     return (
       <BlogCard
         content={content}
-        variant={variant}
+        variant={blogVariant}
         onClick={onClick}
         layout={layout}
       />
@@ -78,10 +81,13 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   }
   
   // Default to NewsCard for news content and legacy content
+  // Use 'news' variant for full-width news content in feed view
+  const newsVariant = variant === 'feed' && layout === 'full' ? 'news' : variant;
+  
   return (
     <NewsCard
       content={content}
-      variant={variant}
+      variant={newsVariant}
       onClick={onClick}
       layout={layout}
     />
