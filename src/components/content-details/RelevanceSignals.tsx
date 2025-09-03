@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useContext } from 'react';
-import { Belief, Signal } from '@/types/belief.types';
+import { Signal } from '@/types/belief.types';
+import { Content } from '@/types/content.types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, BarChart2, LineChart as LineChartIcon, Edit3 } from 'lucide-react';
 import { ensureContentSignals, getSignalLastValue, getSignalColor } from '@/lib/signals-utils';
@@ -9,7 +10,7 @@ import { SignalValidationPanel, SignalUpdates } from './SignalValidationPanel';
 import { FeedContext } from '@/contexts/FeedContext';
 
 interface RelevanceSignalsProps {
-  belief: Belief;
+  belief: Content;
 }
 
 export const RelevanceSignals: React.FC<RelevanceSignalsProps> = ({ belief }) => {
@@ -81,25 +82,26 @@ export const RelevanceSignals: React.FC<RelevanceSignalsProps> = ({ belief }) =>
 
   // Handle validation submission
   const handleValidationSubmit = (updates: SignalUpdates) => {
+    void updates; // Will be used when backend is connected
     // ⚠️ SECURITY WARNING: These console logs are for DEMONSTRATION ONLY
     // In production, NEVER log sensitive user data like beliefs and predictions
     // This could expose voting patterns and compromise the BTS mechanism's integrity
     // Remove ALL console.log statements before deploying to production
     
     // === START: DEMO-ONLY LOGGING (REMOVE IN PRODUCTION) ===
-    console.log('📊 BTS Signal Validation Submitted to Veritas Protocol:');
-    console.log('====================================================');
-    Object.entries(updates).forEach(([signalKey, values]) => {
-      console.log(`Signal: ${signalKey}`);
-      console.log(`  → My Belief: ${values.myBelief}%`);
-      console.log(`  → Others' Belief (Meta-prediction): ${values.othersBelief}%`);
-      console.log(`  → BTS Delta: ${Math.abs(values.myBelief - values.othersBelief)}%`);
-    });
-    console.log('====================================================');
-    console.log('This data will be used by Veritas Protocol to:');
-    console.log('1. Calculate your trust score using BTS');
-    console.log('2. Update signal aggregates based on epistemic weight');
-    console.log('3. Redistribute stake based on accuracy');
+    // console.log('📊 BTS Signal Validation Submitted to Veritas Protocol:');
+    // console.log('====================================================');
+    // Object.entries(updates).forEach(([signalKey, values]) => {
+    //   console.log(`Signal: ${signalKey}`);
+    //   console.log(`  → My Belief: ${values.myBelief}%`);
+    //   console.log(`  → Others' Belief (Meta-prediction): ${values.othersBelief}%`);
+    //   console.log(`  → BTS Delta: ${Math.abs(values.myBelief - values.othersBelief)}%`);
+    // });
+    // console.log('====================================================');
+    // console.log('This data will be used by Veritas Protocol to:');
+    // console.log('1. Calculate your trust score using BTS');
+    // console.log('2. Update signal aggregates based on epistemic weight');
+    // console.log('3. Redistribute stake based on accuracy');
     // === END: DEMO-ONLY LOGGING ===
     
     // TODO: Production implementation

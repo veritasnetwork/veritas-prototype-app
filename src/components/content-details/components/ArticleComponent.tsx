@@ -1,4 +1,6 @@
 import { ArticleComponentProps } from '@/types/component.types';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export const ArticleComponent: React.FC<ArticleComponentProps> = ({
   article,
@@ -25,10 +27,20 @@ export const ArticleComponent: React.FC<ArticleComponentProps> = ({
             </h3>
           </div>
           
-          <div className="prose prose-slate dark:prose-invert max-w-none">
-            <p className="text-veritas-primary/80 dark:text-veritas-eggshell/80 leading-relaxed text-lg">
+          <div className="prose prose-slate dark:prose-invert max-w-none 
+                      prose-headings:text-veritas-primary dark:prose-headings:text-veritas-eggshell
+                      prose-p:text-veritas-primary/80 dark:prose-p:text-veritas-eggshell/80
+                      prose-strong:text-veritas-primary dark:prose-strong:text-veritas-eggshell
+                      prose-ul:text-veritas-primary/80 dark:prose-ul:text-veritas-eggshell/80
+                      prose-ol:text-veritas-primary/80 dark:prose-ol:text-veritas-eggshell/80
+                      prose-li:text-veritas-primary/80 dark:prose-li:text-veritas-eggshell/80
+                      prose-h2:text-2xl prose-h2:font-bold prose-h2:mt-8 prose-h2:mb-4
+                      prose-h3:text-xl prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-3
+                      prose-p:leading-relaxed prose-p:text-base
+                      prose-li:my-1">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {article.content}
-            </p>
+            </ReactMarkdown>
           </div>
 
           <div className="pt-4 border-t border-slate-200 dark:border-veritas-eggshell/10">

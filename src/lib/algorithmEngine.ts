@@ -1,4 +1,4 @@
-import { Content } from '@/types/belief.types';
+import { Content } from '@/types/content.types';
 import { Algorithm } from '@/types/algorithm.types';
 
 /**

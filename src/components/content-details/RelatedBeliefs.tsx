@@ -86,9 +86,9 @@ export const RelatedBeliefs: React.FC<RelatedBeliefsProps> = ({ belief, onBelief
               </span>
               <div className={`w-2 h-2 rounded-full ${
                 relatedBelief.status === 'resolved'
-                  ? 'bg-blue-400'
+                  ? 'bg-veritas-primary dark:bg-veritas-light-blue'
                   : relatedBelief.status === 'active'
-                  ? 'bg-emerald-400 animate-pulse'
+                  ? 'bg-veritas-secondary dark:bg-veritas-orange animate-pulse'
                   : 'bg-slate-400'
               }`} />
             </div>

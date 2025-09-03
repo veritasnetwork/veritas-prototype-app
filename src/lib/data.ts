@@ -1,40 +1,180 @@
 import { Belief, Content, SortOption, FilterStatus, Category } from '@/types/belief.types';
+import { 
+  ContentType,
+  NewsContent,
+  OpinionContent,
+  ConversationContent,
+  BlogContent,
+  Content as ContentUnion
+} from '@/types/content.types';
 import { Algorithm, SignalConfig } from '@/types/algorithm.types';
 import contentData from '@/data/content.json';
 import algorithmsData from '@/data/algorithms.json';
 import signalsConfig from '@/data/signals-config.json';
 import { categories } from '@/data';
+// Import sample data for new content types
+import { 
+  sampleOpinionContent,
+  sampleConversationContent,
+  sampleBlogContent 
+} from '@/data/sample-content';
 
 // Type the imported data - using unknown first to bypass strict type checking
-const typedContent = contentData as unknown as Content[];
+const legacyContent = contentData as unknown as Content[];
 const typedAlgorithms = algorithmsData as Algorithm[];
 const typedSignalsConfig = signalsConfig as { signals: SignalConfig[] };
 const typedCategories = categories as Category[];
 
+// Combine legacy content with new content types
+// Legacy content is treated as NewsContent for backward compatibility
+const legacyAsNews: NewsContent[] = legacyContent.map(content => ({
+  ...content,
+  type: 'news' as const,
+  article: (content as unknown as Record<string, unknown>).article as NewsContent['article'] || {
+    content: '',
+    credibility: 'medium' as const,
+    headline: content.heading?.title || '',
+    excerpt: ''
+  }
+} as NewsContent));
+
+// Combine all content types
+const typedContent: ContentUnion[] = [
+  ...legacyAsNews,
+  ...sampleOpinionContent,
+  ...sampleConversationContent,
+  ...sampleBlogContent
+];
+
+// Type guards for content types
+export const isNewsContent = (content: ContentUnion): content is NewsContent => {
+  return 'type' in content && content.type === 'news' || !('type' in content); // Legacy content without type is news
+};
+
+export const isOpinionContent = (content: ContentUnion): content is OpinionContent => {
+  return 'type' in content && content.type === 'opinion';
+};
+
+export const isConversationContent = (content: ContentUnion): content is ConversationContent => {
+  return 'type' in content && content.type === 'conversation';
+};
+
+export const isBlogContent = (content: ContentUnion): content is BlogContent => {
+  return 'type' in content && content.type === 'blog';
+};
+
 // Convert Content to Belief for backward compatibility
-const contentToBelief = (content: Content): Belief => {
+const contentToBelief = (content: ContentUnion): Belief => {
+  // Extract article data based on content type
+  let articleData: NewsContent['article'] = {
+    content: '',
+    credibility: 'medium' as const,
+    headline: '',
+    excerpt: ''
+  };
+  
+  if (isNewsContent(content) || isBlogContent(content)) {
+    articleData = (content as unknown as Record<string, unknown>).article as NewsContent['article'] || articleData;
+  } else if (isOpinionContent(content)) {
+    articleData = {
+      content: content.description || content.question,
+      credibility: 'medium' as const,
+      headline: content.question,
+      excerpt: content.description || ''
+    };
+  } else if (isConversationContent(content)) {
+    articleData = {
+      content: content.description,
+      credibility: 'medium' as const,
+      headline: content.topic,
+      excerpt: content.initialPost || content.description
+    };
+  } else if ('article' in content) {
+    // Legacy content
+    articleData = (content as unknown as Record<string, unknown>).article as NewsContent['article'];
+  }
+  
   return {
     ...content,
+    article: articleData,
     objectRankingScores: {
       truth: content.signals?.truth?.currentValue || 0,
       relevance: content.signals?.relevance?.currentValue || 0,
       informativeness: content.signals?.informativeness?.currentValue || 0
     },
     charts: [],
-    category: undefined // Will need to infer from signals or metadata
-  };
+    category: ('tags' in content && content.tags?.[0]) || undefined // Use first tag as category
+  } as Belief;
 };
 
 const typedBeliefs = typedContent.map(contentToBelief);
 
 // Content data access (new primary functions)
-export const getAllContent = (): Content[] => {
+export const getAllContent = (): ContentUnion[] => {
   return typedContent;
 };
 
-export const getContentById = (id: string): Content | null => {
+export const getContentById = (id: string): ContentUnion | null => {
   const content = typedContent.find(c => c.id === id);
   return content || null;
+};
+
+// Get content by type
+export const getContentByType = (type: ContentType): ContentUnion[] => {
+  switch (type) {
+    case 'news':
+      return typedContent.filter(isNewsContent);
+    case 'opinion':
+      return typedContent.filter(isOpinionContent);
+    case 'conversation':
+      return typedContent.filter(isConversationContent);
+    case 'blog':
+      return typedContent.filter(isBlogContent);
+    default:
+      return [];
+  }
+};
+
+// Get mixed content for feed (respects algorithm ranking)
+export const getMixedFeedContent = (algorithm?: Algorithm): ContentUnion[] => {
+  let content = [...typedContent];
+  
+  // Apply algorithm weights if provided
+  if (algorithm) {
+    content = sortContentByAlgorithm(content, algorithm);
+  }
+  
+  return content;
+};
+
+// Search across all content types
+export const searchContent = (query: string): ContentUnion[] => {
+  if (!query.trim()) return typedContent;
+  
+  const lowercaseQuery = query.toLowerCase();
+  return typedContent.filter(c => {
+    // Common fields
+    if (c.heading.title.toLowerCase().includes(lowercaseQuery)) return true;
+    if (c.heading.subtitle?.toLowerCase().includes(lowercaseQuery)) return true;
+    
+    // Type-specific fields
+    if (isNewsContent(c) || isBlogContent(c)) {
+      if (c.article.content.toLowerCase().includes(lowercaseQuery)) return true;
+      if (c.article.headline?.toLowerCase().includes(lowercaseQuery)) return true;
+    }
+    
+    if (isOpinionContent(c)) {
+      if (c.question.toLowerCase().includes(lowercaseQuery)) return true;
+      if (c.description?.toLowerCase().includes(lowercaseQuery)) return true;
+    }
+    
+    if (isConversationContent(c)) {
+      if (c.topic.toLowerCase().includes(lowercaseQuery)) return true;
+      if (c.description.toLowerCase().includes(lowercaseQuery)) return true;
+    }
+    
+    return false;
+  });
 };
 
 // Belief data access (backward compatibility)
@@ -85,12 +225,39 @@ export const sortBeliefs = (beliefs: Belief[], sortBy: SortOption): Belief[] => 
 };
 
 // Sort content by signal value
-export const sortContentBySignal = (content: Content[], signalKey: string): Content[] => {
+export const sortContentBySignal = (content: ContentUnion[], signalKey: string): ContentUnion[] => {
   return content.sort((a, b) => {
-    const aValue = a.signals[signalKey]?.currentValue || 0;
-    const bValue = b.signals[signalKey]?.currentValue || 0;
+    const aValue = a.signals?.[signalKey]?.currentValue || 0;
+    const bValue = b.signals?.[signalKey]?.currentValue || 0;
     return bValue - aValue;
   });
+};
+
+// Sort content by algorithm (applies weighted signal calculation)
+export const sortContentByAlgorithm = (content: ContentUnion[], algorithm: Algorithm): ContentUnion[] => {
+  return content.sort((a, b) => {
+    const aScore = calculateAlgorithmScore(a, algorithm);
+    const bScore = calculateAlgorithmScore(b, algorithm);
+    return bScore - aScore;
+  });
+};
+
+// Calculate weighted score for content based on algorithm
+export const calculateAlgorithmScore = (content: ContentUnion, algorithm: Algorithm): number => {
+  if (!content.signals) return 0;
+  
+  let totalScore = 0;
+  let totalWeight = 0;
+  
+  for (const [signalKey, weight] of Object.entries(algorithm.weights)) {
+    const signal = content.signals[signalKey];
+    if (signal) {
+      totalScore += signal.currentValue * weight;
+      totalWeight += weight;
+    }
+  }
+  
+  return totalWeight > 0 ? totalScore / totalWeight : 0;
 };
 
 // NEW: Chart utility functions
@@ -237,6 +404,91 @@ export const getTopBeliefsByRanking = (
 };
 
 // Get content signal value
-export const getContentSignalValue = (content: Content, signalKey: string): number => {
-  return content.signals[signalKey]?.currentValue || 0;
+export const getContentSignalValue = (content: ContentUnion, signalKey: string): number => {
+  return content.signals?.[signalKey]?.currentValue || 0;
+};
+
+// NEW: Content type statistics
+export const getContentTypeStats = () => {
+  const total = typedContent.length;
+  const news = typedContent.filter(isNewsContent).length;
+  const opinions = typedContent.filter(isOpinionContent).length;
+  const conversations = typedContent.filter(isConversationContent).length;
+  const blogs = typedContent.filter(isBlogContent).length;
+  
+  return {
+    total,
+    byType: {
+      news,
+      opinion: opinions,
+      conversation: conversations,
+      blog: blogs
+    },
+    percentages: {
+      news: Math.round((news / total) * 100),
+      opinion: Math.round((opinions / total) * 100),
+      conversation: Math.round((conversations / total) * 100),
+      blog: Math.round((blogs / total) * 100)
+    }
+  };
+};
+
+// Get related content (works across all content types)
+export const getRelatedContent = (currentContentId: string, limit: number = 4): ContentUnion[] => {
+  const currentContent = getContentById(currentContentId);
+  if (!currentContent) return [];
+  
+  // Filter out current content
+  const relatedContent = typedContent.filter(c => c.id !== currentContentId);
+  
+  // Prioritize same type
+  const currentType = 'type' in currentContent ? currentContent.type : 'news';
+  const sameType = relatedContent.filter(c => ('type' in c ? c.type : 'news') === currentType);
+  const otherTypes = relatedContent.filter(c => ('type' in c ? c.type : 'news') !== currentType);
+  
+  // Prioritize by tag overlap
+  const currentTags = 'tags' in currentContent ? currentContent.tags : undefined;
+  if (currentTags && currentTags.length > 0) {
+    sameType.sort((a, b) => {
+      const aTags = 'tags' in a ? a.tags : undefined;
+      const bTags = 'tags' in b ? b.tags : undefined;
+      const aOverlap = aTags?.filter((t: string) => currentTags?.includes(t)).length || 0;
+      const bOverlap = bTags?.filter((t: string) => currentTags?.includes(t)).length || 0;
+      return bOverlap - aOverlap;
+    });
+  }
+  
+  // Combine and return top results
+  return [...sameType, ...otherTypes]
+    .sort((a, b) => {
+      const aRelevance = a.signals?.relevance?.currentValue || 0;
+      const bRelevance = b.signals?.relevance?.currentValue || 0;
+      return bRelevance - aRelevance;
+    })
+    .slice(0, limit);
+};
+
+// Get premier content (high-value content across all types)
+export const getPremierContent = (limit: number = 3): ContentUnion[] => {
+  return typedContent
+    .filter(c => c.isPremier || (c.signals?.relevance?.currentValue || 0) > 80)
+    .sort((a, b) => {
+      const aScore = calculateAverageSignalScore(a);
+      const bScore = calculateAverageSignalScore(b);
+      return bScore - aScore;
+    })
+    .slice(0, limit);
+};
+
+// Calculate average signal score for content
+const calculateAverageSignalScore = (content: ContentUnion): number => {
+  if (!content.signals) return 0;
+  
+  const signalValues = Object.values(content.signals)
+    .map(signal => signal.currentValue)
+    .filter(value => typeof value === 'number');
+  
+  if (signalValues.length === 0) return 0;
+  
+  return signalValues.reduce((sum, value) => sum + value, 0) / signalValues.length;
 }; 
