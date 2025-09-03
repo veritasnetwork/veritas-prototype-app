@@ -12,7 +12,10 @@ import { NewsDetailPage } from './pages/NewsDetailPage';
 import { OpinionDetailPage } from './pages/OpinionDetailPage';
 import { ConversationDetailPage } from './pages/ConversationDetailPage';
 import { BlogDetailPage } from './pages/BlogDetailPage';
-import { SkeletonContentDetailPage } from './skeleton/SkeletonContentDetailPage';
+import { SkeletonNewsDetailPage } from './skeleton/SkeletonNewsDetailPage';
+import { SkeletonOpinionDetailPage } from './skeleton/SkeletonOpinionDetailPage';
+import { SkeletonConversationDetailPage } from './skeleton/SkeletonConversationDetailPage';
+import { SkeletonBlogDetailPage } from './skeleton/SkeletonBlogDetailPage';
 import { getContentById } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 
@@ -51,7 +54,25 @@ export const ContentDetailPage: React.FC<ContentDetailPageProps> = ({
   };
 
   if (isLoading) {
-    return <SkeletonContentDetailPage />;
+    // Determine content type even while loading to show the correct skeleton
+    const tempContent = getContentById(contentId);
+    
+    if (tempContent) {
+      if (isOpinionContent(tempContent)) {
+        return <SkeletonOpinionDetailPage />;
+      }
+      if (isConversationContent(tempContent)) {
+        return <SkeletonConversationDetailPage />;
+      }
+      if (isBlogContent(tempContent)) {
+        return <SkeletonBlogDetailPage />;
+      }
+      // Default to news skeleton for news and legacy content
+      return <SkeletonNewsDetailPage />;
+    }
+    
+    // If content not found, show news skeleton as default
+    return <SkeletonNewsDetailPage />;
   }
 
   if (!content) {

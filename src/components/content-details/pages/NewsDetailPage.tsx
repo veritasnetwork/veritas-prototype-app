@@ -1,12 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { NewsContent } from '@/types/content.types';
 import { HeadingComponent } from '../components/HeadingComponent';
 import { ChartComponent } from '../components/ChartComponent';
 import { ArticleComponent } from '../components/ArticleComponent';
 import { RelevanceSignals } from '../RelevanceSignals';
-import { SkeletonContentDetailPage } from '../skeleton/SkeletonContentDetailPage';
 import { ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 
@@ -19,18 +17,6 @@ export const NewsDetailPage: React.FC<NewsDetailPageProps> = ({
   content,
   onBack
 }) => {
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Simulate loading for smooth transition
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
-  }, []);
-
-  if (isLoading) {
-    return <SkeletonContentDetailPage />;
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-veritas-darker-blue">

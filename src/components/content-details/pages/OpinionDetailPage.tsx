@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { OpinionContent } from '@/types/content.types';
 import { RelevanceSignals } from '../RelevanceSignals';
-import { SkeletonContentDetailPage } from '../skeleton/SkeletonContentDetailPage';
 import { 
   ArrowLeft, 
   Users, 
@@ -26,7 +25,6 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
   content,
   onBack
 }) => {
-  const [isLoading, setIsLoading] = useState(true);
   const [userPrediction, setUserPrediction] = useState<string | number | string[] | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
@@ -45,16 +43,7 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
     } else if (content.opinionType === 'yes-no') {
       setUserPrediction(null); // Will be 'yes' or 'no'
     }
-    
-    // Simulate loading for smooth transition
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
   }, [content]);
-
-  if (isLoading) {
-    return <SkeletonContentDetailPage />;
-  }
 
   // Handle submission of user prediction
   const handleSubmitPrediction = async () => {
@@ -117,9 +106,9 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
     const trend = getTrend();
     switch (trend) {
       case 'up':
-        return <ChevronUp className="h-6 w-6 text-green-500" />;
+        return <ChevronUp className="h-6 w-6 text-veritas-primary dark:text-veritas-light-blue" />;
       case 'down':
-        return <ChevronDown className="h-6 w-6 text-red-500" />;
+        return <ChevronDown className="h-6 w-6 text-veritas-secondary dark:text-veritas-orange" />;
       default:
         return <Minus className="h-6 w-6 text-gray-400" />;
     }
@@ -207,9 +196,9 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
             )}
             
             {hasVoted && (
-              <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-                <CheckCircle className="h-6 w-6 text-green-500 mx-auto mb-2" />
-                <p className="text-green-700 dark:text-green-300">
+              <div className="mt-6 p-4 bg-veritas-light-blue/10 dark:bg-veritas-light-blue/20 rounded-lg text-center">
+                <CheckCircle className="h-6 w-6 text-veritas-primary dark:text-veritas-light-blue mx-auto mb-2" />
+                <p className="text-veritas-primary dark:text-veritas-light-blue">
                   Your prediction of {userPrediction}{content.unit} has been recorded!
                 </p>
               </div>
@@ -276,7 +265,7 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
                     className={`py-6 px-8 rounded-xl font-bold text-xl transition-all duration-200 ${
                       userPrediction === 'yes'
                         ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg scale-105'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-veritas-light-blue/10 dark:hover:bg-veritas-light-blue/20'
                     }`}
                   >
                     YES
@@ -286,7 +275,7 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
                     className={`py-6 px-8 rounded-xl font-bold text-xl transition-all duration-200 ${
                       userPrediction === 'no'
                         ? 'bg-gradient-to-r from-red-600 to-red-500 text-white shadow-lg scale-105'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-veritas-secondary/10 dark:hover:bg-veritas-orange/20'
                     }`}
                   >
                     NO
@@ -317,9 +306,9 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
             )}
             
             {hasVoted && (
-              <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-                <CheckCircle className="h-6 w-6 text-green-500 mx-auto mb-2" />
-                <p className="text-green-700 dark:text-green-300">
+              <div className="mt-6 p-4 bg-veritas-light-blue/10 dark:bg-veritas-light-blue/20 rounded-lg text-center">
+                <CheckCircle className="h-6 w-6 text-veritas-primary dark:text-veritas-light-blue mx-auto mb-2" />
+                <p className="text-veritas-primary dark:text-veritas-light-blue">
                   You voted <strong>{String(userPrediction).toUpperCase()}</strong>
                 </p>
               </div>
@@ -427,9 +416,9 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
             )}
             
             {hasVoted && (
-              <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-                <CheckCircle className="h-6 w-6 text-green-500 mx-auto mb-2" />
-                <p className="text-green-700 dark:text-green-300">
+              <div className="mt-6 p-4 bg-veritas-light-blue/10 dark:bg-veritas-light-blue/20 rounded-lg text-center">
+                <CheckCircle className="h-6 w-6 text-veritas-primary dark:text-veritas-light-blue mx-auto mb-2" />
+                <p className="text-veritas-primary dark:text-veritas-light-blue">
                   You voted for <strong>{userPrediction}</strong>
                 </p>
               </div>
@@ -534,9 +523,9 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
             </div>
             
             {hasVoted && (
-              <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-                <CheckCircle className="h-6 w-6 text-green-500 mx-auto mb-2" />
-                <p className="text-green-700 dark:text-green-300">
+              <div className="mt-6 p-4 bg-veritas-light-blue/10 dark:bg-veritas-light-blue/20 rounded-lg text-center">
+                <CheckCircle className="h-6 w-6 text-veritas-primary dark:text-veritas-light-blue mx-auto mb-2" />
+                <p className="text-veritas-primary dark:text-veritas-light-blue">
                   Your ranking has been submitted!
                 </p>
               </div>
@@ -589,7 +578,7 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
               
               {/* Status Badge */}
               {content.status === 'resolved' && (
-                <div className="mt-4 inline-block px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-sm rounded-full">
+                <div className="mt-4 inline-block px-3 py-1 bg-veritas-light-blue/20 dark:bg-veritas-light-blue/30 text-veritas-primary dark:text-veritas-light-blue text-sm rounded-full">
                   Resolved: {content.resolvedValue}
                 </div>
               )}
@@ -610,14 +599,14 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
                   <div className="text-sm text-gray-500">Total Participants</div>
                 </div>
                 <div className="text-center p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                  <Activity className="h-8 w-8 text-purple-500 mx-auto mb-2" />
+                  <Activity className="h-8 w-8 text-veritas-primary dark:text-veritas-light-blue mx-auto mb-2" />
                   <div className="text-2xl font-bold text-gray-900 dark:text-white">
                     {hasVoted ? content.totalParticipants + 1 : content.totalParticipants}
                   </div>
                   <div className="text-sm text-gray-500">Active Now</div>
                 </div>
                 <div className="text-center p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                  <TrendingUp className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                  <TrendingUp className="h-8 w-8 text-veritas-primary dark:text-veritas-light-blue mx-auto mb-2" />
                   <div className="text-2xl font-bold text-gray-900 dark:text-white">
                     {Math.round(Math.random() * 20 + 5)}%
                   </div>
@@ -625,15 +614,15 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
                 </div>
               </div>
               {content.resolutionDate && (
-                <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg flex items-center justify-between">
+                <div className="mt-4 p-3 bg-veritas-eggshell/20 dark:bg-veritas-eggshell/10 rounded-lg flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-yellow-600" />
-                    <span className="text-sm text-yellow-700 dark:text-yellow-300">
+                    <Award className="h-5 w-5 text-veritas-secondary dark:text-veritas-orange" />
+                    <span className="text-sm text-veritas-primary dark:text-veritas-eggshell">
                       Resolves on {new Date(content.resolutionDate).toLocaleDateString()}
                     </span>
                   </div>
                   {content.status === 'resolved' && content.resolvedValue && (
-                    <span className="text-sm font-bold text-yellow-700 dark:text-yellow-300">
+                    <span className="text-sm font-bold text-veritas-primary dark:text-veritas-eggshell">
                       Result: {content.resolvedValue}
                     </span>
                   )}
@@ -651,7 +640,7 @@ export const OpinionDetailPage: React.FC<OpinionDetailPageProps> = ({
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500">Your Status</span>
-                  <span className={`text-sm font-medium ${hasVoted ? 'text-green-600' : 'text-gray-600'}`}>
+                  <span className={`text-sm font-medium ${hasVoted ? 'text-veritas-primary dark:text-veritas-light-blue' : 'text-gray-600'}`}>
                     {hasVoted ? 'Voted' : 'Not Voted'}
                   </span>
                 </div>

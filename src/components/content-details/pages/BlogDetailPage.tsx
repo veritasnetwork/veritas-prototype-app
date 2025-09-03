@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { BlogContent } from '@/types/content.types';
 import { ArticleComponent } from '../components/ArticleComponent';
 import { RelevanceSignals } from '../RelevanceSignals';
-import { SkeletonContentDetailPage } from '../skeleton/SkeletonContentDetailPage';
 import { getRelatedContent } from '@/lib/data';
 import { 
   ArrowLeft, 
@@ -38,7 +37,6 @@ export const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
   content,
   onBack
 }) => {
-  const [isLoading, setIsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string>('');
   const [tableOfContents, setTableOfContents] = useState<TableOfContentsItem[]>([]);
   const [showToC, setShowToC] = useState(false);
@@ -52,11 +50,6 @@ export const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
       setTableOfContents(headings);
       setShowToC(headings.length > 3); // Only show ToC if there are enough sections
     }
-    
-    // Simulate loading for smooth transition
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
   }, [content]);
 
   // Set up scroll tracking for active section
@@ -134,9 +127,6 @@ export const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
   };
 
 
-  if (isLoading) {
-    return <SkeletonContentDetailPage />;
-  }
 
   // Get placeholder image or use article thumbnail
   const getImageSrc = () => {
@@ -252,24 +242,24 @@ export const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                   <div className="flex items-center gap-2 mt-4">
                     <button 
                       onClick={() => handleShare('twitter')}
-                      className="p-2 text-gray-500 hover:text-blue-400 transition-colors"
+                      className="p-2 text-gray-500 hover:text-veritas-primary dark:hover:text-veritas-light-blue transition-colors"
                       title="Share on Twitter"
                     >
                       <Twitter className="h-4 w-4" />
                     </button>
                     <button 
                       onClick={() => handleShare('linkedin')}
-                      className="p-2 text-gray-500 hover:text-blue-600 transition-colors"
+                      className="p-2 text-gray-500 hover:text-veritas-primary dark:hover:text-veritas-light-blue transition-colors"
                       title="Share on LinkedIn"
                     >
                       <Linkedin className="h-4 w-4" />
                     </button>
                     <button 
                       onClick={() => handleShare('copy')}
-                      className="p-2 text-gray-500 hover:text-green-600 transition-colors"
+                      className="p-2 text-gray-500 hover:text-veritas-primary dark:hover:text-veritas-light-blue transition-colors"
                       title="Copy link"
                     >
-                      {copied ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                      {copied ? <CheckCircle className="h-4 w-4 text-veritas-primary dark:text-veritas-light-blue" /> : <Copy className="h-4 w-4" />}
                     </button>
                     <button 
                       onClick={() => handleShare()}

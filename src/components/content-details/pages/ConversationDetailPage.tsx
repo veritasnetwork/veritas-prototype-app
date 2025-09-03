@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { ConversationContent } from '@/types/content.types';
 import { RelevanceSignals } from '../RelevanceSignals';
 import { ConversationCommentsSection } from '../ConversationCommentsSection';
-import { SkeletonContentDetailPage } from '../skeleton/SkeletonContentDetailPage';
 import { 
   getCommentsByContentId, 
   getTotalCommentCount,
@@ -33,7 +32,6 @@ export const ConversationDetailPage: React.FC<ConversationDetailPageProps> = ({
   content,
   onBack
 }) => {
-  const [isLoading, setIsLoading] = useState(true);
   const [comments, setComments] = useState<Comment[]>([]);
   const [participantCount, setParticipantCount] = useState(0);
   const [totalComments, setTotalComments] = useState(0);
@@ -53,16 +51,7 @@ export const ConversationDetailPage: React.FC<ConversationDetailPageProps> = ({
     
     const lastActivityTime = getLastActivityTime(loadedComments);
     setLastActivity(lastActivityTime || new Date(content.lastActivityAt));
-    
-    // Simulate loading for smooth transition
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
   }, [content]);
-
-  if (isLoading) {
-    return <SkeletonContentDetailPage />;
-  }
 
   // Calculate activity level based on last activity
   const getActivityLevel = () => {
@@ -104,20 +93,20 @@ export const ConversationDetailPage: React.FC<ConversationDetailPageProps> = ({
     switch (activityLevel) {
       case 'hot':
         return (
-          <div className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 text-sm rounded-full font-medium">
+          <div className="inline-flex items-center gap-1 px-3 py-1 bg-veritas-secondary/20 dark:bg-veritas-orange/20 text-veritas-secondary dark:text-veritas-orange text-sm rounded-full font-medium">
             <Flame className="h-4 w-4" />
             Hot Discussion
           </div>
         );
       case 'active':
         return (
-          <div className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-300 text-sm rounded-full">
+          <div className="inline-flex items-center gap-1 px-3 py-1 bg-veritas-secondary/10 dark:bg-veritas-orange/10 text-veritas-secondary dark:text-veritas-orange text-sm rounded-full">
             Active
           </div>
         );
       case 'recent':
         return (
-          <div className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-300 text-sm rounded-full">
+          <div className="inline-flex items-center gap-1 px-3 py-1 bg-veritas-eggshell/30 dark:bg-veritas-eggshell/10 text-veritas-primary dark:text-veritas-eggshell text-sm rounded-full">
             Recent Activity
           </div>
         );
@@ -158,13 +147,13 @@ export const ConversationDetailPage: React.FC<ConversationDetailPageProps> = ({
                       {content.topic}
                     </h1>
                     {content.isPinned && (
-                      <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded-full">
-                        <Pin className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                      <div className="p-1.5 bg-veritas-primary/10 dark:bg-veritas-light-blue/20 rounded-full">
+                        <Pin className="h-4 w-4 text-veritas-primary dark:text-veritas-light-blue" />
                       </div>
                     )}
                     {content.isLocked && (
-                      <div className="p-1.5 bg-red-100 dark:bg-red-900 rounded-full">
-                        <Lock className="h-4 w-4 text-red-600 dark:text-red-300" />
+                      <div className="p-1.5 bg-veritas-secondary/10 dark:bg-veritas-orange/20 rounded-full">
+                        <Lock className="h-4 w-4 text-veritas-secondary dark:text-veritas-orange" />
                       </div>
                     )}
                   </div>
@@ -200,10 +189,10 @@ export const ConversationDetailPage: React.FC<ConversationDetailPageProps> = ({
 
             {/* Initial Post */}
             {content.initialPost && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+              <div className="bg-veritas-light-blue/10 dark:bg-veritas-light-blue/20 rounded-xl p-6 border border-veritas-light-blue/30 dark:border-veritas-light-blue/40">
                 <div className="flex items-center gap-2 mb-3">
-                  <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <span className="font-semibold text-blue-900 dark:text-blue-300">Opening Statement</span>
+                  <MessageSquare className="h-5 w-5 text-veritas-primary dark:text-veritas-light-blue" />
+                  <span className="font-semibold text-veritas-primary dark:text-veritas-light-blue">Opening Statement</span>
                 </div>
                 <p className="text-gray-700 dark:text-gray-300">
                   {content.initialPost}
@@ -244,9 +233,9 @@ export const ConversationDetailPage: React.FC<ConversationDetailPageProps> = ({
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-500">Activity Level</span>
                   <span className={`text-xs font-medium ${
-                    activityLevel === 'hot' ? 'text-red-500' :
-                    activityLevel === 'active' ? 'text-orange-500' :
-                    activityLevel === 'recent' ? 'text-yellow-500' :
+                    activityLevel === 'hot' ? 'text-veritas-secondary dark:text-veritas-orange' :
+                    activityLevel === 'active' ? 'text-veritas-secondary dark:text-veritas-orange' :
+                    activityLevel === 'recent' ? 'text-veritas-primary dark:text-veritas-eggshell' :
                     'text-gray-500'
                   }`}>
                     {activityLevel.charAt(0).toUpperCase() + activityLevel.slice(1)}
@@ -286,7 +275,7 @@ export const ConversationDetailPage: React.FC<ConversationDetailPageProps> = ({
             {/* Participation CTA */}
             {!content.isLocked && (
               <div className="bg-white dark:bg-veritas-darker-blue/80 rounded-xl p-4 border border-slate-200 dark:border-veritas-eggshell/10">
-                <button className="w-full px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-md transition-all duration-200">
+                <button className="w-full px-4 py-3 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-lg hover:bg-veritas-dark-blue dark:hover:bg-veritas-light-blue/90 hover:shadow-md transition-all duration-200">
                   Join Discussion
                 </button>
               </div>
@@ -301,12 +290,12 @@ export const ConversationDetailPage: React.FC<ConversationDetailPageProps> = ({
               <div className="space-y-2">
                 {Array.from(getUniqueParticipants(comments)).slice(0, 5).map((name, index) => (
                   <div key={name} className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-xs font-bold">
+                    <div className="w-8 h-8 rounded-full bg-veritas-primary dark:bg-veritas-light-blue flex items-center justify-center text-white dark:text-veritas-darker-blue text-xs font-bold">
                       {name.charAt(0).toUpperCase()}
                     </div>
                     <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{name}</span>
                     {index === 0 && (
-                      <span className="ml-auto text-xs text-yellow-500">👑</span>
+                      <span className="ml-auto text-xs text-veritas-secondary dark:text-veritas-orange">👑</span>
                     )}
                   </div>
                 ))}

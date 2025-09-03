@@ -25,7 +25,10 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
   layout = 'half'
 }) => {
   void layout; // Layout is handled by parent grid
-  const [isValidating, setIsValidating] = useState(false);
+  const [isEditingMode, setIsEditingMode] = useState(false);
+  const [myBeliefValue, setMyBeliefValue] = useState(50);
+  const [othersBeliefValue, setOthersBeliefValue] = useState(50);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const handleClick = () => {
     onClick(content.id);
@@ -33,8 +36,27 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
   
   const handleValidate = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsValidating(true);
-    // TODO: Open validation modal or inline validation
+    setIsEditingMode(!isEditingMode);
+    if (!isEditingMode) {
+      // Initialize with current relevance value when entering edit mode
+      const currentRelevance = content.signals?.relevance?.currentValue || 50;
+      setMyBeliefValue(currentRelevance);
+      setOthersBeliefValue(currentRelevance);
+    }
+  };
+  
+  const handleTotalRelevanceSubmit = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsSubmitting(true);
+    
+    // Simulate submission
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    setIsSubmitting(false);
+    setIsEditingMode(false);
+    // Reset values for next edit
+    setMyBeliefValue(50);
+    setOthersBeliefValue(50);
   };
   
   // Get trend from historical data
@@ -97,7 +119,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
         return (
           <div className="text-center py-4">
             <div className="flex items-center justify-center gap-2">
-              <div className="text-6xl font-bold text-veritas-blue dark:text-veritas-light-blue">
+              <div className="text-6xl font-bold text-veritas-primary dark:text-veritas-light-blue">
                 {content.currentValue || 0}
               </div>
               <div className="flex flex-col items-start">
@@ -113,7 +135,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
             {content.range && (
               <div className="mt-3 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 relative">
                 <div 
-                  className="absolute top-0 left-0 h-full bg-veritas-blue dark:bg-veritas-light-blue rounded-full transition-all duration-500"
+                  className="absolute top-0 left-0 h-full bg-veritas-primary dark:bg-veritas-light-blue rounded-full transition-all duration-500"
                   style={{ 
                     width: `${((content.currentValue || 0) - content.range.min) / (content.range.max - content.range.min) * 100}%` 
                   }}
@@ -184,7 +206,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
                       <div 
                         className={`h-full transition-all duration-500 ${
                           index === 0 
-                            ? 'bg-veritas-blue dark:bg-veritas-light-blue' 
+                            ? 'bg-veritas-primary dark:bg-veritas-light-blue' 
                             : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                         style={{ width: `${percentage}%` }}
@@ -257,7 +279,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
         rounded-xl shadow-sm hover:shadow-lg 
         transition-all duration-300 
         border border-slate-200 dark:border-veritas-eggshell/10
-        hover:border-veritas-blue dark:hover:border-veritas-light-blue
+        hover:border-veritas-primary dark:hover:border-veritas-light-blue
         cursor-pointer group
         overflow-hidden
         relative
@@ -275,7 +297,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
         {/* Header */}
         <div className={`flex items-start justify-between ${variant === 'compact' ? 'mb-2' : 'mb-3'}`}>
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-veritas-blue transition-colors">
+            <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-veritas-primary dark:group-hover:text-veritas-light-blue transition-colors">
               {content.heading.title}
             </h3>
             {variant !== 'compact' && content.heading.subtitle && (
@@ -284,7 +306,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
               </p>
             )}
           </div>
-          <div className="ml-2 text-veritas-blue">
+          <div className="ml-2 text-veritas-primary dark:text-veritas-light-blue">
             {getTypeIcon()}
           </div>
         </div>
@@ -299,7 +321,81 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
         {/* Main Display */}
         {variant !== 'compact' && (
           <div className="flex-1 flex flex-col justify-center">
-            {renderMainDisplay()}
+            {isEditingMode ? (
+              /* Total Relevance Editor */
+              <div className="py-4">
+                <h4 className="text-sm font-semibold text-veritas-primary dark:text-veritas-eggshell mb-3 uppercase tracking-wider">
+                  Total Relevance Adjustment
+                </h4>
+                
+                <div className="space-y-4">
+                  {/* My Belief Slider */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        What I Believe
+                      </label>
+                      <span className="text-sm font-bold text-veritas-primary dark:text-veritas-light-blue">
+                        {myBeliefValue}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={myBeliefValue}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setMyBeliefValue(parseInt(e.target.value));
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
+                      style={{
+                        background: `linear-gradient(to right, #B9D9EB 0%, #B9D9EB ${myBeliefValue}%, rgb(229 231 235) ${myBeliefValue}%, rgb(229 231 235) 100%)`
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Others Belief Slider */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        What Others Believe
+                      </label>
+                      <span className="text-sm font-bold text-veritas-primary dark:text-veritas-light-blue">
+                        {othersBeliefValue}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={othersBeliefValue}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setOthersBeliefValue(parseInt(e.target.value));
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
+                      style={{
+                        background: `linear-gradient(to right, #B9D9EB 0%, #B9D9EB ${othersBeliefValue}%, rgb(229 231 235) ${othersBeliefValue}%, rgb(229 231 235) 100%)`
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Submit Button */}
+                  <button
+                    onClick={handleTotalRelevanceSubmit}
+                    disabled={isSubmitting}
+                    className="w-full py-2 mt-2 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-lg text-sm font-medium hover:bg-veritas-dark-blue dark:hover:bg-veritas-light-blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Submit Total Relevance'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              renderMainDisplay()
+            )}
           </div>
         )}
         
@@ -312,20 +408,13 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
           </div>
           
           {/* Validate Button */}
-          {variant !== 'compact' && !isValidating && (
+          {variant !== 'compact' && (
             <button
-              className="px-4 py-1.5 text-sm bg-veritas-blue dark:bg-veritas-light-blue text-white dark:text-veritas-dark-blue rounded-lg hover:shadow-md transition-all duration-200 transform hover:scale-105"
+              className="px-4 py-1.5 text-sm bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-lg hover:shadow-md transition-all duration-200 transform hover:scale-105"
               onClick={handleValidate}
             >
-              Validate
+              {isEditingMode ? 'View Opinion' : 'Validate'}
             </button>
-          )}
-          
-          {/* Validation in progress */}
-          {isValidating && (
-            <div className="text-sm text-veritas-blue">
-              Validating...
-            </div>
           )}
         </div>
         

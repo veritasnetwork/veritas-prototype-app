@@ -133,7 +133,7 @@ export const ConversationCommentsSection: React.FC<ConversationCommentsSectionPr
                 {canReply && (
                   <button 
                     onClick={() => setReplyingTo(comment.id)}
-                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-veritas-blue transition-colors"
+                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-veritas-primary dark:hover:text-veritas-light-blue transition-colors"
                   >
                     <Reply className="h-4 w-4" />
                     Reply
@@ -143,7 +143,7 @@ export const ConversationCommentsSection: React.FC<ConversationCommentsSectionPr
                 {hasReplies && (
                   <button 
                     onClick={() => toggleReplies(comment.id)}
-                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-veritas-blue transition-colors"
+                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-veritas-primary dark:hover:text-veritas-light-blue transition-colors"
                   >
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     {comment.replies!.length} {comment.replies!.length === 1 ? 'reply' : 'replies'}
@@ -159,12 +159,12 @@ export const ConversationCommentsSection: React.FC<ConversationCommentsSectionPr
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
                     placeholder="Write a reply..."
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-veritas-blue text-sm"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-veritas-primary dark:focus:ring-veritas-light-blue text-sm"
                     onKeyDown={(e) => e.key === 'Enter' && handleReplySubmit(comment.id)}
                   />
                   <button 
                     onClick={() => handleReplySubmit(comment.id)}
-                    className="px-4 py-2 bg-veritas-blue text-white rounded-lg hover:bg-veritas-dark-blue transition-colors text-sm"
+                    className="px-4 py-2 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-lg hover:bg-veritas-dark-blue dark:hover:bg-veritas-light-blue/90 transition-colors text-sm"
                   >
                     Post
                   </button>
@@ -259,7 +259,7 @@ export const ConversationCommentsSection: React.FC<ConversationCommentsSectionPr
             <button 
               onClick={handleNewCommentSubmit}
               disabled={!newCommentText.trim()}
-              className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-lg hover:bg-veritas-dark-blue dark:hover:bg-veritas-light-blue/90 hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Post Comment
             </button>

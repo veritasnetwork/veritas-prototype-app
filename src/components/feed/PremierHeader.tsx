@@ -209,7 +209,7 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
             </div>
             
             {/* Pill Navigation System */}
-            <div className="inline-flex items-center p-1 bg-gray-100 dark:bg-veritas-darker-blue/50 rounded-full">
+            <div className="inline-flex items-center p-1 bg-slate-200 dark:bg-veritas-darker-blue/50 rounded-full">
               {viewOptions.map((option) => (
                 <button
                   key={option.value}
@@ -217,7 +217,7 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
                   className={`
                     relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
                     ${activeView === option.value
-                      ? 'bg-veritas-blue dark:bg-veritas-light-blue text-white dark:text-veritas-dark-blue shadow-sm'
+                      ? 'bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-dark-blue shadow-sm'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                     }
                   `}
@@ -287,7 +287,7 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
                 className={`
                   relative px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200
                   ${activeView === option.value
-                    ? 'bg-veritas-blue dark:bg-veritas-light-blue text-white dark:text-veritas-dark-blue shadow-sm'
+                    ? 'bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-dark-blue shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }
                 `}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BlogContent } from '@/types/content.types';
 import { Clock, User, BookOpen } from 'lucide-react';
 import Image from 'next/image';
@@ -15,8 +15,38 @@ export const BlogCard: React.FC<BlogCardProps> = ({
   variant = 'feed',
   onClick
 }) => {
+  const [isEditingMode, setIsEditingMode] = useState(false);
+  const [myBeliefValue, setMyBeliefValue] = useState(50);
+  const [othersBeliefValue, setOthersBeliefValue] = useState(50);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const handleClick = () => {
     onClick(content.id);
+  };
+  
+  const handleValidate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditingMode(!isEditingMode);
+    if (!isEditingMode) {
+      // Initialize with current relevance value when entering edit mode
+      const currentRelevance = content.signals?.relevance?.currentValue || 50;
+      setMyBeliefValue(currentRelevance);
+      setOthersBeliefValue(currentRelevance);
+    }
+  };
+  
+  const handleTotalRelevanceSubmit = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsSubmitting(true);
+    
+    // Simulate submission
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    setIsSubmitting(false);
+    setIsEditingMode(false);
+    // Reset values for next edit
+    setMyBeliefValue(50);
+    setOthersBeliefValue(50);
   };
   
   // Card sizing based on variant
@@ -90,6 +120,16 @@ export const BlogCard: React.FC<BlogCardProps> = ({
           <div className="absolute top-3 left-3 px-2 py-1 bg-black/70 text-white text-xs rounded">
             {content.category}
           </div>
+          
+          {/* Validate Button - Top Right */}
+          {variant !== 'compact' && (
+            <button
+              onClick={handleValidate}
+              className="absolute top-3 right-3 px-3 py-1 bg-veritas-primary/90 dark:bg-veritas-light-blue/90 backdrop-blur-sm text-white dark:text-veritas-darker-blue text-xs font-medium rounded hover:bg-veritas-primary dark:hover:bg-veritas-light-blue transition-colors z-10"
+            >
+              {isEditingMode ? 'View Blog' : 'Validate'}
+            </button>
+          )}
         </div>
         
         {/* Content Section */}
@@ -100,7 +140,7 @@ export const BlogCard: React.FC<BlogCardProps> = ({
         }>
           {/* Header */}
           <div className="mb-2">
-            <h3 className="font-bold text-lg text-gray-900 dark:text-white line-clamp-2 group-hover:text-veritas-blue transition-colors">
+            <h3 className="font-bold text-lg text-gray-900 dark:text-white line-clamp-2 group-hover:text-veritas-primary dark:group-hover:text-veritas-light-blue transition-colors">
               {content.heading.title}
             </h3>
             {variant !== 'compact' && content.heading.subtitle && (
@@ -110,11 +150,85 @@ export const BlogCard: React.FC<BlogCardProps> = ({
             )}
           </div>
           
-          {/* Excerpt */}
+          {/* Excerpt or Validation Editor */}
           {variant !== 'compact' && (
-            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 mb-3">
-              {content.article.excerpt}
-            </p>
+            isEditingMode ? (
+              /* Total Relevance Editor */
+              <div className="flex-1 py-2">
+                <h4 className="text-xs font-semibold text-veritas-primary dark:text-veritas-eggshell mb-2 uppercase tracking-wider">
+                  Total Relevance Adjustment
+                </h4>
+                
+                <div className="space-y-3">
+                  {/* My Belief Slider */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        What I Believe
+                      </label>
+                      <span className="text-xs font-bold text-veritas-primary dark:text-veritas-light-blue">
+                        {myBeliefValue}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={myBeliefValue}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setMyBeliefValue(parseInt(e.target.value));
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
+                      style={{
+                        background: `linear-gradient(to right, #B9D9EB 0%, #B9D9EB ${myBeliefValue}%, rgb(229 231 235) ${myBeliefValue}%, rgb(229 231 235) 100%)`
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Others Belief Slider */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        What Others Believe
+                      </label>
+                      <span className="text-xs font-bold text-veritas-primary dark:text-veritas-light-blue">
+                        {othersBeliefValue}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={othersBeliefValue}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setOthersBeliefValue(parseInt(e.target.value));
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
+                      style={{
+                        background: `linear-gradient(to right, #B9D9EB 0%, #B9D9EB ${othersBeliefValue}%, rgb(229 231 235) ${othersBeliefValue}%, rgb(229 231 235) 100%)`
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Submit Button */}
+                  <button
+                    onClick={handleTotalRelevanceSubmit}
+                    disabled={isSubmitting}
+                    className="w-full py-1.5 mt-1 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-lg text-xs font-medium hover:bg-veritas-dark-blue dark:hover:bg-veritas-light-blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Submit Total Relevance'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 mb-3">
+                {content.article.excerpt}
+              </p>
+            )
           )}
           
           {/* Author Info */}
@@ -166,7 +280,7 @@ export const BlogCard: React.FC<BlogCardProps> = ({
             {/* Read More CTA */}
             {variant !== 'compact' && (
               <button
-                className="text-sm text-veritas-blue hover:text-veritas-dark-blue transition-colors"
+                className="text-sm font-medium text-veritas-primary dark:text-veritas-light-blue hover:text-veritas-secondary dark:hover:text-veritas-eggshell transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleClick();

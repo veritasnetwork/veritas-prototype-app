@@ -193,7 +193,7 @@ export const MainFeed: React.FC<MainFeedProps> = ({ contents, loading = false })
           {hasMore && (
             <div ref={loadMoreRef} className="flex justify-center py-8">
               {isLoadingMore && (
-                <Loader2 className="h-8 w-8 animate-spin text-veritas-blue" />
+                <Loader2 className="h-8 w-8 animate-spin text-veritas-primary dark:text-veritas-light-blue" />
               )}
             </div>
           )}
@@ -237,11 +237,11 @@ export const MainFeed: React.FC<MainFeedProps> = ({ contents, loading = false })
           {hasMore && (
             <div ref={loadMoreRef} className="flex justify-center py-8">
               {isLoadingMore ? (
-                <Loader2 className="h-8 w-8 animate-spin text-veritas-blue" />
+                <Loader2 className="h-8 w-8 animate-spin text-veritas-primary dark:text-veritas-light-blue" />
               ) : (
                 <button 
                   onClick={loadMore}
-                  className="px-6 py-2 text-sm text-veritas-blue hover:text-veritas-dark-blue transition-colors"
+                  className="px-6 py-2 text-sm text-veritas-primary dark:text-veritas-light-blue hover:text-veritas-dark-blue dark:hover:text-veritas-light-blue/80 transition-colors"
                 >
                   Load More
                 </button>
@@ -296,7 +296,7 @@ export const MainFeed: React.FC<MainFeedProps> = ({ contents, loading = false })
             <div ref={loadMoreRef} className="flex justify-center py-12">
               {isLoadingMore ? (
                 <div className="flex items-center gap-3">
-                  <Loader2 className="h-6 w-6 animate-spin text-veritas-blue" />
+                  <Loader2 className="h-6 w-6 animate-spin text-veritas-primary dark:text-veritas-light-blue" />
                   <span className="text-sm text-gray-600 dark:text-gray-400">
                     Loading more content...
                   </span>
