@@ -24,9 +24,9 @@ export const MetadataComponent: React.FC<MetadataComponentProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'text-green-600 dark:text-green-400';
+        return 'text-veritas-secondary dark:text-veritas-orange';
       case 'resolved':
-        return 'text-blue-600 dark:text-blue-400';
+        return 'text-veritas-primary dark:text-veritas-light-blue';
       // 'closed' status no longer exists, but kept for backward compatibility
       case 'closed':
         return 'text-gray-600 dark:text-gray-400';
@@ -38,11 +38,11 @@ export const MetadataComponent: React.FC<MetadataComponentProps> = ({
   const getCredibilityColor = (credibility: string) => {
     switch (credibility) {
       case 'high':
-        return 'text-green-600 dark:text-green-400';
+        return 'text-veritas-primary dark:text-veritas-light-blue';
       case 'medium':
-        return 'text-yellow-600 dark:text-yellow-400';
+        return 'text-veritas-secondary dark:text-veritas-orange';
       case 'low':
-        return 'text-red-600 dark:text-red-400';
+        return 'text-veritas-secondary/60 dark:text-veritas-orange/60';
       default:
         return 'text-gray-600 dark:text-gray-400';
     }

@@ -50,21 +50,27 @@ export const SkeletonContentCard: React.FC<SkeletonContentCardProps> = ({
           
           {/* Content Section - Right 50% */}
           <div className="w-1/2 p-6 flex flex-col">
-            {/* Truth & Relevance Metrics with Metadata */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-24 bg-gray-200 dark:bg-veritas-eggshell/10 rounded-full"></div>
-                <div className="h-8 w-28 bg-gray-200 dark:bg-veritas-eggshell/10 rounded-full"></div>
+            {/* Relevance Progress Bar with Validate Button */}
+            <div className="flex items-center justify-between mb-4 gap-4">
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="h-4 w-16 bg-gray-200 dark:bg-veritas-eggshell/10 rounded"></div>
+                  <div className="h-4 w-8 bg-gray-200 dark:bg-veritas-eggshell/10 rounded"></div>
+                </div>
+                <div className="w-full h-2 bg-gray-200 dark:bg-veritas-eggshell/10 rounded-full"></div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="h-4 w-20 bg-gray-200 dark:bg-veritas-eggshell/10 rounded"></div>
-                <div className="h-4 w-16 bg-gray-200 dark:bg-veritas-eggshell/10 rounded"></div>
-              </div>
+              <div className="h-8 w-20 bg-gray-200 dark:bg-veritas-eggshell/10 rounded-lg"></div>
             </div>
             
             {/* Chart skeleton */}
             <div className="flex-1 mb-2">
-              <div className="h-56 bg-gray-100 dark:bg-veritas-eggshell/5 rounded-xl"></div>
+              <div className="h-full bg-gray-100 dark:bg-veritas-eggshell/5 rounded-xl"></div>
+            </div>
+            
+            {/* Bottom Metadata */}
+            <div className="flex items-center justify-end gap-4 mt-2">
+              <div className="h-3 w-24 bg-gray-200 dark:bg-veritas-eggshell/10 rounded"></div>
+              <div className="h-3 w-16 bg-gray-200 dark:bg-veritas-eggshell/10 rounded"></div>
             </div>
           </div>
         </div>
@@ -154,7 +160,7 @@ export const SkeletonContentCard: React.FC<SkeletonContentCardProps> = ({
         </div>
       )}
       
-      {/* Footer metadata - removed active discussion */}
+      {/* Footer metadata with Validate button */}
       <div className={`pt-3 border-t border-gray-100 dark:border-veritas-eggshell/10 flex-shrink-0 ${
         variant === 'grid' || variant === 'large' ? 'space-y-2' : 'flex items-center justify-between'
       }`}>
@@ -166,8 +172,9 @@ export const SkeletonContentCard: React.FC<SkeletonContentCardProps> = ({
           }`}></div>
           <div className="h-3 w-12 bg-gray-200 dark:bg-veritas-eggshell/10 rounded"></div>
         </div>
-        <div className={`bg-gray-200 dark:bg-veritas-eggshell/10 rounded-full ${
-          variant === 'large' ? 'h-5 w-16' : 'h-5 w-16'
+        {/* Validate button skeleton */}
+        <div className={`bg-gray-200 dark:bg-veritas-eggshell/10 rounded-lg ${
+          variant === 'large' ? 'h-7 w-20' : 'h-7 w-20'
         }`}></div>
       </div>
       

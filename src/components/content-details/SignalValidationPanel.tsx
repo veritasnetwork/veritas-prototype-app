@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Info, CheckCircle, Loader2, Clock } from 'lucide-react';
-import { Belief } from '@/types/belief.types';
+import { Content } from '@/types/content.types';
 import { Algorithm } from '@/types/algorithm.types';
 import { ensureContentSignals, getSignalColor } from '@/lib/signals-utils';
 
@@ -17,7 +17,7 @@ export interface SignalUpdates {
 interface SignalValidationPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  belief: Belief;
+  belief: Content;
   currentAlgorithm?: Algorithm | null; // Pass algorithm from parent component
   onSubmit?: (updates: SignalUpdates) => void;
 }
@@ -425,10 +425,10 @@ export const SignalValidationPanel: React.FC<SignalValidationPanelProps> = ({
                 </div>
               </div>
               
-              <div className="mt-auto p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="mt-auto p-2.5 bg-veritas-light-blue/10 dark:bg-veritas-light-blue/20 rounded-lg">
                 <div className="flex items-start space-x-2">
-                  <Info className="w-3 h-3 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                  <Info className="w-3 h-3 text-veritas-primary dark:text-veritas-light-blue flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-veritas-primary dark:text-veritas-light-blue leading-relaxed">
                     Adjusts all weighted signals
                   </p>
                 </div>

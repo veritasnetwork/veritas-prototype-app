@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
-import { FilterStatus, SortOption, Belief, Content, ViewMode } from '@/types/belief.types';
+import { FilterStatus, SortOption, Belief, ViewMode } from '@/types/belief.types';
+import { Content, ContentType, isNewsContent, isOpinionContent, isConversationContent, isBlogContent } from '@/types/content.types';
 import { Algorithm } from '@/types/algorithm.types';
 import { getAllBeliefs, getAllContent, getAllAlgorithms } from '@/lib/data';
 import { rankContent } from '@/lib/algorithmEngine';
@@ -14,6 +15,7 @@ interface FeedContextType {
   sortBy: SortOption;
   filterStatus: FilterStatus;
   viewMode: ViewMode;
+  contentTypeFilter: ContentType | 'all'; // New - filter by content type
   filteredBeliefs: Belief[]; // Legacy - for backward compatibility
   filteredContents: Content[]; // New - primary content array
   allBeliefs: Belief[];
@@ -29,6 +31,7 @@ interface FeedContextType {
   setSortBy: (sort: SortOption) => void;
   setFilterStatus: (status: FilterStatus) => void;
   setViewMode: (mode: ViewMode) => void;
+  setContentTypeFilter: (type: ContentType | 'all') => void; // New
   handleFilterToggle: (filter: string) => void;
   setCurrentAlgorithm: (algorithm: Algorithm) => void;
 }
@@ -43,6 +46,7 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
+  const [contentTypeFilter, setContentTypeFilter] = useState<ContentType | 'all'>('all');
   const [currentAlgorithm, setCurrentAlgorithm] = useState<Algorithm | null>(null);
 
   // Initialize algorithm from localStorage or use first preset
@@ -98,14 +102,49 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     
     let content = allContent;
     
+    // Apply content type filter first
+    if (contentTypeFilter !== 'all') {
+      content = content.filter(c => {
+        switch (contentTypeFilter) {
+          case 'news':
+            return isNewsContent(c);
+          case 'opinion':
+            return isOpinionContent(c);
+          case 'conversation':
+            return isConversationContent(c);
+          case 'blog':
+            return isBlogContent(c);
+          default:
+            return true;
+        }
+      });
+    }
+    
     // Apply search filter to content
     if (searchQuery.trim()) {
       const lowercaseQuery = searchQuery.toLowerCase();
-      content = content.filter(c => 
-        c.heading.title.toLowerCase().includes(lowercaseQuery) ||
-        c.article.content.toLowerCase().includes(lowercaseQuery) ||
-        c.article.headline?.toLowerCase().includes(lowercaseQuery)
-      );
+      content = content.filter(c => {
+        // Check title (all content types have this)
+        if (c.heading.title.toLowerCase().includes(lowercaseQuery)) return true;
+        
+        // Check article content if it exists
+        if ('article' in c && c.article) {
+          if (c.article.content.toLowerCase().includes(lowercaseQuery)) return true;
+          if (c.article.headline?.toLowerCase().includes(lowercaseQuery)) return true;
+        }
+        
+        // Check description for opinion and conversation types
+        if ('description' in c && c.description) {
+          if (c.description.toLowerCase().includes(lowercaseQuery)) return true;
+        }
+        
+        // Check question for opinion types
+        if ('question' in c && c.question) {
+          if (c.question.toLowerCase().includes(lowercaseQuery)) return true;
+        }
+        
+        return false;
+      });
     }
     
     // Apply status filter
@@ -117,9 +156,9 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
       });
     }
     
-    // Rank using algorithm
+    // Rank using algorithm - maintains ranking within filtered results
     return rankContent(content, currentAlgorithm);
-  }, [allContent, searchQuery, filterStatus, currentAlgorithm]);
+  }, [allContent, searchQuery, filterStatus, contentTypeFilter, currentAlgorithm]);
 
   // Convert ranked content to beliefs for backward compatibility
   const filteredBeliefs = useMemo(() => {
@@ -187,6 +226,24 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Handle content type filter change with localStorage persistence
+  const handleContentTypeFilterChange = (type: ContentType | 'all') => {
+    setContentTypeFilter(type);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('veritas-content-type-filter', type);
+    }
+  };
+
+  // Load content type filter from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedFilter = localStorage.getItem('veritas-content-type-filter') as ContentType | 'all';
+      if (savedFilter && ['all', 'news', 'opinion', 'conversation', 'blog'].includes(savedFilter)) {
+        setContentTypeFilter(savedFilter);
+      }
+    }
+  }, []);
+
   const contextValue: FeedContextType = {
     searchQuery,
     activeCategory,
@@ -194,6 +251,7 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     sortBy,
     filterStatus,
     viewMode,
+    contentTypeFilter,
     filteredBeliefs,
     filteredContents: rankedContent, // New - provide rankedContent as filteredContents
     allBeliefs,
@@ -205,6 +263,7 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     setSortBy,
     setFilterStatus,
     setViewMode: handleViewModeChange,
+    setContentTypeFilter: handleContentTypeFilterChange,
     handleFilterToggle,
     setCurrentAlgorithm: handleAlgorithmChange,
   };

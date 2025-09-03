@@ -126,16 +126,16 @@ const ComponentUnderstandingModal: React.FC<{
               </div>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+            <div className="bg-veritas-light-blue/10 dark:bg-veritas-light-blue/20 border border-veritas-light-blue/30 dark:border-veritas-light-blue/40 rounded-xl sm:rounded-2xl p-4 sm:p-6">
               <div className="flex items-start space-x-3 sm:space-x-4">
-                <div className="p-2 sm:p-3 bg-blue-100 dark:bg-blue-800/50 rounded-lg sm:rounded-xl flex-shrink-0">
-                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
+                <div className="p-2 sm:p-3 bg-veritas-light-blue/20 dark:bg-veritas-light-blue/30 rounded-lg sm:rounded-xl flex-shrink-0">
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-veritas-primary dark:text-veritas-light-blue" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-blue-900 dark:text-blue-100 mb-2 sm:mb-3 text-base sm:text-lg">
+                  <h4 className="font-bold text-veritas-primary dark:text-veritas-light-blue mb-2 sm:mb-3 text-base sm:text-lg">
                     Full Functionality Coming Soon
                   </h4>
-                  <p className="text-blue-800 dark:text-blue-200 leading-relaxed text-sm sm:text-base">
+                  <p className="text-veritas-primary dark:text-veritas-light-blue leading-relaxed text-sm sm:text-base">
                     We&apos;re building comprehensive component editing features that will allow you to 
                     contribute to every aspect of the intelligence. This includes editing visualizations, 
                     improving metadata, refining titles, and enhancing the overall presentation.
@@ -515,16 +515,16 @@ const BeliefSubmissionModal: React.FC<{
           `}</style>
 
           {/* Information Box */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl sm:rounded-2xl p-3 sm:p-4">
+          <div className="bg-veritas-light-blue/10 dark:bg-veritas-light-blue/20 border border-veritas-light-blue/30 dark:border-veritas-light-blue/40 rounded-xl sm:rounded-2xl p-3 sm:p-4">
             <div className="flex items-start space-x-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-800/50 rounded-lg flex-shrink-0">
-                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
+              <div className="p-2 bg-veritas-light-blue/20 dark:bg-veritas-light-blue/30 rounded-lg flex-shrink-0">
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-veritas-primary dark:text-veritas-light-blue" />
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1 text-sm sm:text-base">
+                <h4 className="font-semibold text-veritas-primary dark:text-veritas-light-blue mb-1 text-sm sm:text-base">
                   Bayesian Truth Serum
                 </h4>
-                <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
+                <p className="text-xs sm:text-sm text-veritas-primary dark:text-veritas-light-blue leading-relaxed">
                   Your personal belief, prediction of others&apos; beliefs, and certainty level help reveal collective intelligence and improve truth-finding through advanced statistical analysis.
                 </p>
               </div>
@@ -606,8 +606,8 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({ belief }) => {
       )}
 
       {/* Info Notice */}
-      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-        <p className="text-xs text-blue-700 dark:text-blue-300 text-center">
+      <div className="p-3 bg-veritas-light-blue/10 dark:bg-veritas-light-blue/20 rounded-xl border border-veritas-light-blue/30 dark:border-veritas-light-blue/40">
+        <p className="text-xs text-veritas-primary dark:text-veritas-light-blue text-center">
           💡 Your understanding helps improve collective intelligence
         </p>
       </div>

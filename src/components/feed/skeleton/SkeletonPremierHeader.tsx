@@ -2,8 +2,25 @@
 
 export const SkeletonPremierHeader: React.FC = () => {
   return (
-    <div className="w-full bg-white dark:bg-veritas-darker-blue mb-12 shadow-sm">
+    <div className="w-full bg-white dark:bg-veritas-darker-blue shadow-sm">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header with Algorithm Indicator and Pill Navigation Skeleton */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-2">
+            <div className="h-7 bg-gray-200 dark:bg-veritas-eggshell/10 rounded w-40 animate-pulse"></div>
+            <div className="h-5 bg-gray-200 dark:bg-veritas-eggshell/10 rounded w-24 animate-pulse"></div>
+          </div>
+          
+          {/* Pill Navigation Skeleton */}
+          <div className="inline-flex items-center p-1 bg-slate-200 dark:bg-veritas-darker-blue/50 rounded-full">
+            <div className="flex gap-1">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="px-4 py-2 bg-gray-300 dark:bg-veritas-eggshell/10 rounded-full w-20 h-8 animate-pulse"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-[500px]">
           
           {/* Hero Card Skeleton - Left Side (2/3 width on desktop) */}
@@ -74,12 +91,12 @@ export const SkeletonPremierHeader: React.FC = () => {
           </div>
         </div>
         
-        {/* Dots Indicator Skeleton */}
-        <div className="flex justify-center mt-6 gap-2">
+        {/* Content Dots Indicator Skeleton */}
+        <div className="flex justify-center mt-8 gap-2">
           {[...Array(3)].map((_, index) => (
             <div
               key={index}
-              className="w-3 h-3 bg-gray-300 dark:bg-veritas-eggshell/15 rounded-full animate-pulse"
+              className={`${index === 0 ? 'w-8' : 'w-2'} h-2 bg-gray-300 dark:bg-veritas-eggshell/15 rounded-full animate-pulse`}
             />
           ))}
         </div>
