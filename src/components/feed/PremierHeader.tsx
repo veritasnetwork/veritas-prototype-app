@@ -148,48 +148,36 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
     setActiveIndex((prev) => (prev + 1) % currentViewContent.length);
   }, [currentViewContent.length]);
 
-  // 5-dot navigation configuration
+  // Navigation configuration with Veritas colors
   const viewOptions: Array<{ 
     value: ViewType; 
     label: string; 
     icon: React.ReactNode; 
-    color: string;
-    bgGradient: string;
   }> = [
     { 
       value: 'all', 
       label: 'All', 
       icon: null, 
-      color: 'bg-gray-500',
-      bgGradient: 'from-gray-500 to-gray-600'
     },
     { 
       value: 'news', 
       label: 'News', 
       icon: <FileText className="h-3 w-3" />, 
-      color: 'bg-blue-500',
-      bgGradient: 'from-blue-500 to-blue-600'
     },
     { 
       value: 'opinion', 
       label: 'Opinion', 
       icon: <MessageSquare className="h-3 w-3" />, 
-      color: 'bg-purple-500',
-      bgGradient: 'from-purple-500 to-purple-600'
     },
     { 
       value: 'conversation', 
       label: 'Conversation', 
       icon: <Users className="h-3 w-3" />, 
-      color: 'bg-green-500',
-      bgGradient: 'from-green-500 to-green-600'
     },
     { 
       value: 'blog', 
       label: 'Blog', 
       icon: <BookOpen className="h-3 w-3" />, 
-      color: 'bg-orange-500',
-      bgGradient: 'from-orange-500 to-orange-600'
     },
   ];
 
@@ -220,37 +208,34 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
               </h2>
             </div>
             
-            {/* 5-Dot Navigation System */}
-            <div className="flex items-center gap-3 md:gap-4">
+            {/* Pill Navigation System */}
+            <div className="inline-flex items-center p-1 bg-gray-100 dark:bg-veritas-darker-blue/50 rounded-full">
               {viewOptions.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => handleViewChange(option.value)}
-                  className="group relative flex items-center"
+                  className={`
+                    relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
+                    ${activeView === option.value
+                      ? 'bg-veritas-blue dark:bg-veritas-light-blue text-white dark:text-veritas-dark-blue shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    }
+                  `}
                   title={option.label}
                 >
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className={`
-                        w-3 h-3 rounded-full transition-all duration-300
-                        ${activeView === option.value
-                          ? `${option.color} scale-125 ring-2 ring-white dark:ring-gray-800 ring-offset-2 ring-offset-transparent shadow-lg`
-                          : `${option.color} opacity-40 hover:opacity-70 hover:scale-110`
-                        }
-                      `}
-                    />
-                    <span 
-                      className={`
-                        hidden sm:inline-block text-xs font-medium transition-all duration-200
-                        ${activeView === option.value
-                          ? 'text-gray-700 dark:text-gray-300 opacity-100'
-                          : 'text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100'
-                        }
-                      `}
-                    >
-                      {option.label}
-                    </span>
-                  </div>
+                  <span className="flex items-center gap-1.5">
+                    {option.icon && <span className={activeView === option.value ? '' : 'opacity-60'}>{option.icon}</span>}
+                    {option.label}
+                    {contentCache && contentCache[option.value].length > 0 && (
+                      <span className={`ml-1 text-xs ${
+                        activeView === option.value 
+                          ? 'text-white/80 dark:text-veritas-dark-blue/80' 
+                          : 'text-gray-400'
+                      }`}>
+                        ({contentCache[option.value].length})
+                      </span>
+                    )}
+                  </span>
                 </button>
               ))}
             </div>
@@ -275,7 +260,6 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
   }
 
   const activeContent = currentViewContent[Math.min(activeIndex, currentViewContent.length - 1)];
-  const activeOption = viewOptions.find(v => v.value === activeView);
 
   return (
     <div className="w-full bg-white dark:bg-veritas-darker-blue shadow-sm">
@@ -294,48 +278,39 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
             )}
           </div>
           
-          {/* 5-Dot Navigation System */}
-          <div className="flex items-center gap-3 md:gap-4">
+          {/* Pill Navigation System */}
+          <div className="inline-flex items-center p-1 bg-gray-100 dark:bg-veritas-darker-blue/50 rounded-full">
             {viewOptions.map((option) => (
               <button
                 key={option.value}
                 onClick={() => handleViewChange(option.value)}
-                className="group relative flex items-center"
+                className={`
+                  relative px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200
+                  ${activeView === option.value
+                    ? 'bg-veritas-blue dark:bg-veritas-light-blue text-white dark:text-veritas-dark-blue shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }
+                `}
                 title={option.label}
               >
-                <div className="flex items-center gap-2">
-                  {/* Dot with enhanced visual feedback */}
-                  <div 
-                    className={`
-                      relative w-3 h-3 rounded-full transition-all duration-300
-                      ${activeView === option.value
-                        ? `${option.color} scale-125 shadow-lg`
-                        : `${option.color} opacity-40 hover:opacity-70 hover:scale-110`
-                      }
-                    `}
-                  >
-                    {activeView === option.value && (
-                      <div className="absolute inset-0 rounded-full ring-2 ring-white dark:ring-gray-800 ring-offset-2 ring-offset-transparent animate-pulse" />
-                    )}
-                  </div>
-                  {/* Label - visible on hover or when active */}
-                  <span 
-                    className={`
-                      hidden sm:inline-block text-xs font-medium transition-all duration-200 whitespace-nowrap
-                      ${activeView === option.value
-                        ? 'text-gray-700 dark:text-gray-300 opacity-100'
-                        : 'text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100'
-                      }
-                    `}
-                  >
-                    {option.label}
-                    {contentCache && contentCache[option.value].length > 0 && (
-                      <span className="ml-1 text-gray-400">
-                        ({contentCache[option.value].length})
-                      </span>
-                    )}
-                  </span>
-                </div>
+                <span className="flex items-center gap-1.5">
+                  {option.icon && (
+                    <span className={`hidden sm:inline-block ${activeView === option.value ? '' : 'opacity-60'}`}>
+                      {option.icon}
+                    </span>
+                  )}
+                  <span className="hidden sm:inline">{option.label}</span>
+                  <span className="sm:hidden">{option.label.charAt(0)}</span>
+                  {contentCache && contentCache[option.value].length > 0 && (
+                    <span className={`ml-1 text-xs ${
+                      activeView === option.value 
+                        ? 'text-white/80 dark:text-veritas-dark-blue/80' 
+                        : 'text-gray-400'
+                    }`}>
+                      {contentCache[option.value].length}
+                    </span>
+                  )}
+                </span>
               </button>
             ))}
           </div>
@@ -357,7 +332,7 @@ export const PremierHeader: React.FC<PremierHeaderProps> = ({
             <div 
               className={`
                 lg:col-span-2 relative group cursor-pointer overflow-hidden rounded-2xl shadow-2xl
-                bg-gradient-to-br ${activeOption?.bgGradient || 'from-veritas-dark-blue to-veritas-darker-blue'}
+                bg-veritas-dark-blue dark:bg-veritas-darker-blue
               `}
               onClick={() => onContentClick(activeContent.id)}
             >

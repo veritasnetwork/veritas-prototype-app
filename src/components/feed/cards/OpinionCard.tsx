@@ -65,23 +65,24 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
   
   // Get icon based on opinion type
   const getTypeIcon = () => {
+    const iconSize = variant === 'compact' ? 'h-4 w-4' : 'h-5 w-5';
     switch (content.opinionType) {
       case 'percentage':
-        return <Percent className="h-5 w-5" />;
+        return <Percent className={iconSize} />;
       case 'yes-no':
-        return <CheckCircle className="h-5 w-5" />;
+        return <CheckCircle className={iconSize} />;
       case 'multiple-choice':
-        return <BarChart3 className="h-5 w-5" />;
+        return <BarChart3 className={iconSize} />;
       case 'ranking':
-        return <ListOrdered className="h-5 w-5" />;
+        return <ListOrdered className={iconSize} />;
       default:
-        return <BarChart3 className="h-5 w-5" />;
+        return <BarChart3 className={iconSize} />;
     }
   };
   
   // Card sizing based on variant and layout
   const getCardSizing = () => {
-    if (variant === 'compact') return 'w-full h-36';
+    if (variant === 'compact') return 'w-full h-28';
     if (variant === 'mobile') return 'w-full';
     if (variant === 'premier') return 'w-full h-48';
     
@@ -96,7 +97,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
         return (
           <div className="text-center py-4">
             <div className="flex items-center justify-center gap-2">
-              <div className="text-6xl font-bold bg-gradient-to-r from-veritas-blue to-veritas-light-blue bg-clip-text text-transparent">
+              <div className="text-6xl font-bold text-veritas-blue dark:text-veritas-light-blue">
                 {content.currentValue || 0}
               </div>
               <div className="flex flex-col items-start">
@@ -112,7 +113,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
             {content.range && (
               <div className="mt-3 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 relative">
                 <div 
-                  className="absolute top-0 left-0 h-full bg-gradient-to-r from-veritas-blue to-veritas-light-blue rounded-full transition-all duration-500"
+                  className="absolute top-0 left-0 h-full bg-veritas-blue dark:bg-veritas-light-blue rounded-full transition-all duration-500"
                   style={{ 
                     width: `${((content.currentValue || 0) - content.range.min) / (content.range.max - content.range.min) * 100}%` 
                   }}
@@ -134,11 +135,11 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
               <div className="h-16 bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden">
                 <div className="flex h-full">
                   <div 
-                    className="bg-gradient-to-r from-green-500 to-green-600 transition-all duration-500"
+                    className="bg-green-500 transition-all duration-500"
                     style={{ width: `${yesPercent}%` }}
                   />
                   <div 
-                    className="bg-gradient-to-r from-red-600 to-red-500 transition-all duration-500"
+                    className="bg-red-500 transition-all duration-500"
                     style={{ width: `${noPercent}%` }}
                   />
                 </div>
@@ -183,7 +184,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
                       <div 
                         className={`h-full transition-all duration-500 ${
                           index === 0 
-                            ? 'bg-gradient-to-r from-veritas-blue to-veritas-light-blue' 
+                            ? 'bg-veritas-blue dark:bg-veritas-light-blue' 
                             : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                         style={{ width: `${percentage}%` }}
@@ -252,11 +253,11 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
     <div
       className={`
         ${getCardSizing()}
-        bg-white dark:bg-gray-800 
+        bg-white dark:bg-veritas-darker-blue/80 
         rounded-xl shadow-sm hover:shadow-lg 
         transition-all duration-300 
-        border border-gray-200 dark:border-gray-700
-        hover:border-veritas-light-blue dark:hover:border-veritas-light-blue
+        border border-slate-200 dark:border-veritas-eggshell/10
+        hover:border-veritas-blue dark:hover:border-veritas-light-blue
         cursor-pointer group
         overflow-hidden
         relative
@@ -270,9 +271,9 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
         </div>
       )}
       
-      <div className="p-4 h-full flex flex-col">
+      <div className={`${variant === 'compact' ? 'p-3' : 'p-4'} h-full flex flex-col`}>
         {/* Header */}
-        <div className="flex items-start justify-between mb-3">
+        <div className={`flex items-start justify-between ${variant === 'compact' ? 'mb-2' : 'mb-3'}`}>
           <div className="flex-1">
             <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-veritas-blue transition-colors">
               {content.heading.title}
@@ -303,7 +304,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
         )}
         
         {/* Footer */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div className={`flex items-center justify-between ${variant === 'compact' ? 'mt-2' : 'mt-3 pt-3 border-t border-gray-100 dark:border-veritas-eggshell/10'}`}>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Users className="h-4 w-4" />
             <span>{content.totalParticipants.toLocaleString()}</span>
@@ -313,7 +314,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
           {/* Validate Button */}
           {variant !== 'compact' && !isValidating && (
             <button
-              className="px-4 py-1.5 text-sm bg-gradient-to-r from-veritas-blue to-veritas-light-blue text-white rounded-lg hover:shadow-md transition-all duration-200 transform hover:scale-105"
+              className="px-4 py-1.5 text-sm bg-veritas-blue dark:bg-veritas-light-blue text-white dark:text-veritas-dark-blue rounded-lg hover:shadow-md transition-all duration-200 transform hover:scale-105"
               onClick={handleValidate}
             >
               Validate
@@ -330,7 +331,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({
         
         {/* Signal Indicators - More prominent */}
         {content.signals && variant !== 'compact' && (
-          <div className="flex gap-3 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex gap-3 mt-2 pt-2 border-t border-gray-100 dark:border-veritas-eggshell/10">
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full bg-blue-500" />
               <span className="text-xs text-gray-600 dark:text-gray-400">

@@ -4,7 +4,6 @@ import {
   MessageCircle, 
   Users,
   Lock,
-  Pin,
   MessageSquare,
   ChevronRight,
   Flame
@@ -46,13 +45,13 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
   const getActivityColor = () => {
     switch (activityLevel) {
       case 'hot':
-        return 'bg-red-500 animate-pulse';
+        return 'bg-veritas-orange animate-pulse';
       case 'active':
-        return 'bg-orange-500';
+        return 'bg-veritas-orange';
       case 'recent':
-        return 'bg-yellow-500';
+        return 'bg-veritas-light-blue';
       default:
-        return 'bg-gray-400';
+        return 'bg-gray-400 dark:bg-gray-600';
     }
   };
   
@@ -80,7 +79,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
   
   // Card sizing based on variant and layout
   const getCardSizing = () => {
-    if (variant === 'compact') return 'w-full h-32';
+    if (variant === 'compact') return 'w-full h-28';
     if (variant === 'mobile') return 'w-full';
     if (variant === 'premier') return 'w-full h-56';
     
@@ -92,11 +91,11 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
     <div
       className={`
         ${getCardSizing()}
-        bg-white dark:bg-gray-800 
+        bg-white dark:bg-veritas-darker-blue/80 
         rounded-xl shadow-sm hover:shadow-lg 
         transition-all duration-300 
-        border border-gray-200 dark:border-gray-700
-        hover:border-veritas-light-blue dark:hover:border-veritas-light-blue
+        border border-slate-200 dark:border-veritas-eggshell/10
+        hover:border-veritas-blue dark:hover:border-veritas-light-blue
         cursor-pointer group
         overflow-hidden
         relative
@@ -105,11 +104,6 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
     >
       {/* Status badges */}
       <div className="absolute top-2 right-2 flex gap-2 z-10">
-        {content.isPinned && (
-          <div className="p-1 bg-blue-100 dark:bg-blue-900 rounded-full">
-            <Pin className="h-3 w-3 text-blue-600 dark:text-blue-300" />
-          </div>
-        )}
         {content.isLocked && (
           <div className="p-1 bg-red-100 dark:bg-red-900 rounded-full">
             <Lock className="h-3 w-3 text-red-600 dark:text-red-300" />
@@ -123,14 +117,14 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
         )}
       </div>
       
-      <div className="p-4 h-full flex flex-col">
+      <div className={`${variant === 'compact' ? 'p-3' : 'p-4'} h-full flex flex-col`}>
         {/* Header */}
-        <div className="flex items-start gap-3 mb-3">
-          <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg">
-            <MessageSquare className="h-5 w-5 text-white" />
+        <div className={`flex items-start gap-3 ${variant === 'compact' ? 'mb-2' : 'mb-3'}`}>
+          <div className={`${variant === 'compact' ? 'p-1.5' : 'p-2'} bg-veritas-blue dark:bg-veritas-light-blue rounded-lg`}>
+            <MessageSquare className={`${variant === 'compact' ? 'h-4 w-4' : 'h-5 w-5'} text-white dark:text-veritas-dark-blue`} />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-veritas-blue transition-colors">
+            <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1 group-hover:text-veritas-blue dark:group-hover:text-veritas-light-blue transition-colors">
               {content.topic}
             </h3>
             {variant !== 'compact' && content.heading.subtitle && (
@@ -142,14 +136,14 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
         </div>
         
         {/* Description */}
-        {variant !== 'compact' && (
+        {variant !== 'compact' && variant !== 'premier' && (
           <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
             {content.description}
           </p>
         )}
         
         {/* Activity Stats */}
-        <div className="flex items-center gap-4 mb-3">
+        <div className={`flex items-center gap-4 ${variant === 'compact' ? 'mb-2' : 'mb-3'}`}>
           <div className="flex items-center gap-1.5">
             <MessageCircle className="h-4 w-4 text-gray-400" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -171,8 +165,8 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
         </div>
         
         {/* Featured Comment Preview */}
-        {variant !== 'compact' && content.featuredComments && content.featuredComments.length > 0 && (
-          <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+        {variant !== 'compact' && variant !== 'premier' && content.featuredComments && content.featuredComments.length > 0 && (
+          <div className="mt-3 p-3 bg-gray-50 dark:bg-veritas-darker-blue/50 rounded-lg">
             <div className="flex items-start gap-2">
               <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
               <div className="flex-1 min-w-0">
@@ -188,7 +182,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
         )}
         
         {/* Footer */}
-        <div className="mt-auto flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div className={`mt-auto flex items-center justify-between ${variant === 'compact' ? 'pt-2' : 'pt-3 border-t border-gray-100 dark:border-veritas-eggshell/10'}`}>
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${getActivityColor()}`} />
             <span className="text-xs text-gray-500">
@@ -199,7 +193,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
           {/* Join Discussion CTA */}
           {!content.isLocked && variant !== 'compact' && (
             <button
-              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-md transition-all duration-200 transform hover:scale-105"
+              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-veritas-blue dark:bg-veritas-light-blue text-white dark:text-veritas-dark-blue rounded-lg hover:shadow-md transition-all duration-200 transform hover:scale-105"
               onClick={(e) => {
                 e.stopPropagation();
                 handleClick();
@@ -218,16 +212,16 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
         </div>
         
         {/* Signal Indicators */}
-        {content.signals && variant !== 'compact' && (
-          <div className="flex gap-3 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+        {content.signals && variant !== 'compact' && variant !== 'premier' && (
+          <div className="flex gap-3 mt-2 pt-2 border-t border-gray-100 dark:border-veritas-eggshell/10">
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-purple-500" />
+              <div className="w-2 h-2 rounded-full bg-veritas-blue dark:bg-veritas-light-blue" />
               <span className="text-xs text-gray-600 dark:text-gray-400">
                 Activity: {content.signals.relevance?.currentValue || 0}%
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-pink-500" />
+              <div className="w-2 h-2 rounded-full bg-veritas-orange" />
               <span className="text-xs text-gray-600 dark:text-gray-400">
                 Quality: {content.signals.truth?.currentValue || 0}%
               </span>
