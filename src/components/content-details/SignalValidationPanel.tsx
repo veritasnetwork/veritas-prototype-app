@@ -216,33 +216,33 @@ export const SignalValidationPanel: React.FC<SignalValidationPanelProps> = ({
   });
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={handleClose}
       />
       
-      {/* Modal */}
-      <div className="relative w-full max-w-7xl max-h-[90vh] bg-white dark:bg-veritas-darker-blue rounded-3xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-8 py-6 border-b border-gray-200 dark:border-veritas-eggshell/10">
-          <div>
-            <h2 className="text-2xl font-bold text-veritas-primary dark:text-veritas-eggshell">
+      {/* Modal - Full screen on mobile, regular modal on desktop */}
+      <div className="relative w-full h-full sm:h-auto sm:max-w-7xl sm:max-h-[90vh] bg-white dark:bg-veritas-darker-blue sm:rounded-3xl shadow-2xl overflow-hidden">
+        {/* Header - Mobile optimized */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-8 py-4 sm:py-6 border-b border-gray-200 dark:border-veritas-eggshell/10 gap-3">
+          <div className="flex-1">
+            <h2 className="text-lg sm:text-2xl font-bold text-veritas-primary dark:text-veritas-eggshell">
               Validate Signals
             </h2>
-            <p className="text-sm text-gray-600 dark:text-veritas-eggshell/60 mt-1">
-              Adjust signal values based on your belief and what you think others believe
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-veritas-eggshell/60 mt-1">
+              Adjust signal values based on your beliefs
             </p>
           </div>
           
-          <div className="flex items-center space-x-6">
-            {/* Countdown Timer */}
-            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-veritas-eggshell/60">
-              <Clock className="w-4 h-4" />
-              <div>
-                <span className="text-xs uppercase tracking-wider opacity-70">Next scoring in</span>
-                <div className="font-mono font-medium text-veritas-primary dark:text-veritas-eggshell">
+          <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto space-x-3 sm:space-x-6">
+            {/* Countdown Timer - Compact on mobile */}
+            <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600 dark:text-veritas-eggshell/60">
+              <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+              <div className="flex sm:flex-col items-center sm:items-start gap-1 sm:gap-0">
+                <span className="text-[10px] sm:text-xs uppercase tracking-wider opacity-70">Next:</span>
+                <div className="font-mono font-medium text-xs sm:text-sm text-veritas-primary dark:text-veritas-eggshell">
                   {timeUntilScoring || 'Loading...'}
                 </div>
               </div>
@@ -251,45 +251,112 @@ export const SignalValidationPanel: React.FC<SignalValidationPanelProps> = ({
             {/* Close Button */}
             <button
               onClick={handleClose}
-              className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-veritas-eggshell/10 transition-colors"
+              className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-gray-100 dark:hover:bg-veritas-eggshell/10 transition-colors"
               disabled={isSubmitting}
             >
-              <X className="w-5 h-5 text-gray-500 dark:text-veritas-eggshell/60" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 dark:text-veritas-eggshell/60" />
             </button>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex" style={{ height: 'calc(90vh - 200px)' }}>
-          {/* Left Column - Individual Signals (80% width) */}
-          <div className="w-4/5 p-8 overflow-y-auto border-r border-gray-200 dark:border-veritas-eggshell/10">
-            <div className="space-y-6">
+        {/* Main Content - Mobile responsive */}
+        <div className="flex flex-col sm:flex-row h-[calc(100vh-180px)] sm:h-[calc(90vh-200px)]">
+          {/* Left Column - Individual Signals - Full width on mobile */}
+          <div className="w-full sm:w-4/5 p-4 sm:p-8 overflow-y-auto sm:border-r border-gray-200 dark:border-veritas-eggshell/10">
+            <div className="space-y-4 sm:space-y-6">
+              {/* Mobile Total Relevance Section - Only visible on mobile */}
+              <div className="sm:hidden bg-veritas-primary/5 dark:bg-veritas-light-blue/10 rounded-xl p-4 mb-4">
+                <h3 className="font-semibold text-sm text-veritas-primary dark:text-veritas-eggshell mb-3">
+                  Total Relevance
+                </h3>
+                <p className="text-xs text-gray-600 dark:text-veritas-eggshell/60 mb-4">
+                  Bulk adjust all signals at once
+                </p>
+                
+                <div className="space-y-4">
+                  {/* My Belief */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-veritas-eggshell/80">
+                        My Belief
+                      </label>
+                      <span className="text-xs font-bold text-veritas-primary dark:text-veritas-eggshell">
+                        {totalRelevance.myBelief}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={totalRelevance.myBelief}
+                      onChange={(e) => handleTotalRelevanceChange('myBelief', parseInt(e.target.value))}
+                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-veritas-darker-blue/80"
+                      style={{
+                        background: `linear-gradient(to right, #0C1D51 0%, #0C1D51 ${totalRelevance.myBelief}%, rgb(229 231 235) ${totalRelevance.myBelief}%, rgb(229 231 235) 100%)`
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Others Belief */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-veritas-eggshell/80">
+                        Others
+                      </label>
+                      <span className="text-xs font-bold text-veritas-primary dark:text-veritas-eggshell">
+                        {totalRelevance.othersBelief}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={totalRelevance.othersBelief}
+                      onChange={(e) => handleTotalRelevanceChange('othersBelief', parseInt(e.target.value))}
+                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-veritas-darker-blue/80"
+                      style={{
+                        background: `linear-gradient(to right, #FF6B35 0%, #FF6B35 ${totalRelevance.othersBelief}%, rgb(229 231 235) ${totalRelevance.othersBelief}%, rgb(229 231 235) 100%)`
+                      }}
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-3 p-2 bg-veritas-light-blue/10 dark:bg-veritas-light-blue/20 rounded-lg">
+                  <div className="flex items-start space-x-2">
+                    <Info className="w-3 h-3 text-veritas-primary dark:text-veritas-light-blue flex-shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-veritas-primary dark:text-veritas-light-blue leading-relaxed">
+                      Adjusts all weighted signals
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
               {signalArray.map(signal => {
                 const signalColor = getSignalColor(signal.key, isDarkMode);
                 const updates = signalUpdates[signal.key] || { myBelief: 50, othersBelief: 50 };
                 
                 return (
-                  <div key={signal.key} className="bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-2xl p-6">
-                    {/* Signal Header */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: signalColor }} />
-                        <h3 className="font-semibold text-veritas-primary dark:text-veritas-eggshell">
+                  <div key={signal.key} className="bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                    {/* Signal Header - Mobile optimized */}
+                    <div className="flex items-center justify-between mb-3 sm:mb-4">
+                      <div className="flex items-center space-x-2 sm:space-x-3">
+                        <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full" style={{ backgroundColor: signalColor }} />
+                        <h3 className="text-sm sm:text-base font-semibold text-veritas-primary dark:text-veritas-eggshell">
                           {signal.name}
                         </h3>
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-veritas-eggshell/50">
+                      <div className="text-xs sm:text-sm text-gray-500 dark:text-veritas-eggshell/50">
                         Current: {signal.currentValue}%
                       </div>
                     </div>
                     
-                    {/* My Belief Slider */}
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-veritas-eggshell/80">
+                    {/* My Belief Slider - Mobile optimized */}
+                    <div className="mb-3 sm:mb-4">
+                      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                        <label className="text-xs sm:text-sm font-medium text-gray-700 dark:text-veritas-eggshell/80">
                           What I Believe
                         </label>
-                        <span className="text-sm font-bold text-veritas-primary dark:text-veritas-eggshell">
+                        <span className="text-xs sm:text-sm font-bold text-veritas-primary dark:text-veritas-eggshell">
                           {updates.myBelief}%
                         </span>
                       </div>
@@ -306,13 +373,13 @@ export const SignalValidationPanel: React.FC<SignalValidationPanelProps> = ({
                       />
                     </div>
                     
-                    {/* Others Belief Slider */}
+                    {/* Others Belief Slider - Mobile optimized */}
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-veritas-eggshell/80">
+                      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                        <label className="text-xs sm:text-sm font-medium text-gray-700 dark:text-veritas-eggshell/80">
                           What Others Believe
                         </label>
-                        <span className="text-sm font-bold text-veritas-primary dark:text-veritas-eggshell">
+                        <span className="text-xs sm:text-sm font-bold text-veritas-primary dark:text-veritas-eggshell">
                           {updates.othersBelief}%
                         </span>
                       </div>
@@ -334,8 +401,8 @@ export const SignalValidationPanel: React.FC<SignalValidationPanelProps> = ({
             </div>
           </div>
           
-          {/* Right Column - Total Relevance (20% width) */}
-          <div className="w-1/5 p-6 bg-slate-50 dark:bg-veritas-darker-blue/40 flex flex-col">
+          {/* Right Column - Total Relevance - Hidden on mobile, shown as expandable section */}
+          <div className="hidden sm:flex w-1/5 p-6 bg-slate-50 dark:bg-veritas-darker-blue/40 flex-col">
             <div className="flex-1 flex flex-col">
               <div className="mb-4">
                 <h3 className="font-semibold text-base text-veritas-primary dark:text-veritas-eggshell mb-2">
@@ -437,32 +504,32 @@ export const SignalValidationPanel: React.FC<SignalValidationPanelProps> = ({
           </div>
         </div>
         
-        {/* Footer */}
-        <div className="px-8 py-5 border-t border-gray-200 dark:border-veritas-eggshell/10 bg-white dark:bg-veritas-darker-blue/70">
-          <div className="flex items-center justify-between">
+        {/* Footer - Mobile optimized */}
+        <div className="px-4 sm:px-8 py-3 sm:py-5 border-t border-gray-200 dark:border-veritas-eggshell/10 bg-white dark:bg-veritas-darker-blue/70">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <button
               onClick={handleClose}
-              className="px-8 py-3 text-gray-600 dark:text-veritas-eggshell/70 font-medium hover:text-gray-900 dark:hover:text-veritas-eggshell transition-colors disabled:opacity-50 rounded-xl hover:bg-gray-100 dark:hover:bg-veritas-eggshell/10"
+              className="px-4 sm:px-8 py-2.5 sm:py-3 text-gray-600 dark:text-veritas-eggshell/70 font-medium hover:text-gray-900 dark:hover:text-veritas-eggshell transition-colors disabled:opacity-50 rounded-xl hover:bg-gray-100 dark:hover:bg-veritas-eggshell/10 order-2 sm:order-1"
               disabled={isSubmitting}
             >
               Cancel
             </button>
             
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 order-1 sm:order-2">
               {isSubmitting && (
-                <span className="text-sm text-gray-500 dark:text-veritas-eggshell/50">
+                <span className="text-xs sm:text-sm text-gray-500 dark:text-veritas-eggshell/50">
                   Processing BTS validation...
                 </span>
               )}
               <button
                 onClick={handleSubmit}
-                className="px-8 py-3 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-xl font-semibold hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-75 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3 bg-veritas-primary dark:bg-veritas-light-blue text-white dark:text-veritas-darker-blue rounded-xl font-semibold hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-75 disabled:hover:scale-100 disabled:cursor-not-allowed text-sm sm:text-base"
                 disabled={isSubmitting || submitSuccess}
               >
-                {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
-                {submitSuccess && <CheckCircle className="w-5 h-5" />}
+                {isSubmitting && <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />}
+                {submitSuccess && <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />}
                 <span>
-                  {isSubmitting ? 'Submitting...' : submitSuccess ? 'Success!' : 'Submit Validation'}
+                  {isSubmitting ? 'Submitting...' : submitSuccess ? 'Success!' : 'Submit'}
                 </span>
               </button>
             </div>

@@ -1,6 +1,8 @@
 import { ArticleComponentProps } from '@/types/component.types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSlug from 'rehype-slug';
+import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 
 export const ArticleComponent: React.FC<ArticleComponentProps> = ({
   article,
@@ -27,18 +29,26 @@ export const ArticleComponent: React.FC<ArticleComponentProps> = ({
             </h3>
           </div>
           
-          <div className="prose prose-slate dark:prose-invert max-w-none 
+          <div className="prose prose-sm sm:prose-base lg:prose-lg prose-slate dark:prose-invert max-w-none 
                       prose-headings:text-veritas-primary dark:prose-headings:text-veritas-eggshell
-                      prose-p:text-veritas-primary/80 dark:prose-p:text-veritas-eggshell/80
+                      prose-p:text-veritas-primary/90 dark:prose-p:text-veritas-eggshell/90
+                      prose-p:leading-relaxed sm:prose-p:leading-[1.8] prose-p:mb-4 sm:prose-p:mb-6
                       prose-strong:text-veritas-primary dark:prose-strong:text-veritas-eggshell
-                      prose-ul:text-veritas-primary/80 dark:prose-ul:text-veritas-eggshell/80
-                      prose-ol:text-veritas-primary/80 dark:prose-ol:text-veritas-eggshell/80
-                      prose-li:text-veritas-primary/80 dark:prose-li:text-veritas-eggshell/80
-                      prose-h2:text-2xl prose-h2:font-bold prose-h2:mt-8 prose-h2:mb-4
-                      prose-h3:text-xl prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-3
-                      prose-p:leading-relaxed prose-p:text-base
-                      prose-li:my-1">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      prose-ul:text-veritas-primary/90 dark:prose-ul:text-veritas-eggshell/90
+                      prose-ol:text-veritas-primary/90 dark:prose-ol:text-veritas-eggshell/90
+                      prose-li:text-veritas-primary/90 dark:prose-li:text-veritas-eggshell/90
+                      prose-h2:text-xl sm:prose-h2:text-2xl lg:prose-h2:text-3xl prose-h2:font-bold prose-h2:mt-8 sm:prose-h2:mt-12 prose-h2:mb-4 sm:prose-h2:mb-6 prose-h2:border-b prose-h2:border-slate-200 dark:prose-h2:border-slate-700 prose-h2:pb-2
+                      prose-h3:text-lg sm:prose-h3:text-xl lg:prose-h3:text-2xl prose-h3:font-semibold prose-h3:mt-6 sm:prose-h3:mt-8 prose-h3:mb-3 sm:prose-h3:mb-4
+                      prose-h4:text-base sm:prose-h4:text-lg lg:prose-h4:text-xl prose-h4:font-semibold prose-h4:mt-4 sm:prose-h4:mt-6 prose-h4:mb-2 sm:prose-h4:mb-3
+                      prose-blockquote:border-l-4 prose-blockquote:border-veritas-orange prose-blockquote:pl-3 sm:prose-blockquote:pl-4 prose-blockquote:italic
+                      prose-code:bg-slate-100 dark:prose-code:bg-slate-800 prose-code:px-1 sm:prose-code:px-2 prose-code:py-0.5 sm:prose-code:py-1 prose-code:rounded prose-code:text-xs sm:prose-code:text-sm">
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[
+                rehypeSlug,
+                [rehypeAutolinkHeadings, { behavior: 'wrap' }]
+              ]}
+            >
               {article.content}
             </ReactMarkdown>
           </div>
