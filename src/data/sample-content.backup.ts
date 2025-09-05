@@ -9,7 +9,6 @@ import type {
   SignalCollection
 } from '@/types/content.types';
 
-
 // Utility function to generate realistic signal data
 const generateSignal = (baseValue: number, signalKey: string, signalName: string): Signal => {
   // Generate historical data points (12 data points over 48 hours)
@@ -55,7 +54,7 @@ const generateSignal = (baseValue: number, signalKey: string, signalName: string
 };
 
 // Generate comprehensive signal collection for content
-export const generateSignalCollection = (
+const generateSignalCollection = (
   truthValue: number,
   relevanceValue: number,
   informativenessValue: number
@@ -73,12 +72,6 @@ export const generateSignalCollection = (
     verifiability: generateSignal(72 + Math.floor(Math.random() * 20) - 10, 'verifiability', 'Verifiability')
   };
 };
-
-// Import improved blog content
-import { improvedBlogContent } from './improved-blog-content';
-import { improvedBlogContent2 } from './improved-blog-content-2';
-import { improvedBlogContent3 } from './improved-blog-content-3';
-import { improvedBlogContent4 } from './improved-blog-content-4';
 
 // Sample Opinion Content (Josh's specific examples)
 export const sampleOpinionContent: OpinionContent[] = [
@@ -717,17 +710,8 @@ export const sampleConversationContent: ConversationContent[] = [
   }
 ];
 
-// Sample Blog Content - Using improved content with proper depth and detail
+// Sample Blog Content
 export const sampleBlogContent: BlogContent[] = [
-  ...improvedBlogContent,
-  ...improvedBlogContent2,
-  ...improvedBlogContent3,
-  ...improvedBlogContent4
-];
-
-// Original blog content has been replaced with improved versions above
-// Commenting out to avoid lint errors - the improved versions are now in separate files
-/* const originalBlogContent: BlogContent[] = [
   {
     id: 'blog-1',
     type: 'blog',
@@ -1435,7 +1419,7 @@ The real question isn't whether we need L3s, but whether developers can build be
       }
     ]
   }
-]; */
+];
 
 // Export all sample content for easy access
 export const allSampleContent = [

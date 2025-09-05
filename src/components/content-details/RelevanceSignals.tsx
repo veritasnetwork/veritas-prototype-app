@@ -112,105 +112,96 @@ export const RelevanceSignals: React.FC<RelevanceSignalsProps> = ({ belief }) =>
 
   return (
     <div>
-      {/* Header with Toggle and Validation Button */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-3">
-          <div className="p-3 rounded-2xl bg-veritas-primary dark:bg-veritas-eggshell">
-            <TrendingUp className="w-6 h-6 text-white dark:text-veritas-primary" />
+      {/* Header with Toggle and Validation Button - Mobile optimized */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-4">
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-veritas-primary dark:bg-veritas-eggshell">
+            <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white dark:text-veritas-primary" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-veritas-primary dark:text-veritas-eggshell">
+            <h3 className="text-lg sm:text-xl font-bold text-veritas-primary dark:text-veritas-eggshell">
               Relevance Signals
             </h3>
           </div>
         </div>
         
-        {/* Right side controls */}
-        <div className="flex items-center space-x-3">
-          {/* View Mode Toggle */}
-          <div className="relative inline-flex items-center bg-slate-200 dark:bg-slate-700 rounded-full p-0.5">
-            {/* Sliding background indicator */}
-            <div 
-              className={`
-                absolute h-[calc(100%-4px)] w-1/2 bg-white dark:bg-veritas-eggshell 
-                rounded-full shadow-sm transition-transform duration-300 ease-out
-                ${viewMode === 'graphs' ? 'translate-x-full' : 'translate-x-0'}
-              `}
-            />
-            
-            {/* Toggle buttons */}
+        {/* Right side controls - Mobile stacked */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
+          {/* View Mode Toggle - Simplified for mobile */}
+          <div className="flex bg-slate-200 dark:bg-slate-700 rounded-full p-0.5 w-full sm:w-auto">
             <button
               onClick={() => setViewMode('summary')}
               className={`
-                relative z-10 px-4 py-2 rounded-full text-sm font-medium 
-                transition-colors duration-200 flex items-center gap-1.5
+                flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium 
+                transition-all duration-200 flex items-center justify-center gap-1 sm:gap-1.5
                 ${viewMode === 'summary' 
-                  ? 'text-veritas-primary dark:text-veritas-darker-blue' 
+                  ? 'bg-white dark:bg-veritas-eggshell text-veritas-primary dark:text-veritas-darker-blue shadow-sm' 
                   : 'text-veritas-primary/60 dark:text-veritas-eggshell/60 hover:text-veritas-primary/80 dark:hover:text-veritas-eggshell/80'
                 }
               `}
             >
-              <BarChart2 className="w-4 h-4" />
-              <span>Summary</span>
+              <BarChart2 className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Summary</span>
+              <span className="sm:hidden">Bars</span>
             </button>
             <button
               onClick={() => setViewMode('graphs')}
               className={`
-                relative z-10 px-4 py-2 rounded-full text-sm font-medium 
-                transition-colors duration-200 flex items-center gap-1.5
+                flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium 
+                transition-all duration-200 flex items-center justify-center gap-1 sm:gap-1.5
                 ${viewMode === 'graphs' 
-                  ? 'text-veritas-primary dark:text-veritas-darker-blue' 
+                  ? 'bg-white dark:bg-veritas-eggshell text-veritas-primary dark:text-veritas-darker-blue shadow-sm' 
                   : 'text-veritas-primary/60 dark:text-veritas-eggshell/60 hover:text-veritas-primary/80 dark:hover:text-veritas-eggshell/80'
                 }
               `}
             >
-              <LineChartIcon className="w-4 h-4" />
+              <LineChartIcon className="w-3 h-3 sm:w-4 sm:h-4" />
               <span>Graphs</span>
             </button>
           </div>
           
-          {/* Validation Button */}
+          {/* Validation Button - Full width on mobile */}
           <button
             onClick={handleValidation}
             className="
-              px-5 py-2.5 bg-veritas-primary dark:bg-veritas-light-blue 
+              px-4 sm:px-5 py-2 sm:py-2.5 bg-veritas-primary dark:bg-veritas-light-blue 
               text-white dark:text-veritas-darker-blue 
-              rounded-xl font-bold text-base
+              rounded-xl font-bold text-sm sm:text-base
               hover:shadow-xl hover:scale-105 
               transition-all duration-300
-              flex items-center gap-2
+              flex items-center justify-center gap-2
             "
           >
-            <Edit3 className="w-5 h-5" />
+            <Edit3 className="w-4 h-4 sm:w-5 sm:h-5" />
             <span>Validate Signals</span>
           </button>
         </div>
       </div>
 
-      {/* Summary View - Progress Bars */}
+      {/* Summary View - Progress Bars - Mobile optimized */}
       {viewMode === 'summary' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
           {signalArray.map((signal) => {
             const lastValue = getSignalLastValue(signal);
             const signalColor = getSignalColor(signal.key, isDarkMode);
             
             return (
-              <div key={signal.key} className="bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-xl p-4">
-                {/* Signal Name and Value */}
+              <div key={signal.key} className="bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-lg sm:rounded-xl p-3 sm:p-4">
+                {/* Signal Name and Value - Mobile optimized */}
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: signalColor }} />
-                    <span className="text-sm font-medium text-veritas-primary dark:text-veritas-eggshell">
+                  <div className="flex items-center space-x-1.5 sm:space-x-2">
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full" style={{ backgroundColor: signalColor }} />
+                    <span className="text-xs sm:text-sm font-medium text-veritas-primary dark:text-veritas-eggshell">
                       {signal.name}
                     </span>
                   </div>
-                  <span className="text-sm font-bold text-veritas-primary dark:text-veritas-eggshell">
+                  <span className="text-xs sm:text-sm font-bold text-veritas-primary dark:text-veritas-eggshell">
                     {lastValue}%
                   </span>
                 </div>
                 
-                {/* Progress Bar */}
-                <div className="w-full h-2 bg-gray-200 dark:bg-veritas-darker-blue/80 rounded-full overflow-hidden">
+                {/* Progress Bar - Mobile optimized */}
+                <div className="w-full h-1.5 sm:h-2 bg-gray-200 dark:bg-veritas-darker-blue/80 rounded-full overflow-hidden">
                   <div 
                     className="h-full rounded-full transition-all duration-500 ease-out"
                     style={{ 
@@ -220,8 +211,8 @@ export const RelevanceSignals: React.FC<RelevanceSignalsProps> = ({ belief }) =>
                   />
                 </div>
                 
-                {/* Metadata */}
-                <div className="flex items-center justify-between mt-2 text-xs text-veritas-primary/50 dark:text-veritas-eggshell/50">
+                {/* Metadata - Mobile optimized */}
+                <div className="flex items-center justify-between mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-veritas-primary/50 dark:text-veritas-eggshell/50">
                   <span>{signal.metadata.contributors} contributors</span>
                 </div>
               </div>
@@ -230,9 +221,9 @@ export const RelevanceSignals: React.FC<RelevanceSignalsProps> = ({ belief }) =>
         </div>
       )}
 
-      {/* Graph View - Line Charts */}
+      {/* Graph View - Line Charts - Mobile optimized */}
       {viewMode === 'graphs' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {signalArray.map((signal) => {
             // Icon component removed - was unused
             const chartData = prepareChartData(signal);
@@ -248,22 +239,22 @@ export const RelevanceSignals: React.FC<RelevanceSignalsProps> = ({ belief }) =>
             const yDomain = [domainMin, domainMax];
 
             return (
-              <div key={signal.key} className="bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-2xl p-5">
-                {/* Signal Header with Icon and Current Value */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: signalColor }} />
-                    <h4 className="font-semibold text-sm text-veritas-primary dark:text-veritas-eggshell">
+              <div key={signal.key} className="bg-slate-50 dark:bg-veritas-darker-blue/60 rounded-xl sm:rounded-2xl p-3 sm:p-5">
+                {/* Signal Header with Icon and Current Value - Mobile optimized */}
+                <div className="flex items-start justify-between mb-3 sm:mb-4">
+                  <div className="flex items-center space-x-1.5 sm:space-x-2">
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full shadow-sm" style={{ backgroundColor: signalColor }} />
+                    <h4 className="font-semibold text-xs sm:text-sm text-veritas-primary dark:text-veritas-eggshell">
                       {signal.name}
                     </h4>
                   </div>
-                  <div className="text-lg font-bold text-veritas-primary dark:text-veritas-eggshell">
+                  <div className="text-sm sm:text-lg font-bold text-veritas-primary dark:text-veritas-eggshell">
                     {lastValue}%
                   </div>
                 </div>
                 
-                {/* Chart */}
-                <div className="h-32">
+                {/* Chart - Mobile optimized */}
+                <div className="h-24 sm:h-32">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
@@ -300,9 +291,9 @@ export const RelevanceSignals: React.FC<RelevanceSignalsProps> = ({ belief }) =>
                   </ResponsiveContainer>
                 </div>
                 
-                {/* Metadata Footer */}
-                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-veritas-eggshell/10">
-                  <div className="flex items-center justify-between text-xs text-veritas-primary/60 dark:text-veritas-eggshell/60">
+                {/* Metadata Footer - Mobile optimized */}
+                <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200 dark:border-veritas-eggshell/10">
+                  <div className="flex items-center justify-between text-[10px] sm:text-xs text-veritas-primary/60 dark:text-veritas-eggshell/60">
                     <span>{signal.metadata.contributors} contributors</span>
                   </div>
                 </div>

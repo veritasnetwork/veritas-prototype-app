@@ -159,7 +159,7 @@ const config: Config = {
   plugins: [
     // Add any additional plugins here if needed
     // require('@tailwindcss/forms'),
-    // require('@tailwindcss/typography'),
+    require('@tailwindcss/typography'),
   ],
 }
 
