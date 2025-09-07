@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Bookmark, TrendingUp, Zap, Brain, AlertTriangle, Vote } from 'lucide-react';
+import { TrendingUp, Zap, Brain, AlertTriangle, Vote } from 'lucide-react';
 import type { Post } from '@/types/post.types';
 import { OpinionChart } from '@/components/charts/OpinionChart';
 
@@ -11,8 +11,6 @@ interface PostCardProps {
 
 export function PostCard({ post }: PostCardProps) {
   const [relevance, setRelevance] = useState(post.relevanceScore);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
 
   const formatTimestamp = (date: Date) => {
     const now = new Date();
@@ -146,15 +144,6 @@ export function PostCard({ post }: PostCardProps) {
           )}
 
 
-          {/* Actions - Only Bookmark */}
-          <div className="flex justify-end">
-            <button 
-              className={`group ${isBookmarked ? 'text-veritas-light-blue' : 'text-neutral-500 dark:text-neutral-400'} hover:text-veritas-light-blue transition-all`}
-              onClick={() => setIsBookmarked(!isBookmarked)}
-            >
-              <Bookmark className={`w-5 h-5 ${isBookmarked ? 'fill-current' : ''} group-hover:scale-110 transition-transform`} />
-            </button>
-          </div>
       </div>
     </article>
   );
