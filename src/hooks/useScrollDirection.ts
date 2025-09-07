@@ -41,4 +41,4 @@ export const useScrollDirection = (threshold: number = 5): ScrollDirectionReturn
     isVisible, 
     scrollY: lastScrollY 
   };
-}; 
+};
