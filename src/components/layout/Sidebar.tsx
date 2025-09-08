@@ -12,13 +12,11 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
-import { usePathname } from 'next/navigation';
 import { useSafeTheme } from '@/hooks/useSafeTheme';
 
 export function Sidebar() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showAlgorithmPanel, setShowAlgorithmPanel] = useState(false);
-  const pathname = usePathname();
   const { mounted, theme, toggleTheme } = useSafeTheme();
 
   useEffect(() => {

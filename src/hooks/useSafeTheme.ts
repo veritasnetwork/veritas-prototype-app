@@ -13,7 +13,7 @@ export function useSafeTheme() {
     // Dynamically import and use the theme hook only on client side
     const setupTheme = async () => {
       try {
-        const { useTheme } = await import('@/providers/ThemeProvider');
+        await import('@/providers/ThemeProvider');
         // We can't use the hook here, so we'll manage theme state manually
         // Check localStorage for saved theme
         const savedTheme = localStorage.getItem('theme') as 'dark' | 'light' | null;
@@ -40,7 +40,7 @@ export function useSafeTheme() {
         root.classList.remove('light', 'dark');
         root.classList.add(theme);
         
-      } catch (error) {
+      } catch {
         console.warn('Could not setup theme');
       }
     };
