@@ -17,19 +17,19 @@ export function Feed() {
 
   async function fetchPosts() {
     try {
-      // Check if we have valid Supabase configuration
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://placeholder.supabase.co') {
-        console.warn('Supabase not configured, using mock data');
-        setPosts([]);
-        return;
-      }
-
+      // Debug logging
+      console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+      console.log('Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+      
       const { data, error } = await supabase
         .from('posts')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       if (data) {
         // Transform Supabase data to match our frontend types
