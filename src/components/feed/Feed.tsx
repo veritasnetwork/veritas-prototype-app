@@ -108,14 +108,26 @@ export function Feed() {
 
   if (error) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center py-10">
-          <p className="text-red-500">{error}</p>
+      <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-neutral-900">
+        <div className="text-center max-w-md mx-auto px-6">
+          <div className="mb-6">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-2">
+              Failed to Load Posts
+            </h2>
+            <p className="text-neutral-600 dark:text-neutral-400">
+              We couldn't connect to load the latest posts. Please try refreshing the page.
+            </p>
+          </div>
           <button 
-            onClick={fetchPosts}
-            className="mt-4 px-4 py-2 bg-veritas-light-blue text-veritas-dark-blue rounded-lg hover:bg-veritas-light-blue/90"
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-veritas-light-blue text-veritas-dark-blue rounded-xl font-medium hover:bg-veritas-light-blue/90 transition-all duration-200 hover:scale-105"
           >
-            Try Again
+            Refresh Page
           </button>
         </div>
       </div>
