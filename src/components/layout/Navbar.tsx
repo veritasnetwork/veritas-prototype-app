@@ -3,9 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
-  TrendingUp, 
-  Sparkles, 
-  Home,
   Search,
   Sliders,
   ChevronRight,
@@ -18,35 +15,16 @@ import {
 import clsx from 'clsx';
 import { usePathname } from 'next/navigation';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
-import { useTheme } from '@/providers/ThemeProvider';
+import { useSafeTheme } from '@/hooks/useSafeTheme';
 
 export function Navbar() {
-  const [isScrolled, setIsScrolled] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const pathname = usePathname();
   const { isVisible } = useScrollDirection();
-  let theme: 'dark' | 'light' = 'dark';
-  let toggleTheme: (() => void) | undefined = undefined;
-  
-  // Only use theme hook if mounted (client side)
-  if (mounted) {
-    const themeContext = useTheme();
-    theme = themeContext.theme;
-    toggleTheme = themeContext.toggleTheme;
-  }
+  const { theme, toggleTheme } = useSafeTheme();
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrolled = window.scrollY > 100;
-      setIsScrolled(scrolled);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -58,7 +36,7 @@ export function Navbar() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const navItems: { href: string; label: string; icon: any }[] = [];
+  const navItems: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [];
 
   if (!mounted) {
     return null;
@@ -197,7 +175,7 @@ export function Navbar() {
                     <Search className="w-5 h-5" />
                   </button>
                   <button 
-                    onClick={themeToggle || undefined}
+                    onClick={toggleTheme}
                     className="p-2 text-neutral-600 dark:text-neutral-400"
                   >
                     {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}

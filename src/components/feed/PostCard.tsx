@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { TrendingUp, Zap, Brain, AlertTriangle, Vote } from 'lucide-react';
 import type { Post } from '@/types/post.types';
 import { OpinionChart } from '@/components/charts/OpinionChart';
 
@@ -29,18 +28,7 @@ export function PostCard({ post }: PostCardProps) {
     });
   };
 
-  const getTypeIcon = () => {
-    switch(post.type) {
-      case 'text': return TrendingUp;
-      case 'image': return Zap;
-      case 'video': return Brain;
-      case 'longform': return AlertTriangle;
-      case 'opinion': return Vote;
-      default: return TrendingUp;
-    }
-  };
 
-  const TypeIcon = getTypeIcon();
 
   return (
     <article className="animate-slide-up group relative">
