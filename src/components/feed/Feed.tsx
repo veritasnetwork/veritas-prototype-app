@@ -17,6 +17,13 @@ export function Feed() {
 
   async function fetchPosts() {
     try {
+      // Check if we have valid Supabase configuration
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://placeholder.supabase.co') {
+        console.warn('Supabase not configured, using mock data');
+        setPosts([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('posts')
         .select('*')
