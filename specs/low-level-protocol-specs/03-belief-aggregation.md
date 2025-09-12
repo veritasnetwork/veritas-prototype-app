@@ -4,7 +4,9 @@
 **Endpoint:** `/protocol/beliefs/aggregate`
 
 ### Interface
-**Input:** `belief_id`: string
+**Input:**
+- `belief_id`: string
+- `weights`: object {agent_id: weight}
 
 **Output:**
 - `pre_mirror_descent_aggregate`: number
@@ -19,19 +21,14 @@
    - `submissions = db.belief_submissions.where(belief_id=belief_id, epoch=current_epoch)`
    - `agents = db.agents.where(id IN submissions.agent_ids)`
 
-2. **Calculate weights:**
-   - For each agent: `effective_stake = agent.total_stake / agent.active_belief_count`
-   - `total_stake = sum(effective_stakes)`
-   - `weights = {agent_id: effective_stake / total_stake}`
-
-3. **Compute aggregate:**
+2. **Compute aggregate:**
    - `aggregate = sum(weights[agent_id] * submission.belief for each submission)`
 
-4. **Calculate entropy:**
-   - Binary entropy: `H(p) = -p * log2(p) - (1-p) * log2(1-p)` (handle p=0,1 edge cases)
-   - Aggregate entropy: `H_agg = H(aggregate)`
-   - Individual entropies: `H_individual = sum(weights[agent_id] * H(submission.belief))`
-   - Disagreement: `D_JS = H_agg - H_individual`
+3. **Calculate Jensen-Shannon disagreement entropy:**
+   - Binary entropy: `H(p) = -p * log2(p) - (1-p) * log2(1-p)` where `H(0) = H(1) = 0` (edge cases)
+   - Weighted average entropy: `H_avg = sum(weights[agent_id] * H(submission.belief))`
+   - Aggregate entropy: `H_agg = H(aggregate)` 
+   - Jensen-Shannon disagreement: `D_JS = H_agg - H_avg`
    - Normalized: `D_JS_norm = D_JS / 1.0` (binary max entropy = 1)
    - Certainty: `certainty = 1 - D_JS_norm`
 
@@ -42,8 +39,9 @@
 
 ### Interface
 **Input:**
-- `belief_id`: string
+- `belief_id`: string  
 - `exclude_agent_id`: string
+- `weights`: object {agent_id: weight} (excluding target agent)
 
 **Output:**
 - `leave_one_out_belief_aggregate`: number
@@ -53,14 +51,11 @@
 1. **Load data excluding target agent:**
    - `submissions = db.belief_submissions.where(belief_id=belief_id, epoch=current_epoch, agent_id != exclude_agent_id)`
 
-2. **Calculate weights (excluding target):**
-   - Same as main aggregation but exclude target agent from all calculations
-
-3. **Compute aggregates:**
+2. **Compute aggregates:**
    - `belief_aggregate = sum(weights[agent_id] * submission.belief)`
    - `meta_aggregate = sum(weights[agent_id] * submission.meta_prediction)`
 
-4. **Return:** Both aggregates
+3. **Return:** Both aggregates
 
 ## Database Updates
 None (read-only operations)
