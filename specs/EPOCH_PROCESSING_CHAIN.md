@@ -4,17 +4,28 @@ This document verifies that all inputs and outputs are properly defined and flow
 
 ## Chain Sequence
 ```
-Belief Aggregation → Mirror Descent → Learning Assessment → BTS Scoring → Stake Redistribution
+Validation → Epistemic Weights → Belief Aggregation → Mirror Descent → Learning Assessment → BTS Scoring → Stake Redistribution
 ```
 
 ## Data Flow Verification
 
+### 0. Epistemic Weights Calculation
+**Inputs:**
+- `belief_id` (from request)
+- Participant agent IDs (from DB)
+- Agent total stakes (from DB)
+- Agent active belief counts (from DB)
+
+**Outputs:**
+- `{w_i}` - Normalized epistemic weights
+- `{S_effective,i}` - Effective stakes per agent
+
 ### 1. Belief Aggregation
 **Inputs:**
 - `belief_id` (from request)
+- `{w_i}` ← from Epistemic Weights
 - `{p_i}` - Agent beliefs (loaded from DB)
 - `{m_i}` - Agent meta-predictions (loaded from DB)
-- `{S_i}` - Agent stakes (loaded from DB)
 - Active agent indicators (loaded from DB)
 - `P_post^(t-1)` - Previous epoch's post-MD aggregate (loaded from DB)
 
@@ -51,45 +62,43 @@ Belief Aggregation → Mirror Descent → Learning Assessment → BTS Scoring �
 - `η_econ` - Economic learning rate
 
 ### 4. BTS Scoring
-**Inputs:** ✅ All available from previous steps + DB
+**Inputs:** ✅ All available from previous steps
 - `belief_id` (from request)
+- `{w_i}` ← from Epistemic Weights
 - `{p_i^(t+1)}` ← from Mirror Descent (updated beliefs)
 - `{m_i}` ← from Aggregation (meta-predictions)
-- `{S_i}` (loaded from DB - agent stakes)
 - Active agent indicators ← from Aggregation
 
 **Outputs:**
 - `{s_i}` - BTS signal quality scores
-- `{g_i}` - Information scores
+- `{g_i}` - Information scores (g_i = w_i × s_i)
 - `W` - Winner set
 - `L` - Loser set
 
 ### 5. Stake Redistribution
-**Inputs:** ✅ All available from previous steps + DB
+**Inputs:** ✅ All available from previous steps
 - `belief_id` (from request)
+- `{S_effective,i}` ← from Epistemic Weights
 - `learning_occurred` ← from Learning Assessment
 - `η_econ` ← from Learning Assessment
 - `{g_i}` ← from BTS Scoring
 - `W` ← from BTS Scoring (winner set)
 - `L` ← from BTS Scoring (loser set)
-- `{S_i}` (loaded from DB - current agent stakes)
 
 **Outputs:**
-- `{S_i'}` - Updated stakes after redistribution
+- `{S_i'}` - Updated total stakes after redistribution
 - `{ΔR_i}` - Individual rewards for winners
 - `{ΔS_j}` - Individual slashes for losers
 
 ## Verification Results
 
-✅ **Chain is Complete**: Every function has all required inputs available from previous functions or database.
+✅ **Chain is Complete**: Every function has all required inputs available from previous functions.
 
-✅ **No Missing Dependencies**: No function requires data that isn't provided by a previous step.
+✅ **Epistemic Weights Flow**: Weights calculated once and passed to aggregation, BTS scoring, and redistribution.
 
-✅ **Correct Sequence**: Learning Assessment now correctly comes after Mirror Descent (fixed the temporal paradox).
+✅ **Reduced DB Calls**: Stakes loaded once during weight calculation, not repeatedly.
 
-✅ **Pass-through Data Handled**: Meta-predictions and active agent indicators properly flow from Aggregation to downstream functions.
-
-✅ **Database Interactions Clear**: Each function knows exactly what to load from DB vs what comes from previous functions.
+✅ **Transaction Boundaries**: Each belief processing wrapped in atomic transaction (see epoch management spec).
 
 ## Edge Function Implementation Ready
 
