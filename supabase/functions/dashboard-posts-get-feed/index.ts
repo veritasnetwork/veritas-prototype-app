@@ -6,13 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface FeedRequest {
+interface DashboardFeedRequest {
   user_id: string
   limit?: number
   offset?: number
 }
 
-interface FeedResponse {
+interface DashboardFeedResponse {
   posts: Array<{
     id: string
     user_id: string
@@ -30,7 +30,24 @@ interface FeedResponse {
       previous_aggregate: number
       expiration_epoch: number
       status: string
+      creator_agent_id: string
     }
+    submissions?: Array<{
+      submission_id: string
+      user: {
+        id: string
+        username: string
+        display_name: string
+      }
+      agent_id: string
+      belief: number
+      meta_prediction: number
+      epoch: number
+      is_active: boolean
+      stake_allocated: number
+      created_at: string
+      updated_at: string
+    }>
   }>
   total_count: number
 }
@@ -49,31 +66,35 @@ serve(async (req) => {
     )
 
     // Parse request body
-    const { 
-      user_id, 
-      limit = 20, 
-      offset = 0 
-    }: FeedRequest = await req.json()
+    const {
+      user_id,
+      limit = 20,
+      offset = 0
+    }: DashboardFeedRequest = await req.json()
 
     // Validate required fields
     if (!user_id) {
       return new Response(
         JSON.stringify({ error: 'Missing required field: user_id', code: 422 }),
-        { 
+        {
           status: 422,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
-    // MODULAR USER SELECTION: Currently fetching all posts for all users
-    // TODO: When auth is implemented, swap this logic to use the authenticated user
-    // TODO: In future, implement algorithm-based feeds based on user preferences and post tags
-    
-    // For now, all users see all posts (ignoring user_id for post filtering)
-    // This is a placeholder until we implement personalized feed algorithms
-    
-    // Get posts with user data, ordered by creation time
+    // Validate pagination parameters
+    if (limit > 100 || limit < 1) {
+      return new Response(
+        JSON.stringify({ error: 'Limit must be between 1 and 100', code: 422 }),
+        {
+          status: 422,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Get posts with user data, ordered by creation time (same as app-post-get-feed)
     const { data: postsData, error: postsError, count } = await supabaseClient
       .from('posts')
       .select(`
@@ -96,7 +117,7 @@ serve(async (req) => {
       console.error('Failed to fetch posts:', postsError)
       return new Response(
         JSON.stringify({ error: 'Failed to fetch posts', code: 503 }),
-        { 
+        {
           status: 503,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
@@ -108,7 +129,7 @@ serve(async (req) => {
       .filter(post => post.opinion_belief_id)
       .map(post => post.opinion_belief_id)
 
-    // Fetch all belief data in one query for better performance
+    // Fetch all belief data in one query
     let beliefsMap: Record<string, any> = {}
     if (beliefIds.length > 0) {
       const { data: beliefsData, error: beliefsError } = await supabaseClient
@@ -118,7 +139,8 @@ serve(async (req) => {
           previous_aggregate,
           previous_disagreement_entropy,
           expiration_epoch,
-          creator_agent_id
+          creator_agent_id,
+          status
         `)
         .in('id', beliefIds)
 
@@ -133,8 +155,10 @@ serve(async (req) => {
       }
     }
 
-    // Enrich posts with user and belief data
-    const enrichedPosts = (postsData || []).map(post => {
+    // Enrich posts with user, belief, and submission data
+    const enrichedPosts = []
+
+    for (const post of postsData || []) {
       const basePost = {
         id: post.id,
         user_id: post.user_id,
@@ -152,28 +176,51 @@ serve(async (req) => {
       // Add belief data if available
       if (post.opinion_belief_id && beliefsMap[post.opinion_belief_id]) {
         const beliefData = beliefsMap[post.opinion_belief_id]
-        return {
-          ...basePost,
-          belief: {
-            belief_id: beliefData.id,
-            previous_aggregate: beliefData.previous_aggregate || 0,
-            expiration_epoch: beliefData.expiration_epoch,
-            status: 'active' // TODO: Calculate actual status based on current epoch
+        basePost.belief = {
+          belief_id: beliefData.id,
+          previous_aggregate: beliefData.previous_aggregate || 0,
+          expiration_epoch: beliefData.expiration_epoch,
+          status: beliefData.status || 'unknown',
+          creator_agent_id: beliefData.creator_agent_id
+        }
+
+        // Get detailed submission data for this belief
+        try {
+          const submissionsResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/protocol-indexer-beliefs-get-submissions`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              belief_id: post.opinion_belief_id
+            })
+          })
+
+          if (submissionsResponse.ok) {
+            const submissionsData = await submissionsResponse.json()
+            basePost.submissions = submissionsData.submissions || []
+          } else {
+            console.warn(`Failed to fetch submissions for belief ${post.opinion_belief_id}`)
+            basePost.submissions = []
           }
+        } catch (error) {
+          console.warn(`Error fetching submissions for belief ${post.opinion_belief_id}:`, error)
+          basePost.submissions = []
         }
       }
 
-      return basePost
-    })
+      enrichedPosts.push(basePost)
+    }
 
-    const response: FeedResponse = {
+    const response: DashboardFeedResponse = {
       posts: enrichedPosts,
       total_count: count || 0
     }
 
     return new Response(
       JSON.stringify(response),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
@@ -182,7 +229,7 @@ serve(async (req) => {
     console.error('Unexpected error:', error)
     return new Response(
       JSON.stringify({ error: 'Internal server error', code: 500 }),
-      { 
+      {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }

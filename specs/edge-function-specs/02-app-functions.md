@@ -88,7 +88,7 @@ Submits user's opinion to an existing belief market.
 
 ## /app/posts/get-feed
 
-Retrieves posts for user's feed with belief market data.
+Retrieves posts for user's feed with belief aggregate data.
 
 **Request Parameters:**
 - `user_id`: Which user's feed
@@ -96,12 +96,12 @@ Retrieves posts for user's feed with belief market data.
 - `offset`: For pagination
 
 **Response:**
-- `posts`: Array of post objects with embedded belief data
+- `posts`: Array of post objects with belief aggregate for opinion posts
 - `total_count`: Total posts available
 
 **Process:**
-1. Query posts from app database
-2. For opinion posts, enrich with belief market data from protocol
+1. Query posts from app database with user data
+2. For opinion posts, join with protocol beliefs table to get previous_aggregate
 3. Return feed data optimized for UI display
 
 ## /app/tags/apply
@@ -142,4 +142,26 @@ Submit belief about tag relevance to a post.
 1. Get user's agent_id and tag_belief_id from post_tags
 2. Call `/protocol/beliefs/submit` with protocol parameters
 3. Return success status
+
+## Dashboard Functions
+
+### /app/dashboard/users-get-activity
+
+Provides user-centric dashboard view with complete belief participation history and app context integration.
+
+**Request Parameters:**
+- `user_ids`: Optional array of user identifiers to filter
+- `limit`: Number of users to return (default 20, max 50)
+- `offset`: For pagination
+
+**Response:**
+- `users`: Array of user objects with complete activity data
+- `total_count`: Total users matching criteria
+
+**Process:**
+1. Query users table with optional filtering and pagination
+2. Call `/protocol-indexer/users/get-activity` with corresponding agent_ids
+3. Enrich protocol data with post context for opinion beliefs
+4. Format response for dashboard UI consumption
+5. Return user-centric activity data with both protocol and app context
 

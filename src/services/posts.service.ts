@@ -9,24 +9,39 @@ import type { DbPost, DbOpinionHistory } from '@/types/database.types';
 
 export class PostsService {
   /**
-   * Fetches all posts from the database
+   * Fetches all posts from the app-post-get-feed API
    */
   static async fetchPosts(): Promise<Post[]> {
-    const { data, error } = await supabase
-      .from('posts')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const response = await fetch('http://127.0.0.1:54321/functions/v1/app-post-get-feed', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_id: 'default-user', // Fallback user for API requirement
+          limit: 50,
+          offset: 0
+        })
+      });
 
-    if (error) {
-      throw new Error(`Failed to fetch posts: ${error.message}`);
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.posts || !Array.isArray(data.posts)) {
+        return [];
+      }
+
+      // Transform API posts to frontend posts
+      return data.posts.map(this.transformApiPost);
+    } catch (error) {
+      console.error('Failed to fetch posts:', error);
+      throw new Error(`Failed to fetch posts: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    if (!data) {
-      return [];
-    }
-
-    // Transform database posts to frontend posts
-    return Promise.all(data.map(this.transformPost));
   }
 
   /**
@@ -51,7 +66,46 @@ export class PostsService {
   }
 
   /**
-   * Transforms a database post to frontend post format
+   * Transforms an API post to frontend post format
+   */
+  private static transformApiPost(apiPost: any): Post {
+    const post: Post = {
+      id: apiPost.id,
+      type: apiPost.opinion_belief_id ? 'opinion' : 'news', // Determine type based on opinion_belief_id
+      headline: apiPost.title || 'Untitled', // Keep headline for Post type compatibility
+      content: apiPost.content || '',
+      thumbnail: apiPost.media_urls?.[0] || undefined,
+      author: {
+        name: apiPost.user?.display_name || apiPost.user?.username || 'Unknown',
+        avatar: undefined, // API doesn't provide avatar currently
+      },
+      timestamp: new Date(apiPost.created_at),
+      relevanceScore: 85, // Default fixed score since not provided by API
+      signals: {
+        truth: 80,
+        novelty: 75,
+        importance: 70,
+        virality: 65,
+      },
+      sources: [],
+      discussionCount: 0,
+    };
+
+    // Add opinion data if applicable
+    if (apiPost.opinion_belief_id) {
+      // Use previous_aggregate from protocol beliefs table (creator's initial belief becomes first previous_aggregate)
+      const aggregate = apiPost.belief?.previous_aggregate ?? 0.5; // Fallback until API returns belief data
+      post.opinion = {
+        yesPercentage: Math.round(aggregate * 100),
+        history: undefined, // Could be fetched separately if needed
+      };
+    }
+
+    return post;
+  }
+
+  /**
+   * Transforms a database post to frontend post format (legacy method)
    */
   private static async transformPost(dbPost: DbPost): Promise<Post> {
     const post: Post = {

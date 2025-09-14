@@ -79,7 +79,7 @@ Deno.test('App Post Creation - Missing required fields', async () => {
   })
   
   assertEquals(response.status, 422)
-  assertEquals(data.error, 'Missing required fields: user_id, title, content, initial_belief')
+  assertEquals(data.error, 'Missing required fields: user_id, title, initial_belief')
 })
 
 Deno.test('App Post Creation - Invalid user ID', async () => {
