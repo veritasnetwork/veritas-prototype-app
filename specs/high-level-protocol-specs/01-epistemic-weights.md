@@ -7,22 +7,15 @@ Defines how agent stakes are distributed across multiple belief markets and conv
 - Active belief counts: $n_{beliefs,i}$ (beliefs agent participates in)
 - Belief participants: set of agent IDs in belief market
 
-## Outputs  
+## Outputs
 - Normalized epistemic weights: $w_i$ where $\sum_i w_i = 1$
 - Effective stakes per belief: $S_{effective,i}$
 
 ## Stake Distribution Rule
 
-**For all operations except belief creation:**
+**For all operations:**
 Agent's effective stake in any belief market:
 $$S_{effective,i} = \frac{S_{total,i}}{n_{beliefs,i}}$$
-
-## Belief Creation Exception
-
-**When creating new belief:**
-- Initial stake $S_0 = \$5$ **subtracted** from creator's total stake
-- Becomes dedicated stake for that specific belief market  
-- Creator's total stake reduced: $S_{total,creator} ← S_{total,creator} - 5$
 
 ## Aggregation Weights
 
@@ -40,10 +33,10 @@ $$g_i = w_i \times s_i$$
 ## Example
 Agent A has $100 total stake participating in 4 belief markets:
 - Effective stake per market: $100 / 4 = $25
-- If Agent A creates new belief with $5 stake:
-  - Total stake becomes: $95
-  - Now participates in 5 markets  
-  - New effective stake per market: $95 / 5 = $19
+- If Agent A participates in a new belief:
+  - Total stake remains: $100
+  - Now participates in 5 markets
+  - New effective stake per market: $100 / 5 = $20
 
 ## Purpose
 Enables capital-efficient participation across multiple markets while preventing wealthy agents from dominating individual propositions through diversification requirements and stake-proportional influence.

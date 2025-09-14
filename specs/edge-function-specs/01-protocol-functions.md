@@ -86,8 +86,10 @@ Processes all active beliefs for current epoch (see 08-epoch-management.md).
 **Input:** `current_epoch`  
 **Output:** `processed_beliefs`, `expired_beliefs`, `learned_beliefs`, `next_epoch`
 
-## /protocol/agents/get
 
+## Agent Management Functions
+
+### /protocol/agents/get
 Retrieves agent state information.
 
 **Request Parameters:**
