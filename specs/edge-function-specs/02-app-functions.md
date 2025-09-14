@@ -2,6 +2,27 @@
 
 App-layer operations that orchestrate protocol calls with content management, user experience, and UI concerns.
 
+## /app/users/create
+
+Creates a new user and associated protocol agent.
+
+**Request Parameters:**
+- `username`: Unique username for display
+- `display_name`: Optional full display name (defaults to username)
+- `auth_provider`: Optional authentication provider (e.g., "google", "github")
+- `auth_id`: Optional ID from auth provider
+
+**Response:**
+- `user_id`: Created user identifier
+- `agent_id`: Associated protocol agent identifier
+- `user`: Full user object
+
+**Process:**
+1. Validate username uniqueness
+2. Create protocol agent with initial stake from system_config
+3. Create user record with agent_id reference
+4. Return user data with agent_id
+
 ## /app/posts/create
 
 Creates a regular post without belief market.
@@ -122,38 +143,3 @@ Submit belief about tag relevance to a post.
 2. Call `/protocol/beliefs/submit` with protocol parameters
 3. Return success status
 
-## /app/users/dashboard
-
-Retrieves user's dashboard with stake and belief participation data.
-
-**Request Parameters:**
-- `user_id`: Which user's dashboard
-
-**Response:**
-- `total_stake`: User's current stake amount
-- `active_beliefs`: Array of current belief market participations
-- `recent_activity`: Recent posts and belief submissions
-
-**Process:**
-1. Get user's agent_id
-2. Call `/protocol/agents/get` for stake information
-3. Query user's posts and opinion submissions
-4. Enrich with current belief market states
-5. Return dashboard data for UI
-
-## /app/beliefs/process-epoch
-
-Triggers epoch processing for a belief market (admin/system function).
-
-**Request Parameters:**
-- `belief_id`: Which belief market to process
-
-**Response:**
-- `processing_result`: Results from protocol epoch processing
-- `affected_users`: Users whose stakes changed
-
-**Process:**
-1. Call `/protocol/epochs/process`
-2. Create notifications for affected users
-3. Update cached user stake data
-4. Return processing results

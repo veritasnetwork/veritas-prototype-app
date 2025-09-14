@@ -9,9 +9,8 @@ Application users mapped to protocol agents.
 |-------|------|-------------|
 | id | unique identifier | Unique user ID |
 | agent_id | agent reference | Corresponding protocol agent |
-| email | text | User's email (unique) |
-| auth_provider | text | Authentication provider (e.g., google, github) |
-| auth_id | text | ID from auth provider |
+| auth_provider | text | Authentication provider (reserved for future auth, nullable) |
+| auth_id | text | ID from auth provider (reserved for future auth, nullable) |
 | username | text | Unique username for display |
 | display_name | text | Full display name |
 | bio | text | User biography |
@@ -28,8 +27,8 @@ Content that may have associated belief markets.
 |-------|------|-------------|
 | id | unique identifier | Unique post ID |
 | user_id | user reference | User who created the post |
-| title | text | Optional post title |
-| content | text | Post content (subject to max character limit) |
+| title | text | Post title (max MAX_TITLE_LENGTH chars, required for opinion posts) |
+| content | text | Post content (max MAX_CONTENT_LENGTH chars, at least one of title/content required) |
 | media_url | text | Optional URL to media file (image/video) |
 | media_type | text | MIME type of media (if media_url present) |
 | is_opinion | boolean | Whether this post has an associated belief market |

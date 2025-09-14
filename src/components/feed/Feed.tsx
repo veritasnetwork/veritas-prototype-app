@@ -1,94 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { PostCard } from './PostCard';
-import type { Post } from '@/types/post.types';
-import { supabase } from '@/lib/supabase';
-import type { Post as SupabasePost, OpinionHistory } from '@/lib/supabase';
+import { usePosts } from '@/hooks/api/usePosts';
 
 export function Feed() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { posts, loading, error } = usePosts();
 
-  useEffect(() => {
-    fetchPosts();
-  }, []);
-
-  async function fetchPosts() {
-    try {
-      // Debug logging
-      console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-      console.log('Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-      
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-
-      if (data) {
-        // Transform Supabase data to match our frontend types
-        const transformedPosts: Post[] = await Promise.all(
-          data.map(async (post: SupabasePost) => {
-            let opinionHistory: OpinionHistory[] = [];
-            
-            // Fetch opinion history if this is an opinion post
-            if (post.type === 'opinion') {
-              const { data: historyData } = await supabase
-                .from('opinion_history')
-                .select('*')
-                .eq('post_id', post.id)
-                .order('recorded_at', { ascending: true })
-                .limit(50); // Limit to last 50 data points
-
-              opinionHistory = historyData || [];
-            }
-
-            return {
-              id: post.id,
-              type: post.type,
-              headline: post.headline,
-              content: post.content,
-              thumbnail: post.thumbnail || undefined,
-              author: {
-                name: post.author_name,
-                avatar: post.author_avatar || undefined,
-              },
-              timestamp: new Date(post.created_at),
-              relevanceScore: post.relevance_score,
-              signals: {
-                truth: post.truth_signal,
-                novelty: post.novelty_signal,
-                importance: post.importance_signal,
-                virality: post.virality_signal,
-              },
-              sources: post.sources || undefined,
-              discussionCount: post.discussion_count,
-              opinion: post.type === 'opinion' && post.opinion_yes_percentage !== undefined ? {
-                yesPercentage: post.opinion_yes_percentage,
-                history: opinionHistory.map(h => ({
-                  yesPercentage: h.yes_percentage,
-                  recordedAt: new Date(h.recorded_at),
-                })),
-              } : undefined,
-            };
-          })
-        );
-
-        setPosts(transformedPosts);
-      }
-    } catch (err) {
-      console.error('Error fetching posts:', err);
-      setError('Failed to load posts');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -120,7 +37,7 @@ export function Feed() {
               Failed to Load Posts
             </h2>
             <p className="text-neutral-600 dark:text-neutral-400">
-              We couldn't connect to load the latest posts. Please try refreshing the page.
+              We couldn&apos;t connect to load the latest posts. Please try refreshing the page.
             </p>
           </div>
           <button 
