@@ -1,9 +1,30 @@
+/**
+ * Frontend types for the application
+ * These types represent how data is used in the UI
+ */
+
 export type PostType = 'text' | 'image' | 'video' | 'longform' | 'opinion';
 
-export interface Signal {
+export interface Author {
   name: string;
-  value: number;
-  weight: number;
+  avatar?: string;
+}
+
+export interface PostSignals {
+  truth: number;
+  novelty: number;
+  importance: number;
+  virality: number;
+}
+
+export interface OpinionData {
+  yesPercentage: number;
+  history?: OpinionHistoryPoint[];
+}
+
+export interface OpinionHistoryPoint {
+  yesPercentage: number;
+  recordedAt: Date;
 }
 
 export interface Post {
@@ -12,28 +33,11 @@ export interface Post {
   headline: string;
   content: string;
   thumbnail?: string;
-  author: {
-    name: string;
-    avatar?: string;
-  };
+  author: Author;
   timestamp: Date;
   relevanceScore: number;
-  signals: {
-    truth: number;
-    novelty: number;
-    importance: number;
-    virality: number;
-  };
+  signals: PostSignals;
   sources?: string[];
   discussionCount: number;
-  // Opinion-specific fields
-  opinion?: {
-    yesPercentage: number;
-    history?: OpinionHistoryPoint[];
-  };
-}
-
-export interface OpinionHistoryPoint {
-  yesPercentage: number;
-  recordedAt: Date;
+  opinion?: OpinionData;
 }

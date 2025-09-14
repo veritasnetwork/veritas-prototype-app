@@ -5,34 +5,5 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholde
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Type definitions for our database
-export interface Post {
-  id: string;
-  type: 'text' | 'image' | 'video' | 'longform' | 'opinion';
-  headline: string;
-  content: string;
-  thumbnail?: string;
-  author_name: string;
-  author_avatar?: string;
-  created_at: string;
-  relevance_score: number;
-  // Signals
-  truth_signal: number;
-  novelty_signal: number;
-  importance_signal: number;
-  virality_signal: number;
-  // Metadata
-  discussion_count: number;
-  sources?: string[];
-  // Opinion-specific fields
-  opinion_yes_percentage?: number;
-}
-
-// Type for opinion history records
-export interface OpinionHistory {
-  id: string;
-  post_id: string;
-  yes_percentage: number;
-  recorded_at: string;
-  created_at: string;
-}
+// Re-export database types for convenience
+export type { DbPost as Post, DbOpinionHistory as OpinionHistory } from '@/types/database.types';

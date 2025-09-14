@@ -32,17 +32,15 @@
 beliefs
 agents  
 belief_submissions
-epoch_states
-redistributions
+system_config
 ```
 
 ### App Tables (Rich, Content-Aware)
 ```
-posts (with belief_id reference)
+posts (with opinion_belief_id reference)
 users (with agent_id reference)
-media_attachments
-comments
-user_profiles
+tags
+post_tags (with tag_belief_id reference)
 ```
 
 ### Edge Function Design

@@ -1,0 +1,3 @@
+-- Seed data for Veritas Protocol
+-- Start with empty database - will add test data later
+-- Initial system configuration already in migration

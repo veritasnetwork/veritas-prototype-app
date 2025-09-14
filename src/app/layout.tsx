@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Lora } from 'next/font/google';
-import { ClientLayout } from '@/components/ClientLayout';
+import { ClientLayout } from '@/components/layout/ClientLayout';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import '@/styles/globals.css';
 
