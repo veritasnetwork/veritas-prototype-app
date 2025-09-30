@@ -13,10 +13,10 @@ async function callAgentCreation(payload: any = {}) {
 
 Deno.test('Protocol Agent Creation - Default stake', async () => {
   const { response, data } = await callAgentCreation({})
-  
+
   assertEquals(response.status, 200)
   assertEquals(typeof data.agent_id, 'string')
-  assertEquals(data.total_stake, 100)
+  assertEquals(data.total_stake, 10000)
   assertEquals(data.active_belief_count, 0)
 })
 

@@ -1,28 +1,28 @@
 /**
- * OpinionSubmission Component
- * Allows users to submit their opinion on opinion-type posts
+ * BeliefSubmission Component
+ * Allows users to submit their belief on posts
  */
 
 'use client';
 
 import { useState } from 'react';
 
-interface OpinionSubmissionProps {
+interface BeliefSubmissionProps {
   onCancel: () => void;
   onSubmit: (percentage: number) => Promise<void>;
 }
 
-export function OpinionSubmission({ onCancel, onSubmit }: OpinionSubmissionProps) {
-  const [userOpinion, setUserOpinion] = useState<number>(50);
+export function BeliefSubmission({ onCancel, onSubmit }: BeliefSubmissionProps) {
+  const [userBelief, setUserBelief] = useState<number>(50);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const handleSubmit = async () => {
-    await onSubmit(userOpinion);
+    await onSubmit(userBelief);
     setIsSubmitted(true);
   };
 
   const handleCancel = () => {
-    setUserOpinion(50);
+    setUserBelief(50);
     setIsSubmitted(false);
     onCancel();
   };
@@ -37,20 +37,20 @@ export function OpinionSubmission({ onCancel, onSubmit }: OpinionSubmissionProps
         {/* Slider */}
         <div>
           <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            Your belief: {userOpinion}%
+            Your belief: {userBelief}%
           </label>
           <div className="relative">
             <input
               type="range"
               min="0"
               max="100"
-              value={userOpinion}
-              onChange={(e) => setUserOpinion(Number(e.target.value))}
+              value={userBelief}
+              onChange={(e) => setUserBelief(Number(e.target.value))}
               className="w-full h-2 bg-neutral-200 dark:bg-neutral-700 rounded-lg appearance-none cursor-pointer"
               style={{
-                background: `linear-gradient(to right, #EA900E 0%, #EA900E ${userOpinion}%, #e5e7eb ${userOpinion}%, #e5e7eb 100%)`
+                background: `linear-gradient(to right, #EA900E 0%, #EA900E ${userBelief}%, #e5e7eb ${userBelief}%, #e5e7eb 100%)`
               }}
-              aria-label="Opinion percentage slider"
+              aria-label="Belief percentage slider"
             />
             <div className="flex justify-between text-xs text-neutral-500 dark:text-neutral-400 mt-1">
               <span>0% (No)</span>
@@ -85,7 +85,7 @@ export function OpinionSubmission({ onCancel, onSubmit }: OpinionSubmissionProps
                 Submitted
               </span>
             ) : (
-              'Submit Opinion'
+              'Submit Belief'
             )}
           </button>
         </div>

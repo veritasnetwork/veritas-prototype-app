@@ -18,7 +18,7 @@ export function PostHeader({ author, timestamp }: PostHeaderProps) {
     <div className="flex items-center mb-4">
 
       {/* Author Avatar */}
-      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-veritas-light-blue to-neutral-200 dark:to-neutral-800 flex items-center justify-center mr-3">
+      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#B9D9EB] to-[#0C1D51] flex items-center justify-center mr-3">
         {author?.avatar ? (
           <img
             src={author.avatar}
@@ -35,10 +35,10 @@ export function PostHeader({ author, timestamp }: PostHeaderProps) {
       {/* Author Info */}
       <div className="flex-1">
         <div className="flex items-center">
-          <span className="font-medium text-black dark:text-white mr-2 font-sans text-sm">
+          <span className="font-medium text-white mr-2 font-sans text-sm">
             {author?.name || 'Unknown'}
           </span>
-          <span className="text-neutral-500 dark:text-neutral-400 text-sm">
+          <span className="text-white opacity-50 text-sm">
             · {formatRelativeTime(timestamp)}
           </span>
         </div>

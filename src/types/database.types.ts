@@ -5,10 +5,8 @@
 
 export interface DbPost {
   id: string;
-  type: 'text' | 'image' | 'video' | 'longform' | 'opinion';
   headline: string;
   content: string;
-  thumbnail?: string;
   author_name: string;
   author_avatar?: string;
   created_at: string;
@@ -20,10 +18,10 @@ export interface DbPost {
   virality_signal: number;
   discussion_count: number;
   sources?: string[];
-  opinion_yes_percentage?: number;
+  belief_yes_percentage: number;
 }
 
-export interface DbOpinionHistory {
+export interface DbBeliefHistory {
   id: string;
   post_id: string;
   yes_percentage: number;

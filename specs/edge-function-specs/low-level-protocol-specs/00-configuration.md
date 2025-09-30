@@ -21,7 +21,6 @@ Configuration parameters are stored in the `system_config` table with these init
 - **current_epoch**: "0" (global epoch counter)
 
 ### System Limits
-- **max_beliefs_per_agent**: "1000"
 - **max_agents_per_belief**: "10000"
 
 ## Hardcoded Constants

@@ -163,12 +163,12 @@ serve(async (req) => {
     if (allBeliefIds.size > 0) {
       const { data: postsData, error: postsError } = await supabaseClient
         .from('posts')
-        .select('id, title, content, created_at, opinion_belief_id')
-        .in('opinion_belief_id', Array.from(allBeliefIds))
+        .select('id, title, content, created_at, belief_id')
+        .in('belief_id', Array.from(allBeliefIds))
 
       if (!postsError && postsData) {
         for (const post of postsData) {
-          postContextMap[post.opinion_belief_id] = {
+          postContextMap[post.belief_id] = {
             post_id: post.id,
             title: post.title || 'Untitled',
             content_preview: post.content ? post.content.substring(0, 200) : '',

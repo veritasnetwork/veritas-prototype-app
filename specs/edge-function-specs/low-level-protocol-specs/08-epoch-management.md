@@ -10,8 +10,7 @@
 
 **Output:**
 - `processed_beliefs`: array[string] (belief IDs processed)
-- `expired_beliefs`: array[string] (belief IDs that expired)
-- `learned_beliefs`: array[string] (belief IDs that learned and terminated)
+- `expired_beliefs`: array[string] (belief IDs that expired and were deleted)
 - `next_epoch`: integer
 
 ## Algorithm
@@ -43,27 +42,30 @@
 
 5. **Handle expired beliefs:**
    - For each belief in expired:
-     - **Set status:** `belief.status = "expired"`
      - **Delete submissions:** `db.belief_submissions.delete(belief_id=belief_id)`
-     - **Update counts:** `agent.active_belief_count -= 1` for each participant (no stake redistribution)
-     - **Keep belief record** for historical purposes
+     - **Delete belief:** `db.beliefs.delete(id=belief_id)`
+     - **Update counts:** `agent.active_belief_count -= 1` for each participant (via database trigger)
+     - No stake redistribution for expired beliefs
 
-6. **Track submission cleanup (after processing):**
-   - Beliefs where learning occurred have had their submissions flushed
-   - Beliefs remain active until expiration_epoch regardless of learning
+6. **Submission status updates (after processing):**
+   - ALL submissions for processed beliefs are set to passive: `is_active = false`
+   - This happens automatically in learning assessment step
+   - Submissions remain in database for historical record
+   - Beliefs remain active until expiration_epoch
+   - Agents must resubmit in next epoch to participate in scoring
 
 7. **Update global state:**
    - Set global current_epoch = next_epoch
    - Archive processed epoch metrics
 
-8. **Return:** Summary of processed beliefs, expired beliefs, beliefs with flushed submissions
+8. **Return:** Summary of processed beliefs and expired beliefs
 
 ## Error Handling & Validation
 
 ### Input Validation
-- **Agent existence:** All agent_ids must exist in agents table  
+- **Agent existence:** All agent_ids must exist in agents table
 - **Valid beliefs:** All belief values must be in [0,1] range
-- **Duration limits:** duration_epochs must be in [1, MAX_BELIEF_DURATION]
+- **Duration limits:** duration_epochs must be within configured bounds
 - **Required metadata:** `previous_disagreement_entropy`, `expiration_epoch`, `creator_agent_id` must be present
 
 ### Transaction Management
@@ -81,7 +83,7 @@
 - **503:** Database transaction failure
 
 ## Database Updates
-- **epochs table:** INSERT epoch summary record
-- **beliefs table:** DELETE expired/learned beliefs
-- **belief_submissions table:** DELETE related submissions
-- **agents table:** UPDATE active_belief_count for affected agents
+- **epochs table:** INSERT epoch summary record (if implemented)
+- **beliefs table:** UPDATE processed beliefs with new entropy/aggregate, DELETE expired beliefs
+- **belief_submissions table:** UPDATE is_active=false for all processed beliefs, DELETE submissions for expired beliefs
+- **agents table:** UPDATE total_stake after redistribution, UPDATE active_belief_count via trigger

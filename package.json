@@ -7,9 +7,17 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "reset:users": "node scripts/reset-users.js"
+    "reset:users": "node scripts/reset-dbs/reset-users.js",
+    "reset:posts": "node scripts/reset-dbs/reset-posts.js",
+    "reset:agents": "node scripts/reset-dbs/reset-agents.js",
+    "reset:beliefs": "node scripts/reset-dbs/reset-beliefs.js",
+    "reset:all": "node scripts/reset-dbs/reset-all.js",
+    "meta-test:small": "node scripts/meta-test.js small",
+    "meta-test:medium": "node scripts/meta-test.js medium",
+    "meta-test:large": "node scripts/meta-test.js large"
   },
   "dependencies": {
+    "@privy-io/react-auth": "^2.25.0",
     "@supabase/supabase-js": "^2.57.2",
     "clsx": "^2.1.1",
     "lucide-react": "^0.524.0",

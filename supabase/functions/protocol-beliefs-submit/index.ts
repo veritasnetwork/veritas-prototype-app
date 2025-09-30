@@ -274,17 +274,8 @@ serve(async (req) => {
         )
       }
 
-      // Check max beliefs per agent
-      const maxBeliefsPerAgent = 100 // TODO: Get from config
-      if (agentData.active_belief_count + 1 > maxBeliefsPerAgent) {
-        return new Response(
-          JSON.stringify({ error: 'Max beliefs per agent exceeded', code: 504 }),
-          {
-            status: 504,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
-      }
+      // No max beliefs per agent - only requirement is minimum stake
+      // Agent can participate in unlimited beliefs as long as effective stake remains sufficient
     }
 
     const response: BeliefSubmissionResponse = {

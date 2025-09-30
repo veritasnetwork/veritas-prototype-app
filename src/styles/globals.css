@@ -79,3 +79,14 @@
     overflow: hidden;
   }
 }
+
+@keyframes expandRight {
+  0% {
+    width: 160px;
+    transform-origin: left center;
+  }
+  100% {
+    width: 100%;
+    transform-origin: left center;
+  }
+}

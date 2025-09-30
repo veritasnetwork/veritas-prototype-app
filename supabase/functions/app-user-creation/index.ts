@@ -120,8 +120,7 @@ serve(async (req) => {
     const { data: agent, error: agentError } = await supabaseClient
       .from('agents')
       .insert({
-        total_stake: initialStake,
-        active_belief_count: 0
+        total_stake: initialStake
       })
       .select()
       .single()

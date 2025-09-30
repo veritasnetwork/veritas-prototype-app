@@ -2,20 +2,15 @@
  * Application constants
  */
 
-// Post types
-export const POST_TYPES = {
-  TEXT: 'text',
-  IMAGE: 'image',
-  VIDEO: 'video',
-  LONGFORM: 'longform',
-  OPINION: 'opinion',
-} as const;
+// Post configuration
+// All posts now have beliefs attached (no post types)
 
 // API configuration
 export const API_CONFIG = {
   DEFAULT_PAGE_SIZE: 20,
   MAX_PAGE_SIZE: 100,
-  OPINION_HISTORY_LIMIT: 50,
+  BELIEF_HISTORY_LIMIT: 50,
+  DEFAULT_DURATION_EPOCHS: 10, // 48h
 } as const;
 
 // UI configuration
@@ -24,9 +19,9 @@ export const UI_CONFIG = {
   TOAST_DURATION: 5000,
   RELEVANCE_MIN: 0,
   RELEVANCE_MAX: 100,
-  OPINION_MIN: 0,
-  OPINION_MAX: 100,
-  OPINION_DEFAULT: 50,
+  BELIEF_MIN: 0,
+  BELIEF_MAX: 100,
+  BELIEF_DEFAULT: 50,
 } as const;
 
 // Theme configuration

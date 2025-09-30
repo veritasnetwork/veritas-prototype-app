@@ -16,21 +16,24 @@ Coordinates temporal cycle of belief evolution and manages state transitions bet
 
 ## Epoch Sequence
 1. **Epoch Close** - Stop accepting submissions for epoch $t$
-2. **Belief Expiration Check** - Remove expired beliefs
+2. **Belief Expiration Check** - Delete expired beliefs and their submissions
 3. **Process Updates** - Add/update/remove agent submissions
 4. **Execute Protocol Chain** - Aggregation → Mirror Descent → Learning Assessment → BTS Scoring → Stake Redistribution
-5. **Submission Cleanup** - Flush submissions from beliefs that learned
-6. **State Persistence** - Store updated states
+5. **Submission Status Update** - Set all submissions to passive (is_active = false)
+6. **State Persistence** - Store updated belief states
 7. **Epoch Open** - Begin accepting submissions for epoch $t+1$
 
-## Belief Termination vs Submission Cleanup
-**Belief Termination (only):**
-- **Time-based**: current_epoch ≥ expiration_epoch  
+## Belief Termination vs Submission Status Updates
+**Belief Termination (delete belief and submissions):**
+- **Time-based**: current_epoch ≥ expiration_epoch
 - **Single-agent**: Cannot be scored, auto-expire
+- Belief record and all submissions are deleted
 
-**Submission Cleanup (belief remains active):**
-- **Learning-based**: η_econ > 0 (disagreement entropy decreased)
-- Submissions flushed, agents paid out, belief continues accepting new submissions
+**Submission Status Updates (belief remains active):**
+- **After every epoch processing**: ALL submissions become passive (is_active = false)
+- Submissions remain in database for historical record
+- Agents must resubmit in next epoch to participate in scoring
+- Belief continues accepting new submissions until expiration_epoch
 
 ## Purpose
 Ensures deterministic state transitions while handling belief lifecycle management. Variable epoch duration allows different topics to evolve at appropriate speeds.

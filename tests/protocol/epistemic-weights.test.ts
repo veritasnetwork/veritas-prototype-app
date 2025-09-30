@@ -15,46 +15,30 @@ async function callWeightsCalculate(payload: any = {}) {
 
 // Helper to create a test agent with specific parameters
 async function createTestAgent(totalStake: number = 100, beliefCount: number = 1) {
-  const agentName = `TestAgent_${Date.now()}_${Math.floor(Math.random() * 1000)}`
-  
-  // Create via app user creation to get proper names
-  const userResponse = await fetch(`${SUPABASE_URL}/functions/v1/app-user-creation`, {
+  // Create agent via protocol
+  const agentResponse = await fetch(`${SUPABASE_URL}/functions/v1/protocol-agent-creation`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ 
-      username: agentName.toLowerCase(), 
-      display_name: agentName 
-    })
+    body: JSON.stringify({ initial_stake: totalStake })
   })
-  const userData = await userResponse.json()
-  
-  // Update agent's total stake if different from default
-  if (totalStake !== 100) {
-    await fetch(`${SUPABASE_URL}/rest/v1/agents?id=eq.${userData.agent_id}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': headers.Authorization,
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ total_stake: totalStake })
+  const agentData = await agentResponse.json()
+  const agentId = agentData.agent_id
+
+  // Create actual beliefs to increment active_belief_count
+  for (let i = 0; i < beliefCount; i++) {
+    const beliefResponse = await fetch(`${SUPABASE_URL}/functions/v1/protocol-belief-creation`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        agent_id: agentId,
+        initial_belief: 0.5,
+        duration_epochs: 10
+      })
     })
+    await beliefResponse.json() // Consume response to avoid leaks
   }
-  
-  // Update belief count if needed
-  if (beliefCount !== 0) {
-    await fetch(`${SUPABASE_URL}/rest/v1/agents?id=eq.${userData.agent_id}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': headers.Authorization,
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ active_belief_count: beliefCount })
-    })
-  }
-  
-  return userData.agent_id
+
+  return agentId
 }
 
 // Basic Cases
@@ -169,43 +153,46 @@ Deno.test('Epistemic Weights - Missing required fields', async () => {
 })
 
 // Edge Cases
-Deno.test('Epistemic Weights - All zero stakes', async () => {
-  const agent1Id = await createTestAgent(0, 1) // Zero total stake
-  const agent2Id = await createTestAgent(0, 1) // Zero total stake
-  
+Deno.test('Epistemic Weights - Minimal stakes', async () => {
+  // Minimum viable stakes: $0.50 per belief = $1 total for 2 beliefs
+  const agent1Id = await createTestAgent(1, 2) // $0.50 effective stake
+  const agent2Id = await createTestAgent(1, 2) // $0.50 effective stake
+
   const { response, data } = await callWeightsCalculate({
     belief_id: 'test-belief-8',
     participant_agents: [agent1Id, agent2Id]
   })
-  
+
   assertEquals(response.status, 200)
-  
-  // Should assign equal weights when all stakes are effectively zero
+
+  // Should assign equal weights when all stakes are equal
   assertEquals(data.weights[agent1Id], 0.5)
   assertEquals(data.weights[agent2Id], 0.5)
-  
+
   // Verify normalization
   const weightSum = Object.values(data.weights as Record<string, number>).reduce((sum, weight) => sum + weight, 0)
   assertEquals(Math.abs(weightSum - 1.0) < EPSILON_PROBABILITY, true)
 })
 
-Deno.test('Epistemic Weights - Very small stakes', async () => {
-  const agent1Id = await createTestAgent(1e-6, 1) // Very small stake
-  const agent2Id = await createTestAgent(2e-6, 1) // Very small stake
-  
+Deno.test('Epistemic Weights - Very small effective stakes', async () => {
+  // Small effective stakes but above minimum
+  const agent1Id = await createTestAgent(0.6, 1) // $0.60 effective stake
+  const agent2Id = await createTestAgent(1.2, 1) // $1.20 effective stake
+
   const { response, data } = await callWeightsCalculate({
     belief_id: 'test-belief-9',
     participant_agents: [agent1Id, agent2Id]
   })
-  
+
   assertEquals(response.status, 200)
-  
-  // Should handle very small stakes without underflow
+
+  // Agent2 should have 2x the weight of Agent1
+  // Expected weights: 0.6/1.8 = 0.333..., 1.2/1.8 = 0.666...
   assertEquals(typeof data.weights[agent1Id], 'number')
   assertEquals(typeof data.weights[agent2Id], 'number')
-  assertEquals(data.weights[agent1Id] > 0, true)
-  assertEquals(data.weights[agent2Id] > 0, true)
-  
+  assertEquals(Math.abs(data.weights[agent1Id] - 0.333333) < 0.01, true)
+  assertEquals(Math.abs(data.weights[agent2Id] - 0.666666) < 0.01, true)
+
   // Verify normalization
   const weightSum = Object.values(data.weights as Record<string, number>).reduce((sum, weight) => sum + weight, 0)
   assertEquals(Math.abs(weightSum - 1.0) < EPSILON_PROBABILITY, true)

@@ -163,17 +163,8 @@ serve(async (req) => {
       )
     }
 
-    // Check max beliefs per agent
-    const maxBeliefsPerAgent = 100 // TODO: Get from config
-    if (agentData.active_belief_count >= maxBeliefsPerAgent) {
-      return new Response(
-        JSON.stringify({ error: 'Max beliefs per agent exceeded', code: 504 }),
-        { 
-          status: 504,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
+    // No max beliefs per agent - only requirement is minimum stake
+    // The stake allocation check above ensures agent has sufficient effective stake
 
     // Create belief record
     const { data: belief, error: beliefError } = await supabaseClient

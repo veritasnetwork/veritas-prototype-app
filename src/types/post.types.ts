@@ -3,8 +3,6 @@
  * These types represent how data is used in the UI
  */
 
-export type PostType = 'text' | 'image' | 'video' | 'longform' | 'opinion';
-
 export interface Author {
   name: string;
   avatar?: string;
@@ -17,27 +15,25 @@ export interface PostSignals {
   virality: number;
 }
 
-export interface OpinionData {
+export interface BeliefData {
   yesPercentage: number;
-  history?: OpinionHistoryPoint[];
+  history?: BeliefHistoryPoint[];
 }
 
-export interface OpinionHistoryPoint {
+export interface BeliefHistoryPoint {
   yesPercentage: number;
   recordedAt: Date;
 }
 
 export interface Post {
   id: string;
-  type: PostType;
   headline: string;
   content: string;
-  thumbnail?: string;
   author: Author;
   timestamp: Date;
   relevanceScore: number;
   signals: PostSignals;
   sources?: string[];
   discussionCount: number;
-  opinion?: OpinionData;
+  belief: BeliefData;
 }

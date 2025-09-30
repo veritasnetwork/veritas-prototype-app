@@ -17,6 +17,12 @@ Deno.test('Protocol Indexer - Users Activity - Basic functionality', async () =>
     })
   })
 
+  if (response.status !== 200) {
+    console.log('Error status:', response.status)
+    const errorText = await response.text()
+    console.log('Error response:', errorText)
+  }
+
   assertEquals(response.status, 200, 'Should return 200 OK')
 
   const data = await response.json()
