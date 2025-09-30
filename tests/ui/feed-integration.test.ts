@@ -2,16 +2,14 @@
 import { assertEquals, assertExists, assert } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
 import { SUPABASE_URL, headers } from '../test-config.ts'
 
-// This test validates the complete data flow:
-// API → PostsService → PostCard → OpinionIndicator rendering
-
+// Fetch API data for integration tests
 async function fetchFeedData() {
   const response = await fetch(`${SUPABASE_URL}/functions/v1/app-post-get-feed`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
-      user_id: 'default-user',
-      limit: 50,
+      user_id: 'test-user',
+      limit: 10,
       offset: 0
     })
   })
@@ -25,9 +23,11 @@ async function fetchFeedData() {
 
 // Transform API post like PostsService does
 function transformApiPost(apiPost: any): any {
-  const post = {
+  // All posts have beliefs now - no more conditional logic needed
+  const aggregate = apiPost.belief?.previous_aggregate ?? 0.5;
+
+  const post: any = {
     id: apiPost.id,
-    type: apiPost.opinion_belief_id ? 'opinion' : 'news',
     headline: apiPost.title || 'Untitled',
     content: apiPost.content || '',
     thumbnail: apiPost.media_urls?.[0] || undefined,
@@ -45,13 +45,7 @@ function transformApiPost(apiPost: any): any {
     },
     sources: [],
     discussionCount: 0,
-  }
-
-  // Add opinion data if applicable - this is the critical part!
-  if (apiPost.opinion_belief_id) {
-    // If belief data exists, use it; otherwise default to 0.5 until aggregation is implemented
-    const aggregate = apiPost.belief?.previous_aggregate ?? 0.5;
-    post.opinion = {
+    belief: {
       yesPercentage: Math.round(aggregate * 100),
       history: undefined,
     }
@@ -60,101 +54,73 @@ function transformApiPost(apiPost: any): any {
   return post
 }
 
-Deno.test('Feed Integration - Real API data shows opinion indicators', async () => {
+Deno.test('Feed Integration - Real API data shows belief indicators', async () => {
   const data = await fetchFeedData()
 
   assertExists(data.posts, 'API should return posts')
   assertEquals(Array.isArray(data.posts), true, 'Posts should be an array')
 
-  let opinionPostFound = false
-  let opinionPostsWithoutBelief = 0
+  let postsWithBeliefData = 0
+  let postsWithoutBeliefData = 0
 
   for (const apiPost of data.posts) {
     const transformedPost = transformApiPost(apiPost)
 
-    // If this is an opinion post (has opinion_belief_id)
-    if (apiPost.opinion_belief_id) {
-      opinionPostFound = true
-
-      console.log(`Opinion post found: ${apiPost.id}`)
-      console.log(`- Has belief data: ${!!apiPost.belief}`)
-
-      if (apiPost.belief) {
-        console.log(`- Previous aggregate: ${apiPost.belief.previous_aggregate}`)
-        console.log(`- Transformed percentage: ${transformedPost.opinion?.yesPercentage}%`)
-      } else {
-        opinionPostsWithoutBelief++
-        console.log(`- No belief data, defaulting to 50%`)
-        console.log(`- Transformed percentage: ${transformedPost.opinion?.yesPercentage}%`)
-      }
-
-      // This is what should trigger the orange circle
-      assertExists(transformedPost.opinion, 'Opinion post should always have opinion data (default 50% if no belief)')
-      assertEquals(typeof transformedPost.opinion.yesPercentage, 'number', 'Should have numeric percentage')
-      assert(transformedPost.opinion.yesPercentage >= 0 && transformedPost.opinion.yesPercentage <= 100,
-             'Percentage should be 0-100')
+    if (apiPost.belief) {
+      postsWithBeliefData++
+      console.log(`Post with belief data: ${apiPost.id}`)
+      console.log(`- Previous aggregate: ${apiPost.belief.previous_aggregate}`)
+      console.log(`- Transformed percentage: ${transformedPost.belief?.yesPercentage}%`)
+    } else {
+      postsWithoutBeliefData++
+      console.log(`Post without explicit belief data: ${apiPost.id}`)
+      console.log(`- Defaulting to 50%`)
+      console.log(`- Transformed percentage: ${transformedPost.belief?.yesPercentage}%`)
     }
+
+    // ALL posts should have belief data (default 50% if no explicit belief)
+    assertExists(transformedPost.belief, 'All posts should have belief data')
+    assertEquals(typeof transformedPost.belief.yesPercentage, 'number', 'Should have numeric percentage')
+    assert(transformedPost.belief.yesPercentage >= 0 && transformedPost.belief.yesPercentage <= 100,
+           'Percentage should be 0-100')
   }
 
   console.log(`\nSummary:`)
   console.log(`- Total posts: ${data.posts.length}`)
-  console.log(`- Opinion posts found: ${opinionPostFound ? 'YES' : 'NO'}`)
-  console.log(`- Opinion posts without belief data: ${opinionPostsWithoutBelief}`)
+  console.log(`- Posts with explicit belief data: ${postsWithBeliefData}`)
+  console.log(`- Posts using default belief data: ${postsWithoutBeliefData}`)
 
-  // The test should pass but will help us understand the data
-  assert(true, 'Integration test completed - check console logs for data insights')
+  assert(true, 'Integration test completed - all posts have belief indicators')
 })
 
-Deno.test('Feed Integration - Validate PostCard conditional logic', async () => {
+Deno.test('Feed Integration - Validate PostCard rendering logic', async () => {
   const data = await fetchFeedData()
 
   for (const apiPost of data.posts) {
     const transformedPost = transformApiPost(apiPost)
 
-    // Test the exact conditional logic from PostCard.tsx: {post.opinion && (...)}
-    const shouldShowIndicator = !!transformedPost.opinion
-
-    if (apiPost.opinion_belief_id) {
-      // Opinion posts should always show indicator (default to 50% if no belief data)
-      assertEquals(shouldShowIndicator, true,
-                  `Post ${apiPost.id} has opinion_belief_id - should show indicator (50% if no belief data)`)
-    } else {
-      assertEquals(shouldShowIndicator, false,
-                  `Regular post ${apiPost.id} should NOT show indicator`)
-    }
+    // ALL posts should show belief indicators now
+    assertExists(transformedPost.belief, 'All posts should have belief data')
+    assert(transformedPost.belief.yesPercentage >= 0 && transformedPost.belief.yesPercentage <= 100,
+          `Post ${apiPost.id} should have valid percentage (0-100)`)
   }
 })
 
-Deno.test('Feed Integration - Opinion indicator rendering decision', async () => {
+Deno.test('Feed Integration - Belief indicator rendering decision', async () => {
   const data = await fetchFeedData()
 
-  let shouldShowIndicators = 0
-  let shouldNotShowIndicators = 0
+  let totalPosts = 0
 
   for (const apiPost of data.posts) {
     const transformedPost = transformApiPost(apiPost)
+    totalPosts++
 
-    // This matches the exact condition in PostCard: {post.opinion && (<OpinionIndicator...>)}
-    if (transformedPost.opinion) {
-      shouldShowIndicators++
-      console.log(`✓ Post ${apiPost.id} SHOULD show orange circle (${transformedPost.opinion.yesPercentage}%)`)
-    } else {
-      shouldNotShowIndicators++
-    }
+    // All posts should show belief indicators
+    console.log(`✓ Post ${apiPost.id} SHOULD show belief indicator (${transformedPost.belief.yesPercentage}%)`)
   }
 
-  console.log(`\nOpinion Indicator Rendering:`)
-  console.log(`- Should show orange circles: ${shouldShowIndicators}`)
-  console.log(`- Should NOT show orange circles: ${shouldNotShowIndicators}`)
+  console.log(`\nBelief Indicator Rendering:`)
+  console.log(`- All posts show belief indicators: ${totalPosts}`)
 
-  // If no opinion indicators should show, that might be the problem
-  if (shouldShowIndicators === 0) {
-    console.log(`\n⚠️  NO OPINION INDICATORS WILL SHOW!`)
-    console.log(`This means either:`)
-    console.log(`1. No posts have opinion_belief_id`)
-    console.log(`2. Posts with opinion_belief_id have no belief data`)
-    console.log(`3. The belief data is malformed`)
-  }
-
-  assert(true, 'Check console for rendering decisions')
+  assert(totalPosts > 0, 'Should have processed at least one post')
 })

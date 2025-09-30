@@ -18,14 +18,13 @@ interface FeedResponse {
     user_id: string
     title: string
     content: string
-    media_urls: string[]
-    opinion_belief_id: string | null
+    belief_id: string
     created_at: string
     user: {
       username: string
       display_name: string
     }
-    belief?: {
+    belief: {
       belief_id: string
       previous_aggregate: number
       expiration_epoch: number
@@ -81,8 +80,7 @@ serve(async (req) => {
         user_id,
         title,
         content,
-        media_urls,
-        opinion_belief_id,
+        belief_id,
         created_at,
         users:user_id (
           username,
@@ -105,8 +103,8 @@ serve(async (req) => {
 
     // Get all unique belief IDs for efficient batch querying
     const beliefIds = (postsData || [])
-      .filter(post => post.opinion_belief_id)
-      .map(post => post.opinion_belief_id)
+      .filter(post => post.belief_id)
+      .map(post => post.belief_id)
 
     // Fetch all belief data in one query for better performance
     let beliefsMap: Record<string, any> = {}
@@ -135,35 +133,26 @@ serve(async (req) => {
 
     // Enrich posts with user and belief data
     const enrichedPosts = (postsData || []).map(post => {
-      const basePost = {
+      const beliefData = beliefsMap[post.belief_id] || {}
+
+      return {
         id: post.id,
         user_id: post.user_id,
         title: post.title || '',
         content: post.content || '',
-        media_urls: post.media_urls || [],
-        opinion_belief_id: post.opinion_belief_id,
+        belief_id: post.belief_id,
         created_at: post.created_at,
         user: {
           username: post.users?.username || 'Unknown',
           display_name: post.users?.display_name || 'Unknown User'
+        },
+        belief: {
+          belief_id: post.belief_id,
+          previous_aggregate: beliefData.previous_aggregate || 0,
+          expiration_epoch: beliefData.expiration_epoch || 0,
+          status: 'active' // TODO: Calculate actual status based on current epoch
         }
       }
-
-      // Add belief data if available
-      if (post.opinion_belief_id && beliefsMap[post.opinion_belief_id]) {
-        const beliefData = beliefsMap[post.opinion_belief_id]
-        return {
-          ...basePost,
-          belief: {
-            belief_id: beliefData.id,
-            previous_aggregate: beliefData.previous_aggregate || 0,
-            expiration_epoch: beliefData.expiration_epoch,
-            status: 'active' // TODO: Calculate actual status based on current epoch
-          }
-        }
-      }
-
-      return basePost
     })
 
     const response: FeedResponse = {

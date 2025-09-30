@@ -21,11 +21,11 @@ Deno.test('API Debug - Raw response inspection', async () => {
   for (const post of data.posts || []) {
     console.log(`\n--- Post ${post.id} ---`)
     console.log(`Title: ${post.title}`)
-    console.log(`Type: opinion_belief_id = ${post.opinion_belief_id}`)
+    console.log(`Type: belief_id = ${post.belief_id}`)
     console.log(`Belief data: ${JSON.stringify(post.belief)}`)
 
-    if (post.opinion_belief_id && !post.belief) {
-      console.log(`🚨 ISSUE: Has opinion_belief_id but no belief data!`)
+    if (post.belief_id && !post.belief) {
+      console.log(`🚨 ISSUE: Has belief_id but no belief data!`)
     }
   }
 

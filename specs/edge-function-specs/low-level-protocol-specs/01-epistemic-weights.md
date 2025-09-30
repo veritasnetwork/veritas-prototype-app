@@ -74,8 +74,7 @@
    - Return error 404 if not found
    - Update: active_belief_count += delta
    - Verify: active_belief_count >= 0
-   - Verify: active_belief_count <= MAX_BELIEFS_PER_AGENT
-   - Return error 504 if bounds violated
+   - Return error 504 if negative
 
 4. **COMMIT TRANSACTION**
 
@@ -130,7 +129,6 @@
 - Division by zero → 501
 
 ### Constraint Violations
-- Belief count exceeds MAX_BELIEFS_PER_AGENT → 504
 - Negative belief count → 504
 - Normalization failure → 500
 
@@ -141,6 +139,5 @@
 ## Constants
 See configuration spec for:
 - MIN_STAKE_PER_BELIEF
-- MAX_BELIEFS_PER_AGENT
 - EPSILON_STAKES
 - EPSILON_PROBABILITY

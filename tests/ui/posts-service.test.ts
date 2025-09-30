@@ -8,8 +8,7 @@ const mockApiPost = {
   title: 'Test Post Title',
   content: 'Test post content',
   created_at: '2025-09-14T12:00:00Z',
-  media_urls: [],
-  opinion_belief_id: 'test-belief-id',
+  belief_id: 'test-belief-id',
   user: {
     username: 'testuser',
     display_name: 'Test User'
@@ -24,8 +23,7 @@ const mockRegularPost = {
   title: 'Regular Post',
   content: 'Regular content',
   created_at: '2025-09-14T12:00:00Z',
-  media_urls: [],
-  opinion_belief_id: null,
+  belief_id: null,
   user: {
     username: 'regularuser',
     display_name: 'Regular User'
@@ -35,9 +33,11 @@ const mockRegularPost = {
 // Test PostsService data transformation logic
 // This simulates the transformApiPost method since we can't directly import it
 function transformApiPost(apiPost: any): any {
-  const post = {
+  // All posts have beliefs now - no more opinion vs regular distinction
+  const aggregate = apiPost.belief?.initial_aggregate ?? 0.5;
+
+  const post: any = {
     id: apiPost.id,
-    type: apiPost.opinion_belief_id ? 'opinion' : 'news',
     headline: apiPost.title || 'Untitled',
     content: apiPost.content || '',
     thumbnail: apiPost.media_urls?.[0] || undefined,
@@ -55,13 +55,7 @@ function transformApiPost(apiPost: any): any {
     },
     sources: [],
     discussionCount: 0,
-  }
-
-  // Add opinion data if applicable
-  if (apiPost.opinion_belief_id) {
-    // If belief data exists, use it; otherwise default to 0.5 until aggregation is implemented
-    const aggregate = apiPost.belief?.initial_aggregate ?? 0.5;
-    post.opinion = {
+    belief: {
       yesPercentage: Math.round(aggregate * 100),
       history: undefined,
     }
@@ -80,21 +74,20 @@ Deno.test('PostsService - API response transformation', async () => {
   assertEquals(transformedPost.author.name, 'Test User')
 })
 
-Deno.test('PostsService - Opinion post classification', async () => {
+Deno.test('PostsService - Post with belief data', async () => {
   const transformedPost = transformApiPost(mockApiPost)
 
-  // Verify opinion post classification
-  assertEquals(transformedPost.type, 'opinion')
-  assertExists(transformedPost.opinion)
-  assertEquals(transformedPost.opinion.yesPercentage, 75) // 0.75 * 100 = 75
+  // All posts have beliefs now
+  assertExists(transformedPost.belief)
+  assertEquals(transformedPost.belief.yesPercentage, 75) // 0.75 * 100 = 75
 })
 
-Deno.test('PostsService - Regular post classification', async () => {
+Deno.test('PostsService - Post without explicit belief data defaults to 50%', async () => {
   const transformedPost = transformApiPost(mockRegularPost)
 
-  // Verify regular post classification
-  assertEquals(transformedPost.type, 'news')
-  assertEquals(transformedPost.opinion, undefined)
+  // Even posts without explicit belief data get default 50%
+  assertExists(transformedPost.belief)
+  assertEquals(transformedPost.belief.yesPercentage, 50) // Default 0.5 * 100 = 50
 })
 
 Deno.test('PostsService - Missing author name fallback', async () => {
@@ -130,17 +123,17 @@ Deno.test('PostsService - Missing title fallback', async () => {
   assertEquals(transformedPost.headline, 'Untitled')
 })
 
-Deno.test('PostsService - Opinion post without belief data defaults to 50%', async () => {
+Deno.test('PostsService - Post without belief data defaults to 50%', async () => {
   const postWithoutBelief = {
     ...mockApiPost,
     belief: null // No belief data
   }
 
   const transformedPost = transformApiPost(postWithoutBelief)
-  assertEquals(transformedPost.opinion.yesPercentage, 50) // Should default to 50% (0.5 * 100)
+  assertEquals(transformedPost.belief.yesPercentage, 50) // Should default to 50% (0.5 * 100)
 })
 
-Deno.test('PostsService - Opinion percentage calculation', async () => {
+Deno.test('PostsService - Belief percentage calculation', async () => {
   const testCases = [
     { aggregate: 0.0, expected: 0 },
     { aggregate: 0.25, expected: 25 },
@@ -159,7 +152,7 @@ Deno.test('PostsService - Opinion percentage calculation', async () => {
 
     const transformedPost = transformApiPost(postWithAggregate)
     assertEquals(
-      transformedPost.opinion.yesPercentage,
+      transformedPost.belief.yesPercentage,
       testCase.expected,
       `Failed for aggregate ${testCase.aggregate}`
     )

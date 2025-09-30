@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
+import {
   Sliders,
   ChevronRight,
   Menu,
@@ -13,7 +13,10 @@ import {
   User
 } from 'lucide-react';
 import { useSafeTheme } from '@/hooks/useSafeTheme';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/providers/AuthProvider';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { usePrivy } from '@privy-io/react-auth';
+import { usePostsContext } from '@/providers/PostsProvider';
 
 export function Sidebar() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -24,8 +27,18 @@ export function Sidebar() {
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedUserInfo, setSelectedUserInfo] = useState<{username: string, display_name: string} | null>(null);
+  const { user } = useAuth();
+  const { profile } = useUserProfile();
+  const { getAccessToken } = usePrivy();
   const { mounted, theme, toggleTheme } = useSafeTheme();
+
+  // Try to get posts context, but make it optional since sidebar might be used outside of feed
+  let postsContext = null;
+  try {
+    postsContext = usePostsContext();
+  } catch {
+    // Sidebar is being used outside of PostsProvider context - that's fine
+  }
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -40,74 +53,42 @@ export function Sidebar() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [showAlgorithmPanel, showCreatePanel]);
 
-  // Load selected user info when create panel opens
-  const loadSelectedUserInfo = async () => {
-    const selectedUserId = localStorage.getItem('selectedUserId');
-    
-    if (selectedUserId) {
-      try {
-        const { data: userData, error } = await supabase
-          .from('users')
-          .select('username, display_name')
-          .eq('id', selectedUserId)
-          .single();
 
-        if (!error && userData) {
-          setSelectedUserInfo({
-            username: userData.username,
-            display_name: userData.display_name
-          });
-        } else {
-          setSelectedUserInfo(null);
-        }
-      } catch (error) {
-        console.error('Error loading user info:', error);
-        setSelectedUserInfo(null);
-      }
-    } else {
-      setSelectedUserInfo(null);
-    }
-  };
-
-  // Load user info when create panel opens
-  useEffect(() => {
-    if (showCreatePanel) {
-      loadSelectedUserInfo();
-    }
-  }, [showCreatePanel]);
-
-  const createOpinionPost = async () => {
-    // According to specs: title is required for opinion posts, content is optional
+  const createPost = async () => {
+    // Title is required for all posts, content is optional
     if (!postTitle.trim()) {
-      alert('Please provide a title for your opinion post');
+      alert('Please provide a title for your post');
       return;
     }
     
-    // Get the currently selected user from the dashboard
-    const selectedUserId = localStorage.getItem('selectedUserId');
-    
-    if (!selectedUserId) {
-      alert('Please select a user in the dashboard first');
+    // Use the authenticated user
+    if (!user?.id) {
+      alert('User not authenticated');
       return;
     }
     
     setIsCreating(true);
     
     try {
-      const response = await fetch('http://127.0.0.1:54321/functions/v1/app-post-creation-with-opinion', {
+      const jwt = await getAccessToken();
+      if (!jwt) {
+        alert('Authentication token not available');
+        return;
+      }
+
+      const response = await fetch('/api/supabase/functions/v1/app-post-creation', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${jwt}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          user_id: selectedUserId,
+          user_id: user.id,
           title: postTitle.trim(),
           content: postContent.trim(),
           initial_belief: beliefValue / 100, // Convert percentage to 0-1 range
           meta_prediction: metaBeliefValue / 100, // Convert percentage to 0-1 range
-          duration_epochs: 5, // Default duration
-          media_urls: []
+          duration_epochs: 10 // Default 48h duration
         })
       });
 
@@ -120,6 +101,11 @@ export function Sidebar() {
         setBeliefValue(50);
         setMetaBeliefValue(50);
         setShowCreatePanel(false);
+
+        // Refresh posts if we're in the posts context
+        if (postsContext) {
+          postsContext.refreshPosts();
+        }
       } else {
         alert(`❌ Failed to create post: ${data.error || 'Unknown error'}`);
       }
@@ -144,7 +130,7 @@ export function Sidebar() {
       <aside className="hidden lg:flex flex-col fixed left-6 top-6 bottom-6 w-16 bg-white/95 dark:bg-neutral-800/95 backdrop-blur-ultra border border-neutral-200 dark:border-neutral-700 rounded-2xl shadow-lg dark:shadow-none">
         <div className="flex flex-col items-center p-3 h-full">
           {/* Logo */}
-          <Link href="/" className="mb-6 hover:scale-110 transition-transform">
+          <Link href="/feed" className="mb-6 hover:scale-110 transition-transform">
             <img 
               src="/icons/logo.png" 
               alt="Veritas" 
@@ -246,19 +232,19 @@ export function Sidebar() {
       {/* Create Post Panel - Floating */}
       {showCreatePanel && (
         <div className="create-panel hidden lg:block fixed left-28 top-20 w-96 bg-white/95 dark:bg-neutral-800/95 backdrop-blur-ultra border border-neutral-200 dark:border-neutral-700 rounded-2xl shadow-xl dark:shadow-none p-6 z-50 max-h-[90vh] overflow-y-auto">
-          <h3 className="font-semibold text-lg text-black dark:text-white mb-2">Create Opinion Post</h3>
+          <h3 className="font-semibold text-lg text-black dark:text-white mb-2">Create Post</h3>
           
-          {/* Selected User Indicator */}
-          {selectedUserInfo ? (
+          {/* Authenticated User Indicator */}
+          {profile ? (
             <div className="mb-4 p-2 bg-veritas-light-blue/10 border border-veritas-light-blue/30 rounded-lg">
               <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                Posting as: <span className="font-medium text-veritas-light-blue">{selectedUserInfo.display_name}</span> (@{selectedUserInfo.username})
+                Posting as: <span className="font-medium text-veritas-light-blue">{profile.display_name}</span> (@{profile.username})
               </p>
             </div>
           ) : (
             <div className="mb-4 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
               <p className="text-xs text-red-600 dark:text-red-400">
-                ⚠️ Please select a user in the dashboard first
+                ⚠️ Loading user profile...
               </p>
             </div>
           )}
@@ -359,8 +345,8 @@ export function Sidebar() {
                 Cancel
               </button>
               <button
-                onClick={createOpinionPost}
-                disabled={isCreating || !postTitle.trim() || !selectedUserInfo}
+                onClick={createPost}
+                disabled={isCreating || !postTitle.trim() || !profile}
                 className="flex-1 px-4 py-2 bg-veritas-light-blue text-veritas-dark-blue rounded-lg font-medium hover:bg-veritas-light-blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isCreating ? 'Creating...' : 'Create Post'}
@@ -381,7 +367,7 @@ export function Sidebar() {
             </button>
             
             {/* Logo */}
-            <Link href="/" className="mb-6" onClick={() => setShowMobileSidebar(false)}>
+            <Link href="/feed" className="mb-6" onClick={() => setShowMobileSidebar(false)}>
               <img 
                 src="/icons/logo.png" 
                 alt="Veritas" 

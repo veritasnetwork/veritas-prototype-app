@@ -13,7 +13,6 @@ interface PostCreationRequest {
   initial_belief: number
   meta_prediction?: number
   duration_epochs?: number
-  media_urls?: string[]
 }
 
 interface PostCreationResponse {
@@ -22,10 +21,9 @@ interface PostCreationResponse {
   post: {
     id: string
     user_id: string
-    opinion_belief_id: string
+    belief_id: string
     title: string
     content: string
-    media_urls: string[]
     created_at: string
   }
   belief: {
@@ -49,17 +47,16 @@ serve(async (req) => {
     )
 
     // Parse request body
-    const { 
-      user_id, 
-      title, 
-      content, 
+    const {
+      user_id,
+      title,
+      content,
       initial_belief,
       meta_prediction,
-      duration_epochs = 5, // Default 5 epochs
-      media_urls = []
+      duration_epochs = 10 // Default 10 epochs (48h)
     }: PostCreationRequest = await req.json()
 
-    // Validate required fields (title is required for opinion posts, content is optional)
+    // Validate required fields (title is required, content is optional)
     if (!user_id || !title?.trim() || initial_belief === undefined) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: user_id, title, initial_belief', code: 422 }),
@@ -156,10 +153,9 @@ serve(async (req) => {
       .from('posts')
       .insert({
         user_id,
-        opinion_belief_id: beliefData.belief_id,
+        belief_id: beliefData.belief_id,
         title: trimmedTitle,
-        content: trimmedContent,
-        media_urls
+        content: trimmedContent
       })
       .select()
       .single()
@@ -187,10 +183,9 @@ serve(async (req) => {
       post: {
         id: post.id,
         user_id: post.user_id,
-        opinion_belief_id: post.opinion_belief_id,
+        belief_id: post.belief_id,
         title: post.title,
         content: post.content,
-        media_urls: post.media_urls,
         created_at: post.created_at
       },
       belief: {

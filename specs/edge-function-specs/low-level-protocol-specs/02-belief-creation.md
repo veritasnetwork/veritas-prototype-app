@@ -54,8 +54,7 @@
 
 6. **Update agent statistics:**
    - Increment agent's `active_belief_count`
-   - Verify count <= MAX_BELIEFS_PER_AGENT
-   - Return error 504 if exceeded
+   - No maximum limit - only requirement is minimum effective stake
 
 7. **Create initial submission:**
    - Insert creator's submission with:
@@ -130,7 +129,7 @@
    - Generate `submission_id` (UUID v4)
    - Insert record with all fields
    - Increment agent's `active_belief_count`
-   - Verify count <= MAX_BELIEFS_PER_AGENT
+   - No maximum limit - only requirement is minimum effective stake
 
 7. **COMMIT TRANSACTION**
 
@@ -146,7 +145,6 @@
 ### State Validation
 - Expired belief → 504
 - Insufficient stake → 400
-- Belief count exceeded → 504
 
 ### Transaction Management
 - Atomic operations

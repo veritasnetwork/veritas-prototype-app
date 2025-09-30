@@ -65,7 +65,7 @@ Deno.test('Dashboard Feed - Post structure validation', async () => {
     console.log(`Sample post structure:`, {
       id: post.id,
       title: post.title,
-      hasOpinionBelief: !!post.opinion_belief_id,
+      hasOpinionBelief: !!post.belief_id,
       hasBelief: !!post.belief,
       hasSubmissions: !!post.submissions,
       submissionCount: post.submissions?.length || 0
@@ -75,20 +75,20 @@ Deno.test('Dashboard Feed - Post structure validation', async () => {
   assert(true, 'Post structure validation completed')
 })
 
-Deno.test('Dashboard Feed - Opinion post enrichment', async () => {
+Deno.test('Dashboard Feed - Belief post enrichment', async () => {
   const { response, data } = await callDashboardFeed()
 
   assertEquals(response.status, 200)
 
-  // Find opinion posts
-  const opinionPosts = data.posts.filter((post: any) => post.opinion_belief_id != null)
+  // All posts should have beliefs now
+  const beliefPosts = data.posts.filter((post: any) => post.belief_id != null)
 
-  console.log(`Found ${opinionPosts.length} opinion posts out of ${data.posts.length} total`)
+  console.log(`Found ${beliefPosts.length} belief posts out of ${data.posts.length} total`)
 
-  for (const post of opinionPosts) {
-    console.log(`\nOpinion post: ${post.id}`)
+  for (const post of beliefPosts) {
+    console.log(`\nBelief post: ${post.id}`)
     console.log(`- Title: ${post.title}`)
-    console.log(`- Belief ID: ${post.opinion_belief_id}`)
+    console.log(`- Belief ID: ${post.belief_id}`)
 
     if (post.belief) {
       console.log(`- Has belief data: YES`)
@@ -127,32 +127,29 @@ Deno.test('Dashboard Feed - Opinion post enrichment', async () => {
   assert(true, 'Opinion post enrichment validation completed')
 })
 
-Deno.test('Dashboard Feed - Regular vs Opinion posts', async () => {
+Deno.test('Dashboard Feed - All posts have beliefs', async () => {
   const { response, data } = await callDashboardFeed()
 
   assertEquals(response.status, 200)
 
-  const regularPosts = data.posts.filter((post: any) => !post.opinion_belief_id)
-  const opinionPosts = data.posts.filter((post: any) => post.opinion_belief_id)
+  // All posts should have belief_id now (no more regular/opinion distinction)
+  const postsWithBeliefs = data.posts.filter((post: any) => post.belief_id)
+  const postsWithoutBeliefs = data.posts.filter((post: any) => !post.belief_id)
 
   console.log(`\nPost distribution:`)
-  console.log(`- Regular posts: ${regularPosts.length}`)
-  console.log(`- Opinion posts: ${opinionPosts.length}`)
+  console.log(`- Posts with beliefs: ${postsWithBeliefs.length}`)
+  console.log(`- Posts without beliefs: ${postsWithoutBeliefs.length}`)
 
-  // Regular posts should not have belief or submissions data
-  for (const post of regularPosts) {
-    assertEquals(post.opinion_belief_id, null)
-    assertEquals(post.belief, undefined)
-    assertEquals(post.submissions, undefined)
-  }
-
-  // Opinion posts should have opinion_belief_id
-  for (const post of opinionPosts) {
-    assertExists(post.opinion_belief_id)
+  // All posts should have belief_id in the new system
+  for (const post of data.posts) {
+    assertExists(post.belief_id, `Post ${post.id} should have belief_id`)
     // belief and submissions may or may not exist depending on data availability
   }
 
-  assert(true, 'Regular vs Opinion post validation completed')
+  // Verify we have no posts without beliefs (they should all be belief posts now)
+  assertEquals(postsWithoutBeliefs.length, 0, 'All posts should have beliefs in the new system')
+
+  assert(true, 'All posts have beliefs validation completed')
 })
 
 Deno.test('Dashboard Feed - Data consistency check', async () => {

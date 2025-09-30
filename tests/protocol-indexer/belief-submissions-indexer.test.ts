@@ -1,6 +1,6 @@
 /// <reference lib="deno.ns" />
 import { assertEquals, assertExists, assert } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
-import { SUPABASE_URL, headers } from '../test-config.ts'
+import { SUPABASE_URL, headers, generateUniqueUsername } from '../test-config.ts'
 
 async function callBeliefSubmissions(beliefId: string) {
   const response = await fetch(`${SUPABASE_URL}/functions/v1/protocol-indexer-beliefs-get-submissions`, {
@@ -13,12 +13,40 @@ async function callBeliefSubmissions(beliefId: string) {
   return { response, data: await response.json() }
 }
 
-Deno.test('Protocol Indexer Belief Submissions - Valid belief_id format', async () => {
-  // Use the known belief ID from our existing test data
-  const { response, data } = await callBeliefSubmissions('54fc5377-ede2-4d2b-9c2d-82e6470a332b')
+// Create a test user and return their agent ID
+async function createTestUser() {
+  const username = generateUniqueUsername()
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/app-user-creation`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ username })
+  })
+  const data = await response.json()
+  return data.agent_id
+}
 
-  // Should accept valid UUID (even if belief doesn't exist yet, format is valid)
-  assert(response.status === 200 || response.status === 404, 'Should accept valid UUID format')
+// Create a test belief and return its ID
+async function createTestBelief() {
+  const agent_id = await createTestUser()
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/protocol-belief-creation`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      agent_id,
+      initial_belief: 0.5,
+      duration_epochs: 10
+    })
+  })
+  const data = await response.json()
+  return data.belief_id
+}
+
+Deno.test('Protocol Indexer Belief Submissions - Valid belief_id format', async () => {
+  const belief_id = await createTestBelief()
+  const { response, data } = await callBeliefSubmissions(belief_id)
+
+  // Should accept valid UUID and find the belief
+  assertEquals(response.status, 200)
 })
 
 Deno.test('Protocol Indexer Belief Submissions - Invalid belief_id format', async () => {
@@ -30,7 +58,7 @@ Deno.test('Protocol Indexer Belief Submissions - Invalid belief_id format', asyn
 })
 
 Deno.test('Protocol Indexer Belief Submissions - Missing belief_id', async () => {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/dashboard-beliefs-get-submissions`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/protocol-indexer-beliefs-get-submissions`, {
     method: 'POST',
     headers,
     body: JSON.stringify({})

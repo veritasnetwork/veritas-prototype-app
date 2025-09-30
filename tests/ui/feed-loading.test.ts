@@ -46,14 +46,14 @@ Deno.test('Feed API - Response contains required post fields', async () => {
   }
 })
 
-Deno.test('Feed API - Opinion posts have belief data', async () => {
+Deno.test('Feed API - All posts have belief data', async () => {
   const { response, data } = await callFeedApi()
 
-  // Find opinion posts (posts with opinion_belief_id)
-  const opinionPosts = data.posts.filter((post: any) => post.opinion_belief_id != null)
+  // All posts should have belief_id now
+  const postsWithBeliefs = data.posts.filter((post: any) => post.belief_id != null)
 
-  for (const post of opinionPosts) {
-    assertExists(post.opinion_belief_id, 'Opinion post must have opinion_belief_id')
+  for (const post of postsWithBeliefs) {
+    assertExists(post.belief_id, 'Post must have belief_id')
 
     // If belief data exists, verify structure
     if (post.belief) {
@@ -92,7 +92,7 @@ Deno.test('Feed Data Validation - Handle malformed responses gracefully', async 
     for (const post of posts) {
       if (post.user == null) {
         // This should be handled with fallback in UI
-        const authorName = post.user?.display_name || post.user?.username || 'Unknown'
+        const authorName = 'Unknown'
         assertEquals(authorName, 'Unknown')
       }
     }
@@ -117,7 +117,7 @@ Deno.test('Feed Integration - End-to-end data flow', async () => {
         name: apiPost.user?.display_name || apiPost.user?.username || 'Unknown'
       },
       timestamp: new Date(apiPost.created_at),
-      hasOpinion: apiPost.opinion_belief_id != null
+      hasOpinion: apiPost.belief_id != null
     }
 
     // Verify transformation produces valid UI data
