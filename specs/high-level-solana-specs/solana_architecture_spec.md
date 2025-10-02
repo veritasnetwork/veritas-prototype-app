@@ -9,12 +9,17 @@ Two-layer architecture:
 ## Core Components
 
 ### 1. Custodian Contract (Veritas Staking Only)
-- Users deposit USDC → credited to Veritas DB balance
-- Only centralized authority key can approve withdrawals
-- Withdrawals allowed anytime (even with active beliefs)
-- Maps `solana_address` → `agent_id`
+- **Pooled custody model**: All user USDC deposits go into a single shared pool
+- **No on-chain individual tracking**: User balances tracked entirely in Supabase DB
+- **Protocol-controlled withdrawals**: Only protocol authority can execute withdrawals
+- **Withdrawal flow**:
+  1. User requests withdrawal via UI
+  2. Backend validates request against user's Supabase stake balance
+  3. Backend (protocol authority) executes on-chain withdrawal from pool to user's wallet
+- **Why pooled?**: User stakes change every epoch based on protocol outcomes. Pooled model prevents on-chain/off-chain desync.
+- Maps `solana_address` → `agent_id` in database
 
-**Purpose**: Keep Veritas fast/cheap while Solana-backed
+**Purpose**: Keep Veritas fast/cheap while Solana-backed, with zero-sum stake redistribution
 
 ### 2. Pool Factory Contract
 - Creates new bonding curve pool per post
@@ -33,10 +38,38 @@ Two-layer architecture:
 - One wallet per account (logout/login to switch)
 
 ### Two Balances Per User
-1. **Custodial balance** - Veritas protocol staking (withdraw requires authority signature)
-2. **Non-custodial balance** - Solana wallet for pool trading (user controls)
+1. **Custodial balance** - Veritas protocol staking
+   - Tracked in Supabase database (not on-chain)
+   - Changes every epoch based on protocol outcomes
+   - Withdrawal requires protocol authority signature
+   - User requests withdrawal → backend validates → protocol executes on-chain transfer
+2. **Non-custodial balance** - Solana wallet for pool trading (user controls directly)
 
-### Trading Flow
+### Custodian Deposit Flow
+1. User initiates deposit via UI
+2. User transfers USDC from wallet to custodian pool (on-chain)
+3. Deposit event emitted with depositor address and amount
+4. Backend indexes deposit event
+5. Backend credits user's agent stake in Supabase database
+
+### Custodian Withdrawal Flow
+1. **User requests withdrawal** via UI (specifies amount)
+2. **Backend validates request**:
+   - Check user's current stake in Supabase database
+   - Ensure requested amount ≤ available stake
+   - Account for any active beliefs or locked funds
+3. **Backend approves/rejects**:
+   - If approved: Protocol authority executes on-chain withdrawal
+   - Transfer USDC from custodian pool to user's wallet
+   - Emit withdrawal event with recipient and amount
+4. **Backend updates database**:
+   - Deduct withdrawn amount from user's stake
+   - Mark withdrawal as completed
+   - Record transaction signature
+
+**Key insight**: Users cannot withdraw directly on-chain because their stake balance changes every epoch based on protocol outcomes. The backend is the source of truth for available balance.
+
+### Trading Flow (Non-custodial Pools)
 1. User connects Privy embedded wallet
 2. User buys/sells pool tokens using wallet USDC
 3. Piecewise bonding curve calculates price
@@ -223,6 +256,75 @@ fn apply_epoch_effects_linear(pool: &mut LinearPool, skim: u128, reward: u128) {
 
 **The elastic-k mechanism is universal across all polynomial bonding curves.**
 
+## Delta Relevance-Based Skim Mechanism
+
+### Economic Rationale
+The Δr-based skim mechanism aligns incentives with truth-seeking by:
+- **Rewarding early spotters**: Pools with rising relevance (Δr > 0) gain value
+- **Penalizing declining content**: Pools with falling relevance (Δr < 0) lose value proportional to decline and uncertainty
+- **Maintaining liquidity**: Small base skim (1%) on stagnant pools prevents dead pools
+- **Zero-sum redistribution**: All penalties flow to winners (parimutuel)
+
+### Penalty Rate Function
+```
+penalty_rate(Δr, uncertainty) = {
+    min(|Δr| × uncertainty, 0.10)    if Δr < 0   (declining)
+    base_skim_rate                    if Δr = 0   (stagnant)
+    0                                 if Δr > 0   (rising)
+}
+```
+
+**Design properties:**
+- **Uncertainty scaling**: Higher uncertainty → higher penalty for wrong bets
+- **Magnitude scaling**: Larger relevance drops → higher penalty
+- **Cap at 10%**: Prevents catastrophic losses in single epoch
+- **No penalty for winners**: Δr > 0 pools only receive rewards
+
+### Reward Distribution (Probability Simplex)
+```
+For all pools with Δr > 0:
+    relative_weight[i] = Δr[i] / Σ(Δr)
+    reward[i] = penalty_pot × relative_weight[i]
+```
+
+**Example epoch:**
+```
+Pool A: Δr = +0.5, uncertainty = 0.4
+Pool B: Δr = +0.3, uncertainty = 0.6
+Pool C: Δr = -0.2, uncertainty = 0.7
+Pool D: Δr = 0, uncertainty = 0.5
+
+Penalties:
+- Pool A: 0% (rising)
+- Pool B: 0% (rising)
+- Pool C: min(0.2 × 0.7, 0.10) = 14% → 10% (capped)
+- Pool D: 1% (base skim)
+
+Rewards (assume Pool C reserve = $1000, Pool D reserve = $500):
+- penalty_pot = $100 + $5 = $105
+- total_positive_delta = 0.5 + 0.3 = 0.8
+- Pool A: $105 × (0.5/0.8) = $65.63
+- Pool B: $105 × (0.3/0.8) = $39.37
+```
+
+### Edge Cases
+
+**No winning pools (all Δr ≤ 0):**
+- Collect all penalties as usual
+- Store penalty_pot in `epoch_rollover_balance` config
+- Add rollover to next epoch's penalty_pot
+- Eventually distributes when positive Δr pools emerge
+
+**All stagnant pools (all Δr = 0):**
+- All pools pay 1% base skim
+- Total penalties accumulate in rollover
+- Waits for dynamic content to emerge
+
+**All rising pools (all Δr > 0):**
+- No penalties collected (only rollover from previous epochs)
+- Distribute any existing rollover proportionally
+- Next epoch likely has declining pools (mean reversion)
+
 ## Epoch Processing (Every 3 Hours)
 
 ### Sequence
@@ -232,25 +334,49 @@ fn apply_epoch_effects_linear(pool: &mut LinearPool, skim: u128, reward: u128) {
    - Redistribute stakes in DB
    - Update `previous_aggregate` → store delta
 
-2. **Calculate Delta Relevance & Net Adjustments** (Backend)
-   - For each belief/post: `Δr = current_aggregate - previous_aggregate`
-   - Calculate total skim: `total_skim = Σ(pool.reserve × 0.02)` for all pools
-   - Calculate rewards for winners: For pools where Δr > 0:
-     - `pool_reward = (total_skim × pool_Δr) / (Σ positive Δr)`
-   - Calculate net adjustment per pool: `net = reward - skim`
-   - Separate into two lists:
-     - **Penalties**: pools where `net < 0` (skim > reward)
-     - **Rewards**: pools where `net > 0` (reward > skim)
+2. **Calculate Delta Relevance & Penalty/Reward Rates** (Backend)
+   - For each belief/post: `Δr = current_aggregate - previous_aggregate` (range: [-1, 1])
+   - Query epistemic uncertainty from Veritas protocol for each belief
+   - Calculate penalty rate for each pool based on Δr:
 
-3. **Transfer Penalties to Treasury** (Solana, Phase 1)
-   - For each pool with net penalty: Send USDC from pool vault → treasury vault
+     **Penalty Calculation:**
+     - **Δr < 0** (declining relevance):
+       - `penalty_rate = |Δr| × uncertainty`
+       - Capped at 10% maximum
+       - Example: Δr = -0.3, uncertainty = 0.6 → penalty_rate = 0.18 (18%)
+
+     - **Δr = 0** (stagnant):
+       - `penalty_rate = base_skim_rate` (default: 1%, configurable in configs table)
+
+     - **Δr > 0** (rising relevance):
+       - `penalty_rate = 0` (no penalty)
+
+   - Calculate actual penalty amounts: `penalty_amount = pool.reserve × penalty_rate`
+   - Total penalty pot: `penalty_pot = Σ(penalty_amount)` for all Δr ≤ 0 pools
+
+3. **Calculate Reward Distribution** (Backend)
+   - Only pools with Δr > 0 receive rewards
+   - Normalize positive Δr values to probability simplex:
+     - `total_positive_delta = Σ(Δr)` for all Δr > 0 pools
+     - `relative_delta_relevance[i] = pool[i].Δr / total_positive_delta`
+
+   - Distribute penalty pot proportionally:
+     - `pool[i].reward = penalty_pot × relative_delta_relevance[i]`
+
+   - **Edge case (no winners):** If no pools have Δr > 0:
+     - Rollover penalty_pot to next epoch
+     - Store in `epoch_rollover_balance` config
+     - Add to next epoch's penalty_pot
+
+4. **Transfer Penalties to Treasury** (Solana, Phase 1)
+   - For each pool with penalty > 0: Send USDC from pool vault → treasury vault
    - All penalty transactions sent in parallel
    - Treasury accumulates total penalty amount
    - Apply elastic-k rescaling to penalized pools
 
-4. **Distribute Rewards from Treasury** (Solana, Phase 2)
-   - After all penalties collected, distribute to winner pools
-   - For each pool with net reward: Send USDC from treasury vault → pool vault
+5. **Distribute Rewards from Treasury** (Solana, Phase 2)
+   - After all penalties collected, distribute to winner pools (Δr > 0)
+   - For each pool with reward > 0: Send USDC from treasury vault → pool vault
    - All reward transactions sent in parallel
    - Treasury should zero out (total penalties = total rewards)
    - Apply elastic-k rescaling to rewarded pools
@@ -388,41 +514,109 @@ pub fn apply_pool_reward(
 
 ```typescript
 async function processEpoch() {
-  // 1. Get all pools with delta relevance scores
+  // 1. Get all pools with delta relevance scores and uncertainty
   const pools = await db.pool_deployments
     .join('beliefs', 'beliefs.id', 'pool_deployments.belief_id')
-    .select('pool_deployments.*, beliefs.delta_relevance, beliefs.previous_aggregate');
+    .select(`
+      pool_deployments.*,
+      beliefs.delta_relevance,
+      beliefs.uncertainty,
+      beliefs.previous_aggregate
+    `);
 
-  // 2. Calculate net adjustments
-  const totalSkim = pools.reduce((sum, p) => sum + (p.reserve * 0.02), 0);
-  const positivePools = pools.filter(p => p.delta_relevance > 0);
-  const totalPositiveDelta = positivePools.reduce((sum, p) => sum + p.delta_relevance, 0);
+  // 2. Get base skim rate from config
+  const { base_skim_rate } = await db.configs
+    .select('value')
+    .eq('key', 'base_skim_rate')
+    .single();
+  const baseSkimRate = parseFloat(base_skim_rate) || 0.01; // Default 1%
 
-  const adjustments = pools.map(pool => {
-    const skim = pool.reserve * 0.02;
-    const reward = pool.delta_relevance > 0
-      ? (totalSkim * pool.delta_relevance) / totalPositiveDelta
-      : 0;
-    const netLamports = Math.floor((reward - skim) * 1_000_000); // 6 decimals
+  // 3. Get any rollover from previous epoch
+  const { epoch_rollover_balance } = await db.configs
+    .select('value')
+    .eq('key', 'epoch_rollover_balance')
+    .single();
+  let penaltyPot = parseFloat(epoch_rollover_balance) || 0;
+
+  // 4. Calculate penalty rates and amounts
+  const poolsWithPenalties = pools.map(pool => {
+    const deltaR = pool.delta_relevance || 0;
+    const uncertainty = pool.uncertainty || 0;
+    let penaltyRate = 0;
+
+    if (deltaR < 0) {
+      // Declining relevance: penalty scaled by uncertainty
+      penaltyRate = Math.min(Math.abs(deltaR) * uncertainty, 0.10); // Cap at 10%
+    } else if (deltaR === 0) {
+      // Stagnant: base skim rate
+      penaltyRate = baseSkimRate;
+    }
+    // deltaR > 0: no penalty
+
+    const penaltyAmount = pool.reserve * penaltyRate;
+    penaltyPot += penaltyAmount;
 
     return {
-      poolAddress: new PublicKey(pool.pool_address),
-      poolUsdcVault: new PublicKey(pool.usdc_vault_address),
-      net: netLamports,
+      ...pool,
+      deltaR,
+      penaltyRate,
+      penaltyAmount: Math.floor(penaltyAmount * 1_000_000), // Convert to lamports (6 decimals)
     };
   });
 
-  // 3. Separate penalties and rewards
-  const penalties = adjustments.filter(a => a.net < 0);
-  const rewards = adjustments.filter(a => a.net > 0);
+  console.log(`Total penalty pot: $${penaltyPot.toFixed(2)}`);
+
+  // 5. Calculate reward distribution (probability simplex)
+  const positivePools = poolsWithPenalties.filter(p => p.deltaR > 0);
+  const totalPositiveDelta = positivePools.reduce((sum, p) => sum + p.deltaR, 0);
+
+  let adjustments;
+  if (totalPositiveDelta > 0) {
+    // Distribute rewards proportionally to positive delta relevance
+    adjustments = poolsWithPenalties.map(pool => {
+      const rewardAmount = pool.deltaR > 0
+        ? (penaltyPot * pool.deltaR) / totalPositiveDelta
+        : 0;
+
+      return {
+        poolAddress: new PublicKey(pool.pool_address),
+        poolUsdcVault: new PublicKey(pool.usdc_vault_address),
+        penalty: pool.penaltyAmount,
+        reward: Math.floor(rewardAmount * 1_000_000), // Convert to lamports
+      };
+    });
+
+    // Reset rollover for next epoch
+    await db.configs
+      .update({ value: '0' })
+      .eq('key', 'epoch_rollover_balance');
+  } else {
+    // No winners - rollover penalty pot to next epoch
+    console.log(`No positive delta relevance. Rolling over $${penaltyPot.toFixed(2)} to next epoch.`);
+    await db.configs
+      .update({ value: penaltyPot.toString() })
+      .eq('key', 'epoch_rollover_balance');
+
+    // Only apply penalties (no rewards this epoch)
+    adjustments = poolsWithPenalties.map(pool => ({
+      poolAddress: new PublicKey(pool.pool_address),
+      poolUsdcVault: new PublicKey(pool.usdc_vault_address),
+      penalty: pool.penaltyAmount,
+      reward: 0,
+    }));
+  }
+
+  // 6. Separate into penalty and reward transactions
+  const penalties = adjustments.filter(a => a.penalty > 0);
+  const rewards = adjustments.filter(a => a.reward > 0);
 
   console.log(`Phase 1: Applying ${penalties.length} penalties`);
 
-  // 4. Phase 1: Send all penalty transactions in parallel
+  // 7. Phase 1: Send all penalty transactions in parallel
   const penaltySignatures = await Promise.all(
-    penalties.map(({ poolAddress, poolUsdcVault, net }) =>
+    penalties.map(({ poolAddress, poolUsdcVault, penalty }) =>
       program.methods
-        .applyPoolPenalty(new BN(-net)) // Convert to positive
+        .applyPoolPenalty(new BN(penalty))
         .accounts({
           pool: poolAddress,
           treasury: treasuryPDA,
@@ -438,11 +632,11 @@ async function processEpoch() {
   console.log(`Phase 1 complete. ${penaltySignatures.length} penalties applied.`);
   console.log(`Phase 2: Distributing ${rewards.length} rewards`);
 
-  // 5. Phase 2: Send all reward transactions in parallel
+  // 8. Phase 2: Send all reward transactions in parallel
   const rewardSignatures = await Promise.all(
-    rewards.map(({ poolAddress, poolUsdcVault, net }) =>
+    rewards.map(({ poolAddress, poolUsdcVault, reward }) =>
       program.methods
-        .applyPoolReward(new BN(net))
+        .applyPoolReward(new BN(reward))
         .accounts({
           pool: poolAddress,
           treasury: treasuryPDA,
@@ -462,12 +656,26 @@ async function processEpoch() {
 
 ### Transaction Count Analysis
 
-For 1000 pools with typical distribution:
-- ~600-700 pools: Net penalty (skim > reward or Δr ≤ 0)
-- ~300-400 pools: Net reward (Δr > 0 with reward > skim)
-- **Total: ~1000 transactions** (sent in two parallel batches)
-- **Cost: ~$0.05 per epoch** at current Solana prices
+For 1000 pools with typical distribution (assuming normal market dynamics):
+- ~200-300 pools: Rising relevance (Δr > 0) - receive rewards only
+- ~500-600 pools: Declining relevance (Δr < 0) - pay scaled penalties
+- ~100-200 pools: Stagnant (Δr = 0) - pay 1% base skim
+
+**Phase 1 (Penalties):**
+- ~600-800 transactions (all Δr ≤ 0 pools)
+- Parallel execution
+- Treasury accumulates penalty pot
+
+**Phase 2 (Rewards):**
+- ~200-300 transactions (all Δr > 0 pools)
+- Parallel execution
+- Treasury zeroes out
+
+**Totals:**
+- **~800-1100 transactions per epoch**
+- **Cost: ~$0.05-0.10 per epoch** at current Solana prices
 - **Time: ~2-3 seconds total** (Phase 1 parallel + Phase 2 parallel)
+- **Treasury net balance: $0** (complete parimutuel redistribution)
 
 ## Key Design Decisions
 
@@ -480,9 +688,35 @@ For 1000 pools with typical distribution:
 - Skim AFTER Veritas protocol completes
 - Use fresh relevance scores for distribution
 
-### Distribution Formula
+### Penalty & Reward Formulas
+
+**Penalty Rate Calculation:**
 ```
-Pool Reward = (Epoch Pot) × (Pool's Δr) / (Sum of all positive Δr)
+if Δr < 0:
+    penalty_rate = min(|Δr| × uncertainty, 0.10)
+elif Δr = 0:
+    penalty_rate = base_skim_rate (from config, default 1%)
+else (Δr > 0):
+    penalty_rate = 0
+```
+
+**Penalty Amount:**
+```
+penalty_amount = pool.reserve × penalty_rate
+```
+
+**Reward Distribution (Probability Simplex):**
+```
+total_positive_delta = Σ(Δr) for all Δr > 0 pools
+relative_delta_relevance[i] = pool[i].Δr / total_positive_delta
+pool[i].reward = penalty_pot × relative_delta_relevance[i]
+```
+
+**Edge Case (No Winners):**
+```
+if total_positive_delta = 0:
+    rollover penalty_pot to next epoch
+    store in epoch_rollover_balance config
 ```
 
 ### Curve Parameters (Recommended)
@@ -526,8 +760,9 @@ pub struct ContentPool {
 -- Users table addition
 ALTER TABLE users ADD COLUMN solana_address TEXT UNIQUE;
 
--- Beliefs table addition
+-- Beliefs table additions
 ALTER TABLE beliefs ADD COLUMN delta_relevance NUMERIC;
+ALTER TABLE beliefs ADD COLUMN uncertainty NUMERIC;
 
 -- New table: Pool deployments
 CREATE TABLE pool_deployments (
@@ -541,30 +776,60 @@ CREATE TABLE pool_deployments (
     supply_cap NUMERIC NOT NULL
 );
 
--- New table: Custodian deposits
-CREATE TABLE custodian_deposits (
+-- Core table: Agent stake tracking
+CREATE TABLE agents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
-    agent_id UUID REFERENCES agents(id),
-    solana_address TEXT NOT NULL,
-    amount_usdc NUMERIC NOT NULL,
-    tx_signature TEXT NOT NULL UNIQUE,
-    deposited_at TIMESTAMP DEFAULT NOW(),
-    status TEXT CHECK (status IN ('pending', 'confirmed', 'failed'))
+    wallet_address TEXT UNIQUE NOT NULL,
+    protocol_stake NUMERIC DEFAULT 0,      -- Current stake (changes with epochs)
+    total_deposited NUMERIC DEFAULT 0,     -- Audit trail
+    total_withdrawn NUMERIC DEFAULT 0,     -- Audit trail
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_synced_at TIMESTAMPTZ
 );
 
--- New table: Custodian withdrawals
+-- Custodian deposits (indexed from events - pooled on-chain)
+CREATE TABLE custodian_deposits (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID REFERENCES agents(id),
+    wallet_address TEXT NOT NULL,
+    amount_usdc NUMERIC NOT NULL,
+    tx_signature TEXT NOT NULL UNIQUE,
+    block_time TIMESTAMPTZ,
+    indexed_at TIMESTAMPTZ DEFAULT NOW(),
+    status TEXT CHECK (status IN ('pending', 'confirmed', 'failed')) DEFAULT 'pending'
+);
+
+-- Custodian withdrawals (protocol-controlled)
 CREATE TABLE custodian_withdrawals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id),
     agent_id UUID REFERENCES agents(id),
-    solana_address TEXT NOT NULL,
-    amount_usdc NUMERIC NOT NULL,
-    tx_signature TEXT UNIQUE,
-    requested_at TIMESTAMP DEFAULT NOW(),
-    processed_at TIMESTAMP,
-    status TEXT CHECK (status IN ('pending', 'approved', 'rejected', 'completed'))
+    amount_usdc NUMERIC NOT NULL,           -- Validated against agent's current stake
+    recipient_address TEXT NOT NULL,        -- Recipient wallet
+    tx_signature TEXT UNIQUE,               -- Set when protocol authority executes
+    requested_at TIMESTAMPTZ DEFAULT NOW(),
+    processed_at TIMESTAMPTZ,
+    block_time TIMESTAMPTZ,
+    status TEXT CHECK (status IN ('pending', 'approved', 'rejected', 'completed')) DEFAULT 'pending',
+    rejection_reason TEXT
 );
+
+-- Unallocated deposits (deposits without agent mapping)
+CREATE TABLE unallocated_deposits (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tx_signature TEXT UNIQUE NOT NULL,
+    depositor_address TEXT NOT NULL,
+    amount_usdc NUMERIC NOT NULL,
+    block_time TIMESTAMPTZ,
+    indexed_at TIMESTAMPTZ DEFAULT NOW(),
+    allocated BOOLEAN DEFAULT FALSE,
+    notes TEXT
+);
+
+-- Config entries for epoch processing
+INSERT INTO configs (key, value) VALUES
+    ('base_skim_rate', '0.01'),  -- 1% default for stagnant pools
+    ('epoch_rollover_balance', '0');  -- Accumulates when no winners
 ```
 
 ## Mathematical Properties
