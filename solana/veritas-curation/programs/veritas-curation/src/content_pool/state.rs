@@ -5,11 +5,8 @@ pub struct ContentPool {
     // Identification (32 bytes)
     pub post_id: [u8; 32],      // Hash identifier of content (unique key)
 
-    // Bonding Curve Parameters (64 bytes)
+    // Bonding Curve Parameters (16 bytes)
     pub k_quadratic: u128,      // Quadratic coefficient (mutable via elastic-k)
-    pub reserve_cap: u128,      // Reserve amount at linear transition (e.g. $5K USDC)
-    pub linear_slope: u128,     // Slope in linear region (dampened by L/(L+s))
-    pub virtual_liquidity: u128, // Virtual liquidity L for dampening factor
 
     // Current State (32 bytes)
     pub token_supply: u128,     // Total SPL tokens minted
@@ -28,7 +25,7 @@ pub struct ContentPool {
     // PDA (1 byte)
     pub bump: u8,               // PDA bump seed
 }
-// Total: 268 bytes + 8 discriminator = 276 bytes
+// Total: 220 bytes + 8 discriminator = 228 bytes
 
 #[account]
 pub struct ProtocolConfig {
@@ -36,24 +33,17 @@ pub struct ProtocolConfig {
     pub authority: Pubkey,              // 32 bytes
     pub bump: u8,                       // 1 byte
 
-    // Default curve parameters (64 bytes)
+    // Default curve parameters (16 bytes)
     pub default_k_quadratic: u128,      // 16 bytes
-    pub default_reserve_cap: u128,      // 16 bytes - e.g. $5K USDC
-    pub default_linear_slope: u128,     // 16 bytes - slope in linear region
-    pub default_virtual_liquidity: u128, // 16 bytes - dampening parameter
 
-    // Validation bounds (96 bytes)
+    // Validation bounds (32 bytes)
     pub min_k_quadratic: u128,          // 16 bytes
     pub max_k_quadratic: u128,          // 16 bytes
-    pub min_reserve_cap: u128,          // 16 bytes - e.g. $1K minimum
-    pub max_reserve_cap: u128,          // 16 bytes - e.g. $1M maximum
-    pub min_linear_slope: u128,         // 16 bytes
-    pub max_linear_slope: u128,         // 16 bytes
 
     // Trading limits (8 bytes)
     pub min_trade_amount: u64,          // 8 bytes
 
-    // Reserved for future use (32 bytes)
-    pub reserved: [u64; 4],             // 32 bytes - reduced to make room
+    // Reserved for future use (16 bytes)
+    pub reserved: [u64; 2],             // 16 bytes
 }
-// Total: 233 bytes + 8 discriminator = 241 bytes
+// Total: 105 bytes + 8 discriminator = 113 bytes

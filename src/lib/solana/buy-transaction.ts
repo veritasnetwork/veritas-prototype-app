@@ -3,7 +3,8 @@ import * as anchor from '@coral-xyz/anchor';
 import { AnchorProvider, Program } from '@coral-xyz/anchor';
 import { VeritasCuration } from './sdk/types/veritas_curation';
 import { buildBuyTx, ProtocolAddresses, PDAHelper } from './sdk/transaction-builders';
-import idl from '../../../solana/veritas-curation/target/idl/veritas_curation.json';
+import { getUsdcMint } from './network-config';
+import idl from './target/idl/veritas_curation.json';
 
 /**
  * Build a buy transaction for purchasing tokens from a pool
@@ -53,8 +54,8 @@ export async function buildBuyTransaction({
   const [factoryPda] = pdaHelper.getFactoryPda();
   const [treasuryPda] = pdaHelper.getTreasuryPda();
 
-  // USDC mint for localnet
-  const usdcMint = new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT || '9VPy2f1Sn5N3dp86byQMbpuj9m3KgdtaTusiee15Rrde');
+  // Get USDC mint based on current network
+  const usdcMint = getUsdcMint();
 
   const addresses: ProtocolAddresses = {
     programId: programPubkey,

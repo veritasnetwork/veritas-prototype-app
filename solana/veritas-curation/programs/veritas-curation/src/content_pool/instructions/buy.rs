@@ -18,16 +18,13 @@ pub fn buy(ctx: Context<Buy>, usdc_amount: u64) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
     let s0 = pool.token_supply;
     let reserve0 = pool.reserve;
-    let reserve_cap = pool.reserve_cap;
     let k_quad = pool.k_quadratic;
-    let linear_slope = pool.linear_slope;
-    let virtual_liquidity = pool.virtual_liquidity;
 
     // Convert USDC amount to u128 for calculations
     let usdc_amount_u128 = usdc_amount as u128;
 
-    // Calculate tokens to mint based on reserve-based curve with dampened linear region
-    let s1 = calculate_buy_supply(s0, reserve0, usdc_amount_u128, reserve_cap, k_quad, linear_slope, virtual_liquidity)?;
+    // Calculate tokens to mint based on pure quadratic curve with price floor
+    let s1 = calculate_buy_supply(s0, reserve0, usdc_amount_u128, k_quad)?;
     let tokens_to_mint = s1.checked_sub(s0).ok_or(ErrorCode::NumericalOverflow)?;
 
     // Transfer USDC from user to pool vault

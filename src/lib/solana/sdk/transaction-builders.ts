@@ -146,7 +146,6 @@ export async function buildCreatePoolTx(
   postId: Buffer,
   params: {
     initialKQuadratic: anchor.BN;
-    reserveCap: anchor.BN;
     tokenName: string;
     tokenSymbol: string;
   },
@@ -164,13 +163,18 @@ export async function buildCreatePoolTx(
     throw new Error("Post ID must be exactly 32 bytes");
   }
 
+  // Convert token name/symbol to fixed-size byte arrays
+  const tokenNameBytes = Buffer.alloc(32);
+  Buffer.from(params.tokenName).copy(tokenNameBytes, 0);
+  const tokenSymbolBytes = Buffer.alloc(10);
+  Buffer.from(params.tokenSymbol).copy(tokenSymbolBytes, 0);
+
   const tx = await program.methods
     .createPool(
       postIdArray as number[] & { length: 32 },
       params.initialKQuadratic,
-      params.reserveCap,
-      params.tokenName,
-      params.tokenSymbol
+      Array.from(tokenNameBytes) as number[] & { length: 32 },
+      Array.from(tokenSymbolBytes) as number[] & { length: 10 }
     )
     .accounts({
       factory: addresses.factoryPda,
@@ -178,7 +182,7 @@ export async function buildCreatePoolTx(
       tokenMint: tokenMintPda,
       poolUsdcVault: poolVaultPda,
       registry: registryPda,
-      config: addresses.configPda,
+      config: null,  // Optional - set to null since not initialized
       usdcMint: addresses.usdcMint,
       creator: creator,
       payer: creator,
@@ -267,29 +271,40 @@ export async function buildBuyTx(
   const [tokenMintPda] = pdaHelper.getTokenMintPda(postId);
   const [poolVaultPda] = pdaHelper.getPoolVaultPda(postId);
 
-  const buyerUsdcAccount = await getAssociatedTokenAddress(addresses.usdcMint, buyer);
-  const buyerTokenAccount = await getAssociatedTokenAddress(tokenMintPda, buyer);
+  const buyerUsdcAccount = await getAssociatedTokenAddress(
+    addresses.usdcMint,
+    buyer,
+    false, // allowOwnerOffCurve
+    TOKEN_PROGRAM_ID // tokenProgramId
+  );
+  const buyerTokenAccount = await getAssociatedTokenAddress(
+    tokenMintPda,
+    buyer,
+    false, // allowOwnerOffCurve
+    TOKEN_PROGRAM_ID // tokenProgramId
+  );
 
-  // Check if USDC account exists, if not create it
+  // Check if USDC account exists
   const connection = program.provider.connection;
   const usdcAccountInfo = await connection.getAccountInfo(buyerUsdcAccount);
-  const tokenAccountInfo = await connection.getAccountInfo(buyerTokenAccount);
 
   const tx = new Transaction();
 
-  // Add instruction to create USDC account if it doesn't exist
+  // Create USDC ATA if it doesn't exist
   if (!usdcAccountInfo) {
     tx.add(
       createAssociatedTokenAccountInstruction(
         buyer, // payer
-        buyerUsdcAccount, // associated token address
+        buyerUsdcAccount, // ata
         buyer, // owner
-        addresses.usdcMint // mint
+        addresses.usdcMint, // mint
+        TOKEN_PROGRAM_ID // token program - must match mint's program
       )
     );
   }
 
   // Add buy instruction
+  // Note: user_token_account uses init_if_needed in the program, so Anchor creates it automatically
   const buyIx = await program.methods
     .buy(usdcAmount)
     .accounts({
@@ -299,6 +314,7 @@ export async function buildBuyTx(
       userUsdcAccount: buyerUsdcAccount,
       userTokenAccount: buyerTokenAccount,
       user: buyer,
+      config: addresses.configPda,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,

@@ -26,13 +26,10 @@ pub fn sell(ctx: Context<Sell>, token_amount: u64) -> Result<()> {
     let s0 = pool.token_supply;
     let s1 = s0.checked_sub(token_amount_u128).ok_or(ErrorCode::NumericalOverflow)?;
     let reserve0 = pool.reserve;
-    let reserve_cap = pool.reserve_cap;
     let k_quad = pool.k_quadratic;
-    let linear_slope = pool.linear_slope;
-    let virtual_liquidity = pool.virtual_liquidity;
 
-    // Calculate USDC payout based on reserve-based curve with dampened linear region
-    let payout_u128 = calculate_sell_payout(s0, s1, reserve0, reserve_cap, k_quad, linear_slope, virtual_liquidity)?;
+    // Calculate USDC payout based on pure quadratic curve with price floor
+    let payout_u128 = calculate_sell_payout(s0, s1, reserve0, k_quad)?;
 
     // Convert to USDC decimals (payout is in u128, need u64)
     let usdc_out = u64::try_from(payout_u128)?;

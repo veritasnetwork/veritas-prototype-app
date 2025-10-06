@@ -135,11 +135,11 @@ serve(async (req) => {
     }
 
     // Fetch pool deployments for posts
-    let poolsMap: Record<string, string> = {}
+    let poolsMap: Record<string, any> = {}
     if (postIds.length > 0) {
       const { data: poolsData, error: poolsError } = await supabaseClient
         .from('pool_deployments')
-        .select('post_id, pool_address')
+        .select('post_id, pool_address, token_supply, reserve_balance, last_synced_at')
         .in('post_id', postIds)
 
       if (poolsError) {
@@ -147,16 +147,57 @@ serve(async (req) => {
       } else {
         // Create map for easy lookup
         poolsMap = (poolsData || []).reduce((acc, pool) => {
-          acc[pool.post_id] = pool.pool_address
+          acc[pool.post_id] = pool
           return acc
-        }, {} as Record<string, string>)
+        }, {} as Record<string, any>)
+
+        // Sync pool data from Solana for pools that need updating
+        // Update if: never synced OR last synced > 30 seconds ago
+        const now = new Date()
+        const poolsToSync = (poolsData || []).filter(pool => {
+          if (!pool.last_synced_at) return true
+          const lastSync = new Date(pool.last_synced_at)
+          return (now.getTime() - lastSync.getTime()) > 30000 // 30 seconds
+        })
+
+        if (poolsToSync.length > 0) {
+          // Sync pool data from Solana in background (don't block response)
+          Promise.all(poolsToSync.map(async (pool) => {
+            try {
+              const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/solana-sync-pool`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  post_id: pool.post_id,
+                  pool_address: pool.pool_address
+                })
+              })
+
+              if (response.ok) {
+                const data = await response.json()
+                // Update local map with fresh data
+                poolsMap[pool.post_id] = {
+                  ...pool,
+                  token_supply: data.token_supply,
+                  reserve_balance: data.reserve_balance,
+                  last_synced_at: new Date().toISOString()
+                }
+              }
+            } catch (error) {
+              console.warn(`Failed to sync pool ${pool.pool_address}:`, error)
+            }
+          })).catch(console.error) // Fire and forget
+        }
       }
     }
 
     // Enrich posts with user and belief data
     const enrichedPosts = (postsData || []).map(post => {
       const beliefData = beliefsMap[post.belief_id] || {}
-      const poolAddress = poolsMap[post.id]
+      const poolData = poolsMap[post.id] || {}
 
       return {
         id: post.id,
@@ -165,7 +206,9 @@ serve(async (req) => {
         content: post.content || '',
         belief_id: post.belief_id,
         created_at: post.created_at,
-        pool_address: poolAddress,
+        pool_address: poolData.pool_address,
+        pool_token_supply: poolData.token_supply || 0,
+        pool_reserve_balance: poolData.reserve_balance || 0,
         user: {
           username: post.users?.username || 'Unknown',
           display_name: post.users?.display_name || 'Unknown User'

@@ -1,7 +1,7 @@
 # Authentication Implementation
 
-**Endpoint**: Privy React SDK (client-side) + Supabase edge functions
-**Dependencies**: @privy-io/react-auth, existing protocol functions
+**Endpoint**: Privy React SDK (client-side) + Next.js API Routes
+**Dependencies**: @privy-io/react-auth, jose (JWT verification), @supabase/supabase-js
 
 ## Database Schema
 
@@ -15,8 +15,8 @@ Update system_config.initial_agent_stake from "100.0" to "10000.0" for $10k star
 
 ## Frontend Integration
 
-### Supabase Client Factory
-Create authenticated client factory that injects Privy JWT into Supabase headers for authenticated requests. Keep existing public client for unauthenticated operations.
+### Direct Supabase Client Usage
+Uses standard Supabase client for database operations. Authentication is handled separately via Privy JWT verification in Next.js API routes.
 
 ### Auth Context Provider
 Wrap Privy provider with custom context managing user state, access status, invite activation, and waitlist functionality. Expose user, access flags, and action methods.
@@ -24,36 +24,25 @@ Wrap Privy provider with custom context managing user state, access status, invi
 ### Protected Route System
 Component that redirects based on authentication state: unauthenticated users to landing page, authenticated but unactivated users to invite code screen.
 
-## Edge Functions
+## Next.js API Routes
 
-### Waitlist Signup
-**Endpoint**: `/app/auth/waitlist-join`
-**Input**: Email address
-**Algorithm**:
-1. Validate email format using regex
-2. Insert into waitlist table with status 'pending' (ignore duplicates)
-3. Return success confirmation
-
-### Invite Code Activation
-**Endpoint**: `/app/auth/activate-invite`
-**Input**: Invite code string, Privy user ID from JWT
-**Algorithm**:
-1. Validate Privy JWT signature and extract user ID
-2. Verify invite code exists and has status 'unused'
-3. Call protocol agent creation function with $10k starting stake
-4. Update users table with auth_provider='privy', auth_id=privy_user_id, agent_id=new_agent_id
-5. Mark invite code as 'used' with used_by_user_id and used_at timestamp
-6. Create user_access record with status='activated' and invite_code_used
-7. Return success with user_id and agent_id
-
-### User Status Check
-**Endpoint**: `/app/auth/status`
+### User Status Check & Auto-Registration
+**Endpoint**: `POST /api/auth/status`
 **Input**: Privy JWT in Authorization header
 **Algorithm**:
-1. Validate Privy JWT signature and extract user ID
-2. Find user record by auth_id matching Privy user ID
-3. Query user_access table for activation status
-4. Return has_access boolean, needs_invite boolean, and agent_id if activated
+1. Verify Privy JWT signature using jose library and Privy's JWKS endpoint
+2. Extract user ID from JWT payload (sub claim)
+3. Query users table by auth_id matching Privy user ID
+4. If user not found:
+   - Create new agent with total_stake=0
+   - Create user record with auth_provider='privy', auth_id=privy_user_id
+   - Generate username from last 8 chars of privy_user_id
+5. Return has_access=true, user object, and agent_id
+
+**Environment Variables**:
+- `NEXT_PUBLIC_PRIVY_APP_ID`: Privy application ID
+- `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role key for server-side operations
 
 ## Authentication Flow
 
@@ -61,16 +50,11 @@ Component that redirects based on authentication state: unauthenticated users to
 Landing page public, feed and dashboard require activation status, all others require basic authentication.
 
 ### Login Process
-1. User clicks login triggering Privy modal with OAuth providers
+1. User clicks login triggering Privy modal with email/Apple/wallet providers
 2. OAuth flow completes returning Privy JWT to client
-3. App calls status endpoint to check activation state
-4. If activated redirect to feed, if not activated show invite code input
-
-### Invite Activation
-1. User enters invite code in form
-2. Call activation endpoint with code and JWT
-3. If valid create agent and redirect to feed
-4. If invalid display error message and allow retry
+3. App calls `/api/auth/status` to verify JWT and get/create user
+4. User is automatically registered with $0 stake on first login
+5. Redirect to /feed upon successful authentication
 
 ## Migration Strategy
 
@@ -115,9 +99,10 @@ Landing page public, feed and dashboard require activation status, all others re
 ## Security Considerations
 
 ### JWT Validation
-- Verify Privy JWT signature on every request
-- Check token expiration
-- Handle refresh tokens automatically
+- Verify Privy JWT signature using jose library and Privy's JWKS endpoint
+- Validate issuer (privy.io) and audience (PRIVY_APP_ID)
+- Token expiration checked automatically by jose
+- Privy SDK handles refresh tokens automatically on client side
 
 ### Database Security
 - Enable RLS on all new tables

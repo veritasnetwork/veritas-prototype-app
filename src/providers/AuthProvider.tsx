@@ -53,6 +53,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
     try {
       const jwt = await getAccessToken();
+
       if (!jwt) {
         setIsLoading(false);
         return;

@@ -23,6 +23,21 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
   const [metaBelief, setMetaBelief] = useState(50);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [poolConfig, setPoolConfig] = useState<{
+    k_quadratic: number;
+    reserve_cap: number;
+    linear_slope: number;
+    virtual_liquidity: number;
+    supply_offset: number;
+  } | null>(null);
+
+  // Fetch pool config on mount
+  useEffect(() => {
+    fetch('/api/config/pool')
+      .then(res => res.json())
+      .then(config => setPoolConfig(config))
+      .catch(err => console.error('Failed to fetch pool config:', err));
+  }, []);
 
   // Debug: Log wallet status on mount and when it changes
   useEffect(() => {
@@ -146,10 +161,11 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
         connection,
         creator: solanaAddress,
         postId: tempPostId,
-        kQuadratic: 1_000_000, // 0.001
-        reserveCap: 5_000_000_000, // 5000 USDC
-        linearSlope: 1_000_000_000_000,
-        virtualLiquidity: 1_000_000_000,
+        kQuadratic: poolConfig?.k_quadratic ?? 1,
+        reserveCap: poolConfig?.reserve_cap ?? 5_000_000_000,
+        linearSlope: poolConfig?.linear_slope ?? 1_000_000_000_000,
+        virtualLiquidity: poolConfig?.virtual_liquidity ?? 1_000_000_000,
+        supplyOffset: poolConfig?.supply_offset ?? 10_000,
         programId,
       });
       console.log('✅ Transaction built successfully');
@@ -208,7 +224,7 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
 
       // Step 4: NOW create post and belief (only after successful transaction)
       console.log('📝 Step 4: Creating post and belief in database...');
-      const response = await fetch('/api/supabase/functions/v1/app-post-creation', {
+      const response = await fetch('/api/posts/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -228,10 +244,7 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
             token_mint_address: tokenMintPda.toBase58(),
             usdc_vault_address: poolVaultPda.toBase58(),
             deployment_tx_signature: signature,
-            k_quadratic: 1, // Very flat curve: ~4,642 tokens for $100
-            reserve_cap: 5_000_000_000, // $5,000 reserve cap
-            linear_slope: 1_000_000_000_000,
-            virtual_liquidity: 1_000_000_000,
+            k_quadratic: poolConfig?.k_quadratic ?? 1,
           },
         }),
       });

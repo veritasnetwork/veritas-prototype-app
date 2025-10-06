@@ -16,43 +16,33 @@ When the protocol applies penalties or rewards, we scale the bonding curve coeff
 
 ## Mathematical Foundation
 
-### Reserve-Based Bonding Curve with Dampened Linear Region
-The pool uses a two-phase price function with reserve-based transitions and self-dampening:
+### Pure Quadratic Bonding Curve with Price Floor
+The pool uses a simple quadratic price function with a minimum price floor:
 
 **Price Function:**
-$$P(s) = \begin{cases}
-k_{quadratic} \times s^2 & \text{if } reserve < reserve_{cap} \\
-P_{transition} + linear\_slope \times (s - s_{transition}) \times \frac{L}{L + s} & \text{if } reserve \geq reserve_{cap}
-\end{cases}$$
+$$P(s) = \max(P_{floor}, k_{quadratic} \times s^2)$$
 
 Where:
 - `s` = current token supply
-- `reserve` = total USDC in pool
-- `reserve_cap` = reserve transition point (e.g., $5,000 USDC)
-- `k_quadratic` = quadratic coefficient (determines early price growth)
-- `linear_slope` = linear region base slope (stored directly, not derived)
-- `virtual_liquidity` = L parameter for dampening factor
-- `s_transition` = token supply at reserve_cap (calculated as ∛(3 × reserve_cap / k_quadratic))
-- `P_transition` = price at transition point (k_quadratic × s_transition²)
+- `P_floor` = minimum price of $0.0001 per token
+- `k_quadratic` = quadratic coefficient (determines price growth rate)
 
-**Key Innovation - Self-Enforcing Dampening:**
-The dampening factor L/(L+s) naturally simulates AMM-like market depth:
-- Early linear phase (s ≈ 10K): dampening ≈ 0.9999 (full slope)
-- Mid phase (s ≈ 10M): dampening ≈ 0.91 (91% of slope)
-- Late phase (s ≈ 100M): dampening ≈ 0.50 (50% of slope)
-- Asymptotic (s → ∞): dampening → 0 (price stabilizes)
+**Key Properties:**
+- Initial trades at price floor until curve naturally exceeds $0.0001
+- Simple, predictable pricing without phase transitions
+- Smooth continuous growth throughout entire curve
+- No approximations or complex integrals needed
 
 ### Reserve Calculation
 The reserve (total USDC in pool) equals the integral of the price function:
 
-**Quadratic Region Only (reserve < reserve_cap):**
-$$R = \int_0^s k_{quadratic} \times x^2 \, dx = \frac{k_{quadratic} \times s^3}{3}$$
+$$R = \int_0^s P(x) \, dx$$
 
-**Dampened Linear Region (reserve ≥ reserve_cap):**
-The reserve includes the quadratic portion plus the dampened linear integral:
-$$R = reserve_{cap} + \int_{s_{transition}}^s \left(P_{transition} + slope \times (x - s_{transition}) \times \frac{L}{L + x}\right) \, dx$$
+For the pure quadratic portion (when P > P_floor):
+$$R = \frac{k_{quadratic} \times s^3}{3}$$
 
-Note: The dampening integral is complex but ensures smooth, self-regulating price growth that naturally slows as supply increases.
+For initial trades at price floor:
+$$R = P_{floor} \times s$$
 
 ### Elastic-K Scaling
 When the protocol adds/removes USDC without user trades (epoch adjustments):
@@ -60,15 +50,14 @@ When the protocol adds/removes USDC without user trades (epoch adjustments):
 **Scaling Ratio:**
 $$ratio = \frac{R_{new}}{R_{old}}$$
 
-**Coefficient Updates:**
+**Coefficient Update:**
 $$k_{quadratic}^{new} = k_{quadratic}^{old} \times ratio$$
-$$k_{linear}^{new} = k_{linear}^{old} \times ratio$$
 
 **Properties Preserved:**
 - Token supply unchanged
 - Reserve consistency maintained (integral still equals reserve)
 - All holders affected proportionally
-- Price continuity at s_cap maintained
+- Price remains continuous (no phase transitions)
 
 ## Configurable Parameters
 
@@ -77,47 +66,36 @@ Stored on-chain in singleton PDA, adjustable by protocol authority:
 
 | Parameter | Purpose | Default Value | Range |
 |-----------|---------|---------------|-------|
-| `default_k_quadratic` | Default steepness of quadratic curve | 200 (0.0002) | [100, 10,000,000] |
-| `default_reserve_cap` | Default reserve for linear transition | 5,000,000,000 ($5,000 USDC) | [$1K, $1M USDC] |
-| `default_linear_slope` | Default slope in linear region | 1,000 (0.001) | [100, 100,000] |
-| `default_virtual_liquidity` | Default dampening parameter | 100,000,000,000 (100M tokens) | [1M, 10B tokens] |
+| `default_k_quadratic` | Default steepness of quadratic curve | 1 (simple unit curve) | [100, 10,000,000] |
 | `min_k_quadratic` | Minimum allowed k for new pools | 100 (0.0001) | > 0 |
 | `max_k_quadratic` | Maximum allowed k for new pools | 10,000,000 (10.0) | > min_k |
-| `min_reserve_cap` | Minimum reserve for transition | 1,000,000,000 ($1,000 USDC) | > 0 |
-| `max_reserve_cap` | Maximum reserve for transition | 1,000,000,000,000 ($1M USDC) | > min_cap |
 | `min_trade_amount` | Minimum buy/sell amount | 1,000,000 (1 USDC) | > 0 |
 
 ### Per-Pool Parameters (ContentPool)
-Set at pool creation, some can be updated:
+Set at pool creation:
 
 | Parameter | Purpose | Set At | Can Update? |
 |-----------|---------|--------|-------------|
 | `k_quadratic` | Actual quadratic coefficient | Initialization (validated against bounds) | Via elastic-k only |
-| `reserve_cap` | Reserve transition point (e.g. $5K USDC) | Initialization (validated against bounds) | Yes (authority only) |
-| `linear_slope` | Slope in linear region | Initialization (uses default from config) | No (immutable after creation) |
-| `virtual_liquidity` | Dampening parameter L | Initialization (uses default from config) | No (immutable after creation) |
 
 ### Economic Impact Examples
 
-**Flat Curve (k=100, cap=50K):**
+**Flat Curve (k=0.0001):**
 - Early adopter advantage: Low
 - Accessibility: High
 - Speculation upside: Limited
+- Price at 10,000 tokens: $0.01
 
-**Steep Curve (k=10,000, cap=200K):**
+**Moderate Curve (k=1):**
+- Early adopter advantage: Moderate
+- Balanced accessibility and growth
+- Price at 10,000 tokens: $100
+
+**Steep Curve (k=10):**
 - Early adopter advantage: Very high
-- Accessibility: Lower (expensive after 10K tokens)
+- Accessibility: Lower (expensive after 1K tokens)
 - Speculation upside: Significant
-
-**Short Quadratic Phase (k=1,000, cap=10K):**
-- Quick transition to linear
-- Less explosive growth
-- More sustainable long-term
-
-**Long Quadratic Phase (k=1,000, cap=500K):**
-- Extended explosive growth period
-- High speculation potential
-- May never reach linear for small content
+- Price at 10,000 tokens: $1,000
 
 ---
 
@@ -132,11 +110,8 @@ pub struct ContentPool {
     // Identification (32 bytes)
     pub post_id: [u8; 32],      // Hash identifier of content (unique key)
 
-    // Bonding Curve Parameters (64 bytes)
+    // Bonding Curve Parameters (16 bytes)
     pub k_quadratic: u128,      // Quadratic coefficient (mutable via elastic-k)
-    pub reserve_cap: u128,      // Reserve amount at linear transition (e.g. $5K USDC)
-    pub linear_slope: u128,     // Slope in linear region (dampened by L/(L+s))
-    pub virtual_liquidity: u128, // Virtual liquidity L for dampening factor
 
     // Current State (32 bytes)
     pub token_supply: u128,     // Total SPL tokens minted
@@ -155,7 +130,7 @@ pub struct ContentPool {
     // PDA (1 byte)
     pub bump: u8,               // PDA bump seed
 }
-// Total: 268 bytes + 8 discriminator = 276 bytes
+// Total: 220 bytes + 8 discriminator = 228 bytes
 ```
 
 **PDA Derivation:**
@@ -172,27 +147,20 @@ pub struct ProtocolConfig {
     pub authority: Pubkey,              // 32 bytes
     pub bump: u8,                       // 1 byte
 
-    // Default curve parameters (64 bytes)
+    // Default curve parameters (16 bytes)
     pub default_k_quadratic: u128,      // 16 bytes
-    pub default_reserve_cap: u128,      // 16 bytes - e.g. $5K USDC
-    pub default_linear_slope: u128,     // 16 bytes - slope in linear region
-    pub default_virtual_liquidity: u128, // 16 bytes - dampening parameter
 
-    // Validation bounds (96 bytes)
+    // Validation bounds (32 bytes)
     pub min_k_quadratic: u128,          // 16 bytes
     pub max_k_quadratic: u128,          // 16 bytes
-    pub min_reserve_cap: u128,          // 16 bytes - e.g. $1K minimum
-    pub max_reserve_cap: u128,          // 16 bytes - e.g. $1M maximum
-    pub min_linear_slope: u128,         // 16 bytes
-    pub max_linear_slope: u128,         // 16 bytes
 
     // Trading limits (8 bytes)
     pub min_trade_amount: u64,          // 8 bytes
 
-    // Reserved for future use (32 bytes)
-    pub reserved: [u64; 4],             // 32 bytes - reduced to make room
+    // Reserved for future use (16 bytes)
+    pub reserved: [u64; 2],             // 16 bytes
 }
-// Total: 233 bytes + 8 discriminator = 241 bytes
+// Total: 89 bytes + 8 discriminator = 97 bytes
 
 // PDA: seeds = [b"config"]
 ```
@@ -202,23 +170,14 @@ pub struct ProtocolConfig {
 // Precision (immutable)
 const USDC_DECIMALS: u8 = 6;
 const RATIO_PRECISION: u128 = 1_000_000;
+const PRICE_FLOOR: u128 = 100;                          // $0.0001 per token (100 / 1_000_000)
 
 // Default initial values (used if no ProtocolConfig exists)
-// Reserve-based linear transition at $5K with dampening
-const DEFAULT_K_QUADRATIC: u128 = 200;                  // 0.0002 in real terms (lower for better transition price)
-const DEFAULT_RESERVE_CAP: u128 = 5_000_000_000;        // $5K USDC (with 6 decimals)
-const DEFAULT_LINEAR_SLOPE: u128 = 1_000;               // 0.001 slope in linear region
-const DEFAULT_VIRTUAL_LIQUIDITY: u128 = 100_000_000_000; // 100M tokens for dampening
+const DEFAULT_K_QUADRATIC: u128 = 1;                     // k=1 for simple quadratic curve
 
 // Bounds for parameters
 const DEFAULT_MIN_K_QUADRATIC: u128 = 100;              // Min 0.0001
 const DEFAULT_MAX_K_QUADRATIC: u128 = 10_000_000;       // Max 10
-const DEFAULT_MIN_RESERVE_CAP: u128 = 1_000_000_000;    // Min $1K USDC
-const DEFAULT_MAX_RESERVE_CAP: u128 = 1_000_000_000_000; // Max $1M USDC
-const DEFAULT_MIN_LINEAR_SLOPE: u128 = 100;             // Min 0.0001
-const DEFAULT_MAX_LINEAR_SLOPE: u128 = 100_000;         // Max 0.1
-const DEFAULT_MIN_VIRTUAL_LIQUIDITY: u128 = 1_000_000_000; // Min 1M tokens
-const DEFAULT_MAX_VIRTUAL_LIQUIDITY: u128 = 10_000_000_000_000; // Max 10B tokens
 const DEFAULT_MIN_TRADE_AMOUNT: u64 = 1_000_000;        // 1 USDC
 ```
 
@@ -236,15 +195,8 @@ pub fn initialize_config(
 pub fn update_config(
     ctx: Context<UpdateConfig>,
     default_k_quadratic: Option<u128>,
-    default_reserve_cap: Option<u128>,
-    default_linear_slope: Option<u128>,
-    default_virtual_liquidity: Option<u128>,
     min_k_quadratic: Option<u128>,
     max_k_quadratic: Option<u128>,
-    min_reserve_cap: Option<u128>,
-    max_reserve_cap: Option<u128>,
-    min_linear_slope: Option<u128>,
-    max_linear_slope: Option<u128>,
     min_trade_amount: Option<u64>,
 ) -> Result<()>
 
@@ -253,7 +205,6 @@ pub fn initialize_pool(
     ctx: Context<InitializePool>,
     post_id: [u8; 32],
     initial_k_quadratic: u128,
-    reserve_cap: u128,
     token_name: String,
     token_symbol: String,
 ) -> Result<()>
@@ -281,25 +232,18 @@ pub fn apply_pool_reward(
     ctx: Context<ApplyPoolReward>,
     reward_amount: u64,
 ) -> Result<()>
-
-// 7. Protocol adjusts reserve cap
-pub fn set_reserve_cap(
-    ctx: Context<SetReserveCap>,
-    new_reserve_cap: u128,
-) -> Result<()>
 ```
 
 #### View Functions
 
 ```rust
-// 8. Get current pool state (Solana accounts are readable by default)
+// 7. Get current pool state (Solana accounts are readable by default)
 // No function needed - clients read ContentPool account directly
 // Calculations done client-side:
-//   - current_price = calculate_price(token_supply)
-//   - is_in_linear = token_supply > supply_cap
+//   - current_price = max(PRICE_FLOOR, k * token_supply²)
 //   - market_cap = current_price * token_supply
 
-// 9. Get protocol configuration (Solana accounts are readable by default)
+// 8. Get protocol configuration (Solana accounts are readable by default)
 // No function needed - clients read ProtocolConfig account directly
 ```
 
@@ -312,7 +256,7 @@ pub struct InitializePool<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 161,
+        space = 8 + 220,
         seeds = [b"pool", post_id.as_ref()],
         bump
     )]
@@ -382,7 +326,7 @@ pub struct InitializeConfig<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 185,
+        space = 8 + 89,
         seeds = [b"config"],
         bump
     )]

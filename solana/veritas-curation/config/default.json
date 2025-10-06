@@ -4,25 +4,15 @@
     "version": "1.0.0"
   },
   "contentPool": {
-    "defaultKQuadratic": "1000000",
-    "defaultReserveCap": "5000000000",
-    "minKQuadratic": "100000",
+    "defaultKQuadratic": "1",
+    "minKQuadratic": "100",
     "maxKQuadratic": "10000000",
-    "minReserveCap": "1000000000",
-    "maxReserveCap": "100000000000",
-    "minTradeAmount": "100000",
-    "defaultLinearSlope": "1000000000000",
-    "defaultVirtualLiquidity": "1000000000"
+    "minTradeAmount": "1000000"
   },
   "comments": {
-    "defaultKQuadratic": "1e6 = 0.001 curvature (moderate bonding)",
-    "defaultReserveCap": "5000 USDC (6 decimals)",
-    "minKQuadratic": "1e5 = 0.0001 (shallow curve)",
-    "maxKQuadratic": "1e7 = 0.01 (steep curve)",
-    "minReserveCap": "1000 USDC minimum",
-    "maxReserveCap": "100,000 USDC maximum",
-    "minTradeAmount": "0.1 USDC minimum trade",
-    "defaultLinearSlope": "1e12 for initial linear region",
-    "defaultVirtualLiquidity": "1e9 for smooth curve start"
+    "defaultKQuadratic": "1 = simple quadratic curve (price = k * s^2)",
+    "minKQuadratic": "100 = 0.0001 (shallow curve)",
+    "maxKQuadratic": "10000000 = 10.0 (steep curve)",
+    "minTradeAmount": "1000000 = 1 USDC minimum trade (6 decimals)"
   }
 }

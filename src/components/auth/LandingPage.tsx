@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 export function LandingPage() {
-  const { login, authenticated, ready } = usePrivy();
+  const { login, logout, authenticated, ready } = usePrivy();
   const { hasAccess, isLoading } = useAuth();
   const router = useRouter();
 
@@ -18,6 +18,16 @@ export function LandingPage() {
 
   const handleLoginClick = async () => {
     if (!ready) return;
+
+    // If already authenticated but no access, force logout and retry
+    if (authenticated) {
+      if (!hasAccess && !isLoading) {
+        await logout();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } else {
+        return;
+      }
+    }
 
     try {
       await login();

@@ -8,10 +8,8 @@ const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZ
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-const posts = [
-  { title: 'Sunshine?', content: '' },
-  { title: 'Rainbows?', content: '' }
-];
+// No default posts - start with clean slate
+const posts = [];
 
 // Random belief generation
 function randomBelief() {
