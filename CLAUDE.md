@@ -7,7 +7,7 @@
 
 ### Phase 1: Authentication & User Foundation ✅
 - **Privy Auth**: Email, Apple, and wallet authentication
-- **User Onboarding**: Auto-registration on first login with $10,000 stake
+- **User Onboarding**: Auto-registration on first login with $0 stake (users deposit via Veritas Custodian Solana contract)
 - **Invite System**: Optional invite codes for exclusive access (works alongside auto-registration)
 - **Stake History Tracking**: New table to track user stake over epochs (app layer)
 

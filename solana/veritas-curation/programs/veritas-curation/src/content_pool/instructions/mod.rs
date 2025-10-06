@@ -5,7 +5,7 @@ pub mod buy;
 pub mod sell;
 pub mod apply_penalty;
 pub mod apply_reward;
-pub mod set_supply_cap;
+pub mod set_reserve_cap;
 
 pub use initialize_config::*;
 pub use update_config::*;
@@ -14,4 +14,4 @@ pub use buy::*;
 pub use sell::*;
 pub use apply_penalty::*;
 pub use apply_reward::*;
-pub use set_supply_cap::*;
+pub use set_reserve_cap::*;

@@ -228,6 +228,39 @@ serve(async (req) => {
         const entropyChange = aggregationData.jensen_shannon_disagreement_entropy - mirrorDescentData.post_mirror_descent_disagreement_entropy
         console.log(`🎯 Entropy change: ${entropyChange.toFixed(4)} (${entropyChange > 0 ? 'decreased' : 'increased'})`)
 
+        // Get current previous_aggregate to calculate delta_relevance
+        const { data: currentBelief, error: beliefFetchError } = await supabaseClient
+          .from('beliefs')
+          .select('previous_aggregate')
+          .eq('id', belief.id)
+          .single()
+
+        if (beliefFetchError) {
+          throw new Error(`Failed to fetch belief: ${beliefFetchError.message}`)
+        }
+
+        const previousAggregate = currentBelief?.previous_aggregate || mirrorDescentData.post_mirror_descent_aggregate
+        const deltaRelevance = mirrorDescentData.post_mirror_descent_aggregate - previousAggregate
+
+        // Update beliefs table with certainty, delta_relevance, and new previous_aggregate
+        const { error: beliefUpdateError } = await supabaseClient
+          .from('beliefs')
+          .update({
+            certainty: aggregationData.certainty,
+            delta_relevance: deltaRelevance,
+            previous_aggregate: mirrorDescentData.post_mirror_descent_aggregate
+          })
+          .eq('id', belief.id)
+
+        if (beliefUpdateError) {
+          throw new Error(`Failed to update belief: ${beliefUpdateError.message}`)
+        }
+
+        console.log(`📊 Belief table updated:`)
+        console.log(`   - Certainty: ${(aggregationData.certainty * 100).toFixed(1)}%`)
+        console.log(`   - Delta relevance: ${deltaRelevance >= 0 ? '+' : ''}${(deltaRelevance * 100).toFixed(1)}%`)
+        console.log(`   - Previous aggregate updated: ${(mirrorDescentData.post_mirror_descent_aggregate * 100).toFixed(1)}%`)
+
         // Step 5: Learning assessment
         const learningAssessmentData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-learning-assessment', {
           belief_id: belief.id,
@@ -391,7 +424,25 @@ serve(async (req) => {
       }
     }
 
-    // 6. Update global epoch
+    // 6. Pool Redistribution (if Solana is configured)
+    console.log(`\n💸 POOL REDISTRIBUTION`)
+    try {
+      const poolRedistributionData = await callInternalFunction(supabaseUrl, anonKey, 'pool-redistribution', {})
+
+      if (poolRedistributionData.success) {
+        console.log(`✅ Pool redistribution complete`)
+        console.log(`💸 Penalties applied: ${poolRedistributionData.penalties}`)
+        console.log(`💸 Rewards distributed: ${poolRedistributionData.rewards}`)
+        console.log(`💸 Total transactions: ${poolRedistributionData.totalTransactions}`)
+      } else {
+        console.log(`⚠️  Pool redistribution skipped: ${poolRedistributionData.message}`)
+      }
+    } catch (error) {
+      console.error(`⚠️  Pool redistribution failed (non-critical): ${error.message}`)
+      // Don't add to errors array - pool redistribution is optional
+    }
+
+    // 7. Update global epoch
     console.log(`\n🔄 FINALIZING EPOCH TRANSITION`)
     const { error: epochUpdateError } = await supabaseClient
       .from('system_config')
@@ -405,7 +456,7 @@ serve(async (req) => {
       console.log(`✅ Updated global epoch: ${currentEpoch} → ${nextEpoch}`)
     }
 
-    // 7. Return processing summary
+    // 8. Return processing summary
     console.log(`\n📊 EPOCH PROCESSING SUMMARY`)
     console.log(`📊 Processed beliefs: ${processedBeliefs.length}`)
     console.log(`📊 Expired beliefs: ${expiredBeliefs.length}`)

@@ -94,6 +94,7 @@ export class PostsService {
         yesPercentage: Math.round(aggregate * 100),
         history: undefined,
       },
+      poolAddress: apiPost.pool_address,
     };
 
     return post;

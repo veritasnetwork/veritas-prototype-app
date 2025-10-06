@@ -161,7 +161,7 @@ serve(async (req) => {
                   <p>We're building a revolutionary Bayesian Truth Serum protocol that reveals collective beliefs while rewarding honest participation.</p>
                   <p>As we prepare for our alpha launch, you'll be among the first to experience:</p>
                   <ul>
-                    <li>$10,000 starting stake to participate in belief markets</li>
+                    <li>Connect your Solana wallet and deposit stake to participate in belief markets</li>
                     <li>Early access to shape the platform's direction</li>
                     <li>Exclusive invite codes to share with your network</li>
                   </ul>

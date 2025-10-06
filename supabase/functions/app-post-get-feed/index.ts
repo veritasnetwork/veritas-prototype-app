@@ -20,6 +20,7 @@ interface FeedResponse {
     content: string
     belief_id: string
     created_at: string
+    pool_address?: string
     user: {
       username: string
       display_name: string
@@ -101,10 +102,12 @@ serve(async (req) => {
       )
     }
 
-    // Get all unique belief IDs for efficient batch querying
+    // Get all unique belief IDs and post IDs for efficient batch querying
     const beliefIds = (postsData || [])
       .filter(post => post.belief_id)
       .map(post => post.belief_id)
+
+    const postIds = (postsData || []).map(post => post.id)
 
     // Fetch all belief data in one query for better performance
     let beliefsMap: Record<string, any> = {}
@@ -131,9 +134,29 @@ serve(async (req) => {
       }
     }
 
+    // Fetch pool deployments for posts
+    let poolsMap: Record<string, string> = {}
+    if (postIds.length > 0) {
+      const { data: poolsData, error: poolsError } = await supabaseClient
+        .from('pool_deployments')
+        .select('post_id, pool_address')
+        .in('post_id', postIds)
+
+      if (poolsError) {
+        console.warn('Failed to fetch pool deployments:', poolsError)
+      } else {
+        // Create map for easy lookup
+        poolsMap = (poolsData || []).reduce((acc, pool) => {
+          acc[pool.post_id] = pool.pool_address
+          return acc
+        }, {} as Record<string, string>)
+      }
+    }
+
     // Enrich posts with user and belief data
     const enrichedPosts = (postsData || []).map(post => {
       const beliefData = beliefsMap[post.belief_id] || {}
+      const poolAddress = poolsMap[post.id]
 
       return {
         id: post.id,
@@ -142,6 +165,7 @@ serve(async (req) => {
         content: post.content || '',
         belief_id: post.belief_id,
         created_at: post.created_at,
+        pool_address: poolAddress,
         user: {
           username: post.users?.username || 'Unknown',
           display_name: post.users?.display_name || 'Unknown User'

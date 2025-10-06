@@ -40,6 +40,8 @@ pub struct InitializeTreasury<'info> {
         payer = payer,
         token::mint = usdc_mint,
         token::authority = treasury,
+        seeds = [b"treasury_vault"],
+        bump,
     )]
     pub usdc_vault: Account<'info, TokenAccount>,
 

@@ -49,6 +49,8 @@ pub struct InitializeCustodian<'info> {
         payer = payer,
         token::mint = usdc_mint,
         token::authority = custodian,
+        seeds = [b"custodian_vault"],
+        bump,
     )]
     pub usdc_vault: Account<'info, TokenAccount>,
 

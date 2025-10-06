@@ -28,12 +28,13 @@ serve(async (req) => {
 
     // Extract JWT and validate with Privy JWKS
     const jwt = authHeader.slice(7);
+    const PRIVY_APP_ID = Deno.env.get('PRIVY_APP_ID') ?? 'cmfmujde9004yl50ba40keo4a';
 
     let privyUserId: string;
 
     try {
       // Privy JWKS endpoint for your app
-      const JWKS_URL = 'https://auth.privy.io/api/v1/apps/cmfmujde9004yl50ba40keo4a/jwks.json';
+      const JWKS_URL = `https://auth.privy.io/api/v1/apps/${PRIVY_APP_ID}/jwks.json`;
 
       // Create JWKS instance
       const JWKS = createRemoteJWKSet(new URL(JWKS_URL));
@@ -41,7 +42,7 @@ serve(async (req) => {
       // Verify JWT with Privy's public keys
       const { payload } = await jwtVerify(jwt, JWKS, {
         issuer: 'privy.io',
-        audience: 'cmfmujde9004yl50ba40keo4a'
+        audience: PRIVY_APP_ID
       });
 
       privyUserId = payload.sub as string;
@@ -58,9 +59,9 @@ serve(async (req) => {
     }
 
     // Check if user exists in our database
-    const { data: user, error: userError } = await supabaseClient
+    let { data: user, error: userError } = await supabaseClient
       .from('users')
-      .select('id, agent_id')
+      .select('id, agent_id, auth_id, auth_provider')
       .eq('auth_id', privyUserId)
       .eq('auth_provider', 'privy')
       .single();
@@ -69,38 +70,45 @@ serve(async (req) => {
       throw userError;
     }
 
-    // If user doesn't exist, they need to activate an invite
+    // Auto-register user if they don't exist
     if (!user) {
-      return new Response(
-        JSON.stringify({
-          has_access: false,
-          needs_invite: true,
-          user: null,
-          agent_id: null,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      // Create agent first
+      const { data: agent, error: agentError } = await supabaseClient
+        .from('agents')
+        .insert({
+          total_stake: 0,
+        })
+        .select('id')
+        .single();
+
+      if (agentError) throw agentError;
+
+      // Generate username from Privy ID
+      const username = `user_${privyUserId.slice(-8)}`;
+
+      // Create user
+      const { data: newUser, error: createUserError } = await supabaseClient
+        .from('users')
+        .insert({
+          auth_id: privyUserId,
+          auth_provider: 'privy',
+          agent_id: agent.id,
+          username,
+          display_name: username,
+        })
+        .select('id, agent_id, auth_id, auth_provider')
+        .single();
+
+      if (createUserError) throw createUserError;
+
+      user = newUser;
     }
-
-    // Check user access status
-    const { data: access, error: accessError } = await supabaseClient
-      .from('user_access')
-      .select('status')
-      .eq('user_id', user.id)
-      .single();
-
-    if (accessError && accessError.code !== 'PGRST116') {
-      throw accessError;
-    }
-
-    const hasAccess = access?.status === 'activated';
 
     return new Response(
       JSON.stringify({
-        has_access: hasAccess,
-        needs_invite: !hasAccess,
-        user: hasAccess ? user : null,
-        agent_id: hasAccess ? user.agent_id : null,
+        has_access: true,
+        user,
+        agent_id: user.agent_id,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

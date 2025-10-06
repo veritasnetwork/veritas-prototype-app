@@ -6,12 +6,14 @@ use crate::content_pool::state::{ContentPool, ProtocolConfig};
 use crate::pool_factory::state::{PoolFactory, PoolRegistry, FACTORY_SEED, POOL_SEED, REGISTRY_SEED};
 use crate::errors::ErrorCode;
 
-/// Permissionless pool creation with registry tracking
+/// Permissionless pool creation with registry tracking and SPL token
 pub fn create_pool(
     ctx: Context<CreatePool>,
     post_id: [u8; 32],
     initial_k_quadratic: u128,
-    supply_cap: u128,
+    reserve_cap: u128,
+    token_name: String,
+    token_symbol: String,
 ) -> Result<()> {
     let factory = &mut ctx.accounts.factory;
     let pool = &mut ctx.accounts.pool;
@@ -24,17 +26,45 @@ pub fn create_pool(
     if let Some(config) = ctx.accounts.config.as_ref() {
         require!(initial_k_quadratic >= config.min_k_quadratic, ErrorCode::InvalidParameters);
         require!(initial_k_quadratic <= config.max_k_quadratic, ErrorCode::InvalidParameters);
-        require!(supply_cap >= config.min_supply_cap, ErrorCode::InvalidParameters);
-        require!(supply_cap <= config.max_supply_cap, ErrorCode::InvalidParameters);
+        require!(reserve_cap >= config.min_reserve_cap, ErrorCode::InvalidParameters);
+        require!(reserve_cap <= config.max_reserve_cap, ErrorCode::InvalidParameters);
     }
+
+    // Validate token metadata
+    require!(token_name.len() <= 32, ErrorCode::InvalidParameters);
+    require!(token_symbol.len() <= 10, ErrorCode::InvalidParameters);
+    require!(!token_name.is_empty(), ErrorCode::InvalidParameters);
+    require!(!token_symbol.is_empty(), ErrorCode::InvalidParameters);
+
+    // Get default linear parameters from config or use defaults
+    let config = ctx.accounts.config.as_ref();
+    let default_linear_slope = config.map_or(crate::constants::DEFAULT_LINEAR_SLOPE, |c| c.default_linear_slope);
+    let default_virtual_liquidity = config.map_or(crate::constants::DEFAULT_VIRTUAL_LIQUIDITY, |c| c.default_virtual_liquidity);
 
     // Initialize ContentPool
     pool.post_id = post_id;
     pool.factory = factory.key();  // Reference to factory for authority
     pool.k_quadratic = initial_k_quadratic;
-    pool.supply_cap = supply_cap;
+    pool.reserve_cap = reserve_cap;
+    pool.linear_slope = default_linear_slope;
+    pool.virtual_liquidity = default_virtual_liquidity;
     pool.token_supply = 0;
     pool.reserve = 0;
+    pool.token_mint = ctx.accounts.token_mint.key();
+
+    // Store token metadata
+    let mut name_bytes = [0u8; 32];
+    let name_slice = token_name.as_bytes();
+    name_bytes[..name_slice.len()].copy_from_slice(name_slice);
+    pool.token_name = name_bytes;
+
+    let mut symbol_bytes = [0u8; 10];
+    let symbol_slice = token_symbol.as_bytes();
+    symbol_bytes[..symbol_slice.len()].copy_from_slice(symbol_slice);
+    pool.token_symbol = symbol_bytes;
+
+    pool.token_decimals = 6; // Always 6 decimals to match USDC
+
     pool.usdc_vault = ctx.accounts.pool_usdc_vault.key();
     pool.bump = ctx.bumps.pool;
 
@@ -55,7 +85,7 @@ pub fn create_pool(
 }
 
 #[derive(Accounts)]
-#[instruction(post_id: [u8; 32])]
+#[instruction(post_id: [u8; 32], initial_k_quadratic: u128, reserve_cap: u128, token_name: String, token_symbol: String)]
 pub struct CreatePool<'info> {
     #[account(
         mut,
@@ -67,17 +97,30 @@ pub struct CreatePool<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 161,
+        space = 8 + 268,  // Updated size for linear region fields (increased from 236)
         seeds = [POOL_SEED, post_id.as_ref()],
         bump
     )]
     pub pool: Account<'info, ContentPool>,
+
+    // SPL token mint for this pool
+    #[account(
+        init,
+        payer = payer,
+        mint::decimals = 6,
+        mint::authority = pool,
+        seeds = [b"mint", post_id.as_ref()],
+        bump,
+    )]
+    pub token_mint: Account<'info, Mint>,
 
     #[account(
         init,
         payer = payer,
         token::mint = usdc_mint,
         token::authority = pool,
+        seeds = [b"vault", post_id.as_ref()],
+        bump,
     )]
     pub pool_usdc_vault: Account<'info, TokenAccount>,
 

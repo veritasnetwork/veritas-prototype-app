@@ -5,3 +5,12 @@ target
 node_modules
 test-ledger
 .yarn
+
+# Keypairs (NEVER commit these!)
+keys/*.json
+!keys/.gitkeep
+
+# Deployment artifacts
+.deploy/
+deployments/*.json
+!deployments/.gitkeep

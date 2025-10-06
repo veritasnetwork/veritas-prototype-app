@@ -1,9 +1,38 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { PublicKey } from "https://esm.sh/@solana/web3.js@1.87.6"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Solana configuration
+const PROGRAM_ID = Deno.env.get("SOLANA_PROGRAM_ID") || ""
+
+// Helper to derive pool PDAs
+function getPoolPDA(programId: PublicKey, postId: Buffer): PublicKey {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("pool"), postId],
+    programId
+  )
+  return pda
+}
+
+function getTokenMintPDA(programId: PublicKey, postId: Buffer): PublicKey {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("mint"), postId],
+    programId
+  )
+  return pda
+}
+
+function getPoolVaultPDA(programId: PublicKey, postId: Buffer): PublicKey {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("vault"), postId],
+    programId
+  )
+  return pda
 }
 
 interface PostCreationRequest {
@@ -13,6 +42,17 @@ interface PostCreationRequest {
   initial_belief: number
   meta_prediction?: number
   duration_epochs?: number
+  post_id?: string
+  pool_deployment?: {
+    pool_address: string
+    token_mint_address: string
+    usdc_vault_address: string
+    deployment_tx_signature: string
+    k_quadratic: number
+    reserve_cap: number
+    linear_slope: number
+    virtual_liquidity: number
+  }
 }
 
 interface PostCreationResponse {
@@ -30,6 +70,12 @@ interface PostCreationResponse {
     belief_id: string
     initial_aggregate: number
     expiration_epoch: number
+  }
+  pool?: {
+    pool_address: string
+    token_mint_address: string
+    usdc_vault_address: string
+    deployment_recorded: boolean
   }
 }
 
@@ -53,7 +99,9 @@ serve(async (req) => {
       content,
       initial_belief,
       meta_prediction,
-      duration_epochs = 10 // Default 10 epochs (48h)
+      duration_epochs = 10, // Default 10 epochs (48h)
+      post_id,
+      pool_deployment
     }: PostCreationRequest = await req.json()
 
     // Validate required fields (title is required, content is optional)
@@ -149,14 +197,21 @@ serve(async (req) => {
     }
 
     // Create post record linked to belief
+    const postData: any = {
+      user_id,
+      belief_id: beliefData.belief_id,
+      title: trimmedTitle,
+      content: trimmedContent
+    }
+
+    // Use provided post_id if available (for Solana PDA derivation)
+    if (post_id) {
+      postData.id = post_id
+    }
+
     const { data: post, error: postError } = await supabaseClient
       .from('posts')
-      .insert({
-        user_id,
-        belief_id: beliefData.belief_id,
-        title: trimmedTitle,
-        content: trimmedContent
-      })
+      .insert(postData)
       .select()
       .single()
 
@@ -175,7 +230,47 @@ serve(async (req) => {
       )
     }
 
-    // TODO: Update user's beliefs_created count (can be done later)
+    // Record pool deployment if provided
+    let poolInfo = null
+    if (pool_deployment) {
+      try {
+        console.log('Recording pool deployment:', pool_deployment)
+
+        // Record pool deployment in database
+        const { error: deploymentError } = await supabaseClient.rpc(
+          'record_pool_deployment',
+          {
+            p_post_id: post.id,
+            p_belief_id: beliefData.belief_id,
+            p_pool_address: pool_deployment.pool_address,
+            p_vault_address: pool_deployment.usdc_vault_address,
+            p_mint_address: pool_deployment.token_mint_address,
+            p_deployed_by_agent_id: userData.agent_id,
+            p_tx_signature: pool_deployment.deployment_tx_signature,
+            p_k_quadratic: pool_deployment.k_quadratic,
+            p_reserve_cap: pool_deployment.reserve_cap,
+            p_linear_slope: pool_deployment.linear_slope,
+            p_virtual_liquidity: pool_deployment.virtual_liquidity,
+          }
+        )
+
+        if (deploymentError) {
+          console.error('Failed to record pool deployment:', deploymentError)
+          // Don't fail the whole request - post and belief are already created
+        } else {
+          poolInfo = {
+            pool_address: pool_deployment.pool_address,
+            token_mint_address: pool_deployment.token_mint_address,
+            usdc_vault_address: pool_deployment.usdc_vault_address,
+            deployment_recorded: true
+          }
+          console.log('Pool deployment recorded successfully')
+        }
+      } catch (poolError) {
+        console.error('Error recording pool:', poolError)
+        // Don't fail the whole request - pool deployment is optional for now
+      }
+    }
 
     const response: PostCreationResponse = {
       post_id: post.id,
@@ -192,7 +287,8 @@ serve(async (req) => {
         belief_id: beliefData.belief_id,
         initial_aggregate: beliefData.initial_aggregate,
         expiration_epoch: beliefData.expiration_epoch
-      }
+      },
+      ...(poolInfo && { pool: poolInfo })
     }
 
     return new Response(

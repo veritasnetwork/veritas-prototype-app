@@ -33,21 +33,21 @@ pub mod veritas_curation {
     pub fn update_config(
         ctx: Context<UpdateConfig>,
         default_k_quadratic: Option<u128>,
-        default_supply_cap: Option<u128>,
+        default_reserve_cap: Option<u128>,
         min_k_quadratic: Option<u128>,
         max_k_quadratic: Option<u128>,
-        min_supply_cap: Option<u128>,
-        max_supply_cap: Option<u128>,
+        min_reserve_cap: Option<u128>,
+        max_reserve_cap: Option<u128>,
         min_trade_amount: Option<u64>,
     ) -> Result<()> {
         content_pool::instructions::update_config(
             ctx,
             default_k_quadratic,
-            default_supply_cap,
+            default_reserve_cap,
             min_k_quadratic,
             max_k_quadratic,
-            min_supply_cap,
-            max_supply_cap,
+            min_reserve_cap,
+            max_reserve_cap,
             min_trade_amount,
         )
     }
@@ -60,16 +60,25 @@ pub mod veritas_curation {
         ctx: Context<InitializePool>,
         post_id: [u8; 32],
         initial_k_quadratic: u128,
-        supply_cap: u128,
+        reserve_cap: u128,
+        token_name: String,
+        token_symbol: String,
     ) -> Result<()> {
-        content_pool::instructions::initialize_pool(ctx, post_id, initial_k_quadratic, supply_cap)
+        content_pool::instructions::initialize_pool(
+            ctx,
+            post_id,
+            initial_k_quadratic,
+            reserve_cap,
+            token_name,
+            token_symbol
+        )
     }
 
     pub fn buy(ctx: Context<Buy>, usdc_amount: u64) -> Result<()> {
         content_pool::instructions::buy(ctx, usdc_amount)
     }
 
-    pub fn sell(ctx: Context<Sell>, token_amount: u128) -> Result<()> {
+    pub fn sell(ctx: Context<Sell>, token_amount: u64) -> Result<()> {
         content_pool::instructions::sell(ctx, token_amount)
     }
 
@@ -87,11 +96,11 @@ pub mod veritas_curation {
         content_pool::instructions::apply_pool_reward(ctx, reward_amount)
     }
 
-    pub fn set_supply_cap(
-        ctx: Context<SetSupplyCap>,
-        new_supply_cap: u128,
+    pub fn set_reserve_cap(
+        ctx: Context<SetReserveCap>,
+        new_reserve_cap: u128,
     ) -> Result<()> {
-        content_pool::instructions::set_supply_cap(ctx, new_supply_cap)
+        content_pool::instructions::set_reserve_cap(ctx, new_reserve_cap)
     }
 
     // ============================================================================
@@ -110,9 +119,18 @@ pub mod veritas_curation {
         ctx: Context<CreatePool>,
         post_id: [u8; 32],
         initial_k_quadratic: u128,
-        supply_cap: u128,
+        reserve_cap: u128,
+        token_name: String,
+        token_symbol: String,
     ) -> Result<()> {
-        pool_factory::instructions::create_pool(ctx, post_id, initial_k_quadratic, supply_cap)
+        pool_factory::instructions::create_pool(
+            ctx,
+            post_id,
+            initial_k_quadratic,
+            reserve_cap,
+            token_name,
+            token_symbol
+        )
     }
 
     pub fn update_pool_authority(

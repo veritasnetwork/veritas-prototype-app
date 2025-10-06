@@ -32,7 +32,7 @@ Deno.test('App User Creation - Basic creation with auto-generated username', asy
 
   assertEquals(data.user.display_name, 'Test User')
   assertEquals(data.user.auth_provider, 'privy')
-  assertEquals(data.user.total_stake, 10000)
+  assertEquals(data.user.total_stake, 0)
   assertEquals(data.user.beliefs_created, 0)
   assertEquals(data.user.beliefs_participated, 0)
   assertEquals(data.user.agent_id, data.agent_id)

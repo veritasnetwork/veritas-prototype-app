@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createRemoteJWKSet, jwtVerify } from 'https://deno.land/x/jose@v5.9.6/index.ts';
+import { createUser } from '../_shared/user-creation.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,20 +44,17 @@ serve(async (req) => {
 
     // Extract JWT and validate with Privy JWKS
     const jwt = authHeader.slice(7);
+    const PRIVY_APP_ID = Deno.env.get('PRIVY_APP_ID') ?? 'cmfmujde9004yl50ba40keo4a';
 
     let privyUserId: string;
 
     try {
-      // Privy JWKS endpoint for your app
-      const JWKS_URL = 'https://auth.privy.io/api/v1/apps/cmfmujde9004yl50ba40keo4a/jwks.json';
-
-      // Create JWKS instance
+      const JWKS_URL = `https://auth.privy.io/api/v1/apps/${PRIVY_APP_ID}/jwks.json`;
       const JWKS = createRemoteJWKSet(new URL(JWKS_URL));
 
-      // Verify JWT with Privy's public keys
       const { payload } = await jwtVerify(jwt, JWKS, {
         issuer: 'privy.io',
-        audience: 'cmfmujde9004yl50ba40keo4a'
+        audience: PRIVY_APP_ID
       });
 
       privyUserId = payload.sub as string;
@@ -70,6 +68,39 @@ serve(async (req) => {
         JSON.stringify({ error: 'Invalid JWT token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Check if user already exists (idempotency)
+    const { data: existingUser } = await supabaseClient
+      .from('users')
+      .select('id, agent_id')
+      .eq('auth_id', privyUserId)
+      .eq('auth_provider', 'privy')
+      .single();
+
+    if (existingUser) {
+      // User already exists - check if they have access
+      const { data: access } = await supabaseClient
+        .from('user_access')
+        .select('status, invite_code_used')
+        .eq('user_id', existingUser.id)
+        .single();
+
+      if (access?.status === 'activated') {
+        // User already activated - return success (idempotent)
+        return new Response(
+          JSON.stringify({
+            success: true,
+            user: {
+              id: existingUser.id,
+              agent_id: existingUser.agent_id,
+              auth_id: privyUserId,
+              auth_provider: 'privy'
+            }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Verify invite code exists and is unused
@@ -93,68 +124,111 @@ serve(async (req) => {
       );
     }
 
-    // Create user through the app-users-create function
-    const userResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/app-users-create`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-      },
-      body: JSON.stringify({
-        auth_provider: 'privy',
-        auth_id: privyUserId,
-        invite_code: code,
-        display_name: `user:${code}` // Default display name using invite code
-      }),
-    });
+    // Use database transaction for atomicity
+    // Note: Supabase doesn't support multi-statement transactions in edge functions
+    // So we implement pseudo-transaction with status updates
 
-    if (!userResponse.ok) {
-      const userError = await userResponse.text();
-      throw new Error(`Failed to create user: ${userError}`);
-    }
-
-    const { user_id: userId, agent_id: agentId } = await userResponse.json();
-
-    // Mark invite code as used
-    const { error: updateInviteError } = await supabaseClient
+    // Step 1: Mark invite as 'pending' to prevent race conditions
+    const { error: pendingError } = await supabaseClient
       .from('invite_codes')
-      .update({
-        status: 'used',
-        used_by_user_id: userId,
-        used_at: new Date().toISOString()
-      })
-      .eq('code', code);
+      .update({ status: 'pending' })
+      .eq('code', code)
+      .eq('status', 'unused'); // Only update if still unused
 
-    if (updateInviteError) {
-      throw new Error(`Failed to update invite code: ${updateInviteError.message}`);
+    if (pendingError) {
+      return new Response(
+        JSON.stringify({ error: 'Invite code already being used' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Create user access record
-    const { error: accessError } = await supabaseClient
-      .from('user_access')
-      .insert({
-        user_id: userId,
-        status: 'activated',
-        invite_code_used: code,
-        activated_at: new Date().toISOString()
-      });
+    let userId: string;
+    let agentId: string;
 
-    if (accessError) {
-      throw new Error(`Failed to create access record: ${accessError.message}`);
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        user: {
-          id: userId,
-          agent_id: agentId,
+    try {
+      // Step 2: Create user if doesn't exist
+      if (!existingUser) {
+        const result = await createUser({
+          supabaseClient,
+          auth_provider: 'privy',
           auth_id: privyUserId,
-          auth_provider: 'privy'
+          invite_code: code,
+          display_name: `user:${code}`
+        });
+
+        userId = result.user_id;
+        agentId = result.agent_id;
+      } else {
+        userId = existingUser.id;
+        agentId = existingUser.agent_id;
+      }
+
+      // Step 3: Mark invite as used
+      const { error: updateInviteError } = await supabaseClient
+        .from('invite_codes')
+        .update({
+          status: 'used',
+          used_by_user_id: userId,
+          used_at: new Date().toISOString()
+        })
+        .eq('code', code);
+
+      if (updateInviteError) {
+        throw new Error(`Failed to update invite code: ${updateInviteError.message}`);
+      }
+
+      // Step 4: Create user access record
+      const { error: accessError } = await supabaseClient
+        .from('user_access')
+        .insert({
+          user_id: userId,
+          status: 'activated',
+          invite_code_used: code,
+          activated_at: new Date().toISOString()
+        });
+
+      if (accessError) {
+        // If access record already exists, update it
+        if (accessError.code === '23505') { // Unique violation
+          const { error: updateAccessError } = await supabaseClient
+            .from('user_access')
+            .update({
+              status: 'activated',
+              invite_code_used: code,
+              activated_at: new Date().toISOString()
+            })
+            .eq('user_id', userId);
+
+          if (updateAccessError) {
+            throw new Error(`Failed to update access record: ${updateAccessError.message}`);
+          }
+        } else {
+          throw new Error(`Failed to create access record: ${accessError.message}`);
         }
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          user: {
+            id: userId,
+            agent_id: agentId,
+            auth_id: privyUserId,
+            auth_provider: 'privy'
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+
+    } catch (error) {
+      // Rollback: Mark invite as unused on failure
+      await supabaseClient
+        .from('invite_codes')
+        .update({ status: 'unused' })
+        .eq('code', code);
+
+      throw error;
+    }
 
   } catch (error) {
     console.error('Invite activation error:', error);

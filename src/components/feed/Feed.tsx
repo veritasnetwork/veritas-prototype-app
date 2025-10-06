@@ -1,16 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import { PostCard } from './PostCard';
 import { usePosts } from '@/hooks/api/usePosts';
-import { PostsProvider } from '@/providers/PostsProvider';
+import { NavigationHeader } from '@/components/layout/NavigationHeader';
+import { CreatePostModal } from '@/components/post/CreatePostModal';
 
 export function Feed() {
-  const { posts, loading, error, refetch } = usePosts();
-
+  const { posts, loading, error } = usePosts();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="animate-pulse">
           {[1, 2, 3].map((i) => (
             <div key={i} className="border-b border-white border-opacity-20 py-10">
@@ -26,7 +28,7 @@ export function Feed() {
 
   if (error) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center max-w-md mx-auto px-6">
           <div className="mb-6">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-900/20 flex items-center justify-center">
@@ -53,8 +55,9 @@ export function Feed() {
   }
 
   return (
-    <PostsProvider refreshPosts={refetch}>
-      <div className="max-w-4xl mx-auto">
+    <>
+      <NavigationHeader />
+      <div className="max-w-feed mx-auto px-6 py-8">
         <div>
           {posts.map((post, index) => (
             <div
@@ -67,6 +70,23 @@ export function Feed() {
           ))}
         </div>
       </div>
-    </PostsProvider>
+
+      {/* Floating Action Button */}
+      <button
+        onClick={() => setIsCreateModalOpen(true)}
+        className="fixed bottom-8 right-8 w-14 h-14 bg-accent-dark text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all flex items-center justify-center z-sticky"
+        aria-label="Create new post"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+
+      {/* Create Post Modal */}
+      <CreatePostModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
+    </>
   );
 }

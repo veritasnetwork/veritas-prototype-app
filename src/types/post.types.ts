@@ -36,4 +36,5 @@ export interface Post {
   sources?: string[];
   discussionCount: number;
   belief: BeliefData;
+  poolAddress?: string; // Solana pool address for this post
 }
