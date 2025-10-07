@@ -341,11 +341,9 @@ export async function buildSellTx(
   const [poolPda] = pdaHelper.getPoolPda(postId);
   const [tokenMintPda] = pdaHelper.getTokenMintPda(postId);
   const [poolVaultPda] = pdaHelper.getPoolVaultPda(postId);
-  const [treasuryPda] = pdaHelper.getTreasuryPda();
-  const [treasuryVaultPda] = pdaHelper.getTreasuryVaultPda();
 
-  const sellerUsdcAccount = await getAssociatedTokenAddress(addresses.usdcMint, seller);
-  const sellerTokenAccount = await getAssociatedTokenAddress(tokenMintPda, seller);
+  const userUsdcAccount = await getAssociatedTokenAddress(addresses.usdcMint, seller);
+  const userTokenAccount = await getAssociatedTokenAddress(tokenMintPda, seller);
 
   const tx = await program.methods
     .sell(tokenAmount)
@@ -353,11 +351,9 @@ export async function buildSellTx(
       pool: poolPda,
       tokenMint: tokenMintPda,
       poolUsdcVault: poolVaultPda,
-      treasury: treasuryPda,
-      treasuryVault: treasuryVaultPda,
-      sellerUsdcAccount: sellerUsdcAccount,
-      sellerTokenAccount: sellerTokenAccount,
-      seller: seller,
+      userUsdcAccount: userUsdcAccount,
+      userTokenAccount: userTokenAccount,
+      user: seller,
       tokenProgram: TOKEN_PROGRAM_ID,
     })
     .transaction();

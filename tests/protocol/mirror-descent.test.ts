@@ -1,5 +1,5 @@
 import { assertEquals, assert } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { SUPABASE_URL, headers } from '../test-config.ts';
+import { SUPABASE_URL, headers, getTestSolanaAddress } from '../test-config.ts';
 
 const EPSILON_PROBABILITY = 1e-10;
 
@@ -20,7 +20,11 @@ async function createMirrorDescentTestSetup(beliefValues: number[], activeAgents
   // Create agents
   const agents = [];
   for (let i = 0; i < beliefValues.length; i++) {
-    const { response, data } = await callSupabaseFunction('protocol-agent-creation', {});
+    const { response, data } = await callSupabaseFunction('app-user-creation', {
+      auth_provider: 'test',
+      auth_id: `test_${Date.now()}_${Math.random()}`,
+      solana_address: getTestSolanaAddress()
+    });
     if (!response.ok) throw new Error(`Failed to create agent ${i}`);
     agents.push(data.agent_id);
   }

@@ -13,10 +13,13 @@ export class PostsService {
    */
   static async fetchPosts(): Promise<Post[]> {
     try {
-      const response = await fetch('/api/supabase/functions/v1/app-post-get-feed', {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/app-post-get-feed`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${anonKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -95,6 +98,9 @@ export class PostsService {
         history: undefined,
       },
       poolAddress: apiPost.pool_address,
+      poolTokenSupply: apiPost.pool_token_supply,
+      poolReserveBalance: apiPost.pool_reserve_balance,
+      poolKQuadratic: apiPost.pool_k_quadratic,
     };
 
     return post;

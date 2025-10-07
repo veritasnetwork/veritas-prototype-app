@@ -40,7 +40,6 @@ function transformApiPost(apiPost: any): any {
     id: apiPost.id,
     headline: apiPost.title || 'Untitled',
     content: apiPost.content || '',
-    thumbnail: apiPost.media_urls?.[0] || undefined,
     author: {
       name: apiPost.user?.display_name || apiPost.user?.username || 'Unknown',
       avatar: undefined,

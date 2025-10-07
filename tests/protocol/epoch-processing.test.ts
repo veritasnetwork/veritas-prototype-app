@@ -1,5 +1,5 @@
 import { assertEquals, assert } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { SUPABASE_URL, headers } from '../test-config.ts';
+import { SUPABASE_URL, headers, getTestSolanaAddress } from '../test-config.ts';
 
 const EPSILON_PROBABILITY = 1e-10;
 
@@ -30,7 +30,11 @@ async function createIsolatedBelief(participantCount: number, beliefValues: numb
   // Create agents
   const agents = [];
   for (let i = 0; i < participantCount; i++) {
-    const { response, data } = await callSupabaseFunction('protocol-agent-creation', {});
+    const { response, data } = await callSupabaseFunction('app-user-creation', {
+      auth_provider: 'test',
+      auth_id: `test_${Date.now()}_${Math.random()}`,
+      solana_address: getTestSolanaAddress()
+    });
     if (!response.ok) throw new Error(`Failed to create agent ${i}`);
     agents.push(data.agent_id);
   }
@@ -110,7 +114,11 @@ Deno.test("Epoch Processing - Skip beliefs with no submissions", async () => {
   // Setup: Create belief but submit no current-epoch submissions
   const agents = [];
   for (let i = 0; i < 2; i++) {
-    const { response, data } = await callSupabaseFunction('protocol-agent-creation', {});
+    const { response, data } = await callSupabaseFunction('app-user-creation', {
+      auth_provider: 'test',
+      auth_id: `test_${Date.now()}_${Math.random()}`,
+      solana_address: getTestSolanaAddress()
+    });
     if (!response.ok) throw new Error(`Failed to create agent ${i}`);
     agents.push(data.agent_id);
   }
@@ -179,9 +187,24 @@ Deno.test("Epoch Processing - Expire qualifying beliefs", async () => {
 
 Deno.test("Epoch Processing - Weight normalization", async () => {
   // Setup: Belief with agents having different stakes
-  const { response: agent1Res, data: agent1Data } = await callSupabaseFunction('protocol-agent-creation', { initial_stake: 100 });
-  const { response: agent2Res, data: agent2Data } = await callSupabaseFunction('protocol-agent-creation', { initial_stake: 200 });
-  const { response: agent3Res, data: agent3Data } = await callSupabaseFunction('protocol-agent-creation', { initial_stake: 50 });
+  const { response: agent1Res, data: agent1Data } = await callSupabaseFunction('app-user-creation', {
+    auth_provider: 'test',
+    auth_id: `test_${Date.now()}_${Math.random()}`,
+    solana_address: getTestSolanaAddress(),
+    initial_stake: 100
+  });
+  const { response: agent2Res, data: agent2Data } = await callSupabaseFunction('app-user-creation', {
+    auth_provider: 'test',
+    auth_id: `test_${Date.now()}_${Math.random()}`,
+    solana_address: getTestSolanaAddress(),
+    initial_stake: 200
+  });
+  const { response: agent3Res, data: agent3Data } = await callSupabaseFunction('app-user-creation', {
+    auth_provider: 'test',
+    auth_id: `test_${Date.now()}_${Math.random()}`,
+    solana_address: getTestSolanaAddress(),
+    initial_stake: 50
+  });
 
   assert(agent1Res.ok && agent2Res.ok && agent3Res.ok, "Agent creation should succeed");
 

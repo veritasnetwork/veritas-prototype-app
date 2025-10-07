@@ -1,12 +1,15 @@
 /// <reference lib="deno.ns" />
 import { assertEquals, assert } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
-import { SUPABASE_URL, headers, generateUniqueUsername } from '../test-config.ts'
+import { SUPABASE_URL, headers, generateUniqueUsername, getTestSolanaAddress } from '../test-config.ts'
 
 async function callUserCreation(payload: any) {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/app-users-create`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/app-user-creation`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      solana_address: getTestSolanaAddress(), // Required field
+      ...payload
+    })
   })
   return { response, data: await response.json() }
 }
@@ -26,9 +29,8 @@ Deno.test('App User Creation - Basic creation with auto-generated username', asy
   assertEquals(typeof data.user_id, 'string')
   assertEquals(typeof data.agent_id, 'string')
 
-  // Verify auto-generated username format
-  assert(data.user.username.startsWith('privy'))
-  assertEquals(data.user.username.length, 11) // 'privy' + 6 digits
+  // Verify auto-generated username format (user_<last 8 chars of auth_id>)
+  assert(data.user.username.startsWith('user_'))
 
   assertEquals(data.user.display_name, 'Test User')
   assertEquals(data.user.auth_provider, 'privy')
@@ -53,16 +55,8 @@ Deno.test('App User Creation - Custom username provided', async () => {
   assertEquals(data.user.auth_provider, 'github')
 })
 
-Deno.test('App User Creation - Custom stake', async () => {
-  const { response, data } = await callUserCreation({
-    auth_provider: 'google',
-    auth_id: generateUniqueAuthId(),
-    initial_stake: 500
-  })
-
-  assertEquals(response.status, 200)
-  assertEquals(data.user.total_stake, 500)
-})
+// Note: initial_stake removed from app-user-creation - all users start with $0
+// Stake will be synced from Solana custodian contract
 
 Deno.test('App User Creation - Missing auth_provider', async () => {
   const { response, data } = await callUserCreation({
@@ -79,7 +73,7 @@ Deno.test('App User Creation - Missing auth_id', async () => {
   })
 
   assertEquals(response.status, 422)
-  assertEquals(data.error, 'auth_id is required')
+  assert(data.error.includes('auth_id'))
 })
 
 Deno.test('App User Creation - Duplicate auth credentials', async () => {

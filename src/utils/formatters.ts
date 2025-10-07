@@ -41,3 +41,25 @@ export function formatLargeNumber(value: number): string {
   if (value < 1000000000) return `${(value / 1000000).toFixed(1)}M`;
   return `${(value / 1000000000).toFixed(1)}B`;
 }
+
+/**
+ * Formats a Solana address to truncated form
+ * Example: "Sol1abc...xyz"
+ */
+export function truncateAddress(address: string, prefixLength: number = 7, suffixLength: number = 3): string {
+  if (!address) return '';
+  if (address.length <= prefixLength + suffixLength) return address;
+  return `${address.slice(0, prefixLength)}...${address.slice(-suffixLength)}`;
+}
+
+/**
+ * Formats a number as currency (USD)
+ */
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}

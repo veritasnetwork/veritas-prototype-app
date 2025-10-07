@@ -5,7 +5,7 @@ import { usePrivy } from '@privy-io/react-auth';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
 import { Connection } from '@solana/web3.js';
-import { buildCreatePoolTransaction } from '@/lib/solana/pool-transaction';
+import { buildCreatePoolTransaction } from '@/lib/solana/pool-deployment-transaction';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -25,10 +25,6 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [poolConfig, setPoolConfig] = useState<{
     k_quadratic: number;
-    reserve_cap: number;
-    linear_slope: number;
-    virtual_liquidity: number;
-    supply_offset: number;
   } | null>(null);
 
   // Fetch pool config on mount
@@ -41,10 +37,9 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
 
   // Debug: Log wallet status on mount and when it changes
   useEffect(() => {
-    console.log('Wallet debug:', {
-      wallet,
-      solanaAddress,
+    console.log('Wallet status:', {
       isConnected: !!wallet,
+      solanaAddress
     });
   }, [wallet, solanaAddress]);
 
@@ -162,10 +157,6 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
         creator: solanaAddress,
         postId: tempPostId,
         kQuadratic: poolConfig?.k_quadratic ?? 1,
-        reserveCap: poolConfig?.reserve_cap ?? 5_000_000_000,
-        linearSlope: poolConfig?.linear_slope ?? 1_000_000_000_000,
-        virtualLiquidity: poolConfig?.virtual_liquidity ?? 1_000_000_000,
-        supplyOffset: poolConfig?.supply_offset ?? 10_000,
         programId,
       });
       console.log('✅ Transaction built successfully');

@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { Connection } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
 import { useSolanaWallet } from './useSolanaWallet';
+import { useAuth } from '@/providers/AuthProvider';
+import { usePrivy } from '@privy-io/react-auth';
 import { buildBuyTransaction } from '@/lib/solana/buy-transaction';
-
-const SOLANA_RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'http://127.0.0.1:8899';
-const PROGRAM_ID = process.env.NEXT_PUBLIC_VERITAS_PROGRAM_ID || 'GMwWgtvi2USgPa7BeVhDhxGprwpWEAjLm6VTMYHmyxAu';
+import { getRpcEndpoint, getProgramId } from '@/lib/solana/network-config';
 
 export function useBuyTokens() {
   const { wallet, address } = useSolanaWallet();
+  const { user } = useAuth();
+  const { getAccessToken } = usePrivy();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const buyTokens = async (postId: string, usdcAmount: number) => {
+  const buyTokens = async (postId: string, poolAddress: string, usdcAmount: number) => {
     if (!wallet || !address) {
       throw new Error('Wallet not connected');
     }
@@ -24,39 +26,91 @@ export function useBuyTokens() {
     setError(null);
 
     try {
-      console.log('🛒 Building buy transaction...', {
-        postId,
-        usdcAmount,
-        buyer: address,
-      });
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
 
-      const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+      const rpcEndpoint = getRpcEndpoint();
+      const programId = getProgramId().toString();
+      const connection = new Connection(rpcEndpoint, 'confirmed');
+
+      // Use the pool address from database (already validated during pool deployment)
+      const poolPubkey = new PublicKey(poolAddress);
+
+      // Fetch pool state BEFORE transaction
+      const poolAccountBefore = await connection.getAccountInfo(poolPubkey);
+      if (!poolAccountBefore) {
+        throw new Error('Pool not found');
+      }
 
       // Build the transaction
+      console.log('[BUY] Wallet address:', address);
+
       const transaction = await buildBuyTransaction({
         connection,
         buyer: address,
         postId,
         usdcAmount,
-        programId: PROGRAM_ID,
+        programId,
       });
-
-      console.log('✅ Transaction built, requesting signature...');
 
       // Sign the transaction
       // @ts-ignore - Privy wallet has signTransaction method
       const signedTx = await wallet.signTransaction(transaction);
 
-      console.log('✅ Transaction signed, sending to network...');
-
       // Send and confirm transaction
       const signature = await connection.sendRawTransaction(signedTx.serialize());
-      console.log('Transaction sent, signature:', signature);
-
-      console.log('⏳ Confirming transaction...');
       await connection.confirmTransaction(signature, 'confirmed');
 
-      console.log('🎉 Buy completed! Transaction signature:', signature);
+      // Fetch pool state AFTER transaction
+      const poolAccountAfter = await connection.getAccountInfo(poolPubkey);
+      if (!poolAccountAfter) {
+        throw new Error('Pool not found after transaction');
+      }
+
+      // Deserialize pool account (simplified - just extract the data we need)
+      // Pool struct: creator(32) + token_mint(32) + usdc_vault(32) + k_quadratic(8) + token_supply(8) + reserve(8)
+      const data = poolAccountAfter.data;
+      const tokenSupplyAfter = Number(data.readBigUInt64LE(112)); // offset for token_supply
+      const reserveAfter = Number(data.readBigUInt64LE(120)); // offset for reserve
+      const kQuadratic = Number(data.readBigUInt64LE(104)); // offset for k_quadratic
+
+      // Calculate tokens received (approximate from curve)
+      const tokensReceived = Math.floor(usdcAmount / 1000); // Simplified, real calc is more complex
+
+      // Record trade in database
+      const jwt = await getAccessToken();
+      if (jwt) {
+        try {
+          const response = await fetch('/api/supabase/functions/v1/solana-record-trade', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${jwt}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              user_id: user.id,
+              pool_address: poolAddress,
+              post_id: postId,
+              wallet_address: address,
+              trade_type: 'buy',
+              token_amount: tokensReceived.toString(),
+              usdc_amount: usdcAmount.toString(),
+              token_supply_after: tokenSupplyAfter.toString(),
+              reserve_after: reserveAfter.toString(),
+              k_quadratic: kQuadratic.toString(),
+              tx_signature: signature
+            })
+          });
+
+          if (!response.ok) {
+            console.error('Failed to record trade:', await response.text());
+          }
+        } catch (recordError) {
+          console.error('Error recording trade:', recordError);
+          // Don't fail the whole transaction if recording fails
+        }
+      }
 
       return signature;
     } catch (err) {

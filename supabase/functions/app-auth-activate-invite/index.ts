@@ -1,7 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createRemoteJWKSet, jwtVerify } from 'https://deno.land/x/jose@v5.9.6/index.ts';
-import { createUser } from '../_shared/user-creation.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,10 +33,17 @@ serve(async (req) => {
       );
     }
 
-    const { code } = await req.json();
+    const { code, solana_address } = await req.json();
     if (!code) {
       return new Response(
         JSON.stringify({ error: 'Invite code is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!solana_address) {
+      return new Response(
+        JSON.stringify({ error: 'Solana address is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -148,16 +154,30 @@ serve(async (req) => {
     try {
       // Step 2: Create user if doesn't exist
       if (!existingUser) {
-        const result = await createUser({
-          supabaseClient,
-          auth_provider: 'privy',
-          auth_id: privyUserId,
-          invite_code: code,
-          display_name: `user:${code}`
+        // Call app-user-creation edge function
+        const createUserResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/app-user-creation`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            auth_provider: 'privy',
+            auth_id: privyUserId,
+            solana_address: solana_address,
+            username: `user:${code}`,
+            display_name: `user:${code}`
+          }),
         });
 
-        userId = result.user_id;
-        agentId = result.agent_id;
+        if (!createUserResponse.ok) {
+          const errorText = await createUserResponse.text();
+          throw new Error(`Failed to create user: ${errorText}`);
+        }
+
+        const createUserData = await createUserResponse.json();
+        userId = createUserData.user_id;
+        agentId = createUserData.agent_id;
       } else {
         userId = existingUser.id;
         agentId = existingUser.agent_id;

@@ -49,9 +49,6 @@ interface PostCreationRequest {
     usdc_vault_address: string
     deployment_tx_signature: string
     k_quadratic: number
-    reserve_cap: number
-    linear_slope: number
-    virtual_liquidity: number
   }
 }
 
@@ -248,9 +245,6 @@ serve(async (req) => {
             p_deployed_by_agent_id: userData.agent_id,
             p_tx_signature: pool_deployment.deployment_tx_signature,
             p_k_quadratic: pool_deployment.k_quadratic,
-            p_reserve_cap: pool_deployment.reserve_cap,
-            p_linear_slope: pool_deployment.linear_slope,
-            p_virtual_liquidity: pool_deployment.virtual_liquidity,
           }
         )
 

@@ -1,6 +1,6 @@
 /// <reference lib="deno.ns" />
 import { assertEquals, assertExists, assert } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
-import { SUPABASE_URL, headers } from '../test-config.ts'
+import { SUPABASE_URL, headers, getTestSolanaAddress } from '../test-config.ts'
 
 async function callBeliefSubmit(agent_id: string, belief_id: string, belief_value: number, meta_prediction: number) {
   const response = await fetch(`${SUPABASE_URL}/functions/v1/protocol-beliefs-submit`, {
@@ -30,10 +30,15 @@ async function getAgentBeliefCount(agent_id: string): Promise<number> {
 
 // Helper to create test agent
 async function createTestAgent() {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/protocol-agent-creation`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/app-user-creation`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ initial_stake: 100 })
+    body: JSON.stringify({
+      auth_provider: 'test',
+      auth_id: `test_${Date.now()}_${Math.random()}`,
+      solana_address: getTestSolanaAddress(),
+      initial_stake: 100
+    })
   })
   const data = await response.json()
   return data.agent_id

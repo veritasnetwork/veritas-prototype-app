@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "sync-idl": "cp solana/veritas-curation/target/idl/veritas_curation.json supabase/functions/_shared/veritas_curation_idl.json && echo '✅ IDL synced to edge functions'",
     "reset:users": "node scripts/reset-dbs/reset-users.js",
     "reset:posts": "node scripts/reset-dbs/reset-posts.js",
     "reset:agents": "node scripts/reset-dbs/reset-agents.js",
@@ -33,7 +34,8 @@
     "next": "15.3.4",
     "next-themes": "^0.4.6",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "recharts": "^3.2.1"
   },
   "devDependencies": {
     "@types/node": "^20.19.1",

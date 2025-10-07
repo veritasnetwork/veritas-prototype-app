@@ -261,6 +261,27 @@ serve(async (req) => {
         console.log(`   - Delta relevance: ${deltaRelevance >= 0 ? '+' : ''}${(deltaRelevance * 100).toFixed(1)}%`)
         console.log(`   - Previous aggregate updated: ${(mirrorDescentData.post_mirror_descent_aggregate * 100).toFixed(1)}%`)
 
+        // Record belief history for charts
+        const { error: historyInsertError } = await supabaseClient
+          .from('belief_relevance_history')
+          .insert({
+            belief_id: belief.id,
+            post_id: belief.post_id,
+            epoch: currentEpoch,
+            aggregate: mirrorDescentData.post_mirror_descent_aggregate,
+            delta_relevance: deltaRelevance,
+            certainty: aggregationData.certainty,
+            disagreement_entropy: mirrorDescentData.post_mirror_descent_disagreement_entropy,
+            recorded_at: new Date().toISOString()
+          })
+
+        if (historyInsertError) {
+          console.error(`⚠️ Failed to record belief history: ${historyInsertError.message}`)
+          // Don't throw - this is not critical to epoch processing
+        } else {
+          console.log(`📝 Belief history recorded for epoch ${currentEpoch}`)
+        }
+
         // Step 5: Learning assessment
         const learningAssessmentData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-learning-assessment', {
           belief_id: belief.id,

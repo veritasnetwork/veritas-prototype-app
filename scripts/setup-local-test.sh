@@ -116,7 +116,7 @@ find ~/.local/share/solana -name "._*" -delete 2>/dev/null || true
 
 # Start validator in background
 echo -e "${YELLOW}🔧 Starting validator...${NC}"
-solana-test-validator \
+COPYFILE_DISABLE=1 solana-test-validator \
   --ledger test-ledger \
   --rpc-port 8899 \
   --quiet \
@@ -358,6 +358,33 @@ if [ "$VERIFY_USDC_MINT" != "$USDC_MINT" ]; then
 fi
 
 echo -e "${GREEN}✅ .env.local updated and verified!${NC}"
+
+# Update supabase/functions/.env for edge functions
+echo -e "${YELLOW}⚙️  Updating supabase/functions/.env...${NC}"
+
+# Update or append SOLANA_PROGRAM_ID and SOLANA_RPC_ENDPOINT
+if grep -q "^SOLANA_PROGRAM_ID=" supabase/functions/.env 2>/dev/null; then
+    # Update existing line
+    sed -i.bak "s|^SOLANA_PROGRAM_ID=.*|SOLANA_PROGRAM_ID=$PROGRAM_ID|" supabase/functions/.env
+else
+    # Append new line
+    echo "SOLANA_PROGRAM_ID=$PROGRAM_ID" >> supabase/functions/.env
+fi
+
+if grep -q "^SOLANA_RPC_ENDPOINT=" supabase/functions/.env 2>/dev/null; then
+    sed -i.bak "s|^SOLANA_RPC_ENDPOINT=.*|SOLANA_RPC_ENDPOINT=http://host.docker.internal:8899|" supabase/functions/.env
+else
+    echo "SOLANA_RPC_ENDPOINT=http://host.docker.internal:8899" >> supabase/functions/.env
+fi
+
+# Verify supabase env file
+VERIFY_EDGE_PROGRAM_ID=$(grep "SOLANA_PROGRAM_ID=" supabase/functions/.env | cut -d'=' -f2)
+if [ "$VERIFY_EDGE_PROGRAM_ID" != "$PROGRAM_ID" ]; then
+    echo -e "${RED}❌ Failed to update program ID in supabase/functions/.env${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ supabase/functions/.env updated and verified!${NC}"
 echo ""
 
 # ============================================================================
@@ -394,10 +421,11 @@ echo -e "   ✓ Program deployed and on-chain"
 echo -e "   ✓ Config initialized"
 echo -e "   ✓ Factory initialized"
 echo -e "   ✓ .env.local updated and verified"
+echo -e "   ✓ supabase/functions/.env.local updated and verified"
 echo -e "   ✓ Wallets funded with SOL and USDC"
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
-echo -e "   1. Ensure Supabase is running: ${BLUE}npx supabase status${NC}"
+echo -e "   1. Restart Supabase to load new env: ${BLUE}npx supabase stop && npx supabase start${NC}"
 echo -e "   2. Start Next.js dev server: ${BLUE}npm run dev${NC}"
 echo -e "   3. Login with Privy using wallet ${GREEN}$TEST_WALLET${NC}"
 echo -e "   4. Create a post and test buying tokens!"

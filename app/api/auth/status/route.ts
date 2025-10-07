@@ -49,6 +49,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get Solana address from request body
+    const body = await request.json();
+    const solanaAddress = body.solana_address;
+
+    if (!solanaAddress) {
+      return NextResponse.json(
+        { error: 'Solana address is required' },
+        { status: 400 }
+      );
+    }
+
     // Connect to Supabase
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -65,7 +76,7 @@ export async function POST(request: NextRequest) {
     // Check if user exists
     let { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, agent_id, auth_id, auth_provider')
+      .select('id, agent_id, auth_id, auth_provider, username, display_name, avatar_url')
       .eq('auth_id', privyUserId)
       .eq('auth_provider', 'privy')
       .single();
@@ -76,32 +87,43 @@ export async function POST(request: NextRequest) {
 
     // Auto-register user if they don't exist
     if (!user) {
-      // Create agent first
-      const { data: agent, error: agentError } = await supabase
-        .from('agents')
-        .insert({ total_stake: 0 })
-        .select('id')
-        .single();
+      console.log('Creating new user for Privy ID:', privyUserId);
 
-      if (agentError) throw agentError;
-
-      // Create user
-      const username = `user_${privyUserId.slice(-8)}`;
-      const { data: newUser, error: createUserError } = await supabase
-        .from('users')
-        .insert({
-          auth_id: privyUserId,
+      // Call app-user-creation edge function
+      const createUserResponse = await fetch(`${supabaseUrl}/functions/v1/app-user-creation`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           auth_provider: 'privy',
-          agent_id: agent.id,
-          username,
-          display_name: username,
-        })
-        .select('id, agent_id, auth_id, auth_provider')
-        .single();
+          auth_id: privyUserId,
+          solana_address: solanaAddress,
+        }),
+      });
 
-      if (createUserError) throw createUserError;
+      if (!createUserResponse.ok) {
+        const errorText = await createUserResponse.text();
+        console.error('Failed to create user:', errorText);
+        return NextResponse.json(
+          { error: 'Failed to create user', details: errorText },
+          { status: 500 }
+        );
+      }
 
-      user = newUser;
+      const createUserData = await createUserResponse.json();
+      user = {
+        id: createUserData.user_id,
+        agent_id: createUserData.agent_id,
+        auth_id: privyUserId,
+        auth_provider: 'privy',
+        username: createUserData.user?.username,
+        display_name: createUserData.user?.display_name,
+        avatar_url: createUserData.user?.avatar_url,
+      };
+
+      console.log('User created successfully:', user.id);
     }
 
     return NextResponse.json({

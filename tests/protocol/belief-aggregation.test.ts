@@ -1,5 +1,5 @@
 import { assertEquals, assert } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { SUPABASE_URL, headers } from '../test-config.ts';
+import { SUPABASE_URL, headers, getTestSolanaAddress } from '../test-config.ts';
 
 const EPSILON_PROBABILITY = 1e-10;
 
@@ -18,8 +18,16 @@ async function callSupabaseFunction(functionName: string, payload: any) {
 // Helper function to create test agents and belief
 async function setupTestData() {
   // Create test agents
-  const { response: agent1Res, data: agent1Data } = await callSupabaseFunction('protocol-agent-creation', {});
-  const { response: agent2Res, data: agent2Data } = await callSupabaseFunction('protocol-agent-creation', {});
+  const { response: agent1Res, data: agent1Data } = await callSupabaseFunction('app-user-creation', {
+    auth_provider: 'test',
+    auth_id: `test_${Date.now()}_${Math.random()}`,
+    solana_address: getTestSolanaAddress()
+  });
+  const { response: agent2Res, data: agent2Data } = await callSupabaseFunction('app-user-creation', {
+    auth_provider: 'test',
+    auth_id: `test_${Date.now()}_${Math.random()}`,
+    solana_address: getTestSolanaAddress()
+  });
 
   if (!agent1Res.ok || !agent2Res.ok) {
     throw new Error('Failed to create test agents');

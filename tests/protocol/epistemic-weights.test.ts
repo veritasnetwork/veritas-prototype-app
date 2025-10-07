@@ -1,6 +1,6 @@
 /// <reference lib="deno.ns" />
 import { assertEquals, assertExists } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
-import { SUPABASE_URL, headers } from '../test-config.ts'
+import { SUPABASE_URL, headers, getTestSolanaAddress } from '../test-config.ts'
 
 const EPSILON_PROBABILITY = 1e-10
 
@@ -16,10 +16,15 @@ async function callWeightsCalculate(payload: any = {}) {
 // Helper to create a test agent with specific parameters
 async function createTestAgent(totalStake: number = 100, beliefCount: number = 1) {
   // Create agent via protocol
-  const agentResponse = await fetch(`${SUPABASE_URL}/functions/v1/protocol-agent-creation`, {
+  const agentResponse = await fetch(`${SUPABASE_URL}/functions/v1/app-user-creation`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ initial_stake: totalStake })
+    body: JSON.stringify({
+      auth_provider: 'test',
+      auth_id: `test_${Date.now()}_${Math.random()}`,
+      solana_address: getTestSolanaAddress(),
+      initial_stake: totalStake
+    })
   })
   const agentData = await agentResponse.json()
   const agentId = agentData.agent_id

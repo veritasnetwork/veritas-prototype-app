@@ -185,7 +185,7 @@ serve(async (req) => {
 
     // 3. Get config values
     const { data: configs, error: configsError } = await supabaseClient
-      .from('configs')
+      .from('system_config')
       .select('key, value')
       .in('key', ['base_skim_rate', 'epoch_rollover_balance'])
 
@@ -265,7 +265,7 @@ serve(async (req) => {
       // Reset rollover BEFORE applying transactions (idempotent)
       console.log(`💾 Resetting rollover balance to 0`)
       const { error: rolloverResetError } = await supabaseClient
-        .from('configs')
+        .from('system_config')
         .update({ value: '0' })
         .eq('key', 'epoch_rollover_balance')
 
@@ -289,7 +289,7 @@ serve(async (req) => {
       // Update rollover BEFORE applying penalties (idempotent)
       console.log(`💾 Updating rollover balance to ${penaltyPot.toFixed(2)}`)
       const { error: rolloverUpdateError } = await supabaseClient
-        .from('configs')
+        .from('system_config')
         .update({ value: penaltyPot.toString() })
         .eq('key', 'epoch_rollover_balance')
 

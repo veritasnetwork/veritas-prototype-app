@@ -38,7 +38,7 @@ interface AuthProviderProps {
 }
 
 function AuthProviderInner({ children }: AuthProviderProps) {
-  const { authenticated, ready, getAccessToken, logout: privyLogout } = usePrivy();
+  const { authenticated, ready, getAccessToken, logout: privyLogout, user: privyUser } = usePrivy();
   const [user, setUser] = useState<User | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,13 +59,27 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         return;
       }
 
+      // Get Solana wallet address from Privy
+      const solanaWallet = privyUser?.linkedAccounts?.find(
+        (account: any) => account.type === 'wallet' && account.chainType === 'solana'
+      );
+
+      const solanaAddress = solanaWallet?.address;
+
+      if (!solanaAddress) {
+        console.error('No Solana wallet found for user');
+        setHasAccess(false);
+        setIsLoading(false);
+        return;
+      }
+
       const response = await fetch('/api/auth/status', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${jwt}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ solana_address: solanaAddress }),
       });
 
       if (response.ok) {

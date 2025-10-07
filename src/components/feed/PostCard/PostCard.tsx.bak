@@ -1,0 +1,212 @@
+/**
+ * PostCard Component
+ * Main component for displaying individual posts
+ */
+
+'use client';
+
+import { useState } from 'react';
+import type { Post } from '@/types/post.types';
+import { PostHeader } from './components/PostHeader';
+import { useBuyTokens } from '@/hooks/useBuyTokens';
+import { useSolanaWallet } from '@/hooks/useSolanaWallet';
+import { formatPoolData } from '@/lib/solana/bonding-curve';
+
+interface PostCardProps {
+  post: Post;
+}
+
+export function PostCard({ post }: PostCardProps) {
+  // Apply spec fallbacks
+  const title = post.headline || 'Untitled';
+  const authorName = post.author?.name || 'Unknown';
+  const content = post.content || '';
+
+  // Local state for pool data that can be updated independently
+  const [localPoolData, setLocalPoolData] = useState({
+    tokenSupply: post.poolTokenSupply,
+    reserveBalance: post.poolReserveBalance,
+    kQuadratic: post.poolKQuadratic,
+  });
+
+  // Calculate pool metrics using local pool data
+  const poolPrice = localPoolData.tokenSupply !== undefined &&
+                    localPoolData.reserveBalance !== undefined &&
+                    localPoolData.kQuadratic !== undefined
+    ? formatPoolData(localPoolData.tokenSupply, localPoolData.reserveBalance, localPoolData.kQuadratic)
+    : null;
+
+  // Buy tokens functionality
+  const { buyTokens, isLoading: isBuying } = useBuyTokens();
+  const { address: solanaAddress } = useSolanaWallet();
+  const [buyAmount, setBuyAmount] = useState('1'); // Default 1 USDC
+  const [buyError, setBuyError] = useState<string | null>(null);
+  const [buySuccess, setBuySuccess] = useState(false);
+
+  const handleBuy = async () => {
+    if (!solanaAddress) {
+      setBuyError('Please connect your Solana wallet');
+      return;
+    }
+
+    const amount = parseFloat(buyAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setBuyError('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      setBuyError(null);
+      setBuySuccess(false);
+
+      // Convert USDC amount to base units (1 USDC = 1_000_000 base units)
+      const usdcBaseAmount = Math.floor(amount * 1_000_000);
+
+      console.log(`Buying tokens with ${amount} USDC (${usdcBaseAmount} base units)`);
+
+      await buyTokens(post.id, usdcBaseAmount);
+
+      // Sync pool data from chain to database
+      if (post.poolAddress && post.poolAddress.length > 0) {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        console.log('Syncing pool data:', {
+          post_id: post.id,
+          pool_address: post.poolAddress,
+          pool_address_length: post.poolAddress.length,
+          pool_address_type: typeof post.poolAddress,
+        });
+
+        try {
+          const syncResponse = await fetch(`${supabaseUrl}/functions/v1/solana-sync-pool`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${anonKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              post_id: post.id,
+              pool_address: post.poolAddress,
+            }),
+          });
+
+          if (!syncResponse.ok) {
+            const errorText = await syncResponse.text();
+            console.warn('Failed to sync pool data:', errorText);
+          } else {
+            const syncData = await syncResponse.json();
+            console.log('Pool data synced successfully:', syncData);
+
+            // Update local pool data with synced values
+            setLocalPoolData({
+              tokenSupply: parseInt(syncData.token_supply || '0'),
+              reserveBalance: parseInt(syncData.reserve || '0'),
+              kQuadratic: localPoolData.kQuadratic, // k doesn't change
+            });
+          }
+        } catch (syncError) {
+          console.warn('Error syncing pool data:', syncError);
+        }
+      } else {
+        console.warn('No pool address available for post:', post.id);
+      }
+
+      setBuySuccess(true);
+    } catch (err) {
+      console.error('Buy error:', err);
+      if (err instanceof Error) {
+        if (err.message.includes('User rejected')) {
+          setBuyError('Transaction cancelled');
+        } else {
+          setBuyError(err.message);
+        }
+      } else {
+        setBuyError('Failed to buy tokens');
+      }
+    }
+  };
+
+  return (
+    <article className="card p-6 mb-4 hover:shadow-md transition-all">
+      <div>
+        {/* Header */}
+        <PostHeader
+          author={post.author}
+          timestamp={post.timestamp}
+        />
+
+        {/* Content */}
+        <div className="mb-4">
+          <h2 className="text-xl md:text-2xl font-bold text-text-primary leading-snug font-sans">
+            {title}
+          </h2>
+        </div>
+
+        {/* Text Content */}
+        {content && (
+          <p className="text-text-secondary text-base leading-relaxed line-clamp-3 font-sans">
+            {content}
+          </p>
+        )}
+
+        {/* Pool Price Display & Buy Interface */}
+        {post.poolAddress && (
+          <div className="mt-4 pt-4 border-t border-white border-opacity-10 space-y-3">
+            {/* Price Display */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-text-secondary">Pool Price:</span>
+              {poolPrice ? (
+                <div className="text-right">
+                  <div className="text-text-primary font-semibold">
+                    ${poolPrice.currentPrice.toFixed(4)} USDC
+                  </div>
+                  <div className="text-text-secondary text-xs mt-1">
+                    Supply: {poolPrice.tokenSupply < 0.01 ? poolPrice.tokenSupply.toExponential(2) : poolPrice.tokenSupply.toFixed(2)} • Reserve: ${poolPrice.reserve.toFixed(2)}
+                  </div>
+                </div>
+              ) : (
+                <span className="text-text-secondary opacity-70">N/A</span>
+              )}
+            </div>
+
+            {/* Buy Interface */}
+            {solanaAddress && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={buyAmount}
+                  onChange={(e) => setBuyAmount(e.target.value)}
+                  placeholder="USDC amount"
+                  min="0.01"
+                  step="0.01"
+                  disabled={isBuying}
+                  className="input text-sm flex-1 max-w-[120px]"
+                />
+                <button
+                  onClick={handleBuy}
+                  disabled={isBuying || !buyAmount}
+                  className="btn-primary text-sm py-2 px-4"
+                >
+                  {isBuying ? 'Buying...' : 'Buy Tokens'}
+                </button>
+              </div>
+            )}
+
+            {/* Success/Error Messages */}
+            {buySuccess && (
+              <div className="text-sm text-green-500 font-medium">
+                ✓ Purchase successful! Refreshing...
+              </div>
+            )}
+            {buyError && (
+              <div className="text-sm text-error">
+                {buyError}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}

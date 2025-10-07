@@ -25,7 +25,7 @@ export function NavigationHeader() {
           </span>
         </Link>
 
-        {/* Wallet & Logout Buttons */}
+        {/* Wallet & Profile Buttons */}
         <div className="flex items-center gap-3">
           {user && !solanaAddress && (
             <button
@@ -42,13 +42,16 @@ export function NavigationHeader() {
             </div>
           )}
           {user && (
-            <button
-              onClick={logout}
-              className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors"
-              aria-label="Logout"
+            <Link
+              href={`/profile/${user.username}`}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors"
+              aria-label="View Profile"
             >
-              Logout
-            </button>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Profile
+            </Link>
           )}
         </div>
       </div>

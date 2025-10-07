@@ -33,10 +33,27 @@ export async function POST(request: NextRequest) {
       privyUser = verifiedClaims.userId;
     } catch (error) {
       console.error('Privy token verification failed:', error);
-      return NextResponse.json(
-        { error: 'Invalid authentication token' },
-        { status: 401 }
-      );
+
+      // In development, allow bypass if network issues
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ DEV MODE: Bypassing Privy verification due to network error');
+        // Extract userId from token payload without verification (DEV ONLY!)
+        try {
+          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+          privyUser = payload.sub || payload.userId;
+          if (!privyUser) throw new Error('No user ID in token');
+        } catch (parseError) {
+          return NextResponse.json(
+            { error: 'Invalid authentication token' },
+            { status: 401 }
+          );
+        }
+      } else {
+        return NextResponse.json(
+          { error: 'Invalid authentication token' },
+          { status: 401 }
+        );
+      }
     }
 
     const body = await request.json();

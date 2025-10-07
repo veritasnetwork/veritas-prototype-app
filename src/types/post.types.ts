@@ -27,7 +27,7 @@ export interface BeliefHistoryPoint {
 
 export interface Post {
   id: string;
-  headline: string;
+  title: string;
   content: string;
   author: Author;
   timestamp: Date;
@@ -37,4 +37,7 @@ export interface Post {
   discussionCount: number;
   belief: BeliefData;
   poolAddress?: string; // Solana pool address for this post
+  poolTokenSupply?: number; // Current token supply in the pool
+  poolReserveBalance?: number; // Current USDC reserve balance
+  poolKQuadratic?: number; // Quadratic bonding curve parameter
 }

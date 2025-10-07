@@ -1,5 +1,5 @@
 import { assertEquals, assert } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { SUPABASE_URL, headers } from '../test-config.ts';
+import { SUPABASE_URL, headers, getTestSolanaAddress } from '../test-config.ts';
 
 const EPSILON_PROBABILITY = 1e-10;
 
@@ -18,7 +18,11 @@ async function callSupabaseFunction(functionName: string, payload: any) {
 // Helper function to create learning assessment test setup
 async function createLearningAssessmentTestSetup(initialEntropy: number = 0.5) {
   // Create agent
-  const { response: agentRes, data: agentData } = await callSupabaseFunction('protocol-agent-creation', {});
+  const { response: agentRes, data: agentData } = await callSupabaseFunction('app-user-creation', {
+    auth_provider: 'test',
+    auth_id: `test_${Date.now()}_${Math.random()}`,
+    solana_address: getTestSolanaAddress()
+  });
   if (!agentRes.ok) throw new Error('Failed to create agent');
 
   // Create belief
@@ -266,7 +270,11 @@ Deno.test("Learning Assessment - Multiple active agents become passive", async (
   // Create multiple agents for this test
   const agents = [];
   for (let i = 0; i < 3; i++) {
-    const { response, data } = await callSupabaseFunction('protocol-agent-creation', {});
+    const { response, data } = await callSupabaseFunction('app-user-creation', {
+      auth_provider: 'test',
+      auth_id: `test_${Date.now()}_${Math.random()}`,
+      solana_address: getTestSolanaAddress()
+    });
     if (!response.ok) throw new Error(`Failed to create agent ${i}`);
     agents.push(data.agent_id);
   }

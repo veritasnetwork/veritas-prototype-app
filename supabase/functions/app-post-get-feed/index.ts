@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { Connection } from 'https://esm.sh/@solana/web3.js@1.87.6'
+import { syncPoolData } from '../_shared/pool-sync.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -134,63 +136,68 @@ serve(async (req) => {
       }
     }
 
-    // Fetch pool deployments for posts
+    // Fetch pool deployments for posts and sync with on-chain data
     let poolsMap: Record<string, any> = {}
     if (postIds.length > 0) {
       const { data: poolsData, error: poolsError } = await supabaseClient
         .from('pool_deployments')
-        .select('post_id, pool_address, token_supply, reserve_balance, last_synced_at')
+        .select('post_id, pool_address, k_quadratic, token_supply, reserve, last_synced_at')
         .in('post_id', postIds)
 
       if (poolsError) {
         console.warn('Failed to fetch pool deployments:', poolsError)
-      } else {
+      } else if (poolsData && poolsData.length > 0) {
+        // Initialize Solana connection for syncing
+        // For local development, edge functions run in Docker and need host.docker.internal
+        // In production, use the configured RPC endpoint
+        let rpcEndpoint = Deno.env.get('SOLANA_RPC_ENDPOINT') || 'http://127.0.0.1:8899'
+
+        // If endpoint is localhost/127.0.0.1, convert to host.docker.internal for Docker
+        if (rpcEndpoint.includes('127.0.0.1') || rpcEndpoint.includes('localhost')) {
+          rpcEndpoint = rpcEndpoint.replace('127.0.0.1', 'host.docker.internal')
+          rpcEndpoint = rpcEndpoint.replace('localhost', 'host.docker.internal')
+        }
+
+        const connection = new Connection(rpcEndpoint, 'confirmed')
+
+        // Sync each pool with on-chain data
+        const syncPromises = poolsData.map(async (pool) => {
+          if (!pool.pool_address) {
+            return pool // Skip pools without addresses
+          }
+
+          try {
+            // Sync pool data from chain to database
+            const syncedData = await syncPoolData(
+              supabaseClient,
+              connection,
+              pool.post_id,
+              pool.pool_address
+            )
+
+            // Return updated pool data
+            return {
+              post_id: pool.post_id,
+              pool_address: pool.pool_address,
+              token_supply: syncedData.token_supply,
+              reserve: syncedData.reserve,
+              last_synced_at: syncedData.synced_at
+            }
+          } catch (syncError) {
+            console.warn(`Failed to sync pool ${pool.post_id}:`, syncError)
+            // Return stale data on sync failure
+            return pool
+          }
+        })
+
+        // Wait for all syncs to complete
+        const syncedPools = await Promise.all(syncPromises)
+
         // Create map for easy lookup
-        poolsMap = (poolsData || []).reduce((acc, pool) => {
+        poolsMap = syncedPools.reduce((acc, pool) => {
           acc[pool.post_id] = pool
           return acc
         }, {} as Record<string, any>)
-
-        // Sync pool data from Solana for pools that need updating
-        // Update if: never synced OR last synced > 30 seconds ago
-        const now = new Date()
-        const poolsToSync = (poolsData || []).filter(pool => {
-          if (!pool.last_synced_at) return true
-          const lastSync = new Date(pool.last_synced_at)
-          return (now.getTime() - lastSync.getTime()) > 30000 // 30 seconds
-        })
-
-        if (poolsToSync.length > 0) {
-          // Sync pool data from Solana in background (don't block response)
-          Promise.all(poolsToSync.map(async (pool) => {
-            try {
-              const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/solana-sync-pool`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  post_id: pool.post_id,
-                  pool_address: pool.pool_address
-                })
-              })
-
-              if (response.ok) {
-                const data = await response.json()
-                // Update local map with fresh data
-                poolsMap[pool.post_id] = {
-                  ...pool,
-                  token_supply: data.token_supply,
-                  reserve_balance: data.reserve_balance,
-                  last_synced_at: new Date().toISOString()
-                }
-              }
-            } catch (error) {
-              console.warn(`Failed to sync pool ${pool.pool_address}:`, error)
-            }
-          })).catch(console.error) // Fire and forget
-        }
       }
     }
 
@@ -208,7 +215,8 @@ serve(async (req) => {
         created_at: post.created_at,
         pool_address: poolData.pool_address,
         pool_token_supply: poolData.token_supply || 0,
-        pool_reserve_balance: poolData.reserve_balance || 0,
+        pool_reserve_balance: poolData.reserve || 0,
+        pool_k_quadratic: poolData.k_quadratic || 0,
         user: {
           username: post.users?.username || 'Unknown',
           display_name: post.users?.display_name || 'Unknown User'

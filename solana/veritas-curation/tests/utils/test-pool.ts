@@ -9,6 +9,18 @@ import {
 import { TestEnvironment } from "./test-environment";
 
 /**
+ * Convert a string to a fixed-length byte array, padding with zeros.
+ */
+export function stringToBytes(str: string, length: number): number[] {
+  const bytes = Buffer.from(str, 'utf8');
+  const result = new Array(length).fill(0);
+  for (let i = 0; i < Math.min(bytes.length, length); i++) {
+    result[i] = bytes[i];
+  }
+  return result;
+}
+
+/**
  * Helper class for creating and managing test pools.
  * Ensures pools are properly linked to the shared test environment.
  */
@@ -22,7 +34,6 @@ export class TestPool {
     public postId: Buffer,
     public params: {
       kQuadratic: anchor.BN;
-      reserveCap: anchor.BN;
       tokenName: string;
       tokenSymbol: string;
     }
@@ -56,9 +67,8 @@ export class TestPool {
       .initializePool(
         Array.from(this.postId),
         this.params.kQuadratic,
-        this.params.reserveCap,
-        this.params.tokenName,
-        this.params.tokenSymbol
+        stringToBytes(this.params.tokenName, 32),
+        stringToBytes(this.params.tokenSymbol, 10)
       )
       .accounts({
         pool: this.poolPda,
@@ -70,6 +80,7 @@ export class TestPool {
         payer: this.env.payer.publicKey,
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       })
       .rpc();

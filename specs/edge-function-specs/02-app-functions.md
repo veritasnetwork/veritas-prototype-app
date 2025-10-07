@@ -2,59 +2,36 @@
 
 App-layer operations that orchestrate protocol calls with content management, user experience, and UI concerns.
 
-## /app/users/create
+## Authentication
 
-Creates a new user and associated protocol agent.
+**Current Implementation:** Privy-based auto-registration
 
-**Request Parameters:**
-- `username`: Unique username for display
-- `display_name`: Optional full display name (defaults to username)
-- `auth_provider`: Optional authentication provider (e.g., "google", "github")
-- `auth_id`: Optional ID from auth provider
+All authentication flows through Privy:
+1. User authenticates with Privy (email, Apple, wallet)
+2. Privy issues JWT token
+3. Frontend calls `/api/auth/status` with Privy JWT
+4. Backend verifies JWT against Privy's JWKS endpoint
+5. If user doesn't exist, auto-creates user + agent with $0 initial stake
+6. Returns `has_access: true` with user data
 
-**Response:**
-- `user_id`: Created user identifier
-- `agent_id`: Associated protocol agent identifier
-- `user`: Full user object
+**No Supabase Auth:** Supabase is used as database-only. All auth is Privy.
 
-**Process:**
-1. Validate username uniqueness
-2. Create protocol agent with initial stake from system_config
-3. Create user record with agent_id reference
-4. Return user data with agent_id
+**Deprecated (for now):**
+- `/app/users/create` - No longer needed (auto-registration on first login)
+- `/app/auth/activate-invite` - Invite codes deprecated
+- `/app/auth/waitlist` - Waitlists deprecated
 
-## /app/posts/create
+## /app/post-creation
 
-Creates a regular post without belief market.
+**Current Implementation:** `/supabase/functions/app-post-creation`
 
-**Request Parameters:**
-- `user_id`: App user identifier
-- `title`: Optional post title
-- `content`: Post content
-- `media_url`: Optional media attachment
-- `media_type`: MIME type if media present
-
-**Response:**
-- `post_id`: Created post identifier
-- `post`: Full post object for UI display
-
-**Process:**
-1. Validate user exists
-2. Create post record in app database
-3. Return post data for UI
-
-## /app/posts/create-with-opinion
-
-Creates a post and associated belief market for opinion.
+Creates a post with associated belief market. **All posts require beliefs** (no standalone posts).
 
 **Request Parameters:**
 - `user_id`: App user identifier
-- `title`: Optional post title
-- `content`: Post content
-- `media_url`: Optional media attachment
-- `media_type`: MIME type if media present
-- `initial_belief`: Creator's initial probability (0-1)
-- `belief_duration_epochs`: How many epochs the belief market runs
+- `title`: Post title/question (required, max 200 chars)
+- `content`: Post content providing context (optional, max 2000 chars)
+- `belief_duration_epochs`: How many epochs the belief market runs (default: 10 = 48h)
 
 **Response:**
 - `post_id`: Created post identifier
@@ -64,8 +41,13 @@ Creates a post and associated belief market for opinion.
 **Process:**
 1. Get user's agent_id from users table
 2. Call `/protocol/beliefs/create` with agent_id and belief parameters
-3. Create post record with `is_opinion = true` and `opinion_belief_id`
+3. Create post record with `belief_id` (NOT NULL)
 4. Return combined post and belief data
+
+**Notes:**
+- No multimedia support (media_url/media_type removed)
+- Default belief duration: 10 epochs (48 hours at 1 hour/epoch)
+- Posts and beliefs CASCADE delete together
 
 ## /app/posts/submit-opinion
 

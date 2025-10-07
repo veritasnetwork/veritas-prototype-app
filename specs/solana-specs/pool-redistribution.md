@@ -53,7 +53,7 @@ reward[i] = (penaltyPot × impact[i]) / totalImpact
 
 If no pools have deltaR > 0:
 - Collect all penalties
-- Store in `configs.epoch_rollover_balance`
+- Store in `system_config.epoch_rollover_balance`
 - Add to next epoch's penalty pot
 - Skip reward phase
 
@@ -139,9 +139,9 @@ Before processing, validate:
 ```typescript
 // 1. Update rollover first (idempotent)
 if (totalPositiveImpact > 0) {
-  await supabase.from('configs').update({ value: '0' }).eq('key', 'epoch_rollover_balance')
+  await supabase.from('system_config').update({ value: '0' }).eq('key', 'epoch_rollover_balance')
 } else {
-  await supabase.from('configs').update({ value: penaltyPot.toString() }).eq('key', 'epoch_rollover_balance')
+  await supabase.from('system_config').update({ value: penaltyPot.toString() }).eq('key', 'epoch_rollover_balance')
 }
 
 // 2. Then apply transactions (can retry safely)

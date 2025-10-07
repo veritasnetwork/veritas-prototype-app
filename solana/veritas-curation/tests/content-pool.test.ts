@@ -21,6 +21,18 @@ import {
 import { assert } from "chai";
 import * as crypto from "crypto";
 
+/**
+ * Convert a string to a fixed-length byte array, padding with zeros.
+ */
+function stringToBytes(str: string, length: number): number[] {
+  const bytes = Buffer.from(str, 'utf8');
+  const result = new Array(length).fill(0);
+  for (let i = 0; i < Math.min(bytes.length, length); i++) {
+    result[i] = bytes[i];
+  }
+  return result;
+}
+
 describe("ContentPool Tests", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
@@ -34,9 +46,8 @@ describe("ContentPool Tests", () => {
   let testUser1UsdcAccount: PublicKey;
   let testUser2UsdcAccount: PublicKey;
 
-  // Test pool parameters - Configured for $5K reserve transition
-  const TEST_K_QUADRATIC = new anchor.BN(200); // 0.0002 (adjusted for reserve-based system)
-  const TEST_RESERVE_CAP = new anchor.BN(5_000_000_000); // $5K USDC (with 6 decimals)
+  // Test pool parameters - Pure quadratic curve with price floor
+  const TEST_K_QUADRATIC = new anchor.BN(200); // k_quadratic coefficient
   const TEST_USDC_AMOUNT = 1_000_000_000; // 1000 USDC
   let globalFactoryPda: PublicKey;
   let globalTreasuryPda: PublicKey;
@@ -190,9 +201,8 @@ describe("ContentPool Tests", () => {
           .initializePool(
             Array.from(postId),
             TEST_K_QUADRATIC,
-            TEST_RESERVE_CAP,
-            tokenName,
-            tokenSymbol
+            stringToBytes(tokenName, 32),
+            stringToBytes(tokenSymbol, 10)
           )
           .accounts({
             pool: poolPda,
@@ -213,7 +223,7 @@ describe("ContentPool Tests", () => {
         const poolAccount = await program.account.contentPool.fetch(poolPda);
         assert.deepEqual(poolAccount.postId, Array.from(postId));
         assert.equal(poolAccount.kQuadratic.toString(), TEST_K_QUADRATIC.toString());
-        assert.equal(poolAccount.reserveCap.toString(), TEST_RESERVE_CAP.toString());
+        // Pure quadratic implementation - no reserveCap field
         assert.equal(poolAccount.tokenSupply.toString(), "0");
         assert.equal(poolAccount.reserve.toString(), "0");
         assert.equal(poolAccount.tokenMint.toBase58(), tokenMint.toBase58());
@@ -270,9 +280,8 @@ describe("ContentPool Tests", () => {
           .initializePool(
             Array.from(postId),
             TEST_K_QUADRATIC,
-            TEST_RESERVE_CAP,
-            tokenName,
-            tokenSymbol
+            stringToBytes(tokenName, 32),
+            stringToBytes(tokenSymbol, 10)
           )
           .accounts({
             pool: poolPda,
@@ -295,9 +304,8 @@ describe("ContentPool Tests", () => {
             .initializePool(
               Array.from(postId),
               TEST_K_QUADRATIC,
-              TEST_RESERVE_CAP,
-              tokenName,
-              tokenSymbol
+              stringToBytes(tokenName, 32),
+              stringToBytes(tokenSymbol, 10)
             )
             .accounts({
               pool: poolPda,
@@ -355,9 +363,8 @@ describe("ContentPool Tests", () => {
         .initializePool(
           Array.from(postId),
           TEST_K_QUADRATIC,
-          TEST_RESERVE_CAP,
-          tokenName,
-          tokenSymbol
+          stringToBytes(tokenName, 32),
+          stringToBytes(tokenSymbol, 10)
         )
         .accounts({
           pool: poolPda,
@@ -512,9 +519,8 @@ describe("ContentPool Tests", () => {
         .initializePool(
           Array.from(mathTestPostId),
           TEST_K_QUADRATIC,
-          TEST_RESERVE_CAP,
-          tokenName,
-          tokenSymbol
+          stringToBytes(tokenName, 32),
+          stringToBytes(tokenSymbol, 10)
         )
         .accounts({
           pool: poolPda,
@@ -661,42 +667,35 @@ describe("ContentPool Tests", () => {
       });
     });
 
-    describe("2.2 Linear Region Functionality", () => {
-      let linearTestPool: PublicKey;
-      let linearTestTokenMint: PublicKey;
-      let linearTestPoolVault: PublicKey;
-      let linearTestPostId: Buffer;
-
-      before(async () => {
-        // Create a separate pool for linear region testing
-        linearTestPostId = crypto.createHash("sha256").update("linear-region-test").digest();
-        const tokenName = "Linear Test Token";
-        const tokenSymbol = "LINEAR";
+    describe("2.2 Price Floor Mechanism", () => {
+      it("enforces minimum price floor at zero supply", async () => {
+        // Create a fresh pool to test from s=0
+        const postId = crypto.createHash("sha256").update("price-floor-test-1").digest();
+        const tokenName = "Price Floor Test";
+        const tokenSymbol = "PFT";
 
         const [poolPda] = PublicKey.findProgramAddressSync(
-          [Buffer.from("pool"), linearTestPostId],
+          [Buffer.from("pool"), postId],
           program.programId
         );
-        linearTestPool = poolPda;
 
         const [tokenMint] = PublicKey.findProgramAddressSync(
-          [Buffer.from("mint"), linearTestPostId],
+          [Buffer.from("mint"), postId],
           program.programId
         );
-        linearTestTokenMint = tokenMint;
 
         const [poolUsdcVault] = PublicKey.findProgramAddressSync(
-          [Buffer.from("vault"), linearTestPostId],
+          [Buffer.from("vault"), postId],
           program.programId
         );
-        linearTestPoolVault = poolUsdcVault;
 
+        // Create pool with very small k to stay near price floor
+        const smallK = new anchor.BN(1); // k=1 means very gradual price increase
 
         await program.methods
           .initializePool(
-            Array.from(linearTestPostId),
-            TEST_K_QUADRATIC,
-            TEST_RESERVE_CAP,
+            Array.from(postId),
+            smallK,
             tokenName,
             tokenSymbol
           )
@@ -714,27 +713,25 @@ describe("ContentPool Tests", () => {
             rent: SYSVAR_RENT_PUBKEY,
           })
           .rpc();
-      });
 
-      it("reaches linear region at $5K pool size", async () => {
+        // First purchase should be at price floor ($0.0001 per token)
+        // PRICE_FLOOR = 100 (in micro-USDC units, i.e., 100/1_000_000 = $0.0001)
+        const usdcAmount = 1_000_000; // 1 USDC
+        const expectedTokensAtFloor = (usdcAmount * 1_000_000) / 100; // Should get 10,000 tokens
+
         const userTokenAccount = await getOrCreateAssociatedTokenAccount(
           provider.connection,
           testUser1,
-          linearTestTokenMint,
+          tokenMint,
           testUser1.publicKey
         );
-
-        // With k=15 and supply_cap=1000 (0.001 tokens), we need to buy carefully
-        // The supply cap is VERY small, so we can't buy $5K directly
-        // k * s^3 / 3 = 15 * 1000^3 / 3 = 5,000,000,000 micro-USDC = $5K
-        const usdcAmount = 5_000_000_000; // 5000 USDC
 
         await program.methods
           .buy(new anchor.BN(usdcAmount))
           .accounts({
-            pool: linearTestPool,
-            tokenMint: linearTestTokenMint,
-            poolUsdcVault: linearTestPoolVault,
+            pool: poolPda,
+            tokenMint: tokenMint,
+            poolUsdcVault: poolUsdcVault,
             userUsdcAccount: testUser1UsdcAccount,
             userTokenAccount: userTokenAccount.address,
             user: testUser1.publicKey,
@@ -746,48 +743,78 @@ describe("ContentPool Tests", () => {
           .signers([testUser1])
           .rpc();
 
-        const pool = await program.account.contentPool.fetch(linearTestPool);
+        const tokenBalance = (await getAccount(provider.connection, userTokenAccount.address)).amount;
+        const tokensReceived = Number(tokenBalance);
 
-        // Verify we've reached or exceeded the reserve cap (linear region)
+        // Verify tokens received are at floor price (allow 5% tolerance for rounding)
         assert.ok(
-          pool.reserve.gte(TEST_RESERVE_CAP),
-          "Should reach reserve cap with $5K USDC"
-        );
-
-        // Verify reserve is around $5K
-        const reserveInUsdc = pool.reserve.toNumber() / 1_000_000;
-        assert.ok(
-          reserveInUsdc >= 4_500 && reserveInUsdc <= 5_500,
-          `Reserve should be ~$5K, got $${reserveInUsdc}`
+          tokensReceived >= expectedTokensAtFloor * 0.95 && tokensReceived <= expectedTokensAtFloor * 1.05,
+          `Expected ~${expectedTokensAtFloor} tokens at floor price, got ${tokensReceived}`
         );
       });
 
-      it("calculates correct price in linear region", async () => {
-        const beforePool = await program.account.contentPool.fetch(linearTestPool);
+      it("transitions from price floor to quadratic curve", async () => {
+        // Buy more tokens to push price above floor
+        const postId = crypto.createHash("sha256").update("price-floor-test-2").digest();
+        const tokenName = "Transition Test";
+        const tokenSymbol = "TRT";
 
-        // Verify we're in linear region
-        assert.ok(
-          beforePool.reserve.gte(TEST_RESERVE_CAP),
-          "Should be in linear region"
+        const [poolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("pool"), postId],
+          program.programId
         );
 
-        // Buy additional tokens in linear region
+        const [tokenMint] = PublicKey.findProgramAddressSync(
+          [Buffer.from("mint"), postId],
+          program.programId
+        );
+
+        const [poolUsdcVault] = PublicKey.findProgramAddressSync(
+          [Buffer.from("vault"), postId],
+          program.programId
+        );
+
+        // Use moderate k so we transition above floor quickly
+        const moderateK = new anchor.BN(1000);
+
+        await program.methods
+          .initializePool(
+            Array.from(postId),
+            moderateK,
+            tokenName,
+            tokenSymbol
+          )
+          .accounts({
+            pool: poolPda,
+            tokenMint: tokenMint,
+            usdcVault: poolUsdcVault,
+            config: null,
+            usdcMint: usdcMint,
+            factory: globalFactoryPda,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            rent: SYSVAR_RENT_PUBKEY,
+          })
+          .rpc();
+
         const userTokenAccount = await getOrCreateAssociatedTokenAccount(
           provider.connection,
           testUser2,
-          linearTestTokenMint,
+          tokenMint,
           testUser2.publicKey
         );
 
-        const usdcAmount = 100_000_000; // 100 USDC
-        const beforeBalance = (await getAccount(provider.connection, userTokenAccount.address)).amount;
+        // Buy enough to exceed price floor
+        const usdcAmount = 10_000_000; // 10 USDC
 
         await program.methods
           .buy(new anchor.BN(usdcAmount))
           .accounts({
-            pool: linearTestPool,
-            tokenMint: linearTestTokenMint,
-            poolUsdcVault: linearTestPoolVault,
+            pool: poolPda,
+            tokenMint: tokenMint,
+            poolUsdcVault: poolUsdcVault,
             userUsdcAccount: testUser2UsdcAccount,
             userTokenAccount: userTokenAccount.address,
             user: testUser2.publicKey,
@@ -799,34 +826,75 @@ describe("ContentPool Tests", () => {
           .signers([testUser2])
           .rpc();
 
-        const afterPool = await program.account.contentPool.fetch(linearTestPool);
-        const afterBalance = (await getAccount(provider.connection, userTokenAccount.address)).amount;
+        const pool = await program.account.contentPool.fetch(poolPda);
+        const tokenBalance = (await getAccount(provider.connection, userTokenAccount.address)).amount;
 
-        // Verify tokens were minted (dampened linear pricing is complex, just verify it works)
-        const actualTokens = Number(afterBalance - beforeBalance);
-        assert.ok(actualTokens > 0, `Should have received tokens, got ${actualTokens}`);
+        // Calculate current price: P = k × s²
+        const supply = pool.tokenSupply.toNumber();
+        const k = pool.kQuadratic.toNumber();
+        const curvePrice = (k * supply * supply) / 1_000_000; // In micro-USDC units
+
+        // Verify price is above floor (PRICE_FLOOR = 100)
+        assert.ok(curvePrice > 100, `Price ${curvePrice} should exceed floor of 100`);
       });
 
-      it("allows multiple purchases in linear region", async () => {
-        const beforePool = await program.account.contentPool.fetch(linearTestPool);
+      it("uses quadratic pricing once above floor", async () => {
+        // Verify multiple purchases follow P(s) = k × s² above floor
+        const postId = crypto.createHash("sha256").update("price-floor-test-3").digest();
+        const tokenName = "Quadratic Test";
+        const tokenSymbol = "QDT";
 
-        // Make two separate purchases in linear region
+        const [poolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("pool"), postId],
+          program.programId
+        );
+
+        const [tokenMint] = PublicKey.findProgramAddressSync(
+          [Buffer.from("mint"), postId],
+          program.programId
+        );
+
+        const [poolUsdcVault] = PublicKey.findProgramAddressSync(
+          [Buffer.from("vault"), postId],
+          program.programId
+        );
+
+        await program.methods
+          .initializePool(
+            Array.from(postId),
+            TEST_K_QUADRATIC,
+            stringToBytes(tokenName, 32),
+            stringToBytes(tokenSymbol, 10)
+          )
+          .accounts({
+            pool: poolPda,
+            tokenMint: tokenMint,
+            usdcVault: poolUsdcVault,
+            config: null,
+            usdcMint: usdcMint,
+            factory: globalFactoryPda,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            rent: SYSVAR_RENT_PUBKEY,
+          })
+          .rpc();
+
         const userTokenAccount = await getOrCreateAssociatedTokenAccount(
           provider.connection,
           testUser1,
-          linearTestTokenMint,
+          tokenMint,
           testUser1.publicKey
         );
 
-        const usdcAmount1 = 50_000_000; // 50 USDC
-        const beforeBalance1 = (await getAccount(provider.connection, userTokenAccount.address)).amount;
-
+        // First purchase to establish above floor
         await program.methods
-          .buy(new anchor.BN(usdcAmount1))
+          .buy(new anchor.BN(100_000_000))
           .accounts({
-            pool: linearTestPool,
-            tokenMint: linearTestTokenMint,
-            poolUsdcVault: linearTestPoolVault,
+            pool: poolPda,
+            tokenMint: tokenMint,
+            poolUsdcVault: poolUsdcVault,
             userUsdcAccount: testUser1UsdcAccount,
             userTokenAccount: userTokenAccount.address,
             user: testUser1.publicKey,
@@ -838,19 +906,16 @@ describe("ContentPool Tests", () => {
           .signers([testUser1])
           .rpc();
 
-        const afterBalance1 = (await getAccount(provider.connection, userTokenAccount.address)).amount;
-        const tokens1 = Number(afterBalance1 - beforeBalance1);
+        const pool1 = await program.account.contentPool.fetch(poolPda);
+        const supply1 = pool1.tokenSupply.toNumber();
 
         // Second purchase
-        const usdcAmount2 = 75_000_000; // 75 USDC
-        const beforeBalance2 = afterBalance1;
-
         await program.methods
-          .buy(new anchor.BN(usdcAmount2))
+          .buy(new anchor.BN(100_000_000))
           .accounts({
-            pool: linearTestPool,
-            tokenMint: linearTestTokenMint,
-            poolUsdcVault: linearTestPoolVault,
+            pool: poolPda,
+            tokenMint: tokenMint,
+            poolUsdcVault: poolUsdcVault,
             userUsdcAccount: testUser1UsdcAccount,
             userTokenAccount: userTokenAccount.address,
             user: testUser1.publicKey,
@@ -862,12 +927,16 @@ describe("ContentPool Tests", () => {
           .signers([testUser1])
           .rpc();
 
-        const afterBalance2 = (await getAccount(provider.connection, userTokenAccount.address)).amount;
-        const tokens2 = Number(afterBalance2 - beforeBalance2);
+        const pool2 = await program.account.contentPool.fetch(poolPda);
+        const supply2 = pool2.tokenSupply.toNumber();
 
-        // Verify both purchases minted tokens (dampened linear pricing means prices change)
-        assert.ok(tokens1 > 0, `First purchase should mint tokens, got ${tokens1}`);
-        assert.ok(tokens2 > 0, `Second purchase should mint tokens, got ${tokens2}`);
+        // Verify supply increased (tokens were minted)
+        assert.ok(supply2 > supply1, "Supply should increase with second purchase");
+
+        // Verify price increased quadratically (more USDC for fewer tokens on 2nd buy)
+        const tokens1 = supply1;
+        const tokens2 = supply2 - supply1;
+        assert.ok(tokens2 < tokens1, "Should receive fewer tokens on second buy (price increased)");
       });
     });
   });
@@ -911,9 +980,8 @@ describe("ContentPool Tests", () => {
         .initializePool(
           Array.from(elasticTestPostId),
           TEST_K_QUADRATIC,
-          TEST_RESERVE_CAP,
-          tokenName,
-          tokenSymbol
+          stringToBytes(tokenName, 32),
+          stringToBytes(tokenSymbol, 10)
         )
         .accounts({
           pool: poolPda,
@@ -1153,7 +1221,6 @@ describe("ContentPool Tests", () => {
           .initializePool(
             Array.from(postId),
             tooLowK,
-            TEST_RESERVE_CAP,
             tokenName,
             tokenSymbol
           )
@@ -1206,7 +1273,6 @@ describe("ContentPool Tests", () => {
           .initializePool(
             Array.from(postId),
             tooHighK,
-            TEST_RESERVE_CAP,
             tokenName,
             tokenSymbol
           )
@@ -1230,111 +1296,7 @@ describe("ContentPool Tests", () => {
       }
     });
 
-    it("rejects pool creation with supply_cap below minimum", async () => {
-      const postId = crypto.createHash("sha256").update("test-pool-cap-too-low").digest();
-      const tokenName = "Test Token";
-      const tokenSymbol = "TEST";
-
-      const [poolPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("pool"), postId],
-        program.programId
-      );
-
-      const [tokenMint] = PublicKey.findProgramAddressSync(
-        [Buffer.from("mint"), postId],
-        program.programId
-      );
-
-      const [poolUsdcVault] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), postId],
-        program.programId
-      );
-
-
-      // DEFAULT_MIN_SUPPLY_CAP = 10_000_000_000 (10K tokens), use 5_000_000_000
-      const tooLowCap = new anchor.BN("5000000000");
-
-      try {
-        await program.methods
-          .initializePool(
-            Array.from(postId),
-            TEST_K_QUADRATIC,
-            tooLowCap,
-            tokenName,
-            tokenSymbol
-          )
-          .accounts({
-            pool: poolPda,
-            tokenMint: tokenMint,
-            usdcVault: poolUsdcVault,
-            config: null,
-            usdcMint: usdcMint,
-            factory: globalFactoryPda,
-            payer: payer.publicKey,
-            systemProgram: SystemProgram.programId,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-            rent: SYSVAR_RENT_PUBKEY,
-          })
-          .rpc();
-        assert.fail("Should have failed with InvalidParameters");
-      } catch (err: any) {
-        assert.ok(err.toString().includes("InvalidParameters") || err.toString().includes("0x1771"));
-      }
-    });
-
-    it("rejects pool creation with supply_cap above maximum", async () => {
-      const postId = crypto.createHash("sha256").update("test-pool-cap-too-high").digest();
-      const tokenName = "Test Token";
-      const tokenSymbol = "TEST";
-
-      const [poolPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("pool"), postId],
-        program.programId
-      );
-
-      const [tokenMint] = PublicKey.findProgramAddressSync(
-        [Buffer.from("mint"), postId],
-        program.programId
-      );
-
-      const [poolUsdcVault] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), postId],
-        program.programId
-      );
-
-
-      // DEFAULT_MAX_SUPPLY_CAP = 1_000_000_000_000 (1M tokens), use 2_000_000_000_000
-      const tooHighCap = new anchor.BN("2000000000000");
-
-      try {
-        await program.methods
-          .initializePool(
-            Array.from(postId),
-            TEST_K_QUADRATIC,
-            tooHighCap,
-            tokenName,
-            tokenSymbol
-          )
-          .accounts({
-            pool: poolPda,
-            tokenMint: tokenMint,
-            usdcVault: poolUsdcVault,
-            config: null,
-            usdcMint: usdcMint,
-            factory: globalFactoryPda,
-            payer: payer.publicKey,
-            systemProgram: SystemProgram.programId,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-            rent: SYSVAR_RENT_PUBKEY,
-          })
-          .rpc();
-        assert.fail("Should have failed with InvalidParameters");
-      } catch (err: any) {
-        assert.ok(err.toString().includes("InvalidParameters") || err.toString().includes("0x1771"));
-      }
-    });
+    // REMOVED: supply_cap validation tests - pure quadratic implementation has no supply_cap parameter
   });
 
   describe("4. Minimum Trade Amount Enforcement", () => {
@@ -1363,9 +1325,8 @@ describe("ContentPool Tests", () => {
         .initializePool(
           Array.from(postId),
           TEST_K_QUADRATIC,
-          TEST_RESERVE_CAP,
-          tokenName,
-          tokenSymbol
+          stringToBytes(tokenName, 32),
+          stringToBytes(tokenSymbol, 10)
         )
         .accounts({
           pool: poolPda,
@@ -1440,9 +1401,8 @@ describe("ContentPool Tests", () => {
         .initializePool(
           Array.from(postId),
           TEST_K_QUADRATIC,
-          TEST_RESERVE_CAP,
-          tokenName,
-          tokenSymbol
+          stringToBytes(tokenName, 32),
+          stringToBytes(tokenSymbol, 10)
         )
         .accounts({
           pool: poolPda,
@@ -1541,9 +1501,8 @@ describe("ContentPool Tests", () => {
         .initializePool(
           Array.from(postId),
           TEST_K_QUADRATIC,
-          TEST_RESERVE_CAP,
-          tokenName,
-          tokenSymbol
+          stringToBytes(tokenName, 32),
+          stringToBytes(tokenSymbol, 10)
         )
         .accounts({
           pool: poolPda,
@@ -1788,9 +1747,8 @@ describe("ContentPool Tests", () => {
         .initializePool(
           Array.from(authTestPostId),
           TEST_K_QUADRATIC,
-          TEST_RESERVE_CAP,
-          tokenName,
-          tokenSymbol
+          stringToBytes(tokenName, 32),
+          stringToBytes(tokenSymbol, 10)
         )
         .accounts({
           pool: poolPda,
@@ -1930,8 +1888,8 @@ describe("ContentPool Tests", () => {
             pool: authTestPool,
             factory: fakeFactory.publicKey, // Wrong factory
             poolUsdcVault: authTestPoolVault,
-            treasury: authTreasuryPda,
-            treasuryUsdcVault: authTreasuryVault,
+            treasury: globalTreasuryPda,
+            treasuryUsdcVault: globalTreasuryVault,
             authority: authPoolAuthority.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
           })

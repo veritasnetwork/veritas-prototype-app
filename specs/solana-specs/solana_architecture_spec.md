@@ -23,12 +23,13 @@ Two-layer architecture:
 
 ### 2. Pool Factory Contract
 - Creates new bonding curve pool per post
-- Each post gets one pool with piecewise bonding curve
+- Each post gets one pool with pure quadratic bonding curve
 
 ### 3. Pool Contract (Per Post)
-- **Piecewise bonding curve**: Quadratic → Linear at configurable cap
+- **Pure quadratic bonding curve with price floor**: P(s) = max(P_floor, k × s²)
 - Users buy/sell tokens with USDC (non-custodial)
-- Tracks reserve, token supply, and elastic curve coefficients
+- Tracks reserve, token supply, and elastic curve coefficient
+- **See detailed spec**: [smart-contracts/ContentPool.md](smart-contracts/ContentPool.md)
 
 ## User Flows
 
@@ -72,7 +73,7 @@ Two-layer architecture:
 ### Trading Flow (Non-custodial Pools)
 1. User connects Privy embedded wallet
 2. User buys/sells pool tokens using wallet USDC
-3. Piecewise bonding curve calculates price
+3. Pure quadratic bonding curve calculates price
 4. Tokens represent ownership in pool
 
 ## Bonding Curve Mechanics: Elastic-K Solution
@@ -80,72 +81,63 @@ Two-layer architecture:
 ### Core Innovation
 **When reserves change (from epoch effects), rescale the curve coefficient `k` to maintain mathematical consistency.**
 
-### Piecewise Curve Definition
+### Pure Quadratic Curve with Price Floor
 ```
-P(s) = {
-    k_quad × s²        if s ≤ s_cap
-    k_linear × s       if s > s_cap
-}
-
-Continuity constraint at s_cap:
-k_quad × s_cap² = k_linear × s_cap
-Therefore: k_linear = k_quad × s_cap
+P(s) = max(P_floor, k_quadratic × s²)
 ```
 
-### Reserve Integrals
+Where:
+- `s` = token supply
+- `k_quadratic` = quadratic coefficient (elastic, adjusts with reserve changes)
+- `P_floor` = $0.0001 minimum price
 
-**Quadratic region** (0 to s_cap):
+**Why pure quadratic (not piecewise)?**
+- Simpler implementation and lower gas costs
+- Fewer edge cases and easier auditing
+- Sufficient price range for content markets
+- Price floor handles zero-supply case elegantly
+
+### Reserve Integral
+
+**Formula:**
 ```
-R_quad = ∫[0 to s_cap] k_quad × s² ds = (k_quad × s_cap³) / 3
+R = (k_quadratic × s³) / 3
 ```
 
-**Linear region** (s_cap to S):
-```
-R_linear = ∫[s_cap to S] k_linear × s ds
-         = k_linear × (S² - s_cap²) / 2
-         = k_quad × s_cap × (S² - s_cap²) / 2
-```
-
-**Total reserve**:
-```
-R_total = R_quad + R_linear  (if S > s_cap)
-R_total = (k_quad × S³) / 3  (if S ≤ s_cap)
-```
+**For detailed implementation**, see [smart-contracts/ContentPool.md](smart-contracts/ContentPool.md)
 
 ### Elastic-K Epoch Processing
 
-**When reserves change, scale both k values proportionally:**
+**When reserves change, scale k_quadratic proportionally:**
 
 ```rust
-fn apply_epoch_effects(pool: &mut ContentPool, skim: u128, reward: u128) {
+fn apply_epoch_effects(pool: &mut ContentPool, net_change: i64) {
     let R_old = pool.reserve;
-    let R_new = R_old - skim + reward;
+    let R_new = R_old + net_change; // Can be + or -
 
-    // Scale both coefficients by same ratio
+    // Scale coefficient proportionally
     let ratio = R_new / R_old;
     pool.k_quadratic *= ratio;
-    pool.k_linear *= ratio;
     pool.reserve = R_new;
 
-    // s_cap stays constant - only k values scale
     // Token supply unchanged
+    // Price automatically adjusts for all holders
 }
 ```
 
 **Key properties:**
 - Token supply never changes during epochs (no minting/burning)
-- s_cap remains constant (curve shape preserved, just scaled)
-- Both k values scale by same ratio (maintains continuity)
+- Only k_quadratic scales (simpler than piecewise)
 - Price automatically increases/decreases for all holders
+- Mathematical invariant maintained: R = (k × s³) / 3
 
-### Why This Works
+### Example
 
-**Example: Quadratic region**
 ```
 Initial state:
 - S = 10,000 tokens
 - R = $1,000
-- k_quad = 0.000003
+- k = 0.000003
 - Price at 10,000: P = 0.000003 × 10,000² = $0.30/token
 
 Epoch reward: +$100
@@ -153,108 +145,13 @@ R_new = $1,100
 ratio = 1.1
 
 New values:
-- k_quad = 0.000003 × 1.1 = 0.0000033
+- k = 0.000003 × 1.1 = 0.0000033
 - New price: P = 0.0000033 × 10,000² = $0.33/token
 - Holders gained 10% value!
 
 Verification:
 - New reserve integral: (0.0000033 × 10,000³) / 3 = $1,100 ✓
 ```
-
-**Example: Linear region**
-```
-Initial state:
-- S = 150,000 tokens (50k in linear region)
-- s_cap = 100,000
-- k_quad = 0.000001
-- k_linear = 0.1 (from k_quad × s_cap)
-- R = $2,000
-- Price at 150,000: P = 0.1 × 150,000 = $15/token
-
-Epoch penalty: -$40 skim, no reward
-R_new = $1,960
-ratio = 0.98
-
-New values:
-- k_quad = 0.000001 × 0.98 = 0.00000098
-- k_linear = 0.1 × 0.98 = 0.098
-- New price: P = 0.098 × 150,000 = $14.70/token
-- Holders lost 2% value (as expected)
-```
-
-### Buy/Sell Operations
-
-**Buy (fully in quadratic region)**:
-```rust
-fn buy_quadratic(pool: &mut ContentPool, usdc_in: u128) -> u128 {
-    let s0 = pool.token_supply;
-
-    // Solve: (k_quad/3) × (s1³ - s0³) = usdc_in
-    let s1_cubed = s0.pow(3) + (3 * usdc_in) / pool.k_quadratic;
-    let s1 = cube_root(s1_cubed);
-    let tokens = s1 - s0;
-
-    pool.token_supply = s1;
-    pool.reserve += usdc_in;
-
-    return tokens;
-}
-```
-
-**Sell (crossing boundary from linear to quadratic)**:
-```rust
-fn sell_crossing_boundary(pool: &mut ContentPool, tokens: u128) -> u128 {
-    let s0 = pool.token_supply;  // In linear region
-    let s1 = s0 - tokens;         // May be in quadratic region
-
-    if s1 >= pool.s_cap {
-        // Stays in linear region
-        payout = pool.k_linear × (s0² - s1²) / 2;
-    } else {
-        // Crosses from linear → quadratic
-        // Linear portion: s_cap to s0
-        let linear_payout = pool.k_linear × (s0² - pool.s_cap²) / 2;
-
-        // Quadratic portion: s1 to s_cap
-        let quad_payout = pool.k_quadratic × (pool.s_cap³ - s1³) / 3;
-
-        payout = linear_payout + quad_payout;
-    }
-
-    pool.token_supply = s1;
-    pool.reserve -= payout;
-
-    return payout;
-}
-```
-
-### Works for Pure Linear Curves Too
-
-**If you want a pure linear curve** (no quadratic phase):
-```rust
-// Set s_cap = 0 (always in "linear" region)
-// Or use simplified logic:
-
-struct LinearPool {
-    token_supply: u128,
-    reserve: u128,
-    k: u128,  // Only one coefficient needed
-}
-
-// P(s) = k × s
-// R = k × S² / 2
-
-fn apply_epoch_effects_linear(pool: &mut LinearPool, skim: u128, reward: u128) {
-    let R_old = pool.reserve;
-    let R_new = R_old - skim + reward;
-
-    // Same elastic-k formula!
-    pool.k = (pool.k * R_new) / R_old;
-    pool.reserve = R_new;
-}
-```
-
-**The elastic-k mechanism is universal across all polynomial bonding curves.**
 
 ## Delta Relevance-Based Skim Mechanism
 
@@ -349,7 +246,7 @@ Rewards (assume Pool C reserve = $1000, Pool D reserve = $500):
        - Example: Δr = -0.3, certainty = 0.6 → penalty_rate = 0.18 (18%)
 
      - **Δr = 0** (stagnant):
-       - `penalty_rate = base_skim_rate` (default: 1%, configurable in configs table)
+       - `penalty_rate = base_skim_rate` (default: 1%, configurable in system_config table)
 
      - **Δr > 0** (rising relevance):
        - `penalty_rate = 0` (no penalty)
@@ -529,14 +426,14 @@ async function processEpoch() {
     `);
 
   // 2. Get base skim rate from config
-  const { base_skim_rate } = await db.configs
+  const { base_skim_rate } = await db.system_config
     .select('value')
     .eq('key', 'base_skim_rate')
     .single();
   const baseSkimRate = parseFloat(base_skim_rate) || 0.01; // Default 1%
 
   // 3. Get any rollover from previous epoch
-  const { epoch_rollover_balance } = await db.configs
+  const { epoch_rollover_balance } = await db.system_config
     .select('value')
     .eq('key', 'epoch_rollover_balance')
     .single();
@@ -600,13 +497,13 @@ async function processEpoch() {
     });
 
     // Reset rollover for next epoch
-    await db.configs
+    await db.system_config
       .update({ value: '0' })
       .eq('key', 'epoch_rollover_balance');
   } else {
     // No winners - rollover penalty pot to next epoch
     console.log(`No positive impact (Δr × certainty). Rolling over $${penaltyPot.toFixed(2)} to next epoch.`);
-    await db.configs
+    await db.system_config
       .update({ value: penaltyPot.toString() })
       .eq('key', 'epoch_rollover_balance');
 
@@ -746,29 +643,25 @@ if total_positive_impact = 0:
 ## Data Structures
 
 ### Solana Account (ContentPool)
+
+**See complete specification**: [smart-contracts/ContentPool.md](smart-contracts/ContentPool.md)
+
 ```rust
 #[account]
 pub struct ContentPool {
-    pub pool_id: u64,
-    pub post_id: [u8; 32],
-
-    // Elastic piecewise bonding curve
-    pub k_quadratic: u128,        // Quadratic coefficient (elastic)
-    pub k_linear: u128,           // Linear coefficient (elastic)
-    pub supply_cap: u128,         // Where curve transitions
-
-    // State
-    pub token_supply: u128,       // Current token supply (changes with trades only)
-    pub reserve: u128,            // USDC reserve (6 decimals)
-
-    // Relevance tracking (for backend reference)
-    pub current_relevance: u64,
-    pub previous_relevance: u64,
-
-    // Admin
-    pub authority: Pubkey,
-    pub bump: u8,
+    pub post_id: [u8; 32],          // Hash identifier of content
+    pub k_quadratic: u128,          // Quadratic coefficient (elastic)
+    pub token_supply: u128,         // Total SPL tokens minted
+    pub reserve: u128,              // Total USDC in pool (6 decimals)
+    pub token_mint: Pubkey,         // SPL token mint address
+    pub token_name: [u8; 32],       // Token name
+    pub token_symbol: [u8; 10],     // Token symbol
+    pub token_decimals: u8,         // Token decimals (always 6)
+    pub usdc_vault: Pubkey,         // USDC token account
+    pub factory: Pubkey,            // Reference to PoolFactory
+    pub bump: u8,                   // PDA bump seed
 }
+// Total: 220 bytes + 8 discriminator = 228 bytes
 ```
 
 ### Database Schema (Postgres/Supabase)
@@ -843,9 +736,9 @@ CREATE TABLE unallocated_deposits (
 );
 
 -- Config entries for epoch processing
-INSERT INTO configs (key, value) VALUES
-    ('base_skim_rate', '0.01'),  -- 1% default for stagnant pools
-    ('epoch_rollover_balance', '0');  -- Accumulates when no winners
+INSERT INTO system_config (key, value, description) VALUES
+    ('base_skim_rate', '0.01', 'Base penalty rate for pools with zero delta_relevance (1% = 0.01)'),
+    ('epoch_rollover_balance', '0', 'Accumulated penalty pot from epochs with no winning pools');
 ```
 
 ## Mathematical Properties

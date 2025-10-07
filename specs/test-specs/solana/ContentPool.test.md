@@ -36,9 +36,8 @@ it("creates pool with valid parameters and SPL token mint")
 ```typescript
 it("rejects pool creation with k_quadratic below minimum")
 it("rejects pool creation with k_quadratic above maximum")
-it("rejects pool creation with supply_cap below minimum")
-it("rejects pool creation with supply_cap above maximum")
 // Assert: Each returns appropriate error code
+// Note: Pure quadratic implementation has no supply_cap parameter
 ```
 
 #### 1.3 Duplicate Pool Prevention
@@ -51,14 +50,14 @@ it("prevents duplicate pools for same post_id")
 
 ### 2. Bonding Curve Mathematics
 
-#### 2.1 Quadratic Region Calculations
-**Purpose:** Verify price and reserve calculations in quadratic phase
+#### 2.1 Pure Quadratic Curve Calculations
+**Purpose:** Verify price and reserve calculations with pure quadratic curve
 ```typescript
-it("calculates correct token supply increase in quadratic region")
+it("calculates correct token supply increase from bonding curve")
 // Test cases:
 // - First purchase: Should use cube root calculation
-// - At 50% of cap: Verify against manual calculation
-// - Just before cap: Price = k_quad × cap²
+// - Multiple purchases: Verify cumulative supply correct
+// - Price increases quadratically: P(s) = k × s²
 // Precision: Within 0.01% due to integer math
 
 it("correctly calculates cube root for buy operations")
@@ -66,40 +65,24 @@ it("correctly calculates cube root for buy operations")
 // Assert: cube_root(8) = 2, cube_root(27) = 3, etc.
 // Assert: Handles large u128 values without overflow
 
-it("derives k_linear correctly from k_quadratic × supply_cap")
-// Setup: Pool with k_quad=1000, cap=100K
-// Assert: get_k_linear() returns exactly k_quad × cap
-// Note: k_linear is NOT stored, always calculated
+it("maintains price floor at zero supply")
+// Test that price never goes below PRICE_FLOOR
+// First purchase at price floor
+// Price transitions smoothly to curve when curve > floor
 ```
 
-#### 2.2 Linear Region Calculations
-**Purpose:** Verify transition and linear pricing
+#### 2.2 Price Floor Handling
+**Purpose:** Verify price floor mechanism for low supply
 ```typescript
-it("transitions smoothly from quadratic to linear at supply_cap")
-// Buy virtual tokens up to just before cap, then cross boundary
-// Assert: No price discontinuity at transition
-// Assert: Continuity maintained at s_cap
+it("enforces minimum price floor")
+// Buy at s=0, should use PRICE_FLOOR ($0.0001)
+// Assert: Initial tokens bought at floor price
+// Assert: Once curve exceeds floor, uses curve price
 
-it("calculates correct price in linear region")
-// Test at cap + 50K tokens
-// Price should be k_linear (constant price in linear region)
-// NOT k_linear × supply (that would be quadratic!)
-```
-
-#### 2.3 Boundary Crossing Operations
-**Purpose:** Test complex trades crossing regions
-```typescript
-it("handles buy crossing from quadratic to linear")
-// Start at 90% of cap, buy USDC that pushes past cap
-// Assert: Correct SPL tokens minted considering both regions
-// Assert: Reserve increases by exact USDC amount
-// Assert: User receives exact amount of SPL tokens
-
-it("handles sell crossing from linear to quadratic")
-// Start with supply above cap, sell tokens back to curve
-// Assert: Correct USDC returned considering both regions
-// Assert: SPL tokens burned from user's account
-// Assert: Reserve decreases by USDC payout amount
+it("transitions from price floor to curve pricing")
+// Buy enough to exceed price floor
+// Assert: Smooth transition, no discontinuity
+// Assert: Further buys use pure quadratic pricing
 ```
 
 ### 3. Elastic-K Mechanism
@@ -312,33 +295,39 @@ it("handles concurrent buys from multiple users")
 // Assert: All process correctly regardless of order
 ```
 
-## Implemented Tests (21 tests, all passing)
+## Implemented Tests Status
 
-### 1. Initialization Tests (7 tests)
-- ✅ **1.1 Valid Pool Creation** (3 tests)
-  - Creates pool with valid parameters and SPL token mint
-  - Verifies pool state, token mint setup, metadata storage, vault creation
-  - Token mint authority validation
+### ⚠️ CRITICAL: Test Implementation Mismatch
 
-- ✅ **1.2 Parameter Boundary Validation** (4 tests) **[IMPLEMENTED]**
-  - k_quadratic min/max enforcement (2 tests)
-  - reserve_cap min/max enforcement (2 tests)
-  - Prevents invalid pool configurations
+**Problem:** Tests are testing a **piecewise curve** (quadratic + linear regions) but the actual implementation is **pure quadratic with price floor**.
 
-- ✅ **1.3 Duplicate Pool Prevention** (1 test)
-  - Prevents duplicate pools for same post_id
+**Evidence:**
+- Implementation (`content_pool/state.rs`): NO `supply_cap` or `k_linear` fields
+- Tests (`content-pool.test.ts`): Testing "linear region" functionality with `supply_cap`
+- Test spec claims: "BOTH QUADRATIC AND LINEAR REGIONS COVERED"
 
-### 2. Bonding Curve Mathematics (6 tests)
-- ✅ **2.1 Quadratic Region Calculations** (3 tests)
+### Tests That Need Updating
+
+❌ **Section 2.2 Linear Region Tests** (3 tests) - Testing non-existent feature!
+  - "reaches linear region at $5K pool size" - NO LINEAR REGION EXISTS
+  - "calculates correct price in linear region" - NO LINEAR REGION EXISTS
+  - "allows multiple purchases in linear region" - NO LINEAR REGION EXISTS
+
+❌ **Parameter validation** - Tests for `supply_cap` min/max that don't exist in struct
+
+### Tests That Are Correct
+
+✅ **1. Initialization Tests** (needs minor updates)
+- ✅ **1.1 Valid Pool Creation** - Valid but remove supply_cap references
+- ⚠️ **1.2 Parameter Boundary Validation** - Remove supply_cap tests (2 tests to delete)
+- ✅ **1.3 Duplicate Pool Prevention** - Valid
+
+✅ **2.1 Pure Quadratic Calculations** (3 tests) - Core logic correct
   - Calculates correct token supply increase for first purchase
   - Maintains price curve consistency across multiple purchases
-  - Verifies price increases with supply in quadratic region
+  - Verifies price increases with supply
 
-- ✅ **2.2 Linear Region Functionality** (3 tests) **[IMPLEMENTED]**
-  - Reaches linear region at $5K pool size (k=200, cap=$5K)
-  - Calculates correct price in linear region (constant k_linear)
-  - Allows multiple purchases in linear region
-  - **Note:** Linear region IS reachable in practice with appropriate parameters
+⚠️ **2.2 Should Test Price Floor Instead** - Replace linear region tests with price floor tests
 
 ### 4. Minimum Trade Amount Enforcement (2 tests) **[IMPLEMENTED]**
 - ✅ Rejects buy below minimum (1 USDC)
@@ -468,14 +457,46 @@ ContentPool Tests
 - Enables integration tests across ContentPool, PoolFactory, and ProtocolTreasury
 
 ## Coverage Status
+
+### ⚠️ CRITICAL FINDING: Tests Don't Match Implementation!
+
 - **Tests Implemented:** 21 tests
-- **Tests Passing:** 21/21 (100%)
-- **Critical Paths:** ✅ **FULLY COVERED**
-  - Pool initialization: ✅ Fully covered (7 tests)
-  - Token minting/burning: ✅ Fully covered (2 tests)
-  - Bonding curve math: ✅ **BOTH QUADRATIC AND LINEAR REGIONS COVERED** (6 tests)
-  - Elastic-K mechanism: ✅ **TESTED VIA CROSS-MODULE INTEGRATION** (ProtocolTreasury)
-  - Authority validation: ✅ Fully covered (4 tests)
-  - Parameter validation: ✅ Fully covered (4 tests)
-  - SPL token compliance: ✅ Fully covered (3 tests)
-  - Minimum trade amounts: ✅ Fully covered (2 tests)
+- **Tests Passing:** 21/21 (100%) - **BUT TESTING WRONG CURVE MODEL!**
+- **Critical Issue:** Tests validate piecewise curve, implementation is pure quadratic
+
+### What's Actually Tested vs What Should Be Tested
+
+❌ **Bonding curve math:** Tests cover "quadratic AND linear regions" but implementation is PURE QUADRATIC ONLY
+  - 3 tests for "linear region" are testing non-existent functionality
+  - These tests likely pass due to mocking or incorrect assumptions
+
+⚠️ **Parameter validation:** 2 tests for `supply_cap` min/max validate fields that don't exist in struct
+
+✅ **Correct Coverage:**
+  - Pool initialization: Partially correct (needs supply_cap removal)
+  - Token minting/burning: ✅ Correct (2 tests)
+  - Pure quadratic math: ✅ Correct (3 tests)
+  - Elastic-K mechanism: ✅ Correct (via ProtocolTreasury integration)
+  - Authority validation: ✅ Correct (4 tests)
+  - SPL token compliance: ✅ Correct (3 tests)
+  - Minimum trade amounts: ✅ Correct (2 tests)
+
+### Missing Coverage
+
+❌ **Price floor mechanism** - NOT TESTED AT ALL
+  - No tests for PRICE_FLOOR ($0.0001) enforcement
+  - No tests for transition from floor to curve pricing
+  - This is a CRITICAL feature that's completely untested!
+
+### Recommended Actions
+
+1. **Remove invalid tests** (5 tests):
+   - 3 linear region tests
+   - 2 supply_cap validation tests
+
+2. **Add price floor tests** (3 new tests):
+   - Enforce minimum price at s=0
+   - Transition from floor to curve
+   - Verify floor applies throughout
+
+3. **Update remaining tests**: Remove supply_cap references from initialization tests

@@ -20,6 +20,18 @@ import { assert } from "chai";
 import * as crypto from "crypto";
 import { TEST_FACTORY_AUTHORITY, TEST_POOL_AUTHORITY } from "./utils/test-keypairs";
 
+/**
+ * Convert a string to a fixed-length byte array, padding with zeros.
+ */
+function stringToBytes(str: string, length: number): number[] {
+  const bytes = Buffer.from(str, 'utf8');
+  const result = new Array(length).fill(0);
+  for (let i = 0; i < Math.min(bytes.length, length); i++) {
+    result[i] = bytes[i];
+  }
+  return result;
+}
+
 describe("PoolFactory Tests", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
@@ -32,8 +44,7 @@ describe("PoolFactory Tests", () => {
   let factoryAuthority: Keypair;
   let poolAuthority: Keypair;
 
-  const TEST_K_QUADRATIC = new anchor.BN(200); // Updated for reserve-based system
-  const TEST_RESERVE_CAP = new anchor.BN(5_000_000_000); // $5K USDC
+  const TEST_K_QUADRATIC = new anchor.BN(200); // Pure quadratic bonding curve
 
   before(async () => {
     // Create mock USDC mint
@@ -196,9 +207,8 @@ describe("PoolFactory Tests", () => {
           .createPool(
             Array.from(postId),
             TEST_K_QUADRATIC,
-            TEST_RESERVE_CAP,
-            tokenName,
-            tokenSymbol
+            stringToBytes(tokenName, 32),
+            stringToBytes(tokenSymbol, 10)
           )
           .accounts({
             factory: factoryPda,
@@ -262,9 +272,8 @@ describe("PoolFactory Tests", () => {
           .createPool(
             Array.from(postId),
             TEST_K_QUADRATIC,
-            TEST_RESERVE_CAP,
-            tokenName,
-            tokenSymbol
+            stringToBytes(tokenName, 32),
+            stringToBytes(tokenSymbol, 10)
           )
           .accounts({
             factory: factoryPda,
@@ -321,9 +330,8 @@ describe("PoolFactory Tests", () => {
           .createPool(
             Array.from(postId),
             TEST_K_QUADRATIC,
-            TEST_RESERVE_CAP,
-            tokenName,
-            tokenSymbol
+            stringToBytes(tokenName, 32),
+            stringToBytes(tokenSymbol, 10)
           )
           .accounts({
             factory: factoryPda,
@@ -509,9 +517,8 @@ describe("PoolFactory Tests", () => {
           .createPool(
             Array.from(postId),
             TEST_K_QUADRATIC,
-            TEST_RESERVE_CAP,
-            tokenName,
-            tokenSymbol
+            stringToBytes(tokenName, 32),
+            stringToBytes(tokenSymbol, 10)
           )
           .accounts({
             factory: factoryPda,
@@ -536,9 +543,8 @@ describe("PoolFactory Tests", () => {
             .createPool(
               Array.from(postId),
               TEST_K_QUADRATIC,
-              TEST_RESERVE_CAP,
-              tokenName,
-              tokenSymbol
+              stringToBytes(tokenName, 32),
+              stringToBytes(tokenSymbol, 10)
             )
             .accounts({
               factory: factoryPda,
@@ -594,9 +600,8 @@ describe("PoolFactory Tests", () => {
             .createPool(
               Array.from(zeroPostId),
               TEST_K_QUADRATIC,
-              TEST_RESERVE_CAP,
-              tokenName,
-              tokenSymbol
+              stringToBytes(tokenName, 32),
+              stringToBytes(tokenSymbol, 10)
             )
             .accounts({
               factory: factoryPda,
@@ -657,9 +662,8 @@ describe("PoolFactory Tests", () => {
             .createPool(
               Array.from(postId),
               TEST_K_QUADRATIC,
-              TEST_RESERVE_CAP,
-              tokenName,
-              tokenSymbol
+              stringToBytes(tokenName, 32),
+              stringToBytes(tokenSymbol, 10)
             )
             .accounts({
               factory: factoryPda,

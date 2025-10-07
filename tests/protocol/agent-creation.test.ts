@@ -1,12 +1,17 @@
 /// <reference lib="deno.ns" />
 import { assertEquals } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
-import { SUPABASE_URL, headers } from '../test-config.ts'
+import { SUPABASE_URL, headers, getTestSolanaAddress } from '../test-config.ts'
 
 async function callAgentCreation(payload: any = {}) {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/protocol-agent-creation`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/app-user-creation`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      auth_provider: 'test',
+      auth_id: `test_${Date.now()}_${Math.random()}`,
+      solana_address: getTestSolanaAddress(),
+      ...payload
+    })
   })
   return { response, data: await response.json() }
 }

@@ -1,6 +1,17 @@
 import { PublicKey } from '@solana/web3.js';
 
 /**
+ * Solana Network Configuration
+ *
+ * Environment is determined by NEXT_PUBLIC_SOLANA_NETWORK:
+ * - 'localnet': Local test validator (default for development)
+ * - 'devnet': Solana devnet (for testing)
+ * - 'mainnet-beta': Solana mainnet (for production)
+ *
+ * Set this in your .env.local or deployment environment variables.
+ */
+
+/**
  * Get USDC mint address based on current network configuration
  * Network is determined by NEXT_PUBLIC_SOLANA_NETWORK environment variable
  */
@@ -37,10 +48,26 @@ export function getNetworkName(): string {
 }
 
 /**
- * Get RPC endpoint
+ * Get RPC endpoint based on network configuration
+ * Priority: Explicit env var > Network-based default
  */
 export function getRpcEndpoint(): string {
-  return process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || 'http://127.0.0.1:8899';
+  // If explicitly set, use it (for custom RPC providers like Helius, QuickNode)
+  if (process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT) {
+    return process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT;
+  }
+
+  // Otherwise, use network-appropriate defaults
+  const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'localnet';
+  switch (network) {
+    case 'mainnet-beta':
+      return 'https://api.mainnet-beta.solana.com';
+    case 'devnet':
+      return 'https://api.devnet.solana.com';
+    case 'localnet':
+    default:
+      return 'http://127.0.0.1:8899';
+  }
 }
 
 /**
