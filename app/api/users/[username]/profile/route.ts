@@ -63,26 +63,58 @@ export async function GET(
     // Extract solana_address from nested agents relation
     const solana_address = (user.agents as any)?.solana_address || null;
 
-    // Fetch user stats
-    // Count total posts created by this user
-    const { count: totalPosts, error: postsCountError } = await supabase
-      .from('posts')
-      .select('id', { count: 'exact', head: true })
-      .eq('author_id', user.id);
+    // Fetch all data in parallel for better performance
+    const [
+      { count: totalPosts, error: postsCountError },
+      { data: agentData, error: agentError },
+      { data: recentPosts, error: postsError }
+    ] = await Promise.all([
+      // Count total posts created by this user
+      supabase
+        .from('posts')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id),
+
+      // Get total stake from agents table
+      supabase
+        .from('agents')
+        .select('total_stake')
+        .eq('id', user.agent_id)
+        .single(),
+
+      // Fetch recent posts (limit to 10 most recent) - USING NEW SCHEMA
+      // NOTE: We don't fetch content_json here to improve performance - it's large and not needed for list view
+      supabase
+        .from('posts')
+        .select(`
+          id,
+          post_type,
+          content_text,
+          caption,
+          media_urls,
+          created_at,
+          pool_deployments!left(
+            pool_address,
+            token_supply,
+            reserve,
+            k_quadratic
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10)
+    ]);
 
     if (postsCountError) {
       console.error('Posts count error:', postsCountError);
     }
 
-    // Get total stake from agents table
-    const { data: agentData, error: agentError } = await supabase
-      .from('agents')
-      .select('total_stake')
-      .eq('id', user.agent_id)
-      .single();
-
     if (agentError) {
       console.error('Agent fetch error:', agentError);
+    }
+
+    if (postsError) {
+      console.error('Posts fetch error:', postsError);
     }
 
     const stats = {
@@ -90,51 +122,33 @@ export async function GET(
       total_posts: totalPosts || 0,
     };
 
-    // Fetch recent posts (limit to 10 most recent)
-    const { data: recentPosts, error: postsError } = await supabase
-      .from('posts')
-      .select(`
-        id,
-        headline,
-        content,
-        created_at,
-        author_id,
-        pool_address,
-        pool_token_supply,
-        pool_reserve_balance,
-        pool_k_quadratic,
-        users(
-          id,
-          username,
-          display_name,
-          avatar_url
-        )
-      `)
-      .eq('author_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (postsError) {
-      console.error('Posts fetch error:', postsError);
-    }
-
-    // Transform posts to match Post type
-    const recent_posts = (recentPosts || []).map((post: any) => ({
-      id: post.id,
-      title: post.title,
-      content: post.content,
-      timestamp: post.created_at,
-      author: {
-        id: post.users?.id || user.id,
-        name: post.users?.display_name || post.users?.username || 'Unknown',
-        username: post.users?.username || '',
-        avatar: post.users?.avatar_url || null,
-      },
-      poolAddress: post.pool_address,
-      poolTokenSupply: post.pool_token_supply,
-      poolReserveBalance: post.pool_reserve_balance,
-      poolKQuadratic: post.pool_k_quadratic,
-    }));
+    // Transform posts to match new Post type schema
+    const recent_posts = (recentPosts || []).map((post: any) => {
+      const pool = post.pool_deployments?.[0];
+      return {
+        id: post.id,
+        post_type: post.post_type || 'text',
+        content_text: post.content_text,
+        caption: post.caption,
+        media_urls: post.media_urls,
+        timestamp: post.created_at,
+        author: {
+          id: user.id,
+          username: user.username,
+          display_name: user.display_name,
+          avatar_url: user.avatar_url || null,
+        },
+        belief: null, // TODO: Implement belief aggregation from belief_submissions
+        poolAddress: pool?.pool_address || null,
+        poolTokenSupply: pool?.token_supply || null,
+        poolReserveBalance: pool?.reserve ? pool.reserve * 1_000_000 : null, // Convert to micro-USDC
+        poolKQuadratic: pool?.k_quadratic || null,
+        // Default values for required fields
+        relevanceScore: 0,
+        signals: { truth: 0, novelty: 0, importance: 0, virality: 0 },
+        discussionCount: 0,
+      };
+    });
 
     // Construct profile response
     const profileData = {

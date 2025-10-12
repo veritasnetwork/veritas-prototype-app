@@ -6,7 +6,7 @@ import { usePrivy } from '@privy-io/react-auth';
 import { buildSellTransaction } from '@/lib/solana/sell-transaction';
 import { getRpcEndpoint, getProgramId } from '@/lib/solana/network-config';
 
-export function useSellTokens() {
+export function useSellTokens(onSuccess?: () => void) {
   const { wallet, address } = useSolanaWallet();
   const { user } = useAuth();
   const { getAccessToken } = usePrivy();
@@ -71,47 +71,57 @@ export function useSellTokens() {
       }
 
       // Deserialize pool account (simplified - just extract the data we need)
-      // Pool struct: creator(32) + token_mint(32) + usdc_vault(32) + k_quadratic(8) + token_supply(8) + reserve(8)
+      // Account layout: discriminator(8) + post_id(32) + k_quadratic(16) + token_supply(16) + reserve(16) + ...
+      // All u128 fields are 16 bytes (little-endian)
       const data = poolAccountAfter.data;
-      const tokenSupplyAfter = Number(data.readBigUInt64LE(112)); // offset for token_supply
-      const reserveAfter = Number(data.readBigUInt64LE(120)); // offset for reserve
-      const kQuadratic = Number(data.readBigUInt64LE(104)); // offset for k_quadratic
+
+      // Helper to read u128 as BigInt, then convert to Number (safe for values < 2^53)
+      const readU128LE = (offset: number): number => {
+        const low = data.readBigUInt64LE(offset);
+        const high = data.readBigUInt64LE(offset + 8);
+        return Number((high << 64n) | low);
+      };
+
+      const kQuadratic = readU128LE(40); // offset: 8 (discriminator) + 32 (post_id) = 40
+      const tokenSupplyAfter = readU128LE(56); // offset: 40 + 16 (k_quadratic) = 56
+      const reserveAfter = readU128LE(72); // offset: 56 + 16 (token_supply) = 72
 
       // Calculate USDC received (approximate from curve)
       const usdcReceived = Math.floor(tokenAmount * 1000); // Simplified, real calc is more complex
 
-      // Record trade in database
-      const jwt = await getAccessToken();
-      if (jwt) {
-        try {
-          const response = await fetch('/api/supabase/functions/v1/solana-record-trade', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${jwt}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              user_id: user.id,
-              pool_address: poolAddress,
-              post_id: postId,
-              wallet_address: address,
-              trade_type: 'sell',
-              token_amount: tokenAmount.toString(),
-              usdc_amount: usdcReceived.toString(),
-              token_supply_after: tokenSupplyAfter.toString(),
-              reserve_after: reserveAfter.toString(),
-              k_quadratic: kQuadratic.toString(),
-              tx_signature: signature
-            })
-          });
+      // Record trade in database via Next.js API route
+      try {
+        const response = await fetch('/api/trades/record', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            pool_address: poolAddress,
+            post_id: postId,
+            wallet_address: address,
+            trade_type: 'sell',
+            token_amount: tokenAmount.toString(),
+            usdc_amount: usdcReceived.toString(),
+            token_supply_after: tokenSupplyAfter.toString(),
+            reserve_after: reserveAfter.toString(),
+            k_quadratic: kQuadratic.toString(),
+            tx_signature: signature
+          })
+        });
 
-          if (!response.ok) {
-            console.error('Failed to record trade:', await response.text());
-          }
-        } catch (recordError) {
-          console.error('Error recording trade:', recordError);
-          // Don't fail the whole transaction if recording fails
+        if (!response.ok) {
+          console.error('Failed to record trade:', await response.text());
         }
+      } catch (recordError) {
+        console.error('Error recording trade:', recordError);
+        // Don't fail the whole transaction if recording fails
+      }
+
+      // Call success callback to trigger UI refresh
+      if (onSuccess) {
+        onSuccess();
       }
 
       return signature;

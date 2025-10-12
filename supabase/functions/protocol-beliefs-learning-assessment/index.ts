@@ -101,7 +101,7 @@ serve(async (req) => {
       .from('beliefs')
       .update({
         previous_disagreement_entropy: post_mirror_descent_disagreement_entropy,
-        previous_aggregate: post_mirror_descent_aggregate
+        previous_aggregate: post_mirror_descent_aggregate ?? 0.5 // Default to neutral if NULL
       })
       .eq('id', belief_id)
 

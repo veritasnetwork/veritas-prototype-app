@@ -15,36 +15,32 @@ pub fn calculate_buy_supply(
         .checked_add(usdc_amount)
         .ok_or(ErrorCode::NumericalOverflow)?;
 
-    // If starting from s0=0 with price floor, handle specially
-    if s0 == 0 && reserve0 == 0 {
-        // First purchase at price floor
-        let tokens_at_floor = usdc_amount
-            .checked_mul(RATIO_PRECISION).ok_or(ErrorCode::NumericalOverflow)?
-            .checked_div(PRICE_FLOOR).ok_or(ErrorCode::NumericalOverflow)?;
-
-        // Check if we've bought enough to exceed floor price
-        let price_at_new_supply = calculate_price_with_floor(tokens_at_floor, k_quadratic)?;
-        if price_at_new_supply > PRICE_FLOOR {
-            // Need to recalculate: some bought at floor, rest follows curve
-            // This is complex, so approximate by using average price
-            let avg_price = PRICE_FLOOR.checked_add(price_at_new_supply).ok_or(ErrorCode::NumericalOverflow)?
-                .checked_div(2).ok_or(ErrorCode::NumericalOverflow)?;
-            return usdc_amount
-                .checked_mul(RATIO_PRECISION).ok_or(ErrorCode::NumericalOverflow)?
-                .checked_div(avg_price).ok_or(ErrorCode::NumericalOverflow.into());
-        }
-        return Ok(tokens_at_floor);
-    }
-
     // Standard quadratic calculation
     // Use reserve-based formula: reserve = k * s^3 / 3
+    // Solving for s: s = cbrt(3 * reserve / k)
     let term = new_reserve
         .checked_mul(3)
         .ok_or(ErrorCode::NumericalOverflow)?
         .checked_div(k_quadratic)
         .ok_or(ErrorCode::NumericalOverflow)?;
 
-    integer_cbrt(term)
+    let new_supply = integer_cbrt(term)?;
+
+    // Enforce price floor by checking if we're below the floor threshold
+    // Floor threshold is where k * s^2 = PRICE_FLOOR, so s_floor = sqrt(PRICE_FLOOR / k)
+    // For k=1, PRICE_FLOOR=100: s_floor = 10
+    let s_floor_squared = PRICE_FLOOR.checked_div(k_quadratic).ok_or(ErrorCode::NumericalOverflow)?;
+
+    if new_supply.checked_pow(2).ok_or(ErrorCode::NumericalOverflow)? < s_floor_squared {
+        // We're below floor - calculate tokens at floor price
+        // tokens = usdc_amount / floor_price
+        return usdc_amount
+            .checked_mul(RATIO_PRECISION).ok_or(ErrorCode::NumericalOverflow)?
+            .checked_div(PRICE_FLOOR)
+            .ok_or(ErrorCode::NumericalOverflow.into());
+    }
+
+    Ok(new_supply)
 }
 
 /// Calculate USDC payout for selling tokens

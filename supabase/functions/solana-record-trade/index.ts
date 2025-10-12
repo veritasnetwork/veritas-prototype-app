@@ -13,9 +13,14 @@ serve(async (req) => {
   }
 
   try {
+    console.log('[EDGE FUNCTION] solana-record-trade started');
+
     // Get JWT from Authorization header
     const authHeader = req.headers.get('Authorization');
+    console.log('[EDGE FUNCTION] Authorization header present:', !!authHeader);
+
     if (!authHeader) {
+      console.error('[EDGE FUNCTION] Missing authorization header');
       return new Response(
         JSON.stringify({ error: 'Missing authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -23,9 +28,11 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
+    console.log('[EDGE FUNCTION] Token extracted (first 20 chars):', token.substring(0, 20) + '...');
 
-    // TODO: Add Privy JWT verification
-    // For now, we'll trust the token and extract user_id from request body
+    // Skip JWT verification for now - user is already authenticated on client
+    // TODO: Implement proper JWT verification when moving to production
+    console.log('[EDGE FUNCTION] Skipping JWT verification (development mode)');
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,

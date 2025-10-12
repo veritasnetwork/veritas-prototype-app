@@ -97,20 +97,31 @@ Display user profile with stats, stake information, and recent activity.
   - Color: `var(--text-primary)`
   - Formatted: "$1,234" for stake, "12" for posts
 
-### Recent Activity Section
-- **Heading**: "Recent Activity"
-  - Font: Bold, 20px
-  - Color: `var(--text-primary)`
-  - Margin: 32px 0 16px
-  - Border-bottom: 1px solid `var(--border)`
-  - Padding-bottom: 8px
+### Tab Navigation (NEW)
+- **Position**: Below stats grid
+- **Tabs**: Posts | Holdings
+- **Style**:
+  - Container: Border-bottom 1px solid `var(--border)`
+  - Tab buttons:
+    - Padding: 12px 20px
+    - Font: 15px medium
+    - Color: `var(--text-secondary)` (inactive)
+    - Active color: `var(--text-primary)`
+    - Active indicator: 2px bottom border `var(--accent-primary)`
+    - Hover: Background `var(--bg-hover)`
+  - Layout: Horizontal flex, gap 4px
+  - Margin-bottom: 24px
+
+### Tab 1: Posts (Default)
+Shows user's created posts in reverse chronological order.
+
 - **Posts List**:
   - Display: Flex column
   - Gap: 12px
-  - Rendered as `<PostCard>` components (compact variant)
+  - Rendered as `<PostCard>` components (full cards, same as feed)
+  - Limit: 10 most recent
 
-### Empty Activity State
-When user has no posts:
+**Empty State** - When user has no posts:
 ```
 ┌─────────────────────────────────────┐
 │                                     │
@@ -121,6 +132,59 @@ When user has no posts:
 │                                     │
 └─────────────────────────────────────┘
 ```
+
+### Tab 2: Holdings (NEW)
+Shows posts where the user holds tokens, sorted by USD value (highest first).
+
+- **Holdings List**:
+  - Display: Flex column
+  - Gap: 8px (tighter than posts)
+  - Rendered as `<CompactPostCard>` components
+  - Each card shows:
+    - Post title (or content preview if no title)
+    - Token balance
+    - Current USD value
+    - Current token price
+  - Sorted by: `token_balance * current_price` descending
+  - Empty state: "You don't own any tokens yet"
+
+**Example**:
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Understanding BTS and belief markets               $0.0081  │
+│ @alice • 3h ago                                              │
+│ 1,250 tokens • $10.13                                        │
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ The future of decentralized curation              $0.0042  │
+│ @bob • 1d ago                                                │
+│ 500 tokens • $2.10                                           │
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ This post has no title so we show the first...    $0.0015  │
+│ @charlie • 2d ago                                            │
+│ 100 tokens • $0.15                                           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Empty State** - When user holds no tokens:
+```
+┌─────────────────────────────────────┐
+│                                     │
+│     No holdings yet                 │
+│     Buy tokens to support posts!    │
+│                                     │
+│     [Browse Feed]                   │
+│                                     │
+└─────────────────────────────────────┘
+```
+
+**Data Requirements**:
+- Query `user_pool_balances` table for user's holdings
+- Filter: `token_balance > 0`
+- Join with `posts` and `pool_deployments` tables
+- Calculate current price from pool state
+- Calculate USD value: `token_balance * current_price`
 
 ## States
 
@@ -169,9 +233,67 @@ interface ProfileData {
 }
 ```
 
-### API Endpoint
+### API Endpoints
+
+#### GET /api/users/{username}/profile
+Returns user profile data with stats and recent posts.
+
 ```typescript
-GET /api/users/{username}/profile
+Response: {
+  user: { id, username, display_name, avatar_url, solana_address },
+  stats: { total_stake, total_posts },
+  recent_posts: Post[]
+}
+```
+
+#### GET /api/users/{username}/holdings (NEW)
+Returns user's token holdings with post data.
+
+```typescript
+Response: {
+  holdings: Array<{
+    post: {
+      id: string;
+      title?: string;
+      content: string;
+      user_id: string;
+      created_at: string;
+      author: {
+        username: string;
+        display_name: string;
+      };
+    };
+    pool: {
+      pool_address: string;
+      token_supply: number;
+      reserve: number;
+      k_quadratic: number;
+      current_price: number; // calculated
+    };
+    balance: {
+      token_balance: number;
+      current_value_usdc: number; // calculated: token_balance * current_price
+      total_usdc_spent: number;
+      total_bought: number;
+    };
+  }>
+}
+```
+
+**Query**:
+```sql
+SELECT
+  upb.*,
+  p.id, p.title, p.content, p.user_id, p.created_at,
+  u.username, u.display_name,
+  pd.pool_address, pd.token_supply, pd.reserve, pd.k_quadratic
+FROM user_pool_balances upb
+JOIN posts p ON upb.post_id = p.id
+JOIN users u ON p.user_id = u.id
+JOIN pool_deployments pd ON upb.pool_address = pd.pool_address
+WHERE upb.user_id = $user_id
+  AND upb.token_balance > 0
+ORDER BY (upb.token_balance * (pd.reserve / (pd.k_quadratic * POWER(pd.token_supply, 2)))) DESC
 ```
 
 ## Interactions

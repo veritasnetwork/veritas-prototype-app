@@ -18,8 +18,21 @@ export async function syncPoolData(
   postId: string,
   poolAddress: string
 ): Promise<PoolData> {
-  // Fetch account data directly via RPC (no Solana web3.js needed)
-  const response = await fetch(rpcEndpoint, {
+  // First, get the vault address from database
+  const { data: poolData, error: poolError } = await supabaseClient
+    .from('pool_deployments')
+    .select('usdc_vault_address')
+    .eq('post_id', postId)
+    .single()
+
+  if (poolError || !poolData) {
+    throw new Error(`Pool deployment not found for post: ${postId}`)
+  }
+
+  const vaultAddress = poolData.usdc_vault_address
+
+  // Fetch pool account data for token supply
+  const poolResponse = await fetch(rpcEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -33,35 +46,58 @@ export async function syncPoolData(
     })
   })
 
-  const { result } = await response.json()
+  const { result: poolResult } = await poolResponse.json()
 
-  if (!result || !result.value) {
+  if (!poolResult || !poolResult.value) {
     throw new Error(`Pool account not found: ${poolAddress}`)
   }
 
-  // Decode base64 account data
-  const accountData = result.value.data[0]
-  const buffer = Uint8Array.from(atob(accountData), c => c.charCodeAt(0))
+  // Decode pool account data for token supply
+  const poolAccountData = poolResult.value.data[0]
+  const poolBuffer = Uint8Array.from(atob(poolAccountData), c => c.charCodeAt(0))
 
-  // Parse ContentPool struct manually
-  // Layout: discriminator (8) + authority (32) + k_quadratic (16) + token_supply (16) + reserve (16) + ...
-  // See: solana/veritas-curation/programs/veritas-curation/src/content_pool/state.rs
-
+  // Parse ContentPool struct for token_supply only
+  // Layout: discriminator (8) + authority (32) + k_quadratic (16) + token_supply (16) + ...
   const offset_token_supply = 8 + 32 + 16  // 56
-  const offset_reserve = offset_token_supply + 16  // 72
+  const tokenSupply = readU128LE(poolBuffer, offset_token_supply)
 
-  // Read u128 values (16 bytes each, little-endian)
-  const tokenSupply = readU128LE(buffer, offset_token_supply)
-  const reserve = readU128LE(buffer, offset_reserve)
+  // Fetch vault account data for ACTUAL reserve balance (source of truth)
+  const vaultResponse = await fetch(rpcEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'getAccountInfo',
+      params: [
+        vaultAddress,
+        { encoding: 'base64' }
+      ]
+    })
+  })
+
+  const { result: vaultResult } = await vaultResponse.json()
+
+  if (!vaultResult || !vaultResult.value) {
+    throw new Error(`Vault account not found: ${vaultAddress}`)
+  }
+
+  // Decode SPL token account data
+  // SPL Token Account layout: mint(32) + owner(32) + amount(8) + ...
+  const vaultAccountData = vaultResult.value.data[0]
+  const vaultBuffer = Uint8Array.from(atob(vaultAccountData), c => c.charCodeAt(0))
+
+  // Read amount field (64 bytes offset: mint 32 + owner 32)
+  const vaultBalance = readU64LE(vaultBuffer, 64)
 
   const syncedAt = new Date().toISOString()
 
-  // Update database
+  // Update database with actual vault balance
   const { error: updateError } = await supabaseClient
     .from('pool_deployments')
     .update({
       token_supply: tokenSupply.toString(),
-      reserve: reserve.toString(),
+      reserve: vaultBalance.toString(),
       last_synced_at: syncedAt
     })
     .eq('post_id', postId)
@@ -72,7 +108,7 @@ export async function syncPoolData(
 
   return {
     token_supply: tokenSupply.toString(),
-    reserve: reserve.toString(),
+    reserve: vaultBalance.toString(),
     synced_at: syncedAt
   }
 }
@@ -81,6 +117,15 @@ export async function syncPoolData(
 function readU128LE(buffer: Uint8Array, offset: number): bigint {
   let value = 0n
   for (let i = 0; i < 16; i++) {
+    value |= BigInt(buffer[offset + i]) << BigInt(i * 8)
+  }
+  return value
+}
+
+// Helper: Read u64 little-endian from buffer
+function readU64LE(buffer: Uint8Array, offset: number): bigint {
+  let value = 0n
+  for (let i = 0; i < 8; i++) {
     value |= BigInt(buffer[offset + i]) << BigInt(i * 8)
   }
   return value

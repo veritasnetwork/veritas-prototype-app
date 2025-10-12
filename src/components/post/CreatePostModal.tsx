@@ -6,21 +6,35 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
 import { Connection } from '@solana/web3.js';
 import { buildCreatePoolTransaction } from '@/lib/solana/pool-deployment-transaction';
+import type { PostType, TiptapDocument } from '@/types/post.types';
+import { FileText, Image as ImageIcon, Video } from 'lucide-react';
+import { TiptapEditor } from './TiptapEditor';
+import { ImageUpload } from './ImageUpload';
+import { VideoUpload } from './VideoUpload';
 
 interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onPostCreated?: () => void;
 }
 
-export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
+export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostModalProps) {
   const { getAccessToken } = usePrivy();
   const { user } = useAuth();
   const { wallet, address: solanaAddress } = useSolanaWallet();
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+
+  // NEW SCHEMA STATE
+  const [postType, setPostType] = useState<PostType>('text');
+  const [contentJson, setContentJson] = useState<TiptapDocument | null>(null); // Rich text content
+  const [caption, setCaption] = useState(''); // For image/video posts (280 chars max)
+  const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null); // Single media URL
+
+  // ARTICLE-SPECIFIC STATE
+  const [articleTitle, setArticleTitle] = useState(''); // Optional title for articles
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null); // Optional cover for articles (requires title)
+  const [showTitleCover, setShowTitleCover] = useState(false); // Toggle for title/cover section
+
   const [duration, setDuration] = useState(48);
-  const [belief, setBelief] = useState(50);
-  const [metaBelief, setMetaBelief] = useState(50);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [poolConfig, setPoolConfig] = useState<{
@@ -68,33 +82,91 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
       document.removeEventListener('keydown', handleCmdEnter);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, title, content]);
+  }, [isOpen, contentJson, caption, uploadedMediaUrl]);
 
-  const handleClose = () => {
-    if ((title || content) && !isSubmitting) {
-      if (!confirm('Discard post?')) return;
+  const handleClose = async () => {
+    // Don't close if already submitting
+    if (isSubmitting) return;
+
+    // Clean up any uploaded media from storage before closing
+    const mediaToDelete: string[] = [];
+
+    if (uploadedMediaUrl) {
+      mediaToDelete.push(uploadedMediaUrl);
     }
-    setTitle('');
-    setContent('');
+    if (coverImageUrl) {
+      mediaToDelete.push(coverImageUrl);
+    }
+
+    // Delete uploaded files from backend
+    if (mediaToDelete.length > 0) {
+      try {
+        const token = await getAccessToken();
+        if (token) {
+          for (const url of mediaToDelete) {
+            // Extract file path from URL
+            const match = url.match(/\/storage\/v1\/object\/public\/veritas-media\/(.+)$/);
+            if (match && match[1]) {
+              await fetch('/api/media/delete', {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ path: match[1] }),
+              }).catch(err => console.warn('Failed to delete media:', err));
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Error cleaning up media:', error);
+      }
+    }
+
+    // Reset state and close
+    setPostType('text');
+    setContentJson(null);
+    setCaption('');
+    setUploadedMediaUrl(null);
+    setArticleTitle('');
+    setCoverImageUrl(null);
     setDuration(48);
-    setBelief(50);
-    setMetaBelief(50);
     setError(null);
     onClose();
   };
 
+
   const handleSubmit = async () => {
     console.log('🚀 handleSubmit called');
-    console.log('Title:', title.trim());
-    console.log('Content:', content.trim());
+    console.log('Post type:', postType);
     console.log('User:', user);
     console.log('Wallet:', wallet);
     console.log('Solana Address:', solanaAddress);
 
-    if (!title.trim() || !content.trim()) {
-      console.log('❌ Validation failed: title or content empty');
+    // Validate based on post type
+    if (postType === 'text' && !contentJson) {
+      setError('Please enter some content');
       return;
     }
+    if ((postType === 'image' || postType === 'video') && !uploadedMediaUrl) {
+      setError(`Please upload ${postType === 'image' ? 'an image' : 'a video'}`);
+      return;
+    }
+    if (caption && caption.length > 280) {
+      setError('Caption must be 280 characters or less');
+      return;
+    }
+
+    // Validate article-specific fields
+    if (articleTitle && articleTitle.length > 200) {
+      setError('Article title must be 200 characters or less');
+      return;
+    }
+    if (coverImageUrl && !articleTitle.trim()) {
+      setError('Cover image requires a title');
+      return;
+    }
+
     if (isSubmitting) {
       console.log('❌ Already submitting');
       return;
@@ -171,7 +243,7 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
       }
 
       console.log('Calling wallet.signTransaction...');
-      // @ts-ignore - Privy wallet has signTransaction method
+      // @ts-expect-error - Privy wallet has signTransaction method
       const signedTx = await wallet.signTransaction(transaction);
       console.log('✅ Transaction signed');
 
@@ -223,10 +295,13 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
         },
         body: JSON.stringify({
           user_id: user.id,
-          title: title.trim(),
-          content: content.trim(),
-          initial_belief: belief / 100, // Convert 0-100 to 0-1
-          meta_belief: metaBelief / 100, // Convert 0-100 to 0-1
+          post_type: postType,
+          content_json: postType === 'text' ? contentJson : undefined,
+          media_urls: (postType === 'image' || postType === 'video') && uploadedMediaUrl ? [uploadedMediaUrl] : undefined,
+          caption: (postType === 'image' || postType === 'video') ? caption || undefined : undefined,
+          article_title: postType === 'text' && articleTitle ? articleTitle : undefined,
+          cover_image_url: postType === 'text' && coverImageUrl ? coverImageUrl : undefined,
+          // initial_belief and meta_belief are now optional - not sent
           belief_duration_hours: duration,
           post_id: tempPostId, // Use the same ID we used for the pool
           tx_signature: signature, // Include the transaction signature
@@ -251,16 +326,21 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
 
       console.log('✅ Post and pool deployment recorded successfully!');
 
-      // Success - reset and close
-      setTitle('');
-      setContent('');
+      // Success - reset and close IMMEDIATELY for better UX
+      setPostType('text');
+      setContentJson(null);
+      setCaption('');
+      setUploadedMediaUrl(null);
+      setArticleTitle('');
+      setCoverImageUrl(null);
       setDuration(48);
-      setBelief(50);
-      setMetaBelief(50);
+      setError(null);
       onClose();
 
-      // Refresh the page to show new post
-      window.location.reload();
+      // Trigger refetch in background (non-blocking)
+      if (onPostCreated) {
+        setTimeout(() => onPostCreated(), 100);
+      }
     } catch (err) {
       console.error('Post creation error:', err);
 
@@ -301,7 +381,10 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
 
   if (!isOpen) return null;
 
-  const isValid = title.trim().length > 0 && content.trim().length > 0;
+  // Validation based on post type
+  const isValid =
+    (postType === 'text' && contentJson !== null) ||
+    ((postType === 'image' || postType === 'video') && uploadedMediaUrl !== null);
 
   return (
     <div
@@ -311,24 +394,21 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
       }}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
       {/* Modal */}
       <div
-        className="relative bg-eggshell border border-eggshell-dark rounded-lg md:rounded-xl shadow-xl w-full max-w-2xl mx-4 md:mx-0 max-h-[90vh] flex flex-col"
+        className="relative bg-[#1a1a1a] border border-gray-800 rounded-lg md:rounded-xl shadow-2xl w-full max-w-2xl mx-4 md:mx-0 max-h-[90vh] flex flex-col"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 md:px-8 py-6 border-b border-eggshell-dark">
-          <h2 id="modal-title" className="text-2xl font-bold text-text-primary">
-            Create Post
-          </h2>
+        <div className="flex items-center justify-end px-6 md:px-8 py-3">
           <button
             onClick={handleClose}
             disabled={isSubmitting}
-            className="w-10 h-10 flex items-center justify-center rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
             aria-label="Close modal"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -339,98 +419,173 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 md:px-8 py-6 space-y-6">
-          {/* Title Input */}
+          {/* Post Type Selector */}
           <div>
-            <label htmlFor="post-title" className="block text-sm font-medium text-text-secondary mb-2">
-              Title
-            </label>
-            <input
-              id="post-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter post title..."
-              maxLength={200}
-              disabled={isSubmitting}
-              className="input w-full"
-              autoFocus
-            />
-            <div className="text-xs text-text-tertiary text-right mt-1">
-              {title.length}/200
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setPostType('text')}
+                disabled={isSubmitting}
+                className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                  postType === 'text'
+                    ? 'border-[#B9D9EB] bg-[#B9D9EB]/10 text-[#B9D9EB]'
+                    : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600'
+                }`}
+              >
+                <FileText className="w-6 h-6" />
+                <span className="text-sm font-medium">Text</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPostType('image')}
+                disabled={isSubmitting}
+                className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                  postType === 'image'
+                    ? 'border-[#B9D9EB] bg-[#B9D9EB]/10 text-[#B9D9EB]'
+                    : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600'
+                }`}
+              >
+                <ImageIcon className="w-6 h-6" />
+                <span className="text-sm font-medium">Image</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPostType('video')}
+                disabled={isSubmitting}
+                className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                  postType === 'video'
+                    ? 'border-[#B9D9EB] bg-[#B9D9EB]/10 text-[#B9D9EB]'
+                    : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600'
+                }`}
+              >
+                <Video className="w-6 h-6" />
+                <span className="text-sm font-medium">Video</span>
+              </button>
             </div>
           </div>
 
-          {/* Content Input */}
-          <div>
-            <label htmlFor="post-content" className="block text-sm font-medium text-text-secondary mb-2">
-              Content
-            </label>
-            <textarea
-              id="post-content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Share your thoughts..."
-              maxLength={2000}
-              rows={8}
-              disabled={isSubmitting}
-              className="input w-full resize-y min-h-[200px]"
-            />
-            <div className="text-xs text-text-tertiary text-right mt-1">
-              {content.length}/2000
-            </div>
-          </div>
+          {/* Content Input - Based on Post Type */}
+          {postType === 'text' && (
+            <div className="space-y-4">
+              {/* Rich Text Editor - Primary input */}
+              <div>
+                <TiptapEditor
+                  content={contentJson}
+                  onChange={setContentJson}
+                  placeholder="What's on your mind?"
+                  disabled={isSubmitting}
+                />
+              </div>
 
-          {/* Belief Slider */}
-          <div>
-            <label htmlFor="belief-slider" className="block text-sm font-medium text-text-secondary mb-2">
-              Relevance Belief: {belief}%
-            </label>
-            <p className="text-xs text-text-tertiary mb-3">
-              How relevant do you think this content is? (0 = Not relevant, 100 = Highly relevant)
-            </p>
-            <input
-              id="belief-slider"
-              type="range"
-              min="0"
-              max="100"
-              value={belief}
-              onChange={(e) => setBelief(Number(e.target.value))}
-              disabled={isSubmitting}
-              className="w-full h-2 bg-border rounded-lg appearance-none cursor-pointer accent-accent-primary"
-            />
-            <div className="flex justify-between text-xs text-text-tertiary mt-1">
-              <span>Not Relevant</span>
-              <span>Highly Relevant</span>
-            </div>
-          </div>
+              {/* Toggle button for title & cover */}
+              <button
+                type="button"
+                onClick={() => setShowTitleCover(!showTitleCover)}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 text-sm text-gray-400 hover:text-blue-400 transition-colors"
+              >
+                <span className="text-lg">{showTitleCover ? '−' : '⊕'}</span>
+                <span>Add title & cover (optional)</span>
+              </button>
 
-          {/* Meta-Belief Slider */}
-          <div>
-            <label htmlFor="meta-belief-slider" className="block text-sm font-medium text-text-secondary mb-2">
-              Meta-Belief: {metaBelief}%
-            </label>
-            <p className="text-xs text-text-tertiary mb-3">
-              What do you think others will believe about its relevance?
-            </p>
-            <input
-              id="meta-belief-slider"
-              type="range"
-              min="0"
-              max="100"
-              value={metaBelief}
-              onChange={(e) => setMetaBelief(Number(e.target.value))}
-              disabled={isSubmitting}
-              className="w-full h-2 bg-border rounded-lg appearance-none cursor-pointer accent-accent-primary"
-            />
-            <div className="flex justify-between text-xs text-text-tertiary mt-1">
-              <span>Low</span>
-              <span>High</span>
+              {/* Collapsible Title & Cover Section */}
+              {showTitleCover && (
+                <div className="space-y-4 pt-2 border-t border-gray-800">
+                  {/* Title Input */}
+                  <div>
+                    <input
+                      id="article-title"
+                      type="text"
+                      value={articleTitle}
+                      onChange={(e) => setArticleTitle(e.target.value)}
+                      placeholder="Title (optional)"
+                      maxLength={200}
+                      disabled={isSubmitting}
+                      className="input w-full"
+                    />
+                    <div className="text-xs text-gray-500 text-right mt-1">
+                      {articleTitle.length}/200
+                    </div>
+                  </div>
+
+                  {/* Cover Image Upload (Only show if title has been entered) */}
+                  {articleTitle.trim() && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Cover Image (optional)
+                      </label>
+                      <ImageUpload
+                        currentUrl={coverImageUrl}
+                        onUpload={setCoverImageUrl}
+                        onRemove={() => setCoverImageUrl(null)}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {postType === 'image' && (
+            <div className="space-y-4">
+              <div>
+                <ImageUpload
+                  currentUrl={uploadedMediaUrl}
+                  onUpload={setUploadedMediaUrl}
+                  onRemove={() => setUploadedMediaUrl(null)}
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div>
+                <textarea
+                  id="caption"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="Add a caption..."
+                  maxLength={280}
+                  rows={3}
+                  disabled={isSubmitting}
+                  className="input w-full resize-none"
+                />
+                <div className="text-xs text-gray-500 text-right mt-1">
+                  {caption.length}/280
+                </div>
+              </div>
+            </div>
+          )}
+
+          {postType === 'video' && (
+            <div className="space-y-4">
+              <div>
+                <VideoUpload
+                  currentUrl={uploadedMediaUrl}
+                  onUpload={setUploadedMediaUrl}
+                  onRemove={() => setUploadedMediaUrl(null)}
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div>
+                <textarea
+                  id="caption"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="Add a caption..."
+                  maxLength={280}
+                  rows={3}
+                  disabled={isSubmitting}
+                  className="input w-full resize-none"
+                />
+                <div className="text-xs text-gray-500 text-right mt-1">
+                  {caption.length}/280
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Duration Dropdown */}
           <div>
-            <label htmlFor="post-duration" className="block text-sm font-medium text-text-secondary mb-2">
+            <label htmlFor="post-duration" className="block text-sm font-medium text-gray-300 mb-2">
               Belief Duration
             </label>
             <select
@@ -456,7 +611,7 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 md:px-8 py-6 border-t border-eggshell-dark">
+        <div className="flex items-center justify-end gap-3 px-6 md:px-8 py-6 border-t border-gray-800">
           <button
             onClick={handleClose}
             disabled={isSubmitting}

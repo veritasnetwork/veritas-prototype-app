@@ -1,45 +1,47 @@
-# Veritas Design System Specification v2.0
+# Veritas Design System Specification v3.0
 
 ## Design Philosophy
-Clean, minimal, light design inspired by Spotify and Apple. Sophisticated use of white space with subtle color accents. Light-first design with elegant typography and smooth interactions.
+Clean, minimal, dark design inspired by Substack. Sophisticated use of dark backgrounds with high-contrast white text. Content-first design with generous whitespace, elegant typography, and smooth interactions. Modern, premium aesthetic that reduces eye strain and emphasizes content.
 
 ## Color Palette
 
-### Light Mode (Primary)
+### Dark Mode (Primary)
 
 #### Backgrounds
-- **Background Primary**: `#ffffff` - Main app background (pure white)
-- **Background Secondary**: `#F0EAD6` - Eggshell for elevated surfaces, subtle sections
-- **Background Hover**: `#f8f8f8` - Hover states for interactive elements
-- **CSS Variables**: `--bg-primary`, `--bg-secondary`, `--bg-hover`
+- **Background Primary**: `#0f0f0f` - Main app background (very dark, almost black)
+- **Background Secondary**: `#1a1a1a` - Elevated surfaces, slightly lighter
+- **Background Tertiary**: `#242424` - Cards, elevated components
+- **Background Hover**: `#2a2a2a` - Hover states for interactive elements
+- **CSS Variables**: `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-hover`
 
 #### Text
-- **Text Primary**: `#000000` - Headings, primary content (pure black)
-- **Text Secondary**: `#525252` - Supporting text, metadata (neutral-600)
-- **Text Tertiary**: `#a3a3a3` - Disabled, placeholders (neutral-400)
+- **Text Primary**: `#ffffff` - Headings, primary content (pure white, high contrast)
+- **Text Secondary**: `#9ca3af` - Supporting text, metadata (gray-400)
+- **Text Tertiary**: `#6b7280` - Disabled, placeholders (gray-500)
 - **CSS Variables**: `--text-primary`, `--text-secondary`, `--text-tertiary`
 
 #### Accents
-- **Accent Primary**: `#B9D9EB` - Light blue for primary actions, highlights
-- **Accent Hover**: `#a3cfe3` - Darker light blue for hover states
-- **Accent Dark**: `#0C1D51` - Dark blue for strong CTAs and emphasis
+- **Accent Primary**: `#60a5fa` - Blue-400 for primary actions, highlights (adjusted for dark bg)
+- **Accent Hover**: `#3b82f6` - Blue-500 for hover states
+- **Accent Dark**: `#1e40af` - Blue-800 for button backgrounds
 - **CSS Variables**: `--accent-primary`, `--accent-hover`, `--accent-dark`
 
-#### Eggshell Accent
-- **Eggshell**: `#F0EAD6` - Warm accent for cards, backgrounds, subtle highlights
-- **Eggshell Dark**: `#e8e0c8` - Slightly darker for borders/hover
+#### Legacy Variables (Deprecated)
+- **Eggshell**: `#242424` - Mapped to tertiary background (for backwards compatibility)
+- **Eggshell Dark**: `#2a2a2a` - Mapped to hover background
 - **CSS Variables**: `--eggshell`, `--eggshell-dark`
+- **Note**: These are deprecated and should not be used in new components
 
 #### UI Elements
-- **Border**: `#e5e5e5` - Subtle borders (neutral-200)
-- **Border Elevated**: `#d4d4d4` - More pronounced borders (neutral-300)
-- **Success**: `#22c55e` - Success states (green-500)
-- **Warning**: `#f59e0b` - Warning states (amber-500)
-- **Error**: `#ef4444` - Error states (red-500)
+- **Border**: `#2a2a2a` - Subtle dark borders
+- **Border Elevated**: `#404040` - More pronounced borders (gray-700)
+- **Success**: `#22c55e` - Success states (green-500, works on dark)
+- **Warning**: `#f59e0b` - Warning states (amber-500, works on dark)
+- **Error**: `#ef4444` - Error states (red-500, works on dark)
 - **CSS Variables**: `--border`, `--border-elevated`, `--success`, `--warning`, `--error`
 
-### Dark Mode (Future)
-Reserved for future implementation. Light mode is primary experience.
+### Light Mode (Future)
+Reserved for future implementation via theme toggle. Dark mode is primary experience.
 
 ## Typography
 
@@ -49,14 +51,15 @@ Reserved for future implementation. Light mode is primary experience.
 --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
 ```
 
-### Type Scale
+### Type Scale (Optimized for Dark Background)
 - **Display**: 48px / 3rem - Hero headings (line-height: 1.1)
-- **Headline**: 32px / 2rem - Page titles (line-height: 1.2)
+- **Headline**: 36px / 2.25rem - Page titles (line-height: 1.2, increased for detail views)
+- **Title Large**: 28px / 1.75rem - Feed post titles (line-height: 1.3, increased for prominence)
 - **Title**: 24px / 1.5rem - Section headers (line-height: 1.3)
-- **Body Large**: 18px / 1.125rem - Emphasized body (line-height: 1.5)
-- **Body**: 16px / 1rem - Default body (line-height: 1.6)
+- **Body Large**: 19px / 1.188rem - Detail view content (line-height: 1.8, increased for readability)
+- **Body**: 17px / 1.063rem - Feed content preview (line-height: 1.7, increased from 1.6)
 - **Body Small**: 14px / 0.875rem - Secondary text (line-height: 1.5)
-- **Caption**: 12px / 0.75rem - Metadata, timestamps (line-height: 1.4)
+- **Caption**: 13px / 0.813rem - Metadata, timestamps (line-height: 1.4, slightly larger)
 
 ### Font Weights
 - **Regular**: 400 - Body text
@@ -194,75 +197,95 @@ box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 - **Library**: Lucide Icons (or similar minimal icon set)
 - **Usage**: Icons should always have aria-label or be decorative
 
-## Color Usage Guidelines
+## Color Usage Guidelines (Dark Theme)
 
 ### Primary Actions
-- Use **Dark Blue** (#0C1D51) for important CTAs
-- Use **Light Blue** (#B9D9EB) for secondary actions and highlights
+- Use **Blue-400** (#60a5fa) for important CTAs with black text
+- Use **Blue-500** (#3b82f6) for hover states
+- Buttons should have blue glow shadows for depth
 
 ### Backgrounds
-- **White** for main app background
-- **Eggshell** (#F0EAD6) for cards, elevated surfaces
-- Never use pure gray - prefer eggshell for warmth
+- **Very Dark** (#0f0f0f) for main app background
+- **Secondary Dark** (#1a1a1a) for cards, elevated surfaces
+- **Tertiary Dark** (#242424) for nested components
+- Never use pure white backgrounds - always use dark palette
 
 ### Accents
-- **Light Blue** (#B9D9EB) for hover states, selected items
-- **Eggshell** (#F0EAD6) for subtle backgrounds, cards
+- **Blue-400** (#60a5fa) for hover states, selected items, links
+- **Blue-500** (#3b82f6) for active states
+- Use subtle blue glows (rgba) for depth and emphasis
 
 ### Text
-- **Black** for primary content (high contrast)
-- **Gray** (#525252) for secondary content
-- Never use pure black on pure black (avoid harsh contrast)
+- **White** (#ffffff) for primary content (maximum contrast)
+- **Gray-400** (#9ca3af) for secondary content (metadata, timestamps)
+- **Gray-500** (#6b7280) for tertiary content (placeholders, disabled)
+- Ensure minimum 4.5:1 contrast ratio for all body text
+
+### Borders
+- Use very subtle borders (#2a2a2a) - barely visible
+- Elevated borders (#404040) for more emphasis
+- Prefer shadows over borders for depth
 
 ## Implementation Notes
 - Use Tailwind CSS for rapid development
-- Custom CSS variables for theme values
+- Custom CSS variables for theme values (already defined in globals.css)
 - CSS Modules for component-specific styles
 - Avoid inline styles except for dynamic values
-- Test all components on white background for contrast
-- Ensure eggshell cards stand out subtly from white background
+- Test all components on dark background (#0f0f0f) for contrast
+- Ensure all text meets WCAG AA standards (4.5:1 for body, 3:1 for large text)
+- Use box-shadows generously for depth on dark backgrounds
 
 ## Example Component Styles
 
-### Card
+### Card (Dark Theme)
 ```css
-background-color: var(--eggshell); /* #F0EAD6 */
-border: 1px solid var(--eggshell-dark); /* #e8e0c8 */
+background-color: var(--bg-secondary); /* #1a1a1a */
+border: 1px solid var(--border); /* #2a2a2a */
 border-radius: var(--radius-md); /* 12px */
-box-shadow: var(--shadow-sm);
-```
-
-### Primary Button
-```css
-background-color: var(--accent-dark); /* #0C1D51 */
-color: white;
-border: none;
-border-radius: var(--radius-md);
-box-shadow: var(--shadow-sm);
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 
 /* Hover */
-background-color: #0f2666; /* Slightly lighter */
-box-shadow: var(--shadow-md);
+transform: translateY(-4px);
+box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+border-color: var(--border-elevated); /* #404040 */
+```
+
+### Primary Button (Dark Theme)
+```css
+background-color: var(--accent-primary); /* #60a5fa */
+color: #000000; /* Black text for high contrast */
+border: none;
+border-radius: var(--radius-md);
+box-shadow: 0 4px 12px rgba(96, 165, 250, 0.3); /* Blue glow */
+font-weight: 600;
+
+/* Hover */
+background-color: var(--accent-hover); /* #3b82f6 */
+box-shadow: 0 6px 16px rgba(96, 165, 250, 0.4);
 transform: translateY(-1px);
 ```
 
-### Secondary Button
+### Secondary Button (Dark Theme)
 ```css
-background-color: var(--accent-primary); /* #B9D9EB */
-color: var(--accent-dark); /* #0C1D51 */
-border: 1px solid var(--accent-hover);
+background-color: transparent;
+color: var(--accent-primary); /* #60a5fa */
+border: 1px solid var(--accent-primary);
 border-radius: var(--radius-md);
+
+/* Hover */
+background-color: rgba(96, 165, 250, 0.1); /* Subtle blue tint */
+border-color: var(--accent-hover); /* #3b82f6 */
 ```
 
-### Input Field
+### Input Field (Dark Theme)
 ```css
-background-color: white;
-border: 1px solid var(--border); /* #e5e5e5 */
+background-color: var(--bg-tertiary); /* #242424 */
+border: 1px solid var(--border); /* #2a2a2a */
 border-radius: var(--radius-md);
-color: var(--text-primary);
+color: var(--text-primary); /* #ffffff */
 
 /* Focus */
-border-color: var(--accent-primary); /* #B9D9EB */
-outline: 2px solid var(--accent-primary);
-outline-offset: 2px;
+border-color: var(--accent-primary); /* #60a5fa */
+box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2); /* Blue glow */
+background-color: var(--bg-hover); /* #2a2a2a - slightly lighter */
 ```

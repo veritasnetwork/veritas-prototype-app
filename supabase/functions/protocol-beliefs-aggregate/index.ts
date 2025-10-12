@@ -126,16 +126,20 @@ serve(async (req) => {
     const filteredSubmissions = Object.values(latestSubmissions)
 
     if (!filteredSubmissions || filteredSubmissions.length === 0) {
-      console.log(`No submissions found for belief ${belief_id}`)
+      console.log(`No submissions found for belief ${belief_id} - returning neutral defaults`)
       return new Response(
         JSON.stringify({
-          error: 'No submissions found for belief',
-          code: 404,
-          belief_id,
-          epoch: currentEpoch
+          pre_mirror_descent_aggregate: 0.5, // Neutral
+          jensen_shannon_disagreement_entropy: 0.0,
+          normalized_disagreement_entropy: 0.0,
+          certainty: 0.0, // No certainty without submissions
+          agent_meta_predictions: {},
+          active_agent_indicators: [],
+          leave_one_out_aggregates: {},
+          leave_one_out_meta_aggregates: {}
         }),
         {
-          status: 404,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )

@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Connection } from 'https://esm.sh/@solana/web3.js@1.87.6'
 import { syncPoolData } from '../_shared/pool-sync.ts'
 
 const corsHeaders = {
@@ -76,13 +75,18 @@ serve(async (req) => {
     // This is a placeholder until we implement personalized feed algorithms
     
     // Get posts with user data, ordered by creation time
+    // NOTE: We don't fetch content_json here to improve performance - it's large and not needed for feed list
     const { data: postsData, error: postsError, count } = await supabaseClient
       .from('posts')
       .select(`
         id,
         user_id,
-        title,
-        content,
+        post_type,
+        media_urls,
+        caption,
+        content_text,
+        article_title,
+        cover_image_url,
         belief_id,
         created_at,
         users:user_id (
@@ -158,40 +162,55 @@ serve(async (req) => {
           rpcEndpoint = rpcEndpoint.replace('localhost', 'host.docker.internal')
         }
 
-        const connection = new Connection(rpcEndpoint, 'confirmed')
+        // Only sync pools that are stale (older than 2 minutes)
+        // This prevents excessive RPC calls on every feed load
+        // Increased threshold from 30s to 2min to reduce RPC pressure
+        const SYNC_THRESHOLD_MS = 120000 // 2 minutes
+        const now = Date.now()
 
-        // Sync each pool with on-chain data
-        const syncPromises = poolsData.map(async (pool) => {
-          if (!pool.pool_address) {
-            return pool // Skip pools without addresses
-          }
-
-          try {
-            // Sync pool data from chain to database
-            const syncedData = await syncPoolData(
-              supabaseClient,
-              connection,
-              pool.post_id,
-              pool.pool_address
-            )
-
-            // Return updated pool data
-            return {
-              post_id: pool.post_id,
-              pool_address: pool.pool_address,
-              token_supply: syncedData.token_supply,
-              reserve: syncedData.reserve,
-              last_synced_at: syncedData.synced_at
-            }
-          } catch (syncError) {
-            console.warn(`Failed to sync pool ${pool.post_id}:`, syncError)
-            // Return stale data on sync failure
-            return pool
-          }
+        // Limit concurrent syncs to prevent overwhelming RPC endpoint
+        const MAX_CONCURRENT_SYNCS = 3
+        const stalePools = poolsData.filter(pool => {
+          if (!pool.pool_address) return false
+          const lastSynced = pool.last_synced_at ? new Date(pool.last_synced_at).getTime() : 0
+          return (now - lastSynced) > SYNC_THRESHOLD_MS
         })
 
-        // Wait for all syncs to complete
-        const syncedPools = await Promise.all(syncPromises)
+        // Process syncs in batches
+        let syncedPools = [...poolsData] // Start with cached data
+        for (let i = 0; i < stalePools.length; i += MAX_CONCURRENT_SYNCS) {
+          const batch = stalePools.slice(i, i + MAX_CONCURRENT_SYNCS)
+          const batchPromises = batch.map(async (pool) => {
+            try {
+              const syncedData = await syncPoolData(
+                supabaseClient,
+                rpcEndpoint,
+                pool.post_id,
+                pool.pool_address
+              )
+
+              return {
+                post_id: pool.post_id,
+                pool_address: pool.pool_address,
+                token_supply: syncedData.token_supply,
+                reserve: syncedData.reserve,
+                k_quadratic: pool.k_quadratic,
+                last_synced_at: syncedData.synced_at
+              }
+            } catch (syncError) {
+              console.warn(`Failed to sync pool ${pool.post_id}:`, syncError)
+              return pool // Return stale data on failure
+            }
+          })
+
+          const batchResults = await Promise.all(batchPromises)
+
+          // Update syncedPools with batch results
+          batchResults.forEach(result => {
+            const idx = syncedPools.findIndex(p => p.post_id === result.post_id)
+            if (idx !== -1) syncedPools[idx] = result
+          })
+        }
 
         // Create map for easy lookup
         poolsMap = syncedPools.reduce((acc, pool) => {
@@ -209,8 +228,12 @@ serve(async (req) => {
       return {
         id: post.id,
         user_id: post.user_id,
-        title: post.title || '',
-        content: post.content || '',
+        post_type: post.post_type,
+        media_urls: post.media_urls,
+        caption: post.caption,
+        content_text: post.content_text,
+        article_title: post.article_title,
+        cover_image_url: post.cover_image_url,
         belief_id: post.belief_id,
         created_at: post.created_at,
         pool_address: poolData.pool_address,
@@ -223,7 +246,7 @@ serve(async (req) => {
         },
         belief: {
           belief_id: post.belief_id,
-          previous_aggregate: beliefData.previous_aggregate || 0,
+          previous_aggregate: beliefData.previous_aggregate ?? 0.5, // Default to neutral
           expiration_epoch: beliefData.expiration_epoch || 0,
           status: 'active' // TODO: Calculate actual status based on current epoch
         }

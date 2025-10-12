@@ -6,22 +6,27 @@
 /**
  * Formats a timestamp to a human-readable relative time string
  */
-export function formatRelativeTime(date: Date): string {
+export function formatRelativeTime(date: Date | string | undefined | null): string {
+  if (!date) return 'Unknown time';
+
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return 'Invalid date';
+
   const now = new Date();
-  const diff = now.getTime() - date.getTime();
+  const diff = now.getTime() - dateObj.getTime();
   const hours = Math.floor(diff / (1000 * 60 * 60));
-  
+
   if (hours < 1) return 'Just now';
   if (hours < 24) return `${hours}h ago`;
-  
+
   const days = Math.floor(hours / 24);
   if (days === 1) return '1 day ago';
   if (days < 30) return `${days} days ago`;
-  
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
+
+  return dateObj.toLocaleDateString('en-US', {
+    month: 'short',
     day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    year: dateObj.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
   });
 }
 

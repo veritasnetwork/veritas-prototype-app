@@ -12,6 +12,31 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY! // Use service role to bypass RLS
 );
 
+// Helper function to extract plain text from Tiptap JSON
+function extractPlainTextFromTiptap(doc: any): string {
+  if (!doc || !doc.content) return '';
+
+  let text = '';
+
+  function traverse(node: any) {
+    if (node.text) {
+      text += node.text;
+    }
+    if (node.content && Array.isArray(node.content)) {
+      node.content.forEach((child: any) => {
+        traverse(child);
+        // Add space after block elements
+        if (child.type === 'paragraph' || child.type === 'heading') {
+          text += ' ';
+        }
+      });
+    }
+  }
+
+  traverse(doc);
+  return text.trim();
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
@@ -59,8 +84,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       user_id,
-      title,
-      content,
+      post_type,
+      content_json,
+      media_urls,
+      caption,
+      article_title,
+      cover_image_url,
       initial_belief,
       meta_belief,
       belief_duration_hours,
@@ -69,20 +98,80 @@ export async function POST(request: NextRequest) {
       pool_deployment,
     } = body;
 
-    // Validate required fields
-    if (!user_id || !title || initial_belief === undefined || !post_id || !tx_signature) {
+    // Validate required fields (initial_belief is now optional)
+    if (!user_id || !post_type || !post_id || !tx_signature) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: user_id, post_type, post_id, tx_signature' },
         { status: 400 }
       );
     }
 
-    // Get user's agent_id
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('agent_id')
-      .eq('id', user_id)
-      .single();
+    // Validate post_type
+    const validPostTypes = ['text', 'image', 'video'];
+    if (!validPostTypes.includes(post_type)) {
+      return NextResponse.json(
+        { error: `Invalid post_type. Must be one of: ${validPostTypes.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    // Validate post type specific requirements
+    if (post_type === 'text') {
+      if (!content_json) {
+        return NextResponse.json(
+          { error: 'content_json is required for text posts' },
+          { status: 400 }
+        );
+      }
+    } else if (post_type === 'image' || post_type === 'video') {
+      if (!media_urls || !Array.isArray(media_urls) || media_urls.length === 0) {
+        return NextResponse.json(
+          { error: `media_urls array is required for ${post_type} posts` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate caption length (280 chars max)
+    if (caption && caption.length > 280) {
+      return NextResponse.json(
+        { error: 'Caption must be 280 characters or less' },
+        { status: 400 }
+      );
+    }
+
+    // Validate article title length (200 chars max)
+    if (article_title && article_title.length > 200) {
+      return NextResponse.json(
+        { error: 'Article title must be 200 characters or less' },
+        { status: 400 }
+      );
+    }
+
+    // Validate cover image requires title
+    if (cover_image_url && !article_title) {
+      return NextResponse.json(
+        { error: 'Cover image requires an article title' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch user and config in parallel
+    const [
+      { data: userData, error: userError },
+      { data: configData }
+    ] = await Promise.all([
+      supabase
+        .from('users')
+        .select('agent_id')
+        .eq('id', user_id)
+        .single(),
+      supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'current_epoch')
+        .single()
+    ]);
 
     if (userError || !userData) {
       console.error('Failed to get user agent_id:', userError);
@@ -93,15 +182,6 @@ export async function POST(request: NextRequest) {
     }
 
     const agent_id = userData.agent_id;
-
-    // Create belief FIRST (posts table has FK constraint on belief_id)
-    // Get current epoch
-    const { data: configData } = await supabase
-      .from('system_config')
-      .select('value')
-      .eq('key', 'current_epoch')
-      .single();
-
     const currentEpoch = parseInt(configData?.value || '0');
     const durationInEpochs = Math.ceil(belief_duration_hours / 1); // Assuming 1 hour per epoch
     const expirationEpoch = currentEpoch + durationInEpochs;
@@ -113,7 +193,7 @@ export async function POST(request: NextRequest) {
         creator_agent_id: agent_id,
         created_epoch: currentEpoch,
         expiration_epoch: expirationEpoch,
-        previous_aggregate: initial_belief,
+        previous_aggregate: initial_belief ?? 0.5, // Default to 0.5 (neutral) if not provided
         previous_disagreement_entropy: 0.0,
       })
       .select()
@@ -127,14 +207,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Extract plain text from content for search/display
+    let content_text = null;
+    if (post_type === 'text' && content_json) {
+      content_text = extractPlainTextFromTiptap(content_json);
+    } else if (caption) {
+      content_text = caption;
+    }
+
     // Create post with belief (now that belief exists)
     const { data: post, error: postError } = await supabase
       .from('posts')
       .insert({
         id: post_id,
         user_id: user_id,
-        title: title,
-        content: content || null,
+        post_type: post_type,
+        content_json: content_json || null,
+        media_urls: media_urls || null,
+        caption: caption || null,
+        content_text: content_text,
+        article_title: article_title || null,
+        cover_image_url: cover_image_url || null,
         belief_id: post_id, // Use same ID for linked belief
       })
       .select()
@@ -150,20 +243,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Submit initial belief
-    const { error: submissionError } = await supabase
-      .from('belief_submissions')
-      .insert({
-        belief_id: post_id,
-        agent_id: agent_id,
-        belief: initial_belief,
-        meta_prediction: meta_belief || initial_belief,
-        epoch: currentEpoch,
-      });
+    // Submit initial belief ONLY if provided
+    if (initial_belief !== undefined) {
+      const { error: submissionError } = await supabase
+        .from('belief_submissions')
+        .insert({
+          belief_id: post_id,
+          agent_id: agent_id,
+          belief: initial_belief,
+          meta_prediction: meta_belief || initial_belief,
+          epoch: currentEpoch,
+        });
 
-    if (submissionError) {
-      console.error('Failed to submit initial belief:', submissionError);
-      // Note: Not rolling back here since post/belief are created
+      if (submissionError) {
+        console.error('Failed to submit initial belief:', submissionError);
+        // Note: Not rolling back here since post/belief are created
+      }
     }
 
     // Store pool deployment info if provided

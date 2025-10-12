@@ -13,8 +13,12 @@ export class PostsService {
    */
   static async fetchPosts(): Promise<Post[]> {
     try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+
+      if (!supabaseUrl || !anonKey) {
+        throw new Error('Supabase configuration missing');
+      }
 
       const response = await fetch(`${supabaseUrl}/functions/v1/app-post-get-feed`, {
         method: 'POST',
@@ -77,9 +81,23 @@ export class PostsService {
 
     const post: Post = {
       id: apiPost.id,
-      headline: apiPost.title || 'Untitled',
-      content: apiPost.content || '',
+
+      // NEW SCHEMA: Use post_type, content_json, media_urls, caption
+      post_type: apiPost.post_type,
+      content_json: apiPost.content_json,
+      media_urls: apiPost.media_urls,
+      caption: apiPost.caption,
+      content_text: apiPost.content_text,
+
+      // ARTICLE-SPECIFIC FIELDS
+      article_title: apiPost.article_title,
+      cover_image_url: apiPost.cover_image_url,
+
       author: {
+        username: apiPost.user?.username || 'anonymous',
+        display_name: apiPost.user?.display_name,
+        avatar_url: undefined,
+        // Legacy fields for backward compatibility
         name: apiPost.user?.display_name || apiPost.user?.username || 'Unknown',
         avatar: undefined,
       },
@@ -98,44 +116,12 @@ export class PostsService {
         history: undefined,
       },
       poolAddress: apiPost.pool_address,
-      poolTokenSupply: apiPost.pool_token_supply,
-      poolReserveBalance: apiPost.pool_reserve_balance,
-      poolKQuadratic: apiPost.pool_k_quadratic,
+      poolTokenSupply: parseFloat(apiPost.pool_token_supply) || 0,
+      poolReserveBalance: parseFloat(apiPost.pool_reserve_balance) * 1_000_000 || 0, // Convert to micro-USDC
+      poolKQuadratic: Number(apiPost.pool_k_quadratic) || 1,
     };
 
     return post;
   }
 
-  /**
-   * Transforms a database post to frontend post format (legacy method)
-   */
-  private static async transformPost(dbPost: DbPost): Promise<Post> {
-    const history = await PostsService.fetchBeliefHistory(dbPost.id);
-
-    const post: Post = {
-      id: dbPost.id,
-      headline: dbPost.headline,
-      content: dbPost.content,
-      author: {
-        name: dbPost.author_name,
-        avatar: dbPost.author_avatar,
-      },
-      timestamp: new Date(dbPost.created_at),
-      relevanceScore: dbPost.relevance_score,
-      signals: {
-        truth: dbPost.truth_signal,
-        novelty: dbPost.novelty_signal,
-        importance: dbPost.importance_signal,
-        virality: dbPost.virality_signal,
-      },
-      sources: dbPost.sources,
-      discussionCount: dbPost.discussion_count,
-      belief: {
-        yesPercentage: dbPost.belief_yes_percentage,
-        history: history.length > 0 ? history : undefined,
-      },
-    };
-
-    return post;
-  }
 }

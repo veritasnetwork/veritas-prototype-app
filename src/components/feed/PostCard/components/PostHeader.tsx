@@ -35,10 +35,10 @@ export function PostHeader({ author, timestamp }: PostHeaderProps) {
       {/* Author Info */}
       <div className="flex-1">
         <div className="flex items-center">
-          <span className="font-medium text-text-primary mr-2 font-sans text-sm">
+          <span className="font-medium text-white mr-2 font-sans text-sm">
             {author?.name || 'Unknown'}
           </span>
-          <span className="text-text-tertiary text-sm">
+          <span className="text-gray-400 text-sm">
             · {formatRelativeTime(timestamp)}
           </span>
         </div>

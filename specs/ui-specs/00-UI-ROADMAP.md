@@ -57,6 +57,19 @@ specs/ui-specs/
   - Status: ✅ Built & functional
   - Notes: Main feed of posts
 
+- [x] **ExplorePage** (`specs/ui-specs/pages/ExplorePage.md`)
+  - Location: `src/components/explore/Explore.tsx`
+  - Route: `/explore`
+  - Status: ✅ Built & functional
+  - Notes: Grid view for visual content discovery
+  - Uses: CompactPostCard component
+
+### Components (Additional)
+- [x] **CompactPostCard** (`specs/ui-specs/components/CompactPostCard.md`)
+  - Location: `src/components/feed/PostCard/CompactPostCard.tsx`
+  - Status: ✅ Built & functional
+  - Notes: Grid-optimized card for Explore page
+
 ---
 
 ## 🚧 In Progress

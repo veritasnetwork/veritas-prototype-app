@@ -1,0 +1,118 @@
+/* Panel Container Styles */
+.panel-capable {
+  transition: transform 300ms ease-out;
+  will-change: transform;
+}
+
+.panel-capable.panel-open {
+  transform: translateX(-480px);
+}
+
+/* Mobile: No shift, fullscreen overlay */
+@media (max-width: 1023px) {
+  .panel-capable.panel-open {
+    transform: none;
+  }
+}
+
+/* Overlay */
+.panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+  z-index: 1000;
+}
+
+.panel-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Panel Container */
+.panel-container {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 480px;
+  background: #1a1a1a;
+  border-left: 1px solid #2a2a2a;
+  transform: translateX(100%);
+  transition: transform 300ms ease-out;
+  z-index: 1001;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.panel-container.open {
+  transform: translateX(0);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Mobile: Full width */
+@media (max-width: 1023px) {
+  .panel-container {
+    width: 100vw;
+    max-width: 100vw;
+  }
+
+  .panel-fullscreen {
+    width: 100vw;
+    height: 100vh;
+  }
+}
+
+/* Tablet: Wider panel */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .panel-container {
+    width: 90vw;
+    max-width: 600px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%) translateX(100vw);
+  }
+
+  .panel-container.open {
+    transform: translateX(-50%) translateX(0);
+  }
+}
+
+/* Panel Content */
+.panel-content {
+  padding-bottom: 100px; /* Extra space at bottom for scrolling */
+}
+
+/* Animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0.8;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0.8;
+  }
+}
+
+/* Disable animations if preference is set */
+@media (prefers-reduced-motion: reduce) {
+  .panel-capable,
+  .panel-overlay,
+  .panel-container {
+    transition: none !important;
+  }
+}
