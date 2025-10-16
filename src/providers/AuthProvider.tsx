@@ -153,13 +153,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
             accentColor: '#676FFF',
             walletChainType: 'solana-only',
             showWalletLoginFirst: false,
+            walletList: ['detected', 'metamask', 'rainbow', 'coinbase_wallet', 'wallet_connect'],
           },
-          loginMethods: ['email', 'apple', 'wallet'],
+          loginMethods: ['wallet', 'email', 'apple'],
           embeddedWallets: {
             createOnLogin: 'users-without-wallets',
             requireUserPasswordOnCreate: false,
             noPromptOnSignature: false,
           },
+          supportedChains: [],
           // Disable WalletConnect to prevent redirects
           walletConnectCloudProjectId: undefined,
         }}
