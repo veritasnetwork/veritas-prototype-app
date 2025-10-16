@@ -14,7 +14,3 @@ export const FEATURES = {
   PANEL_ANIMATIONS: process.env.NEXT_PUBLIC_PANEL_ANIMATIONS !== 'false',
 };
 
-// Debug logging in development
-if (process.env.NODE_ENV === 'development') {
-  console.log('[FEATURES] Active feature flags:', FEATURES);
-}

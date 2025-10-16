@@ -324,8 +324,6 @@ export function validateConfigOrThrow(): void {
       console.warn(`${index + 1}. ${warning.field}: ${warning.error}`);
       console.warn(`   Fix: ${warning.fix}\n`);
     });
-  } else {
-    console.log('✅ Configuration validation passed');
   }
 }
 

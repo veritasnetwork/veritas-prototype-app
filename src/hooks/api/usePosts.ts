@@ -23,19 +23,7 @@ export function usePosts(): UsePostsResult {
     try {
       setLoading(true);
       setError(null);
-      console.log('[usePosts] Fetching posts from API...');
       const data = await PostsService.fetchPosts();
-      console.log('[usePosts] Received posts:', data.length, 'posts');
-      data.forEach((post, idx) => {
-        console.log(`[usePosts] Post ${idx}:`, {
-          id: post.id,
-          title: post.title,
-          poolAddress: post.poolAddress,
-          poolTokenSupply: post.poolTokenSupply,
-          poolReserveBalance: post.poolReserveBalance,
-          poolKQuadratic: post.poolKQuadratic,
-        });
-      });
       setPosts(data);
     } catch (err) {
       console.error('[usePosts] Error fetching posts:', err);

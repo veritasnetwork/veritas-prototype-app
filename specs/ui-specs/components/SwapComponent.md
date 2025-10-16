@@ -1,7 +1,36 @@
 # Swap Component Specification
 
+## ⚠️ Status: SUPERSEDED
+
+**This specification has been superseded by `UnifiedSwapComponent`**
+
+**Replaced By:** `UnifiedSwapComponent.tsx`
+**Location:** `src/components/post/PostDetailPanel/UnifiedSwapComponent.tsx`
+**Reason:** Implementation diverged to use a simpler, more compact design
+
+**Key Differences:**
+- ❌ Original spec: Dual input fields with token dropdowns
+- ✅ Actual implementation: Single mode toggle (Buy/Sell) with simpler UX
+- ❌ Original spec: Continuous inline rate/price impact display
+- ✅ Actual implementation: Omitted (rate implicit in conversion, keeps UI clean)
+- ❌ Original spec: User-adjustable slippage settings
+- ✅ Actual implementation: Hardcoded 0.5% slippage (simpler)
+
+**See Instead:**
+- [UnifiedSwapComponent Documentation](../../../specs/ui/standalone/README.md#unifiedswapcomponent) - Actual implementation details
+- [UnifiedSwapComponent.tsx](../../../src/components/post/PostDetailPanel/UnifiedSwapComponent.tsx) - Source code
+
+**Why Keep This Spec?**
+This specification remains for historical reference and may inform future enhancements to UnifiedSwapComponent.
+
+---
+
+## Original Specification (For Reference)
+
 ## Overview
 A unified token trading interface that handles both buying (USDC → TOKEN) and selling (TOKEN → USDC) through a single swap paradigm, similar to DEX interfaces like Uniswap.
+
+**Note:** This design was not implemented. See UnifiedSwapComponent for actual implementation.
 
 ## Visual Layout
 

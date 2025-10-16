@@ -1,44 +1,33 @@
 import useSWR from 'swr';
+import {
+  TradeHistoryResponse,
+  TradeHistoryResponseSchema,
+  ChartDataPoint,
+  VolumeDataPoint,
+  TradeStats
+} from '@/types/api';
 
 export type TimeRange = '1H' | '24H' | '7D' | 'ALL';
 
-export interface ChartDataPoint {
-  time: number;
-  value: number;
-}
+// Re-export types for backward compatibility
+export type { ChartDataPoint, VolumeDataPoint, TradeStats };
 
-export interface VolumeDataPoint {
-  time: number;
-  value: number;
-  color: string;
-}
+// Legacy type alias for backward compatibility
+export type TradeHistoryData = TradeHistoryResponse;
 
-export interface TradeStats {
-  totalVolume: number;
-  totalTrades: number;
-  highestPrice: number;
-  lowestPrice: number;
-  currentPrice: number;
-  priceChange24h: number;
-  priceChangePercent24h: number;
-}
-
-export interface TradeHistoryData {
-  priceData: ChartDataPoint[];
-  volumeData: VolumeDataPoint[];
-  stats: TradeStats;
-}
-
-const fetcher = async (url: string): Promise<TradeHistoryData> => {
+const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error('Failed to fetch trade history');
   }
-  return res.json();
+  const data = await res.json();
+
+  // Validate response with Zod schema
+  return TradeHistoryResponseSchema.parse(data);
 };
 
 export function useTradeHistory(postId: string | undefined, timeRange: TimeRange = 'ALL') {
-  const { data, error, isLoading, isValidating, mutate } = useSWR<TradeHistoryData>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<TradeHistoryResponse>(
     postId ? `/api/posts/${postId}/trades?range=${timeRange}` : null,
     fetcher,
     {
@@ -47,7 +36,7 @@ export function useTradeHistory(postId: string | undefined, timeRange: TimeRange
       dedupingInterval: 1000, // Further reduce deduping to 1 second
       revalidateIfStale: true, // Always revalidate stale data
       revalidateOnMount: true, // Always fetch on mount
-      keepPreviousData: false, // Don't show stale data from different posts
+      keepPreviousData: true, // Show previous chart while loading new timeframe
     }
   );
 

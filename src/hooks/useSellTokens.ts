@@ -37,17 +37,25 @@ export function useSellTokens(onSuccess?: () => void) {
       // Use the pool address from database (already validated during pool deployment)
       const poolPubkey = new PublicKey(poolAddress);
 
+      // Helper to read u128 as BigInt, then convert to Number (safe for values < 2^53)
+      const readU128LE = (data: Buffer, offset: number): number => {
+        const low = data.readBigUInt64LE(offset);
+        const high = data.readBigUInt64LE(offset + 8);
+        const result = (high << 64n) | low;
+        return Number(result);
+      };
+
       // Fetch pool state BEFORE transaction
       const poolAccountBefore = await connection.getAccountInfo(poolPubkey);
       if (!poolAccountBefore) {
         throw new Error('Pool not found');
       }
 
-      // Build the transaction
-      console.log('[SELL] Wallet address:', address);
-      console.log('[SELL] Pool address:', poolAddress);
-      console.log('[SELL] Token amount:', tokenAmount);
+      // Read supply and reserve BEFORE transaction
+      const tokenSupplyBefore = readU128LE(poolAccountBefore.data, 56);
+      const reserveBefore = readU128LE(poolAccountBefore.data, 72); // offset: 8 + 32 + 16 + 16 = 72
 
+      // Build the transaction
       const transaction = await buildSellTransaction({
         connection,
         seller: address,
@@ -75,19 +83,22 @@ export function useSellTokens(onSuccess?: () => void) {
       // All u128 fields are 16 bytes (little-endian)
       const data = poolAccountAfter.data;
 
-      // Helper to read u128 as BigInt, then convert to Number (safe for values < 2^53)
-      const readU128LE = (offset: number): number => {
-        const low = data.readBigUInt64LE(offset);
-        const high = data.readBigUInt64LE(offset + 8);
-        return Number((high << 64n) | low);
-      };
+      const kQuadratic = readU128LE(data, 40); // offset: 8 (discriminator) + 32 (post_id) = 40
+      const tokenSupplyAfter = readU128LE(data, 56); // offset: 40 + 16 (k_quadratic) = 56
+      const reserveAfter = readU128LE(data, 72); // offset: 56 + 16 (token_supply) = 72
 
-      const kQuadratic = readU128LE(40); // offset: 8 (discriminator) + 32 (post_id) = 40
-      const tokenSupplyAfter = readU128LE(56); // offset: 40 + 16 (k_quadratic) = 56
-      const reserveAfter = readU128LE(72); // offset: 56 + 16 (token_supply) = 72
+      // Calculate actual amounts by comparing before/after
+      const usdcReceived = reserveBefore - reserveAfter;
+      const tokensBurned = tokenSupplyBefore - tokenSupplyAfter;
 
-      // Calculate USDC received (approximate from curve)
-      const usdcReceived = Math.floor(tokenAmount * 1000); // Simplified, real calc is more complex
+      // Convert from lamports to tokens (divide by 10^6)
+      const TOKEN_PRECISION = 1_000_000;
+      const tokensBurnedConverted = tokensBurned / TOKEN_PRECISION;
+      const usdcReceivedConverted = usdcReceived / TOKEN_PRECISION;
+      const tokenSupplyConverted = tokenSupplyAfter / TOKEN_PRECISION;
+      const reserveConverted = reserveAfter / TOKEN_PRECISION;
+      // k_quadratic is stored as-is on chain (1 = 1, not scaled)
+      const kQuadraticConverted = kQuadratic; // No conversion needed
 
       // Record trade in database via Next.js API route
       try {
@@ -102,11 +113,11 @@ export function useSellTokens(onSuccess?: () => void) {
             post_id: postId,
             wallet_address: address,
             trade_type: 'sell',
-            token_amount: tokenAmount.toString(),
-            usdc_amount: usdcReceived.toString(),
-            token_supply_after: tokenSupplyAfter.toString(),
-            reserve_after: reserveAfter.toString(),
-            k_quadratic: kQuadratic.toString(),
+            token_amount: tokensBurnedConverted.toString(), // Display units
+            usdc_amount: usdcReceivedConverted.toString(), // Display units
+            token_supply_after: tokenSupplyAfter.toString(), // Atomic units
+            reserve_after: reserveAfter.toString(), // Atomic units (micro-USDC)
+            k_quadratic: kQuadraticConverted.toString(),
             tx_signature: signature
           })
         });

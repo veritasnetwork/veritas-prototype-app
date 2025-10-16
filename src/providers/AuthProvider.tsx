@@ -1,7 +1,6 @@
 'use client';
 
 import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
-import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { PrivyErrorBoundary } from '@/components/auth/PrivyErrorBoundary';
@@ -18,7 +17,6 @@ export interface User {
 
 interface AuthContextValue {
   user: User | null;
-  hasAccess: boolean;
   isLoading: boolean;
   logout: () => void;
 }
@@ -40,8 +38,8 @@ interface AuthProviderProps {
 function AuthProviderInner({ children }: AuthProviderProps) {
   const { authenticated, ready, getAccessToken, logout: privyLogout, user: privyUser } = usePrivy();
   const [user, setUser] = useState<User | null>(null);
-  const [hasAccess, setHasAccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastCheckTime, setLastCheckTime] = useState<number>(0);
 
   const checkUserStatus = async () => {
     if (!ready || !authenticated) {
@@ -68,7 +66,6 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
       if (!solanaAddress) {
         console.error('No Solana wallet found for user');
-        setHasAccess(false);
         setIsLoading(false);
         return;
       }
@@ -84,16 +81,28 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
       if (response.ok) {
         const data = await response.json();
-        setHasAccess(data.has_access);
         if (data.user) {
           setUser(data.user);
         }
       } else {
-        setHasAccess(false);
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Auth status check failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+
+        if (response.status === 500) {
+          console.error('⚠️  Server error - Is Supabase running? Try: npx supabase start');
+        }
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
-      setHasAccess(false);
+
+      // Check if it's a network error (likely Supabase not running)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('⚠️  Network error - Is Supabase running? Try: npx supabase start');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -101,17 +110,20 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
   const logout = () => {
     setUser(null);
-    setHasAccess(false);
     privyLogout();
   };
 
   useEffect(() => {
     if (ready) {
       if (authenticated) {
-        checkUserStatus();
+        // Debounce auth checks - only check once per 5 seconds
+        const now = Date.now();
+        if (now - lastCheckTime > 5000) {
+          setLastCheckTime(now);
+          checkUserStatus();
+        }
       } else {
         setIsLoading(false);
-        setHasAccess(false);
         setUser(null);
       }
     }
@@ -119,7 +131,6 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
   const authValue: AuthContextValue = {
     user,
-    hasAccess,
     isLoading,
     logout,
   };
@@ -132,32 +143,25 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const handleLoginSuccess = () => {
-    console.log('Privy login successful');
-  };
-
   return (
     <PrivyErrorBoundary>
       <PrivyProvider
         appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ''}
-        onSuccess={handleLoginSuccess}
         config={{
           appearance: {
             theme: 'light',
             accentColor: '#676FFF',
             walletChainType: 'solana-only',
+            showWalletLoginFirst: false,
           },
-          loginMethods: ['wallet', 'email', 'apple'],
+          loginMethods: ['email', 'apple', 'wallet'],
           embeddedWallets: {
             createOnLogin: 'users-without-wallets',
             requireUserPasswordOnCreate: false,
             noPromptOnSignature: false,
           },
-          externalWallets: {
-            solana: {
-              connectors: toSolanaWalletConnectors(),
-            },
-          },
+          // Disable WalletConnect to prevent redirects
+          walletConnectCloudProjectId: undefined,
         }}
       >
         <AuthProviderInner>

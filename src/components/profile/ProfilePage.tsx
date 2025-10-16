@@ -55,7 +55,7 @@ export function ProfilePage({ username }: ProfilePageProps) {
   const handleLogout = () => {
     if (confirm('Are you sure you want to logout?')) {
       logout();
-      router.push('/');
+      router.push('/feed');
     }
   };
 

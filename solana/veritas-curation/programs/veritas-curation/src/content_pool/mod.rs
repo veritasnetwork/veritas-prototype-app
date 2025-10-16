@@ -2,6 +2,9 @@ pub mod state;
 pub mod instructions;
 pub mod curve;
 
+#[cfg(test)]
+mod curve_tests;
+
 pub use state::*;
 pub use instructions::*;
 pub use instructions::{

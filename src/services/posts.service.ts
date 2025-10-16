@@ -13,11 +13,11 @@ export class PostsService {
    */
   static async fetchPosts(): Promise<Post[]> {
     try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
       if (!supabaseUrl || !anonKey) {
-        throw new Error('Supabase configuration missing');
+        throw new Error('Supabase configuration missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.');
       }
 
       const response = await fetch(`${supabaseUrl}/functions/v1/app-post-get-feed`, {
@@ -34,7 +34,11 @@ export class PostsService {
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
+        if (response.status === 503) {
+          console.error('⚠️  Edge Functions not running - Start them with: npx supabase functions serve');
+          throw new Error('Unable to load posts. Please try again.');
+        }
+        throw new Error('Unable to load posts. Please try again.');
       }
 
       const data = await response.json();
@@ -47,7 +51,19 @@ export class PostsService {
       return data.posts.map(this.transformApiPost);
     } catch (error) {
       console.error('Failed to fetch posts:', error);
-      throw new Error(`Failed to fetch posts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      // Check if it's a network error (likely services not running)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('⚠️  Cannot connect to Supabase - Is it running? Try: npx supabase start');
+        throw new Error('Unable to connect to the server. Please try again.');
+      }
+
+      // Re-throw with user-friendly message, but keep technical details in console
+      if (error instanceof Error && !error.message.includes('Unable to')) {
+        throw new Error('Unable to load posts. Please try again.');
+      }
+
+      throw error;
     }
   }
 
@@ -117,7 +133,7 @@ export class PostsService {
       },
       poolAddress: apiPost.pool_address,
       poolTokenSupply: parseFloat(apiPost.pool_token_supply) || 0,
-      poolReserveBalance: parseFloat(apiPost.pool_reserve_balance) * 1_000_000 || 0, // Convert to micro-USDC
+      poolReserveBalance: parseFloat(apiPost.pool_reserve_balance) || 0, // Already in micro-USDC from database
       poolKQuadratic: Number(apiPost.pool_k_quadratic) || 1,
     };
 

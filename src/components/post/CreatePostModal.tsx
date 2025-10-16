@@ -49,13 +49,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       .catch(err => console.error('Failed to fetch pool config:', err));
   }, []);
 
-  // Debug: Log wallet status on mount and when it changes
-  useEffect(() => {
-    console.log('Wallet status:', {
-      isConnected: !!wallet,
-      solanaAddress
-    });
-  }, [wallet, solanaAddress]);
 
   // Trap focus and handle ESC key
   useEffect(() => {
@@ -137,12 +130,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
 
   const handleSubmit = async () => {
-    console.log('🚀 handleSubmit called');
-    console.log('Post type:', postType);
-    console.log('User:', user);
-    console.log('Wallet:', wallet);
-    console.log('Solana Address:', solanaAddress);
-
     // Validate based on post type
     if (postType === 'text' && !contentJson) {
       setError('Please enter some content');
@@ -168,21 +155,16 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     }
 
     if (isSubmitting) {
-      console.log('❌ Already submitting');
       return;
     }
     if (!user) {
-      console.log('❌ No user');
       setError('Please log in to create a post');
       return;
     }
     if (!solanaAddress || !wallet) {
-      console.log('❌ No wallet or solana address');
       setError('Please connect your Solana wallet');
       return;
     }
-
-    console.log('✅ All validations passed, starting submission...');
     setIsSubmitting(true);
     setError(null);
 
@@ -191,20 +173,14 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
     try {
       // Step 1: Get Privy auth token
-      console.log('📝 Step 1: Getting Privy auth token...');
       const jwt = await getAccessToken();
       if (!jwt) {
         throw new Error('Please log in to create a post');
       }
-      console.log('✅ Got JWT token');
 
       // Step 2: Build Solana transaction FIRST (before creating post)
-      console.log('🔨 Step 2: Building Solana transaction...');
       const programId = process.env.NEXT_PUBLIC_VERITAS_PROGRAM_ID;
       const rpcEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || 'http://127.0.0.1:8899';
-
-      console.log('Program ID:', programId);
-      console.log('RPC Endpoint:', rpcEndpoint);
 
       if (!programId) {
         throw new Error('Solana program not configured');
@@ -213,16 +189,8 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       // Generate a temporary post ID for PDA derivation
       // We'll use this to derive the pool address before creating the post
       const tempPostId = window.crypto.randomUUID();
-      console.log('Generated temp post ID:', tempPostId);
 
       const connection = new Connection(rpcEndpoint, 'confirmed');
-      console.log('Created connection to Solana');
-
-      console.log('Building transaction with params:', {
-        creator: solanaAddress,
-        postId: tempPostId,
-        programId,
-      });
 
       const transaction = await buildCreatePoolTransaction({
         connection,
@@ -231,31 +199,18 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         kQuadratic: poolConfig?.k_quadratic ?? 1,
         programId,
       });
-      console.log('✅ Transaction built successfully');
 
       // Step 3: Sign and send transaction via Privy (user can cancel here)
-      console.log('🖊️ Step 3: Signing transaction...');
-      console.log('Wallet object:', wallet);
-      console.log('Has signTransaction?', wallet && 'signTransaction' in wallet);
-
       if (!wallet || !('signTransaction' in wallet)) {
         throw new Error('Wallet does not support signing transactions');
       }
 
-      console.log('Calling wallet.signTransaction...');
       // @ts-expect-error - Privy wallet has signTransaction method
       const signedTx = await wallet.signTransaction(transaction);
-      console.log('✅ Transaction signed');
 
-      console.log('📤 Sending transaction to network...');
       const signature = await connection.sendRawTransaction(signedTx.serialize());
-      console.log('Transaction sent, signature:', signature);
 
-      console.log('⏳ Confirming transaction...');
       await connection.confirmTransaction(signature, 'confirmed');
-      console.log('✅ Transaction confirmed!');
-
-      console.log('🎉 Pool deployed! Transaction signature:', signature);
 
       // Derive pool addresses for database storage
       const { PublicKey } = await import('@solana/web3.js');
@@ -279,14 +234,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         programPubkey
       );
 
-      console.log('Derived pool addresses:', {
-        pool: poolPda.toBase58(),
-        tokenMint: tokenMintPda.toBase58(),
-        vault: poolVaultPda.toBase58(),
-      });
-
       // Step 4: NOW create post and belief (only after successful transaction)
-      console.log('📝 Step 4: Creating post and belief in database...');
       const response = await fetch('/api/posts/create', {
         method: 'POST',
         headers: {
@@ -323,8 +271,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
       createdPostId = data.post_id;
       createdBeliefId = data.belief_id;
-
-      console.log('✅ Post and pool deployment recorded successfully!');
 
       // Success - reset and close IMMEDIATELY for better UX
       setPostType('text');
@@ -467,16 +413,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
           {/* Content Input - Based on Post Type */}
           {postType === 'text' && (
             <div className="space-y-4">
-              {/* Rich Text Editor - Primary input */}
-              <div>
-                <TiptapEditor
-                  content={contentJson}
-                  onChange={setContentJson}
-                  placeholder="What's on your mind?"
-                  disabled={isSubmitting}
-                />
-              </div>
-
               {/* Toggle button for title & cover */}
               <button
                 type="button"
@@ -490,7 +426,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
               {/* Collapsible Title & Cover Section */}
               {showTitleCover && (
-                <div className="space-y-4 pt-2 border-t border-gray-800">
+                <div className="space-y-4 pt-2 pb-2 border-b border-gray-800">
                   {/* Title Input */}
                   <div>
                     <input
@@ -524,11 +460,36 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
                   )}
                 </div>
               )}
+
+              {/* Rich Text Editor - Primary input */}
+              <div>
+                <TiptapEditor
+                  content={contentJson}
+                  onChange={setContentJson}
+                  placeholder="What's on your mind?"
+                  disabled={isSubmitting}
+                />
+              </div>
             </div>
           )}
 
           {postType === 'image' && (
             <div className="space-y-4">
+              <div>
+                <textarea
+                  id="caption"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="Add a caption..."
+                  maxLength={280}
+                  rows={3}
+                  disabled={isSubmitting}
+                  className="input w-full resize-none"
+                />
+                <div className="text-xs text-gray-500 text-right mt-1">
+                  {caption.length}/280
+                </div>
+              </div>
               <div>
                 <ImageUpload
                   currentUrl={uploadedMediaUrl}
@@ -537,6 +498,11 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
                   disabled={isSubmitting}
                 />
               </div>
+            </div>
+          )}
+
+          {postType === 'video' && (
+            <div className="space-y-4">
               <div>
                 <textarea
                   id="caption"
@@ -552,11 +518,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
                   {caption.length}/280
                 </div>
               </div>
-            </div>
-          )}
-
-          {postType === 'video' && (
-            <div className="space-y-4">
               <div>
                 <VideoUpload
                   currentUrl={uploadedMediaUrl}
@@ -564,21 +525,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
                   onRemove={() => setUploadedMediaUrl(null)}
                   disabled={isSubmitting}
                 />
-              </div>
-              <div>
-                <textarea
-                  id="caption"
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  placeholder="Add a caption..."
-                  maxLength={280}
-                  rows={3}
-                  disabled={isSubmitting}
-                  className="input w-full resize-none"
-                />
-                <div className="text-xs text-gray-500 text-right mt-1">
-                  {caption.length}/280
-                </div>
               </div>
             </div>
           )}

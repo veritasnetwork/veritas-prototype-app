@@ -68,7 +68,6 @@ export async function buildBuyTransaction({
   // Build the transaction
   // Ensure usdcAmount is an integer (micro-USDC) and convert to BN
   const usdcAmountInt = Math.floor(usdcAmount);
-  console.log('[buildBuyTransaction] usdcAmount:', usdcAmount, 'usdcAmountInt:', usdcAmountInt);
   const usdcAmountBn = new anchor.BN(usdcAmountInt);
   const transaction = await buildBuyTx(
     program,

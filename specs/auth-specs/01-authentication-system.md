@@ -1,37 +1,38 @@
-# Authentication & Access Control
+# Authentication System
 
-User authentication via Privy with invite-based alpha access control. Each authenticated user gets one protocol agent with $10k starting stake.
+Simple Privy-based authentication with automatic user registration. No invite codes or waitlist.
 
 ## Authentication Methods
-- **X (Twitter) OAuth**: Social login for discourse platform users
-- **Google OAuth**: Widely adopted, convenient access
-- **Apple OAuth**: iOS user expectation
-- **Magic Link Email**: Passwordless email authentication
+- **Email**: Passwordless magic link authentication
+- **Apple**: OAuth for iOS users
+- **Solana Wallet**: External wallet connection (Phantom, Backpack, etc.)
 
 ## Access Flow
 
-**Landing Page:**
-- Join Waitlist (email collection)
-- Login (Privy authentication)
+**Landing Page (/):**
+- Redirects to `/feed`
+
+**Feed Page (/feed):**
+- Shows posts to all visitors (authenticated or not)
+- Displays auth popup modal for unauthenticated users
+- Authenticated users can create posts and trade on pools
 
 **Post-Authentication:**
-- **First Time**: Enter invite code → Create protocol agent → App access
-- **Returning**: Direct app access (code remembered)
+- **First Time**: Auto-creates protocol agent with $10k starting stake
+- **Returning**: Direct access to all features
 
 ## User-Agent Relationship
 - **One-to-One**: Each authenticated user gets exactly one protocol agent
-- **Automatic Creation**: Agent created when invite code applied
-- **Stake Initialization**: $10,000 starting stake for all users
+- **Automatic Creation**: Agent created on first login via `/api/auth/status`
+- **Stake Initialization**: $10,000 starting stake for all new users
 
-## Database Requirements
+## Database Schema
 
-**invite_codes**: Pre-created codes, status tracking
-**user_access**: User activation status per invite code
-**waitlist**: Email collection for future invites
-**users**: Link Privy auth_id to protocol agent_id
+**agents**: Protocol agents with Solana address and stake tracking
+**users**: App users linked to protocol agents via `agent_id`
 
 ## Security Model
-- **Privy JWT**: All operations require valid authentication token
-- **Invite Validation**: Full app access requires valid invite code
+- **Privy JWT**: All authenticated operations require valid JWT token
+- **Auto-Registration**: Users automatically registered on first login
 - **Session Persistence**: Login state maintained across browser sessions
 - **Row Level Security**: Database policies enforce user data isolation

@@ -5,13 +5,10 @@
 
 ## Database Schema
 
-### New Tables
-**invite_codes**: Pre-created codes with status tracking (unused/used), expiration dates, and user linking
-**user_access**: Links users to activation status and tracks which invite code was used
-**waitlist**: Email collection with pending/invited status tracking
+**agents**: Protocol agents with Solana address and stake tracking
+**users**: App users linked to agents via `agent_id`, includes Privy auth credentials
 
-### Schema Updates
-Update system_config.initial_agent_stake from "100.0" to "10000.0" for $10k starting stakes
+**Note**: No invite codes, waitlist, or user_access tables. All deprecated.
 
 ## Frontend Integration
 
@@ -19,25 +16,25 @@ Update system_config.initial_agent_stake from "100.0" to "10000.0" for $10k star
 Uses standard Supabase client for database operations. Authentication is handled separately via Privy JWT verification in Next.js API routes.
 
 ### Auth Context Provider
-Wrap Privy provider with custom context managing user state, access status, invite activation, and waitlist functionality. Expose user, access flags, and action methods.
+Wraps Privy provider with custom context managing user state. Exposes `user`, `isLoading`, and `logout` methods. No access control checks.
 
-### Protected Route System
-Component that redirects based on authentication state: unauthenticated users to landing page, authenticated but unactivated users to invite code screen.
+### No Protected Routes
+All pages are publicly accessible. Authentication popup appears on `/feed` for unauthenticated users.
 
 ## Next.js API Routes
 
 ### User Status Check & Auto-Registration
 **Endpoint**: `POST /api/auth/status`
-**Input**: Privy JWT in Authorization header
+**Input**: Privy JWT in Authorization header + Solana address in request body
 **Algorithm**:
 1. Verify Privy JWT signature using jose library and Privy's JWKS endpoint
 2. Extract user ID from JWT payload (sub claim)
 3. Query users table by auth_id matching Privy user ID
 4. If user not found:
-   - Create new agent with total_stake=0
-   - Create user record with auth_provider='privy', auth_id=privy_user_id
+   - Call `app-user-creation` edge function with auth_provider='privy', auth_id, and solana_address
+   - Edge function creates agent with $10k starting stake and user record
    - Generate username from last 8 chars of privy_user_id
-5. Return has_access=true, user object, and agent_id
+5. Return user object and agent_id
 
 **Environment Variables**:
 - `NEXT_PUBLIC_PRIVY_APP_ID`: Privy application ID
@@ -46,55 +43,29 @@ Component that redirects based on authentication state: unauthenticated users to
 
 ## Authentication Flow
 
-### Route Protection
-Landing page public, feed and dashboard require activation status, all others require basic authentication.
+### No Route Protection
+All routes are publicly accessible. Authentication only required for write operations (creating posts, trading).
 
 ### Login Process
-1. User clicks login triggering Privy modal with email/Apple/wallet providers
-2. OAuth flow completes returning Privy JWT to client
-3. App calls `/api/auth/status` to verify JWT and get/create user
-4. User is automatically registered with $0 stake on first login
-5. Redirect to /feed upon successful authentication
-
-## Migration Strategy
-
-### Phase 1: Database Setup
-1. Run migration to create new tables
-2. Seed initial invite codes
-3. Update system config
-
-### Phase 2: Frontend Auth
-1. Install Privy SDK
-2. Create auth context and protected routes
-3. Update Supabase client factory
-
-### Phase 3: Replace Dashboard
-1. Remove manual user selection
-2. Get user from auth context
-3. Update edge function calls
-
-### Phase 4: Testing
-1. Test auth flow end-to-end
-2. Verify protocol integration
-3. Test access control
+1. User visits `/feed` and sees auth popup if not authenticated
+2. User clicks "Connect Wallet" triggering Privy modal with email/Apple/wallet providers
+3. OAuth flow completes returning Privy JWT to client
+4. App calls `/api/auth/status` to verify JWT and auto-register/fetch user
+5. User automatically gets $10k starting stake on first login
+6. Auth popup closes, user can now create posts and trade
 
 ## Error Handling
 
 ### Authentication Errors
 - Invalid Privy JWT → 401 Unauthorized
-- User not found → Create user record
-- Network failures → Retry with exponential backoff
-
-### Invite Code Errors
-- Invalid code → 400 Bad Request with clear message
-- Already used → 409 Conflict with "Code already used"
-- Expired code → 410 Gone with "Code expired"
-- Agent creation fails → 503 Service Unavailable
+- User not found → Auto-create user record
+- Network failures → Display error in UI, retry on next interaction
+- Missing Solana wallet → Error in console, user must link wallet
 
 ### Edge Cases
-- Duplicate Privy user → Link to existing user record
-- Orphaned invite codes → Admin cleanup tools
-- Session expires → Automatic re-authentication via Privy
+- Duplicate Privy user → Returns existing user record
+- Session expires → Automatic re-authentication via Privy SDK
+- Missing environment variables → 500 error with clear message
 
 ## Security Considerations
 
@@ -105,12 +76,10 @@ Landing page public, feed and dashboard require activation status, all others re
 - Privy SDK handles refresh tokens automatically on client side
 
 ### Database Security
-- Enable RLS on all new tables
-- user_access: Users can only read own records
-- invite_codes: Read-only for users
-- waitlist: Users cannot read
+- Enable RLS on all tables
+- users: Users can only read own records
+- agents: Linked to users via agent_id
+- posts/beliefs: Public read, authenticated write
 
 ### Rate Limiting
-- Invite activation: 3 attempts per user per hour
-- Waitlist signup: 1 per email per day
-- Status checks: 100 per user per minute
+Not currently implemented. Future consideration for production.

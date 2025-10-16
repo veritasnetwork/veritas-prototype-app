@@ -69,7 +69,7 @@ pub fn apply_pool_penalty(
         .checked_div(old_reserve)
         .ok_or(ErrorCode::NumericalOverflow)?;
 
-    // Scale k_quadratic (k_linear derived automatically as k_quadratic × supply_cap)
+    // Scale k_quadratic proportionally to reserve change
     pool.k_quadratic = pool.k_quadratic
         .checked_mul(ratio)
         .ok_or(ErrorCode::NumericalOverflow)?

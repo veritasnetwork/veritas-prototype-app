@@ -4,7 +4,7 @@ import { useSolanaWallet } from './useSolanaWallet';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePrivy } from '@privy-io/react-auth';
 import { buildBuyTransaction } from '@/lib/solana/buy-transaction';
-import { getRpcEndpoint, getProgramId } from '@/lib/solana/network-config';
+import { getRpcEndpoint, getProgramId, getNetworkName } from '@/lib/solana/network-config';
 
 export function useBuyTokens(onSuccess?: () => void) {
   const { wallet, address } = useSolanaWallet();
@@ -43,9 +43,18 @@ export function useBuyTokens(onSuccess?: () => void) {
         throw new Error('Pool not found');
       }
 
-      // Build the transaction
-      console.log('[BUY] Wallet address:', address);
+      // Helper to read u128 as BigInt, then convert to Number (safe for values < 2^53)
+      const readU128LE = (data: Buffer, offset: number): number => {
+        const low = data.readBigUInt64LE(offset);
+        const high = data.readBigUInt64LE(offset + 8);
+        const result = (high << 64n) | low;
+        return Number(result);
+      };
 
+      // Read supply BEFORE transaction
+      const tokenSupplyBefore = readU128LE(poolAccountBefore.data, 56); // offset: 8 + 32 + 16 = 56
+
+      // Build the transaction
       const transaction = await buildBuyTransaction({
         connection,
         buyer: address,
@@ -69,57 +78,53 @@ export function useBuyTokens(onSuccess?: () => void) {
       }
 
       // Deserialize pool account (simplified - just extract the data we need)
-      // Account layout: discriminator(8) + post_id(32) + k_quadratic(16) + token_supply(16) + reserve(16) + ...
+      // ContentPool layout: discriminator(8) + post_id(32) + k_quadratic(16) + token_supply(16) + reserve(16) + ...
       // All u128 fields are 16 bytes (little-endian)
       const data = poolAccountAfter.data;
 
-      // Helper to read u128 as BigInt, then convert to Number (safe for values < 2^53)
-      const readU128LE = (offset: number): number => {
-        const low = data.readBigUInt64LE(offset);
-        const high = data.readBigUInt64LE(offset + 8);
-        const result = (high << 64n) | low;
-        return Number(result);
-      };
+      const kQuadratic = readU128LE(data, 40); // offset: 8 (discriminator) + 32 (post_id) = 40
+      const tokenSupplyAfter = readU128LE(data, 56); // offset: 40 + 16 (k_quadratic) = 56
+      const reserveAfter = readU128LE(data, 72); // offset: 56 + 16 (token_supply) = 72
 
-      const kQuadratic = readU128LE(40); // offset: 8 (discriminator) + 32 (post_id) = 40
-      const tokenSupplyAfter = readU128LE(56); // offset: 40 + 16 (k_quadratic) = 56
-      const reserveAfter = readU128LE(72); // offset: 56 + 16 (token_supply) = 72
-
-      console.log('[BUY] Pool state after trade:', {
+      console.log('[BUY HOOK] Raw values from chain:', {
         kQuadratic,
         tokenSupplyAfter,
-        reserveAfter,
-        accountDataLength: data.length
+        reserveAfter
       });
 
-      // Calculate tokens received (approximate from curve)
-      const tokensReceived = Math.floor(usdcAmount / 1000); // Simplified, real calc is more complex
+      // Calculate actual tokens received by comparing before/after supply
+      const tokensReceived = tokenSupplyAfter - tokenSupplyBefore;
+
+      // Convert from lamports to tokens (divide by 10^6)
+      const TOKEN_PRECISION = 1_000_000;
+      const tokensReceivedConverted = tokensReceived / TOKEN_PRECISION;
+      const tokenSupplyConverted = tokenSupplyAfter / TOKEN_PRECISION;
+      const reserveConverted = reserveAfter / TOKEN_PRECISION;
+      // k_quadratic is stored as-is on chain (1 = 1, not scaled)
+      const kQuadraticConverted = kQuadratic; // No conversion needed
+      const usdcAmountConverted = usdcAmount / TOKEN_PRECISION;
 
       // Record trade in database
-      console.log('[TRADE RECORDING] Starting trade recording process...');
       const jwt = await getAccessToken();
-      console.log('[TRADE RECORDING] JWT obtained:', jwt ? `${jwt.substring(0, 20)}...` : 'NULL');
 
       if (jwt) {
         try {
-          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-          console.log('[TRADE RECORDING] Supabase URL:', supabaseUrl);
-
+          // Send atomic units to API (no precision loss)
           const tradeData = {
             user_id: user.id,
             pool_address: poolAddress,
             post_id: postId,
             wallet_address: address,
             trade_type: 'buy',
-            token_amount: tokensReceived.toString(),
-            usdc_amount: usdcAmount.toString(),
-            token_supply_after: tokenSupplyAfter.toString(),
-            reserve_after: reserveAfter.toString(),
-            k_quadratic: kQuadratic.toString(),
+            token_amount: tokensReceivedConverted.toString(),
+            usdc_amount: usdcAmountConverted.toString(),
+            token_supply_after: tokenSupplyAfter.toString(), // Atomic units
+            reserve_after: reserveAfter.toString(), // Atomic units (micro-USDC)
+            k_quadratic: kQuadraticConverted.toString(),
             tx_signature: signature
           };
 
-          console.log('[TRADE RECORDING] Trade data:', JSON.stringify(tradeData, null, 2));
+          console.log('[BUY HOOK] Sending to API:', tradeData);
 
           const response = await fetch('/api/trades/record', {
             method: 'POST',
@@ -129,19 +134,13 @@ export function useBuyTokens(onSuccess?: () => void) {
             body: JSON.stringify(tradeData)
           });
 
-          console.log('[TRADE RECORDING] Response status:', response.status, response.statusText);
-          const responseText = await response.text();
-          console.log('[TRADE RECORDING] Response body:', responseText);
-
           if (!response.ok) {
+            const responseText = await response.text();
             console.error('[TRADE RECORDING] Failed to record trade. Status:', response.status);
             console.error('[TRADE RECORDING] Response:', responseText);
-          } else {
-            console.log('[TRADE RECORDING] Trade recorded successfully!');
           }
         } catch (recordError) {
           console.error('[TRADE RECORDING] Error recording trade:', recordError);
-          console.error('[TRADE RECORDING] Error details:', recordError instanceof Error ? recordError.message : recordError);
           // Don't fail the whole transaction if recording fails
         }
       } else {
@@ -160,7 +159,14 @@ export function useBuyTokens(onSuccess?: () => void) {
       // Check for insufficient funds error
       let errorMessage = 'Failed to buy tokens';
       if (err instanceof Error && err.message.includes('insufficient funds')) {
-        errorMessage = 'Insufficient USDC balance. You need test USDC to buy tokens on localnet.';
+        const network = getNetworkName();
+        if (network === 'localnet') {
+          errorMessage = 'Insufficient USDC balance. You need test USDC to buy tokens. Run: spl-token mint <USDC_MINT> <AMOUNT> <YOUR_USDC_ACCOUNT>';
+        } else if (network === 'devnet') {
+          errorMessage = 'Insufficient USDC balance. Get devnet USDC from a faucet.';
+        } else {
+          errorMessage = 'Insufficient USDC balance. Please add USDC to your wallet.';
+        }
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }

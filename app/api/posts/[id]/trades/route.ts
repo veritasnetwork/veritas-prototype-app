@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { TradeHistoryResponseSchema } from '@/types/api';
 
 interface Trade {
   recorded_at: string;
@@ -98,20 +99,21 @@ export async function GET(
     const { calculateTokenPrice } = await import('@/lib/solana/bonding-curve');
 
     // Transform trades to chart format
-    // IMPORTANT: The trades table has incorrect historical data from a bug in the
-    // account deserialization (wrong byte offsets). We need to validate the data.
+    // IMPORTANT: The trades table stores token_supply_after in atomic units (6 decimals)
+    // and k_quadratic in display units (e.g., 1 = 1)
     const RATIO_PRECISION = 1_000_000;
-    const MAX_REASONABLE_TOKEN_SUPPLY = 1_000_000_000; // 1 billion tokens max
-    const MAX_REASONABLE_K = 1_000_000_000; // k should be small
+    const MAX_REASONABLE_TOKEN_SUPPLY_ATOMIC = 1_000_000_000_000_000; // 1 billion tokens * 10^6
+    const MAX_REASONABLE_K = 1_000_000; // k in display units
 
     const priceData = trades.map((trade, index) => {
-      const tokenSupply = Number(trade.token_supply_after);
-      const kQuadratic = Number(trade.k_quadratic);
+      const tokenSupply = Number(trade.token_supply_after); // Atomic units
+      const kQuadratic = Number(trade.k_quadratic); // Display units
 
-      // Validate data - if values are unreasonably large, it's bad data from the bug
-      const isValidData = tokenSupply < MAX_REASONABLE_TOKEN_SUPPLY &&
+      // Validate data - check atomic units for supply
+      const isValidData = tokenSupply < MAX_REASONABLE_TOKEN_SUPPLY_ATOMIC &&
                           kQuadratic < MAX_REASONABLE_K &&
-                          tokenSupply > 0;
+                          tokenSupply > 0 &&
+                          kQuadratic > 0;
 
       let price: number;
       if (isValidData) {
@@ -143,11 +145,12 @@ export async function GET(
 
     const volumeData = trades.filter((trade) => {
       // Check if this trade has valid data
-      const tokenSupply = Number(trade.token_supply_after);
-      const kQuadratic = Number(trade.k_quadratic);
-      return tokenSupply < MAX_REASONABLE_TOKEN_SUPPLY &&
+      const tokenSupply = Number(trade.token_supply_after); // Atomic units
+      const kQuadratic = Number(trade.k_quadratic); // Display units
+      return tokenSupply < MAX_REASONABLE_TOKEN_SUPPLY_ATOMIC &&
              kQuadratic < MAX_REASONABLE_K &&
-             tokenSupply > 0;
+             tokenSupply > 0 &&
+             kQuadratic > 0;
     }).map((trade, index) => {
       // Handle duplicate timestamps
       const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
@@ -155,14 +158,14 @@ export async function GET(
 
       return {
         time: uniqueTime,
-        value: parseFloat(trade.usdc_amount) / 1e6, // Convert micro-USDC to USDC
+        value: parseFloat(trade.usdc_amount),
         color: trade.trade_type === 'buy' ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)' // green for buy, red for sell
       };
     });
 
     // Calculate stats
     const prices = priceData.map((d: { value: number }) => d.value);
-    const totalVolume = trades.reduce((sum: number, trade: Trade) => sum + parseFloat(trade.usdc_amount) / 1e6, 0);
+    const totalVolume = trades.reduce((sum: number, trade: Trade) => sum + parseFloat(trade.usdc_amount), 0);
     const highestPrice = Math.max(...prices);
     const lowestPrice = Math.min(...prices);
 
@@ -176,7 +179,7 @@ export async function GET(
       ? (priceChange24h / prices[Math.max(0, prices.length - trades24h.length)]) * 100
       : 0;
 
-    return NextResponse.json({
+    const response = {
       priceData,
       volumeData,
       stats: {
@@ -188,7 +191,25 @@ export async function GET(
         priceChange24h,
         priceChangePercent24h
       }
-    });
+    };
+
+    // Validate response with Zod schema
+    try {
+      const validated = TradeHistoryResponseSchema.parse(response);
+      return NextResponse.json(validated);
+    } catch (validationError) {
+      console.error('[Trades API] Schema validation failed:', validationError);
+      // In development, return unvalidated data with warning
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[Trades API] Returning unvalidated data in development mode');
+        return NextResponse.json(response);
+      }
+      // In production, fail
+      return NextResponse.json(
+        { error: 'Data validation failed' },
+        { status: 500 }
+      );
+    }
 
   } catch (error) {
     console.error('Trade history API error:', error);

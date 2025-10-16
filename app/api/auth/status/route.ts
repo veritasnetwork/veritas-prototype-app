@@ -127,7 +127,6 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      has_access: true,
       user,
       agent_id: user.agent_id,
     });

@@ -16,33 +16,41 @@ When the protocol applies penalties or rewards, we scale the bonding curve coeff
 
 ## Mathematical Foundation
 
-### Pure Quadratic Bonding Curve with Price Floor
-The pool uses a simple quadratic price function with a minimum price floor:
+### Cube Root Bonding Curve
+The pool uses a cube root supply function that provides natural early-stage accessibility while maintaining growth potential:
 
-**Price Function:**
-$$P(s) = \max(P_{floor}, k_{quadratic} \times s^2)$$
+**Supply Function:**
+$$s(R) = \left(\frac{3R}{k}\right)^{1/3} \times 100$$
 
 Where:
-- `s` = current token supply
-- `P_floor` = minimum price of $0.0001 per token
-- `k_quadratic` = quadratic coefficient (determines price growth rate)
+- `R` = reserve (USDC in pool, in dollar units not micro-USDC)
+- `s` = token supply (in shares, not atomic units)
+- `k` = curve steepness parameter (default k=1)
+
+**Price Function (derived):**
+$$P(s) = \max(P_{floor}, \frac{k \times s^2}{1,000,000})$$
+
+Where:
+- `P_floor` = minimum price of $0.0001 per token (100 micro-USDC per share)
+- Price is in USDC per share
 
 **Key Properties:**
-- Initial trades at price floor until curve naturally exceeds $0.0001
-- Simple, predictable pricing without phase transitions
+- For k=1 and $10 USDC: yields ~310 tokens (cbrt(30) * 100 ≈ 310.7)
+- For k=1 and $1 USDC: yields ~144 tokens (cbrt(3) * 100 ≈ 144.2)
+- Early buyers get reasonable token amounts
+- Price grows quadratically, rewarding early adopters
 - Smooth continuous growth throughout entire curve
-- No approximations or complex integrals needed
+- Dynamic k parameter enables pool redistribution without token rebalancing
 
 ### Reserve Calculation
-The reserve (total USDC in pool) equals the integral of the price function:
+The reserve (total USDC in pool) is calculated from the supply function:
 
-$$R = \int_0^s P(x) \, dx$$
+**From supply to reserve:**
+$$R = \frac{k \times s^3}{3 \times 100^3} = \frac{k \times s^3}{3,000,000}$$
 
-For the pure quadratic portion (when P > P_floor):
-$$R = \frac{k_{quadratic} \times s^3}{3}$$
-
-For initial trades at price floor:
-$$R = P_{floor} \times s$$
+**Example calculations:**
+- 310 tokens → R = (1 × 310³) / 3,000,000 ≈ $9.92 USDC
+- 144 tokens → R = (1 × 144³) / 3,000,000 ≈ $0.995 USDC
 
 ### Elastic-K Scaling
 When the protocol adds/removes USDC without user trades (epoch adjustments):
@@ -66,7 +74,7 @@ Stored on-chain in singleton PDA, adjustable by protocol authority:
 
 | Parameter | Purpose | Default Value | Range |
 |-----------|---------|---------------|-------|
-| `default_k_quadratic` | Default steepness of quadratic curve | 1 (simple unit curve) | [100, 10,000,000] |
+| `default_k_quadratic` | Default curve steepness | 1 (balanced curve) | [100, 10,000,000] |
 | `min_k_quadratic` | Minimum allowed k for new pools | 100 (0.0001) | > 0 |
 | `max_k_quadratic` | Maximum allowed k for new pools | 10,000,000 (10.0) | > min_k |
 | `min_trade_amount` | Minimum buy/sell amount | 1,000,000 (1 USDC) | > 0 |
@@ -76,26 +84,30 @@ Set at pool creation:
 
 | Parameter | Purpose | Set At | Can Update? |
 |-----------|---------|--------|-------------|
-| `k_quadratic` | Actual quadratic coefficient | Initialization (validated against bounds) | Via elastic-k only |
+| `k_quadratic` | Curve steepness coefficient | Initialization (validated against bounds) | Via elastic-k only |
 
 ### Economic Impact Examples
 
 **Flat Curve (k=0.0001):**
-- Early adopter advantage: Low
-- Accessibility: High
+- $1 USDC → ~14,422 tokens
+- $10 USDC → ~31,072 tokens
+- Early adopter advantage: Very low
+- Accessibility: Very high
 - Speculation upside: Limited
-- Price at 10,000 tokens: $0.01
 
 **Moderate Curve (k=1):**
+- $1 USDC → ~144 tokens
+- $10 USDC → ~310 tokens
 - Early adopter advantage: Moderate
 - Balanced accessibility and growth
-- Price at 10,000 tokens: $100
+- **Default configuration**
 
 **Steep Curve (k=10):**
-- Early adopter advantage: Very high
-- Accessibility: Lower (expensive after 1K tokens)
+- $1 USDC → ~66 tokens
+- $10 USDC → ~143 tokens
+- Early adopter advantage: High
+- Accessibility: Lower
 - Speculation upside: Significant
-- Price at 10,000 tokens: $1,000
 
 ---
 
@@ -111,11 +123,13 @@ pub struct ContentPool {
     pub post_id: [u8; 32],      // Hash identifier of content (unique key)
 
     // Bonding Curve Parameters (16 bytes)
-    pub k_quadratic: u128,      // Quadratic coefficient (mutable via elastic-k)
+    pub k_quadratic: u128,      // Curve steepness coefficient (mutable via elastic-k)
+                                 // Note: Called k_quadratic for historical reasons,
+                                 // but applies to the cube root formula
 
     // Current State (32 bytes)
-    pub token_supply: u128,     // Total SPL tokens minted
-    pub reserve: u128,          // Total USDC in pool (6 decimals)
+    pub token_supply: u128,     // Total SPL tokens minted (atomic units, 6 decimals)
+    pub reserve: u128,          // Total USDC in pool (micro-USDC, 6 decimals)
 
     // Token Information (75 bytes)
     pub token_mint: Pubkey,     // SPL token mint address (32 bytes)
@@ -160,7 +174,7 @@ pub struct ProtocolConfig {
     // Reserved for future use (16 bytes)
     pub reserved: [u64; 2],             // 16 bytes
 }
-// Total: 89 bytes + 8 discriminator = 97 bytes
+// Total: 105 bytes + 8 discriminator = 113 bytes
 
 // PDA: seeds = [b"config"]
 ```
@@ -169,11 +183,14 @@ pub struct ProtocolConfig {
 ```rust
 // Precision (immutable)
 const USDC_DECIMALS: u8 = 6;
-const RATIO_PRECISION: u128 = 1_000_000;
-const PRICE_FLOOR: u128 = 100;                          // $0.0001 per token (100 / 1_000_000)
+const TOKEN_PRECISION: u128 = 1_000_000;                // SPL tokens have 6 decimals
+const USDC_PRECISION: u128 = 1_000_000;                 // USDC has 6 decimals
+const SHARE_MULTIPLIER: u128 = 100;                     // The 100x in the formula s(R) = cbrt(3R/k) * 100
+const RATIO_PRECISION: u128 = 1_000_000;                // Precision for elastic-k ratio calculations
+const PRICE_FLOOR_MICRO: u128 = 100;                    // $0.0001 per share = 100 micro-USDC
 
 // Default initial values (used if no ProtocolConfig exists)
-const DEFAULT_K_QUADRATIC: u128 = 1;                     // k=1 for simple quadratic curve
+const DEFAULT_K_QUADRATIC: u128 = 1;                     // k=1 for balanced curve
 
 // Bounds for parameters
 const DEFAULT_MIN_K_QUADRATIC: u128 = 100;              // Min 0.0001
@@ -239,13 +256,18 @@ pub fn apply_pool_reward(
 ```rust
 // 7. Get current pool state (Solana accounts are readable by default)
 // No function needed - clients read ContentPool account directly
-// Calculations done client-side:
-//   - current_price = max(PRICE_FLOOR, k * token_supply²)
-//   - market_cap = current_price * token_supply
+// Calculations done client-side using cube root formula:
+//   - shares = token_supply / 10^6 (convert atomic units to shares)
+//   - current_price = max(PRICE_FLOOR, k * shares²) (in micro-USDC per share)
+//   - market_cap = current_price * shares
 
 // 8. Get protocol configuration (Solana accounts are readable by default)
 // No function needed - clients read ProtocolConfig account directly
 ```
+
+**Note:** The detailed buy/sell implementations below use the cube root supply function:
+- `s(R) = cbrt(3R/k) * 100` for calculating tokens from USDC
+- `R = k * s³ / 3,000,000` for calculating USDC from tokens
 
 ### Instruction Contexts
 
@@ -308,15 +330,12 @@ config.authority = authority.key();
 config.bump = bump;
 
 config.default_k_quadratic = DEFAULT_K_QUADRATIC;
-config.default_supply_cap = DEFAULT_SUPPLY_CAP;
 
 config.min_k_quadratic = DEFAULT_MIN_K_QUADRATIC;
 config.max_k_quadratic = DEFAULT_MAX_K_QUADRATIC;
-config.min_supply_cap = DEFAULT_MIN_SUPPLY_CAP;
-config.max_supply_cap = DEFAULT_MAX_SUPPLY_CAP;
 config.min_trade_amount = DEFAULT_MIN_TRADE_AMOUNT;
 
-config.reserved = [0; 8]; // Zero-initialized for future use
+config.reserved = [0; 2]; // Zero-initialized for future use
 ```
 
 **Context:**

@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getRpcEndpoint } from '@/lib/solana/network-config';
+import { PostAPIResponseSchema } from '@/types/api';
 
 // Helper to read u128 little-endian
 function readU128LE(buffer: Buffer, offset: number): bigint {
@@ -109,9 +110,11 @@ export async function GET(
           const poolAccount = await connection.getAccountInfo(poolPubkey);
 
           if (poolAccount) {
-            // Parse ContentPool struct for token_supply
-            // Layout: discriminator (8) + authority (32) + k_quadratic (16) + token_supply (16)
+            // Parse ContentPool struct for k_quadratic and token_supply
+            // Layout: discriminator (8) + post_id (32) + k_quadratic (16) + token_supply (16) + reserve (16)
+            const offset_k_quadratic = 8 + 32; // 40
             const offset_token_supply = 8 + 32 + 16; // 56
+            const kQuadratic = readU128LE(poolAccount.data, offset_k_quadratic);
             const tokenSupply = readU128LE(poolAccount.data, offset_token_supply);
 
             // Fetch vault account for USDC reserve
@@ -122,10 +125,11 @@ export async function GET(
               // SPL Token Account layout: mint(32) + owner(32) + amount(8)
               const vaultBalance = readU64LE(vaultAccount.data, 64);
 
-              // Update database with fresh data
+              // Update database with fresh data (k_quadratic is dynamic via elastic-k)
               const { error: updateError } = await supabase
                 .from('pool_deployments')
                 .update({
+                  k_quadratic: kQuadratic.toString(),
                   token_supply: tokenSupply.toString(),
                   reserve: vaultBalance.toString(),
                   last_synced_at: new Date().toISOString()
@@ -136,10 +140,12 @@ export async function GET(
                 // Update poolData with fresh values
                 poolData = {
                   ...poolData,
+                  k_quadratic: kQuadratic.toString(),
                   token_supply: tokenSupply.toString(),
                   reserve: vaultBalance.toString()
                 };
                 console.log('[Post API] Pool data synced:', {
+                  kQuadratic: kQuadratic.toString(),
                   tokenSupply: tokenSupply.toString(),
                   reserve: vaultBalance.toString()
                 });
@@ -184,19 +190,53 @@ export async function GET(
 
       // Pool info (now synced from chain if stale)
       poolAddress: poolData?.pool_address || null,
-      poolTokenSupply: poolData?.token_supply || null,
-      poolReserveBalance: poolData?.reserve || null, // Micro-USDC (6 decimals)
-      poolKQuadratic: poolData?.k_quadratic || 1,
+      poolTokenSupply: poolData?.token_supply ? Number(poolData.token_supply) : null,
+      poolReserveBalance: poolData?.reserve ? Number(poolData.reserve) : null, // Micro-USDC (6 decimals)
+      poolKQuadratic: poolData?.k_quadratic ? Number(poolData.k_quadratic) : 1,
 
       // Additional metadata
       likes: post.likes || 0,
       views: post.views || 0
     };
 
-    console.log('[Post API] Returning transformed post:', transformedPost.id);
-    return NextResponse.json(transformedPost);
+    console.log('[Post API] Returning transformed post:', {
+      id: transformedPost.id,
+      poolTokenSupply: transformedPost.poolTokenSupply,
+      poolReserveBalance: transformedPost.poolReserveBalance,
+      lastSynced: poolData?.last_synced_at
+    });
+
+    // Validate response with Zod schema
+    try {
+      const validated = PostAPIResponseSchema.parse(transformedPost);
+      return NextResponse.json(validated);
+    } catch (validationError) {
+      console.error('[Post API] Schema validation failed:', validationError);
+      // In development, return unvalidated data with warning
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[Post API] Returning unvalidated data in development mode');
+        return NextResponse.json(transformedPost);
+      }
+      // In production, fail
+      return NextResponse.json(
+        { error: 'Data validation failed' },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Error fetching post:', error);
+
+    // Check for connection errors
+    if (error instanceof Error) {
+      if (error.message.includes('fetch') || error.message.includes('ECONNREFUSED')) {
+        console.error('⚠️  Cannot connect to Supabase - Is it running? Try: npx supabase start');
+        return NextResponse.json(
+          { error: 'Database unavailable. Run: npx supabase start' },
+          { status: 503 }
+        );
+      }
+    }
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

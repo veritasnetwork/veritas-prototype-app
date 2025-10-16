@@ -23,8 +23,6 @@ interface PostCardProps {
 
 export function PostCard({ post, onPostClick, isSelected = false }: PostCardProps) {
   const router = useRouter();
-  console.log('🔷 PostCard router instance:', router);
-
   const articleRef = useRef<HTMLElement>(null);
   const { isOpen, selectedPostId, closePanel } = FEATURES.POST_DETAIL_PANEL ? usePanel() : { isOpen: false, selectedPostId: null, closePanel: () => {} };
 
@@ -91,15 +89,6 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
   }, [isExpanded, post.post_type, post.article_title, post.cover_image_url]);
 
   const handleClick = (e?: React.MouseEvent) => {
-    console.log('🔵 PostCard handleClick triggered', {
-      postId: post.id,
-      postType: post.post_type,
-      target: e?.target,
-      currentTarget: e?.currentTarget,
-      isExpanded,
-      isPanelOpenForThisPost,
-    });
-
     // For text posts, check if content is truncated before allowing expansion
     if (post.post_type === 'text') {
       // For short-form posts, never expand (they show full content already)
@@ -348,11 +337,6 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
       ref={articleRef}
       className="cursor-pointer group mx-1"
       onClick={(e) => {
-        console.log('🟡 Article onClick fired', {
-          postId: post.id,
-          target: e.target,
-          currentTarget: e.currentTarget,
-        });
         handleClick(e);
       }}
     >

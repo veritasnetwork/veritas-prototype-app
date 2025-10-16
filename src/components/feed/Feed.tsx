@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
 import { PostCard } from './PostCard';
 import { usePosts } from '@/hooks/api/usePosts';
 import { NavigationHeader } from '@/components/layout/NavigationHeader';
@@ -17,18 +18,23 @@ import { useTradeHistory } from '@/hooks/api/useTradeHistory';
 import type { Post } from '@/types/post.types';
 
 export function Feed() {
+  const { authenticated, ready, login } = usePrivy();
   const { posts, loading, error, refetch } = usePosts();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [showAuthPopup, setShowAuthPopup] = useState(false);
+
+  // Show auth popup if not authenticated after Privy is ready
+  useEffect(() => {
+    if (ready && !authenticated) {
+      setShowAuthPopup(true);
+    } else {
+      setShowAuthPopup(false);
+    }
+  }, [ready, authenticated]);
 
   const handlePostClick = (postId: string) => {
-    console.log('🟢 Feed handlePostClick called', {
-      postId,
-      currentSelectedPostId: selectedPostId,
-      willClose: selectedPostId === postId,
-    });
-
     if (selectedPostId === postId) {
       // Toggle: if clicking the same post, close it
       setSelectedPostId(null);
@@ -65,8 +71,6 @@ export function Feed() {
 
   // Refresh handler for after successful trades
   const handleTradeSuccess = async () => {
-    console.log('[Feed] Trade success - refreshing data');
-
     // Refresh trade history (chart)
     if (refreshTradeHistory) {
       refreshTradeHistory();
@@ -160,10 +164,10 @@ export function Feed() {
 
       {/* Main Content Area */}
       <div className={`min-h-screen bg-[#0f0f0f] pb-20 lg:pb-0 transition-all duration-300 ease-in-out ${selectedPostId ? 'lg:ml-28' : 'lg:ml-64'}`}>
-        <div className={`mx-auto px-4 md:px-6 py-8 transition-all duration-300 ${selectedPostId ? 'max-w-[1400px]' : 'max-w-[680px]'}`}>
-          <div className={`flex gap-6 ${selectedPostId ? 'items-start lg:h-[calc(100vh-4rem)]' : ''}`}>
+        <div className={`mx-auto px-4 md:px-6 py-8 transition-all duration-300 ${selectedPostId ? 'lg:max-w-[1400px]' : 'max-w-[680px]'}`}>
+          <div className={`flex flex-col lg:flex-row gap-6 ${selectedPostId ? 'lg:items-start lg:h-[calc(100vh-4rem)]' : ''}`}>
             {/* Posts Column */}
-            <div className={`flex flex-col gap-8 transition-all duration-300 ${selectedPostId ? 'w-[680px] flex-shrink-0 lg:h-full lg:overflow-y-auto lg:pr-4 lg:pl-1' : 'w-full'}`}>
+            <div className={`flex flex-col gap-8 transition-all duration-300 ${selectedPostId ? 'w-full lg:w-[680px] lg:flex-shrink-0 lg:h-full lg:overflow-y-auto lg:pr-4 lg:pl-1 scrollbar-hide' : 'w-full'}`}>
               {posts.map((post) => (
                 <PostCard
                   key={post.id}
@@ -174,9 +178,9 @@ export function Feed() {
               ))}
             </div>
 
-            {/* Detail Cards Column - appears on right side */}
+            {/* Detail Cards Column - appears on right side on desktop, modal on mobile */}
             {selectedPostId && (
-              <div className="flex-1 space-y-4 animate-fade-in lg:h-full lg:overflow-y-auto lg:pr-4">
+              <div className="hidden lg:block flex-1 space-y-4 animate-fade-in lg:h-full lg:overflow-y-auto lg:pr-4 scrollbar-hide">
                 {/* Post Content Card (Optional - can show full post content here) */}
                 {/* Uncomment if you want to show post content in the right column */}
                 {/* <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg sticky top-8">
@@ -221,6 +225,67 @@ export function Feed() {
         </div>
       </div>
 
+      {/* Mobile Detail Modal (shown on <1024px when post selected) */}
+      {selectedPostId && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-sm overflow-y-auto">
+          <div className="min-h-screen pb-20">
+            {/* Header */}
+            <div className="sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a] px-4 py-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-white font-semibold">Trading Details</h2>
+                <button
+                  onClick={() => {
+                    setSelectedPostId(null);
+                    setSelectedPost(null);
+                  }}
+                  className="p-2 hover:bg-[#2a2a2a] rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="px-4 py-6 space-y-4">
+              {/* Trading Chart Card */}
+              {selectedPost?.poolAddress && (
+                <TradingChartCard postId={selectedPostId} />
+              )}
+
+              {/* Pool Metrics Card */}
+              {poolData && (
+                <PoolMetricsCard
+                  currentPrice={poolData.currentPrice}
+                  marketCap={poolData.marketCap}
+                  totalSupply={poolData.totalSupply}
+                  reserveBalance={poolData.reserveBalance}
+                  priceChangePercent24h={tradeHistory?.stats?.priceChangePercent24h}
+                  totalVolume={tradeHistory?.stats?.totalVolume}
+                />
+              )}
+
+              {/* Swap Card */}
+              {selectedPost?.poolAddress && poolData && (
+                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
+                  <UnifiedSwapComponent
+                    poolAddress={selectedPost.poolAddress}
+                    postId={selectedPost.id}
+                    currentPrice={poolData.currentPrice}
+                    totalSupply={poolData.totalSupply}
+                    reserveBalance={poolData.reserveBalance}
+                    reserveBalanceRaw={selectedPost.poolReserveBalance}
+                    kQuadratic={selectedPost.poolKQuadratic || 1}
+                    onTradeSuccess={handleTradeSuccess}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Bottom Navigation (shown on <1024px) */}
       <MobileNav onCreatePost={() => setIsCreateModalOpen(true)} />
 
@@ -230,6 +295,38 @@ export function Feed() {
         onClose={() => setIsCreateModalOpen(false)}
         onPostCreated={refetch}
       />
+
+      {/* Auth Popup */}
+      {showAuthPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-8 max-w-md mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <img
+                src="/icons/logo.png"
+                alt="Veritas Logo"
+                className="w-10 h-10"
+              />
+              <h2 className="text-[#F0EAD6] text-2xl font-bold font-mono">VERITAS</h2>
+            </div>
+
+            <h3 className="text-white text-lg font-medium mb-3">
+              Connect to Continue
+            </h3>
+
+            <p className="text-gray-400 text-sm mb-6">
+              Sign in to create posts, trade on content pools, and participate in the intersubjective consensus protocol.
+            </p>
+
+            <button
+              onClick={() => login()}
+              disabled={!ready}
+              className="w-full bg-[#B9D9EB] hover:bg-[#0C1D51] text-[#0C1D51] hover:text-[#B9D9EB] border border-[#0C1D51] hover:border-[#B9D9EB] font-medium py-3 px-6 rounded-lg font-mono disabled:opacity-50 transition-all duration-300 ease-in-out"
+            >
+              CONNECT WALLET
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

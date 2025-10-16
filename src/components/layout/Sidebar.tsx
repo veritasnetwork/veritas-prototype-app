@@ -67,9 +67,6 @@ export function Sidebar({ onCreatePost, isCompact = false }: SidebarProps) {
           {/* Explore */}
           <Link
             href="/explore"
-            onClick={(e) => {
-              console.log('🔴 SIDEBAR EXPLORE LINK CLICKED', e);
-            }}
             className={`flex items-center py-3 rounded-xl transition-all duration-300 ease-in-out ${
               isCompact ? 'justify-center' : 'gap-3 px-4'
             } ${

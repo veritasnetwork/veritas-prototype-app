@@ -91,7 +91,7 @@ Where:
 - `k_quadratic` = quadratic coefficient (elastic, adjusts with reserve changes)
 - `P_floor` = $0.0001 minimum price
 
-**Why pure quadratic (not piecewise)?**
+**Why cube root (pure quadratic price)?**
 - Simpler implementation and lower gas costs
 - Fewer edge cases and easier auditing
 - Sufficient price range for content markets
@@ -127,7 +127,7 @@ fn apply_epoch_effects(pool: &mut ContentPool, net_change: i64) {
 
 **Key properties:**
 - Token supply never changes during epochs (no minting/burning)
-- Only k_quadratic scales (simpler than piecewise)
+- Only k_quadratic scales (simple elastic-k mechanism)
 - Price automatically increases/decreases for all holders
 - Mathematical invariant maintained: R = (k × s³) / 3
 
@@ -165,7 +165,7 @@ The Δr-based skim mechanism aligns incentives with truth-seeking by:
 ### Penalty Rate Function
 ```
 penalty_rate(Δr, certainty) = {
-    min(|Δr| × certainty, 0.10)    if Δr < 0   (declining)
+    |Δr| × certainty               if Δr < 0   (declining)
     base_skim_rate                  if Δr = 0   (stagnant)
     0                               if Δr > 0   (rising)
 }
@@ -174,8 +174,6 @@ penalty_rate(Δr, certainty) = {
 **Design properties:**
 - **Certainty scaling**: Higher certainty → higher penalty for wrong bets
 - **Magnitude scaling**: Larger relevance drops → higher penalty
-- **Cap at 10%**: Prevents catastrophic losses in single epoch
-- **No penalty for winners**: Δr > 0 pools only receive rewards
 
 ### Reward Distribution (Probability Simplex)
 ```
@@ -195,16 +193,16 @@ Pool D: Δr = 0, certainty = 0.5
 Penalties:
 - Pool A: 0% (rising)
 - Pool B: 0% (rising)
-- Pool C: min(0.2 × 0.7, 0.10) = 0.14 → 10% (capped)
+- Pool C: 0.2 × 0.7 = 0.14 → 14% penalty
 - Pool D: 1% (base skim)
 
 Rewards (assume Pool C reserve = $1000, Pool D reserve = $500):
-- penalty_pot = $100 + $5 = $105
+- penalty_pot = $140 + $5 = $145
 - Pool A impact = 0.5 × 0.8 = 0.40
 - Pool B impact = 0.3 × 0.9 = 0.27
 - total_positive_impact = 0.40 + 0.27 = 0.67
-- Pool A: $105 × (0.40/0.67) = $62.69
-- Pool B: $105 × (0.27/0.67) = $42.31
+- Pool A: $145 × (0.40/0.67) = $86.57
+- Pool B: $145 × (0.27/0.67) = $58.43
 ```
 
 ### Edge Cases
@@ -242,7 +240,6 @@ Rewards (assume Pool C reserve = $1000, Pool D reserve = $500):
      **Penalty Calculation:**
      - **Δr < 0** (declining relevance):
        - `penalty_rate = |Δr| × certainty`
-       - Capped at 10% maximum
        - Example: Δr = -0.3, certainty = 0.6 → penalty_rate = 0.18 (18%)
 
      - **Δr = 0** (stagnant):
@@ -367,7 +364,6 @@ pub fn apply_pool_penalty(
     // Apply elastic-k rescaling
     let ratio = (pool.reserve * 1_000_000) / old_reserve;
     pool.k_quadratic = (pool.k_quadratic * ratio) / 1_000_000;
-    pool.k_linear = (pool.k_linear * ratio) / 1_000_000;
 
     Ok(())
 }
@@ -405,7 +401,6 @@ pub fn apply_pool_reward(
     // Apply elastic-k rescaling
     let ratio = (pool.reserve * 1_000_000) / old_reserve;
     pool.k_quadratic = (pool.k_quadratic * ratio) / 1_000_000;
-    pool.k_linear = (pool.k_linear * ratio) / 1_000_000;
 
     Ok(())
 }
@@ -603,7 +598,7 @@ For 1000 pools with typical distribution (assuming normal market dynamics):
 **Penalty Rate Calculation:**
 ```
 if Δr < 0:
-    penalty_rate = min(|Δr| × certainty, 0.10)
+    penalty_rate = |Δr| × certainty
 elif Δr = 0:
     penalty_rate = base_skim_rate (from config, default 1%)
 else (Δr > 0):
@@ -633,12 +628,10 @@ if total_positive_impact = 0:
 **Key Point:** Certainty comes from the Learning Assessment step of epoch processing, not from epistemic weights.
 
 ### Curve Parameters (Recommended)
-- **k_quadratic_initial**: 0.000001 (adjustable per pool)
-- **s_cap**: 100,000 tokens (where curve switches to linear)
-- **k_linear**: Derived as k_quad × s_cap = 0.1
-- **Initial price**: P(0) = 0 (zero supply = zero price)
-- **Price at cap**: ~$10 (quadratic region peak)
-- **Linear growth**: $0.0001 per token after cap
+- **k_quadratic_initial**: 1 (balanced curve, adjustable per pool)
+- **Price floor**: $0.0001 per token (100 micro-USDC per share)
+- **Initial price**: Near price floor for low supply
+- **Price growth**: Quadratic throughout entire curve
 
 ## Data Structures
 
@@ -680,9 +673,7 @@ CREATE TABLE pool_deployments (
     belief_id UUID REFERENCES beliefs(id) ON DELETE CASCADE,
     pool_address TEXT NOT NULL UNIQUE,
     deployed_at TIMESTAMP DEFAULT NOW(),
-    k_quadratic NUMERIC NOT NULL,
-    k_linear NUMERIC NOT NULL,
-    supply_cap NUMERIC NOT NULL
+    k_quadratic NUMERIC NOT NULL
 );
 
 -- Core table: Agent stake tracking
@@ -745,9 +736,8 @@ INSERT INTO system_config (key, value, description) VALUES
 
 ### Invariants
 1. **Reserve consistency**: At any time, `reserve = ∫[0 to S] P(s) ds` using current k values
-2. **Continuity**: `k_quad × s_cap² = k_linear × s_cap` always holds after epoch scaling
-3. **Proportional scaling**: All token holders gain/lose same percentage from epoch effects
-4. **Zero-sum epochs**: Sum of all skims = Sum of all rewards (parimutuel)
+2. **Proportional scaling**: All token holders gain/lose same percentage from epoch effects
+3. **Zero-sum epochs**: Sum of all skims = Sum of all rewards (parimutuel)
 
 ### Benefits Over Alternatives
 - **No minting/burning**: Simplifies accounting, reduces gas costs
@@ -759,8 +749,7 @@ INSERT INTO system_config (key, value, description) VALUES
 ## Next Steps
 
 1. ✅ Resolved token value mechanism (elastic-k)
-2. ✅ Chose bonding curve (piecewise quadratic → linear)
-3. Write comprehensive unified specification with full program architecture
-4. Implement Anchor programs (pool factory, pool contract, custodian)
-5. Build backend integration (epoch trigger, skim/reward distribution)
-6. Add Privy Solana wallet integration to frontend
+2. ✅ Chose bonding curve (cube root supply function with quadratic price)
+3. ✅ Implemented Anchor programs (pool factory, pool contract, custodian, treasury)
+4. Build backend integration (epoch trigger, skim/reward distribution)
+5. Add Privy Solana wallet integration to frontend

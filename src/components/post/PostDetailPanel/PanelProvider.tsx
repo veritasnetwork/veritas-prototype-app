@@ -35,7 +35,6 @@ export function PanelProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openPost = useCallback((postId: string) => {
-    console.log('[PANEL] Opening post:', postId);
     setSelectedPostId(postId);
     setIsOpen(true);
 
@@ -46,7 +45,6 @@ export function PanelProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const closePanel = useCallback(() => {
-    console.log('[PANEL] Closing panel');
     setIsOpen(false);
 
     // Re-enable body scroll

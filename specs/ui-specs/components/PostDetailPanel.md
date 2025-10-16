@@ -1,7 +1,42 @@
 # Post Detail Panel Specification
 
+## ⚠️ Implementation Status
+
+**Current Reality (as of October 2025):**
+- PostDetailContent component exists but is **MINIMAL** (only shows post content)
+- PostDetailPanel is **NOT the primary pattern** used in production
+- **Feed.tsx uses a split-panel design instead** (left: posts, right: trading components)
+
+**What Actually Exists:**
+- ✅ `PostDetailContent.tsx` - Basic post display component
+- ✅ `PoolMetricsCard.tsx` - Used in Feed (standalone)
+- ✅ `UnifiedSwapComponent.tsx` - Used in Feed (standalone)
+- ✅ `TradingChartCard.tsx` - Used in Feed (standalone)
+
+**Implementation Location:**
+- **Primary:** `src/components/feed/Feed.tsx` (lines 182-222)
+- **Alternative:** `src/components/post/PostDetailPanel/PostDetailContent.tsx` (unused in Feed)
+
+**Design Decision:**
+Feed uses a **two-column layout** instead of the spec'd overlay panel:
+- Left column (680px): Scrollable feed of posts
+- Right column (flexible): Trading interface appears when post selected
+- Desktop only (mobile shows posts full-width)
+
+This differs from the original spec which described an overlay panel design.
+
+**See Also:**
+- [Standalone Components Documentation](../../ui/standalone/README.md) - Details on all reusable components
+- [Integration Guide](../../integration/README.md) - How Feed.tsx uses these components
+
+---
+
+## Original Specification (For Reference)
+
 ## Overview
 A slide-out panel that displays post details and trading interface when a user clicks a post card. Unlike the previous full-page design, this panel overlays or shifts the feed, keeping users in their browsing context.
+
+**Note:** This overlay pattern is not currently the primary implementation. See status section above.
 
 ## Behavior
 

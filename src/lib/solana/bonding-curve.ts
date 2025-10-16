@@ -1,64 +1,30 @@
 /**
- * Bonding Curve Calculations - Unified Library
+ * Bonding Curve Calculations - Unified with Desmos Formulas
  *
- * This library properly bridges between:
- * 1. Smart Contract: Mints SPL tokens with 6 decimals using formula s = cbrt(3R/k)
- * 2. Database: Stores token_supply as atomic units (raw from contract)
- * 3. Display: Shows "shares" as whole numbers matching your Desmos formulas
+ * Source of truth: s(R) = (3R/k)^(1/3) * 100
+ * Where:
+ * - R is reserves in USDC dollars (not micro-USDC!)
+ * - s is share supply (310 shares for $10)
+ * - k is the curve parameter (default 1)
  *
- * KEY INSIGHT:
- * - Smart contract mints atomic units: s_atomic = cbrt(3R/k)
- * - Your Desmos expects: s_display = cbrt(3R/k) * 100
- * - Database stores atomic units (e.g., 310,000,000 for what displays as "310 shares")
- *
- * The conversion:
- * - To get display shares from atomic: shares = atomic / 10,000 (not 1,000,000!)
- * - This gives us the 100x multiplier effect you want
- * - 310,000,000 atomic units = 310 shares (displayed)
+ * The smart contract will need to handle the conversion between
+ * micro-USDC (on-chain) and USDC (in formulas).
  */
 
-// Constants from smart contract
-const RATIO_PRECISION = 1_000_000;
-const PRICE_FLOOR = 100; // 100 / 1_000_000 = 0.0001 USDC minimum
+// Constants
 const TOKEN_DECIMALS = 6;
-const TOKEN_PRECISION = 1_000_000; // 10^6 for SPL token decimals
-
-// Display scaling to match Desmos
-// We want atomic / 10,000 = shares, which gives us the 100x effect
-const ATOMIC_TO_SHARES = 10_000;
+const TOKEN_PRECISION = 10 ** TOKEN_DECIMALS; // 1,000,000
+const RATIO_PRECISION = 1_000_000;
 
 /**
- * Calculate the current price per share (display unit)
+ * Calculate tokens received for USDC input
+ * Formula: s(R) = (3R/k)^(1/3) * 100
  *
- * Your Desmos: P(s) = max(0.0001, k * s² / 1000000)
- * Where s is shares (display units)
- *
- * @param tokenSupplyAtomic - Token supply in atomic units from database
- * @param kQuadratic - Curve parameter from database/contract
- * @returns Price in USDC per share
- */
-export function calculateTokenPrice(tokenSupplyAtomic: number, kQuadratic: number): number {
-  // Convert atomic to display shares (divide by 10,000 to get 100x effect)
-  const shares = tokenSupplyAtomic / ATOMIC_TO_SHARES;
-
-  // Your Desmos formula: P(s) = k * s² / 1000000
-  const priceUsdc = (kQuadratic * shares * shares) / RATIO_PRECISION;
-
-  // Apply floor
-  return Math.max(0.0001, priceUsdc);
-}
-
-/**
- * Calculate shares received for USDC input
- *
- * Contract: s_atomic = cbrt(3R/k)
- * Display: shares = s_atomic / 10,000 (gives 100x effect)
- *
- * @param usdcAmount - USDC to spend (human readable)
+ * @param usdcAmount - USDC to spend (e.g., 10.0 for $10)
  * @param currentSupplyAtomic - Current supply in atomic units
  * @param currentReserveMicroUsdc - Current reserve in micro-USDC
- * @param kQuadratic - Curve parameter
- * @returns Shares received (display units)
+ * @param kQuadratic - Curve parameter (default 1)
+ * @returns Tokens received in atomic units
  */
 export function calculateBuyAmount(
   usdcAmount: number,
@@ -66,93 +32,113 @@ export function calculateBuyAmount(
   currentReserveMicroUsdc: number,
   kQuadratic: number
 ): number {
-  // Convert input to micro-USDC
-  const microUsdc = Math.floor(usdcAmount * 1_000_000);
+  // Use actual current supply (not derived from reserves)
+  const currentSupply = currentSupplyAtomic / TOKEN_PRECISION;
 
-  // New reserve
-  const newReserveMicro = currentReserveMicroUsdc + microUsdc;
+  // Convert reserves to USDC dollars
+  const currentReserveUsdc = currentReserveMicroUsdc / TOKEN_PRECISION;
+  const newReserveUsdc = currentReserveUsdc + usdcAmount;
 
-  // Contract formula: s_atomic = cbrt(3R/k)
-  const newSupplyAtomic = Math.cbrt((3 * newReserveMicro) / kQuadratic);
+  // Apply formula to calculate new supply: s = (3R/k)^(1/3) * 100
+  const newSupply = Math.cbrt((3 * newReserveUsdc) / kQuadratic) * 100;
 
-  // Convert to display shares
-  const currentShares = currentSupplyAtomic / ATOMIC_TO_SHARES;
-  const newShares = newSupplyAtomic / ATOMIC_TO_SHARES;
+  // Calculate tokens to mint (in share units)
+  const sharesToMint = newSupply - currentSupply;
 
-  // Return shares received
-  const sharesReceived = newShares - currentShares;
-  return Math.floor(Math.max(0, sharesReceived));
+  // Convert shares to atomic units for SPL tokens
+  const atomicToMint = sharesToMint * TOKEN_PRECISION;
+
+  return Math.floor(Math.max(0, atomicToMint));
 }
 
 /**
- * Calculate USDC received for selling shares
+ * Calculate USDC received for selling tokens
+ * Inverse formula: R = k * (s/100)^3 / 3
  *
- * Inverse: R = k * s_atomic³ / 3
- * With: s_atomic = shares * 10,000
- *
- * @param shareAmount - Shares to sell (display units)
+ * @param tokenAmountAtomic - Tokens to sell in atomic units
  * @param currentSupplyAtomic - Current supply in atomic units
  * @param currentReserveMicroUsdc - Current reserve in micro-USDC
  * @param kQuadratic - Curve parameter
  * @returns USDC received (human readable)
  */
 export function calculateSellAmount(
-  shareAmount: number,
+  tokenAmountAtomic: number,
   currentSupplyAtomic: number,
   currentReserveMicroUsdc: number,
   kQuadratic: number
 ): number {
-  // Convert shares to atomic
-  const atomicToSell = shareAmount * ATOMIC_TO_SHARES;
+  // Convert atomic to shares
+  const currentShares = currentSupplyAtomic / TOKEN_PRECISION;
+  const sharesToSell = tokenAmountAtomic / TOKEN_PRECISION;
+  const newShares = Math.max(0, currentShares - sharesToSell);
 
-  // New supply after selling
-  const newSupplyAtomic = Math.max(0, currentSupplyAtomic - atomicToSell);
+  // Calculate reserves using inverse formula: R = k * (s/100)^3 / 3
+  const currentReserveUsdc = kQuadratic * Math.pow(currentShares / 100, 3) / 3;
+  const newReserveUsdc = kQuadratic * Math.pow(newShares / 100, 3) / 3;
 
-  // Calculate reserves using contract formula: R = k * s³ / 3
-  const newReserveMicro = (kQuadratic * Math.pow(newSupplyAtomic, 3)) / 3;
+  // USDC payout
+  const usdcPayout = currentReserveUsdc - newReserveUsdc;
 
-  // USDC to receive
-  const microUsdcToReceive = currentReserveMicroUsdc - newReserveMicro;
+  return Math.max(0, usdcPayout);
+}
 
-  // Convert to human readable USDC
-  return Math.max(0, microUsdcToReceive / 1_000_000);
+/**
+ * Calculate the current price per share
+ * Formula: P(s) = max(0.0001, k * s^2 / 1,000,000)
+ *
+ * @param supplyAtomic - Token supply in atomic units
+ * @param kQuadratic - Curve parameter
+ * @returns Price in USDC per share
+ */
+export function calculateTokenPrice(supplyAtomic: number, kQuadratic: number): number {
+  // Convert atomic to shares
+  const shares = supplyAtomic / TOKEN_PRECISION;
+
+  // Apply formula: P(s) = k * s^2 / 1,000,000
+  const price = (kQuadratic * shares * shares) / 1_000_000;
+
+  // Apply price floor
+  return Math.max(0.0001, price);
+}
+
+/**
+ * Alternative price formula from reserves
+ * Formula: P(R) = ((3R/k)^(2/3)) / 100
+ *
+ * @param reserveMicroUsdc - Reserve in micro-USDC
+ * @param kQuadratic - Curve parameter
+ * @returns Price in USDC per share
+ */
+export function calculatePriceFromReserve(
+  reserveMicroUsdc: number,
+  kQuadratic: number
+): number {
+  // Convert to USDC for formula
+  const reserveUsdc = reserveMicroUsdc / TOKEN_PRECISION;
+
+  // Apply formula: P(R) = ((3R/k)^(2/3)) / 100
+  const price = Math.pow((3 * reserveUsdc) / kQuadratic, 2/3) / 100;
+
+  return Math.max(0.0001, price);
 }
 
 /**
  * Calculate reserve for a given supply
+ * Formula: R = k * (s/100)^3 / 3
  *
- * R = k * s_atomic³ / 3
- *
- * @param tokenSupplyAtomic - Supply in atomic units
+ * @param supplyAtomic - Supply in atomic units
  * @param kQuadratic - Curve parameter
  * @returns Reserve in micro-USDC
  */
-export function calculateReserveForSupply(tokenSupplyAtomic: number, kQuadratic: number): number {
-  const reserve = (kQuadratic * Math.pow(tokenSupplyAtomic, 3)) / 3;
-  return Math.floor(reserve);
-}
+export function calculateReserveForSupply(supplyAtomic: number, kQuadratic: number): number {
+  // Convert atomic to shares
+  const shares = supplyAtomic / TOKEN_PRECISION;
 
-/**
- * Calculate cost to buy specific amount of shares
- *
- * @param currentSupplyAtomic - Current supply in atomic units
- * @param sharesToBuy - Shares to buy (display units)
- * @param kQuadratic - Curve parameter
- * @returns Cost in USDC
- */
-export function calculateBuyCost(
-  currentSupplyAtomic: number,
-  sharesToBuy: number,
-  kQuadratic: number
-): number {
-  const atomicToBuy = sharesToBuy * ATOMIC_TO_SHARES;
+  // Apply formula: R = k * (s/100)^3 / 3
+  const reserveUsdc = kQuadratic * Math.pow(shares / 100, 3) / 3;
 
-  const currentReserve = calculateReserveForSupply(currentSupplyAtomic, kQuadratic);
-  const newSupplyAtomic = currentSupplyAtomic + atomicToBuy;
-  const newReserve = calculateReserveForSupply(newSupplyAtomic, kQuadratic);
-
-  const costMicroUsdc = newReserve - currentReserve;
-  return costMicroUsdc / 1_000_000;
+  // Convert to micro-USDC
+  return Math.floor(reserveUsdc * TOKEN_PRECISION);
 }
 
 /**
@@ -168,16 +154,24 @@ export function formatPoolData(
   poolReserveBalance: number | string,
   poolKQuadratic: number | string
 ) {
-  // Parse inputs
   const supplyAtomic = Number(poolTokenSupply) || 0;
   const reserveMicroUsdc = Number(poolReserveBalance) || 0;
   const k = Number(poolKQuadratic) || 1;
 
-  // Convert to display units
-  const shares = supplyAtomic / ATOMIC_TO_SHARES;
-  const reserveUsdc = reserveMicroUsdc / 1_000_000;
+  console.log('[formatPoolData] Input:', {
+    poolTokenSupply,
+    poolReserveBalance,
+    poolKQuadratic,
+    supplyAtomic,
+    reserveMicroUsdc,
+    k
+  });
 
-  // Calculate current price
+  // Convert to display units
+  const shares = supplyAtomic / TOKEN_PRECISION;
+  const reserveUsdc = reserveMicroUsdc / TOKEN_PRECISION;
+
+  // Calculate price
   const currentPrice = calculateTokenPrice(supplyAtomic, k);
 
   // Market cap
@@ -185,11 +179,23 @@ export function formatPoolData(
 
   return {
     currentPrice,
-    totalSupply: shares, // Display shares
-    reserveBalance: reserveUsdc,
+    totalSupply: shares,       // Shares (e.g., 310)
+    reserveBalance: reserveUsdc, // USDC (e.g., 10)
     marketCap,
     // Legacy aliases
     tokenSupply: shares,
     reserve: reserveUsdc,
   };
 }
+
+// Helper functions
+export function atomicToDisplay(atomic: number): number {
+  return atomic / TOKEN_PRECISION;
+}
+
+export function displayToAtomic(display: number): number {
+  return Math.floor(display * TOKEN_PRECISION);
+}
+
+// Export constants
+export { TOKEN_DECIMALS, TOKEN_PRECISION, RATIO_PRECISION };
