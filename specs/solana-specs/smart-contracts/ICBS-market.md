@@ -13,13 +13,14 @@ The ICBS market creates a truth-settled prediction market for content relevance 
 | Symbol | Meaning | On-chain representation |
 |--------|---------|------------------------|
 | `s_L`, `s_S` | Raw supply counters (LONG / SHORT) | `u128` |
-| `μ_L`, `μ_S` | Global multipliers (rebasing factors) | Q64.64 fixed-point |
 | `R_L`, `R_S` | Virtual reserves assigned to each side | Q64.64 fixed-point |
 | `R_tot` | Lamports in the single escrow vault | `u64` |
 | `F`, `β` | Surface exponents (F=3, β≈0.5 default) | Packed `u16` |
+| `λ_L`, `λ_S` | Curve scale parameters (constant) | Q64.64 fixed-point |
 | `x` | BTS relevance score ∈ [0,1] | Q32.32 (provided to settlement instruction) |
 | `q` | Market-predicted relevance = `R_L / R_tot` | Derived on-chain |
-| `f_L`, `f_S` | Settlement scale factors | Q64.64 (`f_L = x/q`, `f_S = (1-x)/(1-q)`) |
+| `f_L`, `f_S` | Settlement scale factors (ratio-based proper scoring rule) | Q64.64 (`f_L = x/q`, `f_S = (1-x)/(1-q)`) |
+| `p_L`, `p_S` | Marginal price (changes with settlement) | Derived: `p = R / s` |
 
 **Note:** All prices are in lamports (or USDC-lamport wrapper) with Q64.64 precision for sub-lamport accuracy.
 
@@ -207,17 +208,20 @@ fn price_short(
 
 ```rust
 /// Virtual reserves track "which fraction of pot backs each side"
+/// Uses closed-form calculation that equals the integral due to 1-homogeneity
 fn update_virtual_reserves(pool: &mut ContentPool) {
     let p_l = price_long(pool.s_long, pool.s_short, &pool.params);
     let p_s = price_short(pool.s_long, pool.s_short, &pool.params);
 
-    // R_L = p_L × s_L (integral of price)
+    // R_L = s_L × p_L (closed-form)
+    // Due to 1-homogeneity: this equals ∫[0 to s_L] p_L(u, s_S) du exactly
     pool.R_long = mul_q64(p_l, pool.s_long);
 
-    // R_S = p_S × s_S
+    // R_S = s_S × p_S (closed-form)
     pool.R_short = mul_q64(p_s, pool.s_short);
 
     // Invariant: R_L + R_S = R_tot (total lamports in vault)
+    // This is exact due to Euler's theorem for homogeneous functions
     assert_eq!(
         pool.R_long + pool.R_short,
         pool.vault_balance,
@@ -226,13 +230,15 @@ fn update_virtual_reserves(pool: &mut ContentPool) {
 }
 ```
 
+**Note on implementation:** We use the simple product `s × p` rather than computing integrals. This is not an approximation—the cost function's 1-homogeneity guarantees that `R_L = s_L × p_L` is mathematically identical to the integral of marginal price from 0 to `s_L`. See Euler's theorem for homogeneous functions.
+
 ---
 
 ## 3. Instruction Set
 
 ### 3.1 `init_content`
 
-Creates ContentPool, two SPL mints, vaults, seeds initial multipliers μ_L = μ_S = 1.
+Creates ContentPool, two SPL mints, and vaults.
 
 **Inputs:**
 ```rust
@@ -290,10 +296,9 @@ pub struct InitParams {
 
 **Logic:**
 1. Initialize ContentPool with provided parameters
-2. Set initial multipliers: μ_L = μ_S = 1.0 (Q64.64)
-3. Set supplies: s_L = s_S = 0
-4. Set virtual reserves: R_L = R_S = 0
-5. Initialize curve scale parameters λ_L and λ_S
+2. Set supplies: s_L = s_S = 0
+3. Set virtual reserves: R_L = R_S = 0
+4. Initialize curve scale parameters λ_L and λ_S
 
 **Initial Curve Scale Calculation:**
 
@@ -661,7 +666,9 @@ pub struct SellParams {
 
 ---
 
-### 3.4 `burn_for_usdc`
+### 3.4 `burn_for_usdc` (Optional - Potentially Redundant)
+
+**Note:** With the corrected settlement mechanism (reserves scale, prices scale), this instruction may be redundant. The regular `sell` instruction will correctly integrate to the full reserve due to homogeneity. This instruction can be kept as a gas-efficient alternative that avoids bonding curve calculations.
 
 Alternative exit mechanism: burn tokens for proportional share of virtual reserves.
 
@@ -763,6 +770,25 @@ pub fn burn_for_usdc(
 
 Authority-only instruction to process epoch settlement using BTS relevance score.
 
+**Ratio-Based Proper Scoring Rule:**
+
+The settlement mechanism implements a ratio-based strictly proper scoring rule (not Brier or logarithmic):
+
+- **Settlement factors:** `f_L = x/q` and `f_S = (1-x)/(1-q)`
+- **Trader profit:** For a marginal LONG trade, profit = `p_L × δ × (x/q - 1)`
+- **Expected profit:** `E[profit] = p_L × (E[x]/q - 1)`
+- **Proper rule:** Maximum expected profit when `q = E[x]` (truthful reporting)
+
+This differs from standard scoring rules:
+- **Logarithmic:** Pays `ln(q)`, maximizes expected information gain (KL divergence)
+- **Brier (quadratic):** Pays `-(x-q)²`, minimizes mean squared error
+- **Ratio-based (ours):** Pays linear ratio `x/q`, maximizes expected fractional gain
+
+The ratio-based rule provides:
+1. **Simplicity:** Just multiplication, no logs or exponentiation needed on-chain
+2. **Strict properness:** Market price converges to true expectation
+3. **Homogeneity preservation:** Maintains `R_L = s_L × p_L` invariant
+
 **Inputs:**
 ```rust
 pub struct SettleEpoch<'info> {
@@ -818,11 +844,10 @@ pub fn settle_epoch(
     // f_S = (1 - x) / (1 - q)
     let f_short = div_q64(Q64_ONE - x, Q64_ONE - q);
 
-    // 4) Apply caps to prevent nuking (±25%)
-    let f_long = f_long.clamp(Q64_MIN_FACTOR, Q64_MAX_FACTOR);
-    let f_short = f_short.clamp(Q64_MIN_FACTOR, Q64_MAX_FACTOR);
-
-    // 5) Re-scale virtual reserves
+    // 4) Scale virtual reserves ONLY
+    // This automatically scales marginal price by the same factor
+    // because the bonding surface is homogeneous of degree 1:
+    // p_new = R_new / s = (R_old × f) / s = p_old × f
     pool.R_long = mul_q64(pool.R_long, f_long);
     pool.R_short = mul_q64(pool.R_short, f_short);
 
@@ -833,20 +858,11 @@ pub fn settle_epoch(
         ErrorCode::ReserveInvariantBroken
     );
 
-    // 6) Rebase multipliers (affects ALL token holders)
-    pool.mu_long = mul_q64(pool.mu_long, f_long);
-    pool.mu_short = mul_q64(pool.mu_short, f_short);
-
-    // 7) Adjust curve scale parameters for price continuity
-    // λ_new = λ_old / f² (maintains marginal price)
-    pool.lambda_long = div_q64(pool.lambda_long, mul_q64(f_long, f_long));
-    pool.lambda_short = div_q64(pool.lambda_short, mul_q64(f_short, f_short));
-
-    // 8) Update epoch tracking
+    // 6) Update epoch tracking
     pool.epoch_index += 1;
     pool.last_settle_ts = clock.unix_timestamp;
 
-    // 9) Emit settlement event
+    // 7) Emit settlement event
     emit!(SettlementEvent {
         pool: pool.key(),
         epoch: pool.epoch_index,
@@ -863,9 +879,11 @@ pub fn settle_epoch(
 
 **Key Properties:**
 - Reserve invariant maintained: `R_L + R_S = R_tot`
-- Token supplies unchanged (raw balances)
-- Effective balances change via multipliers
-- Price continuity maintained via k adjustment
+- Raw token supplies unchanged (s_L and s_S stay constant)
+- Marginal price scales by settlement factor: `p_new = p_old × f`
+- Value per token scales by settlement factor: `value_new = (R × f) / s = value_old × f`
+- Homogeneity preserved: `R_L = s_L × p_L` (always true)
+- Full liquidation possible: selling all tokens extracts exactly `R_L` due to degree-1 homogeneity
 
 ---
 
@@ -947,24 +965,17 @@ pub struct ContentPool {
     pub beta_num: u16,       // Coupling numerator (default: 1)
     pub beta_den: u16,       // Coupling denominator (default: 2, so β=0.5)
 
-    // Raw supplies (before multiplier)
+    // Raw supplies (unchanging during settlement)
     pub s_long: u128,
     pub s_short: u128,
 
-    // Rebase multipliers (Q64.64)
-    pub mu_long: u128,       // Starts at 2^64 (1.0)
-    pub mu_short: u128,      // Starts at 2^64 (1.0)
-
-    // Virtual reserves (Q64.64)
+    // Virtual reserves (Q64.64) - scaled during settlement
     pub R_long: u128,
     pub R_short: u128,
 
-    // Curve scale parameters (rescaled at settlement)
-    // Note: Renamed from "k" to "lambda" to avoid confusion with fixed-k curves
-    // λ_L and λ_S are NOT constant - they adjust each settlement to maintain
-    // marginal price continuity despite changing supplies via rebase
-    pub lambda_long: u128,   // Q64.64
-    pub lambda_short: u128,  // Q64.64
+    // Curve scale parameters (constant - NOT adjusted during settlement)
+    pub lambda_long: u128,   // Q64.64 - fixed after initialization
+    pub lambda_short: u128,  // Q64.64 - fixed after initialization
 
     // Epoch tracking
     pub epoch_len: u32,      // Seconds per epoch
@@ -985,34 +996,22 @@ impl ContentPool {
         32 + 32 + 32 + 32 +          // mints and vaults
         2 + 2 + 2 +                  // F, beta_num, beta_den
         16 + 16 +                    // s_long, s_short
-        16 + 16 +                    // mu_long, mu_short
         16 + 16 +                    // R_long, R_short
         16 + 16 +                    // lambda_long, lambda_short
         4 + 4 + 8 + 8 +              // epoch tracking
         8 +                          // vault_balance
         1;                           // bump
-    // Total: ~297 bytes
+    // Total: ~265 bytes (32 bytes smaller without multipliers)
 }
 ```
 
 **Naming Clarification:**
 
-The parameters `lambda_long` and `lambda_short` are called "curve scale parameters" rather than "slope constants" because:
+The parameters `lambda_long` and `lambda_short` are curve scale parameters that:
 
-1. They are **not constant** - they change every settlement
-2. They **scale** the entire price function up or down
-3. They maintain **marginal price continuity** across rebases
-
-**Settlement adjustment formula:**
-```rust
-// After rebase with factors f_L and f_S:
-lambda_long_new = lambda_long / (f_long * f_long);
-lambda_short_new = lambda_short / (f_short * f_short);
-
-// This ensures marginal price stays continuous:
-// p_L(s_eff) = λ_new · F · s_eff^... = (λ_old / f²) · F · (s_old · f)^...
-//            = λ_old · F · s_old^... = p_L_old (continuous!)
-```
+1. Are **constant** after initialization - never change during settlement
+2. Scale the entire price function
+3. Determine the steepness of each side's bonding curve independently
 
 ### Supporting Accounts
 
@@ -1053,12 +1052,6 @@ pub const Q64_MIN_PREDICTION: u128 = Q64_ONE / 100;
 
 /// Maximum prediction value (99%)
 pub const Q64_MAX_PREDICTION: u128 = (Q64_ONE * 99) / 100;
-
-/// Minimum settlement factor (75% = -25% max loss)
-pub const Q64_MIN_FACTOR: u128 = (Q64_ONE * 3) / 4;
-
-/// Maximum settlement factor (125% = +25% max gain)
-pub const Q64_MAX_FACTOR: u128 = (Q64_ONE * 5) / 4;
 
 /// Rounding tolerance for invariant checks
 pub const ROUNDING_TOLERANCE: u128 = 1000;
@@ -1123,23 +1116,32 @@ pub fn pow_frac(a: U256, num: u32, den: u32) -> U256 {
 
 ### Client-Side Balance Query
 
-Since balances are rebased via multipliers, clients must apply the multiplier to get effective balance:
+Since balances are rebased via multipliers, clients must calculate the value per token rather than changing displayed token counts:
 
 ```rust
-/// Get effective token balance for a user
-pub fn get_effective_balance(
+/// Calculate value per token (in USDC)
+pub fn get_value_per_token(
+    pool: &ContentPool,
+    side: TokenSide
+) -> u64 {
+    let (reserve, supply) = match side {
+        TokenSide::Long => (pool.R_long, pool.s_long),
+        TokenSide::Short => (pool.R_short, pool.s_short),
+    };
+
+    // value_per_token = reserve / supply
+    div_q64(reserve, supply)
+        |> q64_to_u64
+}
+
+/// Calculate total portfolio value for a user
+pub fn get_portfolio_value(
     pool: &ContentPool,
     raw_balance: u64,
     side: TokenSide
 ) -> u64 {
-    let multiplier = match side {
-        TokenSide::Long => pool.mu_long,
-        TokenSide::Short => pool.mu_short,
-    };
-
-    // effective = (raw × multiplier) / 2^64
-    mul_q64(u64_to_q64(raw_balance), multiplier)
-        |> q64_to_u64
+    let value_per_token = get_value_per_token(pool, side);
+    raw_balance * value_per_token
 }
 ```
 
@@ -1150,26 +1152,56 @@ import { BN } from "@coral-xyz/anchor";
 
 const Q64_ONE = new BN(1).shln(64);
 
-function getEffectiveBalance(
+function getValuePerToken(
+  pool: ContentPool,
+  side: "long" | "short"
+): BN {
+  const reserve = side === "long" ? pool.RLong : pool.RShort;
+  const supply = side === "long" ? pool.sLong : pool.sShort;
+
+  // value = reserve / supply (in USDC per token)
+  return reserve.mul(Q64_ONE).div(supply).shrn(64);
+}
+
+function getPortfolioValue(
   pool: ContentPool,
   rawBalance: BN,
   side: "long" | "short"
 ): BN {
-  const multiplier = side === "long"
-    ? pool.muLong
-    : pool.muShort;
-
-  // (rawBalance × multiplier) / 2^64
-  return rawBalance
-    .mul(multiplier)
-    .div(Q64_ONE);
+  const valuePerToken = getValuePerToken(pool, side);
+  return rawBalance.mul(valuePerToken);
 }
 
 // Usage
 const rawBalance = new BN(1000); // User holds 1000 raw tokens
-const effectiveBalance = getEffectiveBalance(pool, rawBalance, "long");
-console.log(`Effective balance: ${effectiveBalance.toString()}`);
+const valuePerToken = getValuePerToken(pool, "long"); // e.g., 1.5 USDC
+const totalValue = getPortfolioValue(pool, rawBalance, "long"); // 1500 USDC
+
+console.log(`Tokens: ${rawBalance.toString()} LONG`);
+console.log(`Value per token: $${valuePerToken.toString()}`);
+console.log(`Total value: $${totalValue.toString()}`);
 ```
+
+### UI Display Recommendations
+
+**IMPORTANT:** Do not display changing token counts. Show fixed token counts with changing value:
+
+```
+✅ CORRECT:
+100 LONG tokens @ $1.50 each
+Total Value: $150.00
+
+❌ WRONG:
+150 LONG tokens @ $1.00 each
+Total Value: $150.00
+```
+
+**Rationale:**
+- Raw token balances never change on-chain during settlement
+- Wallets and explorers will show raw balance (100 tokens)
+- Showing "150 tokens" in UI but "100 tokens" in wallet is confusing
+- Users understand "my tokens became more valuable" better than "I got more tokens"
+- Matches traditional finance (stock price changes, not splits)
 
 ---
 
@@ -1185,13 +1217,15 @@ Given symmetric surface parameters (`F_L = F_S = F`, `0 < β < 1`), the cost fun
 C(s_L, s_S) = (s_L^(F/β) + s_S^(F/β))^β
 ```
 
-Virtual reserves are:
+Virtual reserves are calculated using closed form:
 ```
-R_L = p_L × s_L
-R_S = p_S × s_S
+R_L = s_L × p_L = s_L × (∂C/∂s_L)
+R_S = s_S × p_S = s_S × (∂C/∂s_S)
 ```
 
-Due to homogeneity of degree 1:
+This simple multiplication is equivalent to integrating the marginal price curve because the cost function is 1-homogeneous. We never compute integrals on-chain.
+
+Due to homogeneity of degree 1 (Euler's theorem):
 ```
 R_L + R_S = C
 ```
@@ -1225,16 +1259,18 @@ Therefore, the reserve ratio acts as the uncovered probability, exactly like "YE
 
 **Invariant preservation:**
 
-Settlement scales reserves and supplies by the same factor:
+Settlement scales reserves while raw supplies stay constant:
 
 ```
 R_L' = R_L × f_L
-s_L' = s_L × f_L (via multiplier μ_L)
+s_L' = s_L (raw supply unchanged)
 
-Therefore: R_L' / s_L' = R_L / s_L
+Therefore:
+- Before settlement: value per token = R_L / s_L
+- After settlement: value per token = (R_L × f_L) / s_L = (R_L / s_L) × f_L
 ```
 
-The per-token reserve backing remains constant.
+The per-token reserve backing changes by factor `f_L`, which is how holders gain/lose value.
 
 **`burn_for_usdc` safety:**
 
@@ -1254,26 +1290,31 @@ This formula always pays out the constant per-token backing. No bank run can ban
 
 ### How do winners gain / losers lose?
 
-**Via multipliers μ_L and μ_S:**
+**Via reserve rebalancing:**
 
 - Account holders keep **raw balances** unchanged in storage
-- **Effective balance** = raw balance × multiplier
-- UI displays effective balance
-- Settlement changes multipliers based on prediction accuracy
+- **Value per token** = reserve / supply
+- UI displays raw balance with updated value per token
+- Settlement changes reserves (and thus value per token) based on prediction accuracy
+- Multipliers `μ_L` and `μ_S` are internal accounting - not displayed to users
 
 **Marginal price continuity:**
 
-Adjusting `k` parameters ensures that the marginal price formula remains continuous across settlement:
+Adjusting λ (lambda) parameters ensures that the marginal price formula remains continuous across settlement:
 
 ```
-price_long = k_L × s_L^(F/β - 1) × (...)
+price_long = λ_L × F × s_L^(F/β - 1) × (...)
 
 After settlement:
-k_L' = k_L / f_L^2
-s_L' = s_L × f_L (effective)
+λ_L' = λ_L / f_L^2  (lambda scales down)
+μ_L' = μ_L × f_L     (multiplier scales up, internal accounting only)
 
-price_long' = (k_L / f_L^2) × (s_L × f_L)^(F/β - 1) × (...)
-            = price_long (continuous!)
+The product of these adjustments maintains price continuity:
+price_long' = (λ_L / f_L^2) × F × (s_L × μ_L')^(F/β - 1) × (...)
+            ≈ price_long (continuous!)
+
+Note: Raw supply s_L is unchanged; multiplier μ_L is used internally
+for price calculations but not shown to users.
 ```
 
 **Reference:** See `settle_epoch` algorithm in Section 3.5.
@@ -1291,7 +1332,6 @@ price_long' = (k_L / f_L^2) × (s_L × f_L)^(F/β - 1) × (...)
 | **BTS skim** | 10% of gross buy | Funds validator pot and deters spam |
 | **Epoch length** | 10,800s (3h) | Matches current Veritas cadence |
 | **Grace blocks** | 5 | ~2s on Solana; prevents micro-MEV |
-| **Error cap** | ±25% | Avoids zeroing a side in one shot; `f ∈ [0.75, 1.25]` |
 | **Min prediction** | 1% | Floor for q to avoid division by zero |
 | **Max prediction** | 99% | Ceiling for q to avoid division by zero |
 
@@ -1613,9 +1653,11 @@ require!(
 
 ### Production Readiness
 
-1. **Use Anchor's rebase pattern** once SPL supports it natively. Until then:
-   - Store raw balances + global multiplier
-   - Patch SPL clients to apply scaling client-side
+1. **Token balance implementation:**
+   - Store raw balances on-chain (never change during settlement)
+   - Store multipliers `μ_L` and `μ_S` for internal price calculations
+   - Client-side: calculate and display value per token = R / s
+   - Do NOT rebase visible token counts in UI
 
 2. **256-bit math support:**
    - Solana BPF supports u256 via `uint` crate
@@ -1914,7 +1956,7 @@ Or use `solana program dump` with `--compute-unit-limit` flag.
 ✅ Manipulation resistant (inverse coupling)
 ✅ Price discovery from zero (no seed needed)
 ✅ Always liquid (mint/burn via formula)
-✅ Predictable settlement (scoring rule)
+✅ Predictable settlement (ratio-based proper scoring rule)
 
 ---
 
