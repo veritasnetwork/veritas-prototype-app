@@ -104,15 +104,17 @@ This resets Solana state, redeploys contracts, and updates your `.env.local`.
 ## Environment Variables
 
 **Required:**
-- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anon key
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
-- `NEXT_PUBLIC_PRIVY_APP_ID` - Privy app ID
-- `PRIVY_APP_SECRET` - Privy app secret
-- `NEXT_PUBLIC_SOLANA_NETWORK` - Network (localnet/devnet/mainnet-beta)
-- `NEXT_PUBLIC_SOLANA_RPC_ENDPOINT` - Solana RPC URL
-- `NEXT_PUBLIC_VERITAS_PROGRAM_ID` - Deployed program address
-- `NEXT_PUBLIC_USDC_MINT_LOCALNET` - Local USDC mint address
+- `NEXT_PUBLIC_SUPABASE_URL` - From `npx supabase status`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - From `npx supabase status`
+- `SUPABASE_SERVICE_ROLE_KEY` - From `npx supabase status`
+- `NEXT_PUBLIC_PRIVY_APP_ID` - Create free app at [dashboard.privy.io](https://dashboard.privy.io)
+- `PRIVY_APP_SECRET` - From Privy dashboard (each dev needs their own)
+- `NEXT_PUBLIC_SOLANA_NETWORK` - `localnet` for development
+- `NEXT_PUBLIC_SOLANA_RPC_ENDPOINT` - `http://127.0.0.1:8899` for localnet
+- `NEXT_PUBLIC_VERITAS_PROGRAM_ID` - Auto-filled by setup script
+- `NEXT_PUBLIC_USDC_MINT_LOCALNET` - Auto-filled by setup script
+
+**Note:** Privy credentials are free and each developer should create their own app for local development (1,000 MAU free tier). See [SETUP.md](./SETUP.md#get-privy-credentials) for step-by-step instructions.
 
 See [.env.local.example](./.env.local.example) for all variables and descriptions.
 

@@ -172,17 +172,129 @@ Visit **http://localhost:3000**
 
 ## Get Privy Credentials
 
-Veritas uses Privy for authentication (wallet, email, Apple).
+Veritas uses Privy for authentication (wallet, email, Apple). **Each developer needs their own Privy app for local development.**
 
-1. Go to https://dashboard.privy.io
-2. Create a new app (or use existing)
-3. Go to **Settings** → **Basics**
-4. Copy:
-   - **App ID** → `NEXT_PUBLIC_PRIVY_APP_ID`
-   - **App Secret** → `PRIVY_APP_SECRET`
-5. Configure allowed chains:
-   - Go to **Settings** → **Chains**
-   - Enable **Solana**
+### Step-by-Step Privy Setup
+
+#### 1. Create Privy Account
+
+1. Go to **https://dashboard.privy.io**
+2. Sign up with your email or GitHub
+3. Verify your email
+
+#### 2. Create a New App
+
+1. Click **"Create new app"**
+2. Enter app name: `Veritas Local Dev - [Your Name]`
+3. Click **Create**
+
+#### 3. Get Your Credentials
+
+1. You'll land on the app dashboard
+2. Copy the **App ID** (visible at top, starts with `clp...`)
+   - Add to `.env.local`: `NEXT_PUBLIC_PRIVY_APP_ID=clp...`
+3. Click **Settings** → **Basics** in sidebar
+4. Under **App Secret**, click **"Create new secret"**
+5. Copy the secret (starts with `...`)
+   - Add to `.env.local`: `PRIVY_APP_SECRET=...`
+   - ⚠️ **Save this now** - you can't view it again!
+
+#### 4. Configure Login Methods
+
+1. In sidebar, go to **Login methods**
+2. Enable the methods you want:
+   - ✅ **Email** - Simple, works everywhere
+   - ✅ **Wallet** - For Solana wallet connection
+   - ✅ **Apple** - Social login (optional)
+   - ⚠️ Google, Discord, etc. require additional OAuth setup
+
+#### 5. Configure Solana Chain
+
+1. Go to **Chains** in sidebar
+2. Click **"Add chain"**
+3. Select **Solana** from the list
+4. Choose network:
+   - **Mainnet** - For production
+   - **Devnet** - For testing
+   - **Localnet** - Won't work (Privy can't reach localhost validator)
+5. Click **Save**
+
+#### 6. Configure Allowed Domains (Important!)
+
+1. Go to **Settings** → **Basics**
+2. Scroll to **Allowed domains**
+3. Add your development domain:
+   ```
+   http://localhost:3000
+   ```
+4. For production, add:
+   ```
+   https://your-vercel-app.vercel.app
+   https://yourdomain.com
+   ```
+5. Click **Save**
+
+#### 7. Test Your Setup
+
+1. Your `.env.local` should now have:
+   ```bash
+   NEXT_PUBLIC_PRIVY_APP_ID=clp...
+   PRIVY_APP_SECRET=...
+   ```
+2. Start your dev server: `npm run dev`
+3. Visit http://localhost:3000
+4. Click **"Connect Wallet"**
+5. You should see the Privy login modal
+6. Try logging in with email or wallet
+
+### Troubleshooting Privy
+
+#### "App ID is invalid"
+- Check that `NEXT_PUBLIC_PRIVY_APP_ID` in `.env.local` matches the dashboard
+- Restart your dev server after changing `.env.local`
+
+#### "Domain not allowed"
+- Add `http://localhost:3000` to **Allowed domains** in Privy dashboard
+- Make sure you're accessing the app at exactly `localhost:3000`, not `127.0.0.1:3000`
+
+#### "Solana wallet not showing"
+- Enable **Solana** chain in Privy dashboard under **Chains**
+- Install Phantom browser extension from https://phantom.app
+- Refresh your browser after installing Phantom
+
+#### "Phantom redirects to website instead of opening"
+- Ensure Phantom browser extension is installed and enabled
+- Check browser popup blocker settings (allow popups for localhost)
+- Try a different browser (Chrome, Brave, or Edge work best)
+
+### Development Bypass (Optional)
+
+For faster iteration without auth (NOT for production):
+
+```bash
+# Add to .env.local
+NEXT_PUBLIC_BYPASS_AUTH=true
+```
+
+This skips Privy entirely and uses a mock user. Useful for:
+- Testing UI without auth flow
+- Working on features that don't need real auth
+- CI/CD testing
+
+⚠️ **Never set this to `true` in production** - pre-commit hooks will block it.
+
+### Team Development
+
+**Each developer should create their own Privy app** for local development:
+- Free tier: 1,000 monthly active users (plenty for local testing)
+- Keeps test users isolated
+- Avoids shared secret issues
+- No conflicts with production app
+
+**For staging/production**, create separate shared Privy apps:
+- `Veritas Staging` - Shared staging environment
+- `Veritas Production` - Production app
+- Store credentials in Vercel/deployment platform environment variables
 
 ---
 
