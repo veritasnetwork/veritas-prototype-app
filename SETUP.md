@@ -298,6 +298,51 @@ This skips Privy entirely and uses a mock user. Useful for:
 
 ---
 
+## Using Shared Cloud Supabase (Alternative to Local)
+
+By default, the setup uses **local Supabase** (Docker-based, isolated per developer). For team collaboration, you can use a **shared cloud Supabase** instead.
+
+### When to Use Shared Supabase
+
+**Use shared cloud Supabase if:**
+- ✅ You want to share posts/users between developers
+- ✅ Docker is unavailable or problematic
+- ✅ You're okay with shared test data
+
+**Use local Supabase if:**
+- ✅ You want isolated development environments
+- ✅ You need to test migrations safely
+- ✅ You prefer not sharing credentials
+
+### Setup with Shared Cloud Supabase
+
+1. **Get credentials from project owner:**
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+   SUPABASE_SERVICE_ROLE_KEY=eyJhbGci...
+   ```
+
+2. **Add to your `.env.local`** (skip `npx supabase start`)
+
+3. **Skip database migrations** - they're already applied on the shared instance
+
+4. **Continue with Solana setup** (still runs locally)
+
+### Credentials Locations
+
+**Local Supabase:**
+- Run `npx supabase status` to see credentials
+- Same for all developers (standard Docker keys)
+- Database resets don't affect others
+
+**Cloud Supabase:**
+- Get from project owner or Supabase dashboard
+- Unique per project
+- Changes affect all developers using it
+
+---
+
 ## Troubleshooting
 
 ### "Cannot connect to Supabase"
