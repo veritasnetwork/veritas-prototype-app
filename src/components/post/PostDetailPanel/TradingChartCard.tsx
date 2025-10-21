@@ -1,67 +1,122 @@
 /**
  * TradingChartCard Component
  * Bubble card displaying trading history chart with time range selector
+ * Now supports toggling between price history and relevance history
  */
 
 'use client';
 
 import { useState } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, TrendingUp } from 'lucide-react';
 import { TradingHistoryChart } from '@/components/charts/TradingHistoryChart';
+import { RelevanceHistoryChart } from '@/components/charts/RelevanceHistoryChart';
 import { useTradeHistory, TimeRange } from '@/hooks/api/useTradeHistory';
+import { useRelevanceHistory } from '@/hooks/api/useRelevanceHistory';
+
+type ChartType = 'price' | 'relevance';
 
 interface TradingChartCardProps {
   postId: string;
 }
 
 export function TradingChartCard({ postId }: TradingChartCardProps) {
+  const [chartType, setChartType] = useState<ChartType>('price');
   const [timeRange, setTimeRange] = useState<TimeRange>('24H');
+
   const { data: tradeHistory, isLoading: historyLoading } = useTradeHistory(postId, timeRange);
+
+  // ✅ OPTIMIZATION: Only fetch relevance when chart type is 'relevance'
+  const { data: relevanceData, isLoading: relevanceLoading } = useRelevanceHistory(
+    chartType === 'relevance' ? postId : undefined
+  );
 
   return (
     <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-2xl overflow-hidden">
-      {/* Time Range Selector - Above chart */}
-      <div className="flex justify-end p-4 pb-0">
+      {/* Header with Chart Type Toggle and Time Range Selector */}
+      <div className="flex justify-between items-center p-4 pb-0">
+        {/* Chart Type Toggle */}
         <div className="flex gap-0.5 bg-black/50 rounded-md p-0.5">
-          {(['1H', '24H', '7D', 'ALL'] as TimeRange[]).map((range) => (
+          {(['price', 'relevance'] as ChartType[]).map((type) => (
             <button
-              key={range}
-              onClick={() => setTimeRange(range)}
-              className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-                timeRange === range
+              key={type}
+              onClick={() => setChartType(type)}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors capitalize ${
+                chartType === type
                   ? 'bg-[#B9D9EB] text-black'
                   : 'text-gray-500 hover:text-gray-300'
               }`}
             >
-              {range}
+              {type}
             </button>
           ))}
         </div>
+
+        {/* Time Range Selector (only for price chart) */}
+        {chartType === 'price' && (
+          <div className="flex gap-0.5 bg-black/50 rounded-md p-0.5">
+            {(['1H', '24H', '7D', 'ALL'] as TimeRange[]).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                  timeRange === range
+                    ? 'bg-[#B9D9EB] text-black'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Chart or Loading/Empty State */}
+      {/* Chart Area */}
       <div className="p-4 pt-2">
-        {historyLoading ? (
-          <div className="h-[400px] flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin w-6 h-6 border-2 border-[#B9D9EB] border-t-transparent rounded-full mx-auto mb-2"></div>
-              <p className="text-gray-500 text-xs">Loading chart...</p>
+        {chartType === 'price' ? (
+          // Price Chart
+          historyLoading ? (
+            <div className="h-[400px] flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin w-6 h-6 border-2 border-[#B9D9EB] border-t-transparent rounded-full mx-auto mb-2"></div>
+                <p className="text-gray-500 text-xs">Loading price data...</p>
+              </div>
             </div>
-          </div>
-        ) : tradeHistory && tradeHistory.priceData.length > 0 ? (
-          <TradingHistoryChart
-            priceData={tradeHistory.priceData}
-            volumeData={tradeHistory.volumeData}
-            height={400}
-          />
+          ) : tradeHistory && tradeHistory.priceData.length > 0 ? (
+            <TradingHistoryChart
+              priceData={tradeHistory.priceData}
+              volumeData={tradeHistory.volumeData}
+              height={400}
+            />
+          ) : (
+            <div className="h-[400px] flex items-center justify-center">
+              <div className="text-center">
+                <Activity className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm mb-1">No trades yet</p>
+                <p className="text-gray-600 text-xs">Be the first to trade</p>
+              </div>
+            </div>
+          )
         ) : (
-          <div className="h-[400px] flex items-center justify-center">
-            <div className="text-center">
-              <Activity className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-              <p className="text-gray-500 text-sm mb-1">No trades yet</p>
-              <p className="text-gray-600 text-xs">Be the first to trade</p>
+          // Relevance Chart
+          relevanceLoading ? (
+            <div className="h-[400px] flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin w-6 h-6 border-2 border-[#22c55e] border-t-transparent rounded-full mx-auto mb-2"></div>
+                <p className="text-gray-500 text-xs">Loading relevance data...</p>
+              </div>
             </div>
-          </div>
+          ) : relevanceData.length > 0 ? (
+            <RelevanceHistoryChart relevanceData={relevanceData} height={400} />
+          ) : (
+            <div className="h-[400px] flex items-center justify-center">
+              <div className="text-center">
+                <TrendingUp className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm mb-1">No relevance data yet</p>
+                <p className="text-gray-600 text-xs">Scores appear after first epoch settlement</p>
+              </div>
+            </div>
+          )
         )}
       </div>
     </div>

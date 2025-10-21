@@ -52,11 +52,19 @@ export const PostAPIResponseSchema = z.object({
   // Belief
   belief: z.null(), // TODO: Add belief schema when protocol integration complete
 
-  // Pool data
+  // Pool data (ICBS)
   poolAddress: z.string().nullable(),
-  poolTokenSupply: z.number().nullable(),
-  poolReserveBalance: z.number().nullable(),
-  poolKQuadratic: z.number(),
+  poolSupplyLong: z.number().nullable(),
+  poolSupplyShort: z.number().nullable(),
+  poolPriceLong: z.number().nullable(),
+  poolPriceShort: z.number().nullable(),
+  poolSqrtPriceLongX96: z.string().nullable(),
+  poolSqrtPriceShortX96: z.string().nullable(),
+  poolVaultBalance: z.number().nullable(),
+  // ICBS parameters
+  poolF: z.number().optional(),
+  poolBetaNum: z.number().optional(),
+  poolBetaDen: z.number().optional(),
 
   // Metadata
   likes: z.number(),
@@ -95,6 +103,15 @@ export const TradeHistoryResponseSchema = z.object({
 });
 
 // ============================================================================
+// RELEVANCE HISTORY API (from /api/posts/[id]/history)
+// ============================================================================
+
+// Reuses ChartDataPointSchema - no new schema needed
+export const RelevanceHistoryResponseSchema = z.object({
+  relevanceData: z.array(ChartDataPointSchema),
+});
+
+// ============================================================================
 // TRADE RECORDING (POST /api/trades/record)
 // ============================================================================
 
@@ -106,9 +123,6 @@ export const TradeRecordRequestSchema = z.object({
   trade_type: z.enum(['buy', 'sell']),
   token_amount: z.string(),
   usdc_amount: z.string(),
-  token_supply_after: z.string(),
-  reserve_after: z.string(),
-  k_quadratic: z.string(),
   tx_signature: z.string(),
 });
 
@@ -123,4 +137,5 @@ export type ChartDataPoint = z.infer<typeof ChartDataPointSchema>;
 export type VolumeDataPoint = z.infer<typeof VolumeDataPointSchema>;
 export type TradeStats = z.infer<typeof TradeStatsSchema>;
 export type TradeHistoryResponse = z.infer<typeof TradeHistoryResponseSchema>;
+export type RelevanceHistoryResponse = z.infer<typeof RelevanceHistoryResponseSchema>;
 export type TradeRecordRequest = z.infer<typeof TradeRecordRequestSchema>;
