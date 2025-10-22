@@ -5,9 +5,10 @@ import { SUPABASE_URL, headers, generateUniqueUsername } from '../test-config.ts
 interface StakeRedistributionRequest {
   belief_id: string
   information_scores: Record<string, number>
-  winners: string[]
-  losers: string[]
-  current_effective_stakes: Record<string, number>
+  belief_weights: Record<string, number>  // NEW: w_i per agent
+  winners?: string[]  // DEPRECATED: Not used in new model
+  losers?: string[]   // DEPRECATED: Not used in new model
+  current_effective_stakes?: Record<string, number>  // DEPRECATED: Use belief_weights
 }
 
 interface StakeRedistributionResponse {
@@ -118,9 +119,7 @@ Deno.test("Stake Redistribution - No Learning Case", async () => {
   const request: StakeRedistributionRequest = {
     belief_id: "test-belief-1",
     information_scores: {},
-    winners: [],
-    losers: [],
-    current_effective_stakes: {}
+    belief_weights: {}
   }
 
   const result = await callStakeRedistribution(request)

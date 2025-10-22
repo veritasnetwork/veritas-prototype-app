@@ -391,7 +391,7 @@ describe("ContentPool ICBS Tests", () => {
           .deployMarket(initialDeposit, longAllocation)
           .accounts({
             pool: poolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             longMint: longMint,
             shortMint: shortMint,
             vault: vault,
@@ -698,7 +698,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -784,7 +784,7 @@ describe("ContentPool ICBS Tests", () => {
           .trade({ long: {} }, { buy: {} }, new BN(15_000_000), new BN(1_500_000), new BN(0), new BN(0))
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -809,7 +809,7 @@ describe("ContentPool ICBS Tests", () => {
           .trade({ short: {} }, { buy: {} }, new BN(10_000_000), new BN(1_000_000), new BN(0), new BN(0))
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -870,7 +870,7 @@ describe("ContentPool ICBS Tests", () => {
           .trade({ long: {} }, { buy: {} }, new BN(25_000_000), new BN(2_500_000), new BN(0), new BN(0))
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -904,7 +904,7 @@ describe("ContentPool ICBS Tests", () => {
           .trade({ short: {} }, { buy: {} }, new BN(30_000_000), new BN(3_000_000), new BN(0), new BN(0))
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -955,7 +955,7 @@ describe("ContentPool ICBS Tests", () => {
           .trade({ long: {} }, { buy: {} }, new BN(50_000_000), new BN(5_000_000), new BN(0), new BN(0))
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1007,7 +1007,7 @@ describe("ContentPool ICBS Tests", () => {
           .trade({ short: {} }, { buy: {} }, new BN(50_000_000), new BN(5_000_000), new BN(0), new BN(0))
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1187,7 +1187,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1250,7 +1250,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1289,7 +1289,7 @@ describe("ContentPool ICBS Tests", () => {
             )
             .accounts({
               pool: tradingPoolPda,
-            factory: factoryPda,              factory: factoryPda,
+            factory: factoryPda,
               traderUsdc: await getOrCreateAssociatedTokenAccount(
                 provider.connection,
                 payer.payer,
@@ -1353,7 +1353,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1388,7 +1388,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1453,7 +1453,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1485,7 +1485,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1540,7 +1540,7 @@ describe("ContentPool ICBS Tests", () => {
             )
             .accounts({
               pool: tradingPoolPda,
-            factory: factoryPda,              factory: factoryPda,
+            factory: factoryPda,
               traderUsdc: traderUsdcAccount.address,
               vault: tradingVault,
               stakeVault: stakeVault,
@@ -1572,7 +1572,7 @@ describe("ContentPool ICBS Tests", () => {
             )
             .accounts({
               pool: tradingPoolPda,
-            factory: factoryPda,              factory: factoryPda,
+            factory: factoryPda,
               traderUsdc: traderUsdcAccount.address,
               vault: tradingVault,
               stakeVault: stakeVault,
@@ -1620,7 +1620,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1652,7 +1652,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1708,7 +1708,7 @@ describe("ContentPool ICBS Tests", () => {
             )
             .accounts({
               pool: tradingPoolPda,
-            factory: factoryPda,              factory: factoryPda,
+            factory: factoryPda,
               traderUsdc: traderUsdcAccount.address,
               vault: tradingVault,
               stakeVault: stakeVault,
@@ -1757,7 +1757,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1788,7 +1788,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1819,7 +1819,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1884,7 +1884,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: user3UsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1917,7 +1917,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: user3UsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -1953,7 +1953,7 @@ describe("ContentPool ICBS Tests", () => {
             )
             .accounts({
               pool: tradingPoolPda,
-            factory: factoryPda,              factory: factoryPda,
+            factory: factoryPda,
               traderUsdc: await getOrCreateAssociatedTokenAccount(
                 provider.connection,
                 payer.payer,
@@ -2181,7 +2181,7 @@ describe("ContentPool ICBS Tests", () => {
           .settleEpoch(bdScore)
           .accounts({
             pool: settlementPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             settler: testUser1.publicKey,
           })
           .signers([testUser1])
@@ -2216,7 +2216,7 @@ describe("ContentPool ICBS Tests", () => {
             .settleEpoch(500_000) // 50% in micro-units
             .accounts({
               pool: settlementPoolPda,
-            factory: factoryPda,              factory: factoryPda,
+            factory: factoryPda,
                 settler: testUser1.publicKey,
             })
             .signers([testUser1])
@@ -2258,7 +2258,7 @@ describe("ContentPool ICBS Tests", () => {
             .settleEpoch(1_500_000) // > 100%
             .accounts({
               pool: extremePoolPda,
-            factory: factoryPda,              factory: factoryPda,
+            factory: factoryPda,
                 settler: testUser1.publicKey,
             })
             .signers([testUser1])
@@ -2303,7 +2303,7 @@ describe("ContentPool ICBS Tests", () => {
             .settleEpoch(500_000) // 50% in micro-units
             .accounts({
               pool: authTestPoolPda,
-            factory: factoryPda,              factory: factoryPda,
+            factory: factoryPda,
               protocolAuthority: testUser2.publicKey, // Wrong authority
               settler: testUser1.publicKey,
             })
@@ -2391,7 +2391,7 @@ describe("ContentPool ICBS Tests", () => {
           .trade({ long: {} }, { buy: {} }, new BN(20_000_000), new BN(2_000_000), new BN(0), new BN(0))
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -2412,7 +2412,7 @@ describe("ContentPool ICBS Tests", () => {
           .trade({ short: {} }, { buy: {} }, new BN(15_000_000), new BN(1_500_000), new BN(0), new BN(0))
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -2436,7 +2436,7 @@ describe("ContentPool ICBS Tests", () => {
           .trade({ long: {} }, { sell: {} }, new BN(sellAmount.toString()), new BN(0), new BN(0), new BN(0))
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -2550,7 +2550,7 @@ describe("ContentPool ICBS Tests", () => {
             .trade(trade.side, trade.type, trade.amount, new BN(1_000_000), new BN(0), new BN(0))
             .accounts({
               pool: tradingPoolPda,
-            factory: factoryPda,              factory: factoryPda,
+            factory: factoryPda,
               traderUsdc: traderUsdcAccount.address,
               vault: tradingVault,
               stakeVault: stakeVault,
@@ -2658,7 +2658,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: settlementPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             longMint: longMint,
             shortMint: shortMint,
             vault: vault,
@@ -2686,7 +2686,7 @@ describe("ContentPool ICBS Tests", () => {
           .settleEpoch(new BN(600_000)) // 60% BD score
           .accounts({
             pool: settlementPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             authority: payer.publicKey,
           })
           .rpc();
@@ -2793,7 +2793,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: extremePoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             longMint: extremeLongMint,
             shortMint: extremeShortMint,
             vault: extremeVault,
@@ -2816,7 +2816,7 @@ describe("ContentPool ICBS Tests", () => {
           .settleEpoch(new BN(10_000)) // 1% BD score
           .accounts({
             pool: extremePoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             authority: payer.publicKey,
           })
           .rpc();
@@ -2910,7 +2910,7 @@ describe("ContentPool ICBS Tests", () => {
         )
         .accounts({
           pool: closePoolPda,
-            factory: factoryPda,          factory: factoryPda,
+            factory: factoryPda,
           longMint: closeLongMint,
           shortMint: closeShortMint,
           vault: closeVault,
@@ -2974,7 +2974,7 @@ describe("ContentPool ICBS Tests", () => {
         .closePool()
         .accounts({
           pool: closePoolPda,
-            factory: factoryPda,          factory: factoryPda,
+            factory: factoryPda,
           vault: closeVault,
           creatorUsdc: creatorUsdcAccount.address,
           creator: payer.publicKey,
@@ -3075,7 +3075,7 @@ describe("ContentPool ICBS Tests", () => {
         )
         .accounts({
           pool: positionsPoolPda,
-            factory: factoryPda,          factory: factoryPda,
+            factory: factoryPda,
           longMint: positionsLongMint,
           shortMint: positionsShortMint,
           vault: positionsVault,
@@ -3106,7 +3106,7 @@ describe("ContentPool ICBS Tests", () => {
           .closePool()
           .accounts({
             pool: positionsPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             vault: positionsVault,
             creatorUsdc: creatorUsdcAccount.address,
             creator: payer.publicKey,
@@ -3168,7 +3168,7 @@ describe("ContentPool ICBS Tests", () => {
           .closePool()
           .accounts({
             pool: unauthorizedPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             vault: unauthorizedVault,
             creatorUsdc: creatorUsdcAccount.address,
             creator: payer.publicKey,
@@ -3216,7 +3216,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -3247,7 +3247,7 @@ describe("ContentPool ICBS Tests", () => {
           .settleEpoch(new BN(1))
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             authority: payer.publicKey,
           })
           .rpc();
@@ -3264,7 +3264,7 @@ describe("ContentPool ICBS Tests", () => {
           .settleEpoch(new BN(999_999))
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             authority: payer.publicKey,
           })
           .rpc();
@@ -3287,7 +3287,7 @@ describe("ContentPool ICBS Tests", () => {
             .settleEpoch(new BN(score))
             .accounts({
               pool: tradingPoolPda,
-            factory: factoryPda,              factory: factoryPda,
+            factory: factoryPda,
               authority: payer.publicKey,
             })
             .rpc();
@@ -3346,7 +3346,7 @@ describe("ContentPool ICBS Tests", () => {
             )
             .accounts({
               pool: tradingPoolPda,
-            factory: factoryPda,              factory: factoryPda,
+            factory: factoryPda,
               traderUsdc: traderUsdcAccount.address,
               vault: tradingVault,
               stakeVault: stakeVault,
@@ -3410,7 +3410,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -3440,7 +3440,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -3543,7 +3543,7 @@ describe("ContentPool ICBS Tests", () => {
         )
         .accounts({
           pool: decayPoolPda,
-            factory: factoryPda,          factory: factoryPda,
+            factory: factoryPda,
           longMint: decayLongMint,
           shortMint: decayShortMint,
           vault: decayVault,
@@ -3732,7 +3732,7 @@ describe("ContentPool ICBS Tests", () => {
         )
         .accounts({
           pool: tradingPoolPda,
-            factory: factoryPda,          factory: factoryPda,
+            factory: factoryPda,
           traderUsdc: traderUsdcAccount.address,
           vault: tradingVault,
           stakeVault: stakeVault,
@@ -3790,7 +3790,7 @@ describe("ContentPool ICBS Tests", () => {
           )
           .accounts({
             pool: tradingPoolPda,
-            factory: factoryPda,            factory: factoryPda,
+            factory: factoryPda,
             traderUsdc: traderUsdcAccount.address,
             vault: tradingVault,
             stakeVault: stakeVault,
@@ -3821,7 +3821,7 @@ describe("ContentPool ICBS Tests", () => {
         )
         .accounts({
           pool: tradingPoolPda,
-            factory: factoryPda,          factory: factoryPda,
+            factory: factoryPda,
           traderUsdc: traderUsdcAccount.address,
           vault: tradingVault,
           stakeVault: stakeVault,
@@ -3852,7 +3852,7 @@ describe("ContentPool ICBS Tests", () => {
         .settleEpoch(new BN(700_000)) // 70% BD score
         .accounts({
           pool: tradingPoolPda,
-            factory: factoryPda,          factory: factoryPda,
+            factory: factoryPda,
           authority: payer.publicKey,
         })
         .rpc();

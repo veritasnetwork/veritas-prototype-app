@@ -1,0 +1,1071 @@
+Starting fresh test validator...
+Waiting for validator to be ready...
+Waiting for fees to stabilize 1...
+Waiting for fees to stabilize 2...
+Waiting for fees to stabilize 3...
+Running tests with fresh validator...
+warning: unexpected `cfg` condition value: `custom-heap`
+  --> programs/veritas-curation/src/lib.rs:21:1
+   |
+21 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `custom-heap` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::custom_heap_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `custom-panic`
+  --> programs/veritas-curation/src/lib.rs:21:1
+   |
+21 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `custom-panic` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::custom_panic_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/content_pool/instructions/deploy_market.rs:34:10
+   |
+34 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/content_pool/instructions/trade.rs:14:10
+   |
+14 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/content_pool/instructions/add_liquidity.rs:11:10
+   |
+11 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/content_pool/instructions/settle_epoch.rs:10:10
+   |
+10 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/content_pool/instructions/close_pool.rs:10:10
+   |
+10 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/content_pool/instructions/get_current_state.rs:11:10
+   |
+11 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/content_pool/instructions/mod.rs:9:9
+   |
+9  | pub use deploy_market::*;
+   |         ^^^^^^^^^^^^^^^^ the name `handler` in the value namespace is first re-exported here
+...
+14 | pub use get_current_state::*;
+   |         -------------------- but the name `handler` in the value namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: unused import: `MAX_SAFE_SUPPLY`
+ --> programs/veritas-curation/src/content_pool/curve.rs:3:31
+  |
+3 | use super::state::{TokenSide, MAX_SAFE_SUPPLY};
+  |                               ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/pool_factory/instructions/initialize_factory.rs:75:10
+   |
+75 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused imports: `MAX_BETA`, `MAX_F`, `MIN_BETA`, and `MIN_F`
+ --> programs/veritas-curation/src/pool_factory/instructions/create_pool.rs:7:55
+  |
+7 |     state::{PoolFactory, PoolRegistry, REGISTRY_SEED, MIN_F, MAX_F, MIN_BETA, MAX_BETA},
+  |                                                       ^^^^^  ^^^^^  ^^^^^^^^  ^^^^^^^^
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/veritas-curation/src/pool_factory/instructions/create_pool.rs:119:10
+    |
+119 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/pool_factory/instructions/update_pool_authority.rs:40:10
+   |
+40 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/pool_factory/instructions/update_factory_authority.rs:40:10
+   |
+40 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/pool_factory/instructions/update_defaults.rs:76:10
+   |
+76 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/veritas_custodian/instructions/initialize_custodian.rs:36:10
+   |
+36 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/veritas_custodian/instructions/deposit.rs:47:10
+   |
+47 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/veritas_custodian/instructions/withdraw.rs:70:10
+   |
+70 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/veritas_custodian/instructions/update_protocol_authority.rs:26:10
+   |
+26 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/veritas_custodian/instructions/update_owner.rs:26:10
+   |
+26 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/veritas_custodian/instructions/toggle_emergency_pause.rs:23:10
+   |
+23 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused import: `errors::*`
+  --> programs/veritas-curation/src/lib.rs:14:9
+   |
+14 | pub use errors::*;
+   |         ^^^^^^^^^
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:18:9
+   |
+18 | pub use pool_factory::*;
+   |         ^^^^^^^^^^^^^^^ the name `state` in the type namespace is first re-exported here
+19 | pub use veritas_custodian::*;
+   |         -------------------- but the name `state` in the type namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:18:9
+   |
+18 | pub use pool_factory::*;
+   |         ^^^^^^^^^^^^^^^ the name `instructions` in the type namespace is first re-exported here
+19 | pub use veritas_custodian::*;
+   |         -------------------- but the name `instructions` in the type namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:18:9
+   |
+18 | pub use pool_factory::*;
+   |         ^^^^^^^^^^^^^^^ the name `initialize_factory` in the value namespace is first re-exported here
+...
+21 | #[program]
+   | ---------- but the name `initialize_factory` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:18:9
+   |
+18 | pub use pool_factory::*;
+   |         ^^^^^^^^^^^^^^^ the name `create_pool` in the value namespace is first re-exported here
+...
+21 | #[program]
+   | ---------- but the name `create_pool` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:18:9
+   |
+18 | pub use pool_factory::*;
+   |         ^^^^^^^^^^^^^^^ the name `update_pool_authority` in the value namespace is first re-exported here
+...
+21 | #[program]
+   | ---------- but the name `update_pool_authority` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:18:9
+   |
+18 | pub use pool_factory::*;
+   |         ^^^^^^^^^^^^^^^ the name `update_factory_authority` in the value namespace is first re-exported here
+...
+21 | #[program]
+   | ---------- but the name `update_factory_authority` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:18:9
+   |
+18 | pub use pool_factory::*;
+   |         ^^^^^^^^^^^^^^^ the name `update_defaults` in the value namespace is first re-exported here
+...
+21 | #[program]
+   | ---------- but the name `update_defaults` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:19:9
+   |
+19 | pub use veritas_custodian::*;
+   |         ^^^^^^^^^^^^^^^^^^^^ the name `initialize_custodian` in the value namespace is first re-exported here
+20 |
+21 | #[program]
+   | ---------- but the name `initialize_custodian` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:19:9
+   |
+19 | pub use veritas_custodian::*;
+   |         ^^^^^^^^^^^^^^^^^^^^ the name `deposit` in the value namespace is first re-exported here
+20 |
+21 | #[program]
+   | ---------- but the name `deposit` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:19:9
+   |
+19 | pub use veritas_custodian::*;
+   |         ^^^^^^^^^^^^^^^^^^^^ the name `withdraw` in the value namespace is first re-exported here
+20 |
+21 | #[program]
+   | ---------- but the name `withdraw` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:19:9
+   |
+19 | pub use veritas_custodian::*;
+   |         ^^^^^^^^^^^^^^^^^^^^ the name `update_protocol_authority` in the value namespace is first re-exported here
+20 |
+21 | #[program]
+   | ---------- but the name `update_protocol_authority` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:19:9
+   |
+19 | pub use veritas_custodian::*;
+   |         ^^^^^^^^^^^^^^^^^^^^ the name `update_owner` in the value namespace is first re-exported here
+20 |
+21 | #[program]
+   | ---------- but the name `update_owner` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+  --> programs/veritas-curation/src/lib.rs:19:9
+   |
+19 | pub use veritas_custodian::*;
+   |         ^^^^^^^^^^^^^^^^^^^^ the name `toggle_emergency_pause` in the value namespace is first re-exported here
+20 |
+21 | #[program]
+   | ---------- but the name `toggle_emergency_pause` in the value namespace is also re-exported here
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/lib.rs:21:1
+   |
+21 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/lib.rs:21:1
+   |
+21 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: use of deprecated method `anchor_lang::prelude::AccountInfo::<'a>::realloc`: Use AccountInfo::resize() instead
+  --> programs/veritas-curation/src/lib.rs:21:1
+   |
+21 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: function `mul_div` is never used
+   --> programs/veritas-curation/src/content_pool/curve.rs:352:4
+    |
+352 | fn mul_div(a: u128, b: u128, c: u128) -> Result<u128> {
+    |    ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: variable `sL` should have a snake case name
+   --> programs/veritas-curation/src/content_pool/instructions/deploy_market.rs:325:9
+    |
+325 |     let sL = s_long as u128;
+    |         ^^ help: convert the identifier to snake case: `s_l`
+    |
+    = note: `#[warn(non_snake_case)]` on by default
+
+warning: variable `sS` should have a snake case name
+   --> programs/veritas-curation/src/content_pool/instructions/deploy_market.rs:326:9
+    |
+326 |     let sS = s_short as u128;
+    |         ^^ help: convert the identifier to snake case: `s_s`
+
+warning: variable `sL2` should have a snake case name
+   --> programs/veritas-curation/src/content_pool/instructions/deploy_market.rs:327:9
+    |
+327 |     let sL2 = sL
+    |         ^^^ help: convert the identifier to snake case: `s_l2`
+
+warning: variable `sS2` should have a snake case name
+   --> programs/veritas-curation/src/content_pool/instructions/deploy_market.rs:330:9
+    |
+330 |     let sS2 = sS
+    |         ^^^ help: convert the identifier to snake case: `s_s2`
+
+warning: `veritas-curation` (lib) generated 49 warnings (5 duplicates) (run `cargo fix --lib -p veritas-curation` to apply 3 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.41s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.22s
+     Running unittests src/lib.rs (/Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/target/debug/deps/veritas_curation-ed4d90d9a979a137)
+Deploying cluster: http://127.0.0.1:8899
+Upgrade authority: /Users/josh/.config/solana/id.json
+Deploying program "veritas_curation"...
+Program path: /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/target/deploy/veritas_curation.so...
+Program Id: 5hX4MjCF7EwCfjVSsa5zMjbNCQRtfo98YWhph7tCMw7F
+
+Signature: 4UPcbtwtTbWfYSoUCzRf4ahCNZi1jxaamL5q2UeyWpgXpbr6GogRPCnBTLRsL2WJTACRMoV3q6oz11p8uy6kccDa
+
+Deploy success
+
+Found a 'test' script in the Anchor.toml. Running it as a test suite!
+
+Running test suite: "/Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/Anchor.toml"
+
+yarn run v1.22.19
+warning ../../../../package.json: No license field
+$ /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/node_modules/.bin/ts-mocha -p ./tsconfig.json -t 1000000 tests/content-pool-icbs.test.ts tests/pool-factory-icbs.test.ts
+(node:22639) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+  ContentPool ICBS Tests
+    1. Pool Initialization
+      1.1 Empty Pool Creation
+        ✔ creates empty pool with factory reference (474ms)
+      1.2 Parameter Validation
+        ✔ validates F parameter bounds (1-10)
+        ✔ validates beta coefficient bounds (0.1-0.9) (451ms)
+    2. Market Deployment
+      2.1 First Trader Deployment
+        1) allows first trader to deploy market with initial liquidity
+        ✔ enforces minimum initial deposit ($100) (474ms)
+        ✔ prevents duplicate market deployment
+    3. ICBS Mathematics
+      3.1 Cost Function Calculation
+        2) calculates cost function C(s_L, s_S) correctly
+        3) calculates marginal prices correctly
+      3.2 Virtual Reserves
+        4) maintains virtual reserves as R = s × p
+        5) calculates market prediction q correctly
+      3.3 Inverse Coupling
+        6) demonstrates inverse coupling on LONG buy
+        7) demonstrates inverse coupling on SHORT buy
+        8) maintains price × supply = reserve invariant
+    4. Trading Operations
+      9) "before all" hook in "4. Trading Operations"
+    5. Settlement Mechanics
+      10) "before all" hook in "5. Settlement Mechanics"
+    7. State Invariants
+      7.1 Supply and Reserve Consistency
+        11) maintains token supply consistency across operations
+        12) maintains R = C(s) relationship
+      7.2 Settlement Invariants
+        13) maintains zero-sum property in settlement
+        14) clamps q to prevent division issues
+    close_pool
+      15) should close pool after all positions are burned
+      16) should fail to close pool with open positions
+      17) should fail to close pool without protocol authority
+    9. Edge Cases
+      9.1 Numerical Stability
+        18) handles very small trades correctly
+        19) handles settlement with extreme BD scores
+        20) preserves reserve invariants through multiple settlements
+        21) maintains precision in X96 sqrt price calculations
+        22) handles buy-then-sell round-trip correctly
+    9.2 Time-Based Decay
+      23) applies decay after expiration for tier 1 (1% per day)
+
+=== Decay Calculation - Tier 2 ===
+Initial q: 0.6
+Days expired: 10
+Decay rate: 200 bps per day
+Total decay: 2000 bps
+Expected q after decay: 0.4
+      ✔ calculates correct decay for tier 2 (2% per day)
+
+=== Decay Clamping Test ===
+Initial q: 0.3
+Days expired: 100
+Total decay would be: 30000 bps (300%)
+Clamped q after decay: 0.1
+      ✔ clamps decay to minimum q (10%)
+
+=== Decay Tier 3 Test ===
+Initial q: 0.8
+Days expired: 35 (tier 3)
+Decay rate: 300 bps per day
+Expected q after decay: 0.1 (clamped)
+      ✔ uses tier 3 decay rate (3% per day) after 30 days
+
+=== Decay Before Expiration ===
+Current time: 1000000
+Expiration time: 2000000
+Should apply decay: false
+      ✔ does not apply decay before expiration
+
+=== Reserve Invariants After Decay ===
+R_total before: 100000000
+R_total after: 100000000
+q before: 0.6000
+q after: 0.5900
+      ✔ preserves reserve invariants after decay
+    10. Event Emission
+      24) emits TradeExecuted event on buy
+      25) emits TradeExecuted event on sell
+      26) emits PoolSettled event on settlement
+
+  PoolFactory ICBS Tests
+    1. Factory Initialization
+      1.1 Singleton Creation
+        ✔ initializes factory with correct authorities
+        ✔ prevents duplicate factory initialization
+      1.2 Default Parameters
+        ✔ sets correct default ICBS parameters
+    2. Pool Creation
+      2.1 Permissionless Creation
+        ✔ allows any user to create a pool with protocol validation (340ms)
+        ✔ requires protocol authority co-signature
+      2.2 Registry Management
+        ✔ creates registry entry for each pool (453ms)
+        27) prevents duplicate pools for same content_id
+      2.3 Parameter Inheritance
+        ✔ creates pool with factory default parameters (454ms)
+        ✔ inherits factory defaults (no custom parameters) (473ms)
+    3. Authority Management
+      3.1 Pool Authority Updates
+        ✔ allows factory_authority to update pool_authority (864ms)
+        ✔ rejects pool_authority update from unauthorized signer
+        28) rejects pool_authority update from pool_authority itself
+        ✔ validates new pool_authority is not default pubkey
+      3.2 Factory Authority Transfer
+        ✔ allows factory_authority to transfer ownership (447ms)
+    4. Default Parameter Updates
+      4.1 Update Default ICBS Parameters
+        29) allows factory_authority to update default_f
+        30) allows factory_authority to update default_beta
+        31) validates parameter bounds on update
+        32) allows update of min_initial_deposit
+        33) allows update of min_settle_interval
+        34) rejects updates from non-factory-authority
+        35) existing pools retain original parameters after default update
+    5. State Consistency
+      5.1 Pool Counter
+        36) increments total_pools atomically
+      5.2 PDA Derivation
+        ✔ derives consistent PDAs for factory
+        37) derives consistent PDAs for registries
+    7. Error Handling
+      7.1 Input Validation
+        ✔ rejects invalid content_id (default pubkey)
+    8. Event Emission
+      38) emits PoolCreated event on pool creation
+      39) emits DefaultsUpdated event on parameter change
+
+
+  24 passing (15s)
+  39 failing
+
+  1) ContentPool ICBS Tests
+       2. Market Deployment
+         2.1 First Trader Deployment
+           allows first trader to deploy market with initial liquidity:
+     Error: AnchorError thrown in programs/veritas-curation/src/content_pool/instructions/deploy_market.rs:281. Error Code: InvalidAllocation. Error Number: 6007. Error Message: Invalid LONG/SHORT allocation.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:152:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  2) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.1 Cost Function Calculation
+           calculates cost function C(s_L, s_S) correctly:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:658:62
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:656:71)
+      at processImmediate (node:internal/timers:505:21)
+
+  3) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.1 Cost Function Calculation
+           calculates marginal prices correctly:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:732:62
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:731:61)
+      at processImmediate (node:internal/timers:505:21)
+
+  4) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.2 Virtual Reserves
+           maintains virtual reserves as R = s × p:
+     ReferenceError: tradingLongMint is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:771:11
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  5) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.2 Virtual Reserves
+           calculates market prediction q correctly:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:839:62
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:838:65)
+      at processImmediate (node:internal/timers:505:21)
+
+  6) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.3 Inverse Coupling
+           demonstrates inverse coupling on LONG buy:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:933:68
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:932:66)
+      at processImmediate (node:internal/timers:505:21)
+
+  7) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.3 Inverse Coupling
+           demonstrates inverse coupling on SHORT buy:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:986:68
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:985:67)
+      at processImmediate (node:internal/timers:505:21)
+
+  8) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.3 Inverse Coupling
+           maintains price × supply = reserve invariant:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:1037:62
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:1036:69)
+      at processImmediate (node:internal/timers:505:21)
+
+  9) ContentPool ICBS Tests
+       4. Trading Operations
+         "before all" hook in "4. Trading Operations":
+     Error: AnchorError thrown in programs/veritas-curation/src/content_pool/instructions/deploy_market.rs:281. Error Code: InvalidAllocation. Error Number: 6007. Error Message: Invalid LONG/SHORT allocation.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:152:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  10) ContentPool ICBS Tests
+       5. Settlement Mechanics
+         "before all" hook in "5. Settlement Mechanics":
+     Error: AnchorError thrown in programs/veritas-curation/src/content_pool/instructions/deploy_market.rs:281. Error Code: InvalidAllocation. Error Number: 6007. Error Message: Invalid LONG/SHORT allocation.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:152:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  11) ContentPool ICBS Tests
+       7. State Invariants
+         7.1 Supply and Reserve Consistency
+           maintains token supply consistency across operations:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:2349:62
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:2348:77)
+      at processImmediate (node:internal/timers:505:21)
+
+  12) ContentPool ICBS Tests
+       7. State Invariants
+         7.1 Supply and Reserve Consistency
+           maintains R = C(s) relationship:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:2506:68
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:2500:56)
+      at processImmediate (node:internal/timers:505:21)
+
+  13) ContentPool ICBS Tests
+       7. State Invariants
+         7.2 Settlement Invariants
+           maintains zero-sum property in settlement:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  14) ContentPool ICBS Tests
+       7. State Invariants
+         7.2 Settlement Invariants
+           clamps q to prevent division issues:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  15) ContentPool ICBS Tests
+       close_pool
+         should close pool after all positions are burned:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  16) ContentPool ICBS Tests
+       close_pool
+         should fail to close pool with open positions:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  17) ContentPool ICBS Tests
+       close_pool
+         should fail to close pool without protocol authority:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  18) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           handles very small trades correctly:
+     ReferenceError: tradingLongMint is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:3203:11
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  19) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           handles settlement with extreme BD scores:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:3249:19
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:3244:66)
+      at processImmediate (node:internal/timers:505:21)
+
+  20) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           preserves reserve invariants through multiple settlements:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:3278:68
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:3277:82)
+      at processImmediate (node:internal/timers:505:21)
+
+  21) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           maintains precision in X96 sqrt price calculations:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:3316:62
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:3315:75)
+      at processImmediate (node:internal/timers:505:21)
+
+  22) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           handles buy-then-sell round-trip correctly:
+     ReferenceError: tradingShortMint is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:3394:11
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  23) ContentPool ICBS Tests
+       9.2 Time-Based Decay
+         applies decay after expiration for tier 1 (1% per day):
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  24) ContentPool ICBS Tests
+       10. Event Emission
+         emits TradeExecuted event on buy:
+     ReferenceError: tradingLongMint is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:3716:9
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  25) ContentPool ICBS Tests
+       10. Event Emission
+         emits TradeExecuted event on sell:
+     ReferenceError: tradingLongMint is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:3773:9
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  26) ContentPool ICBS Tests
+       10. Event Emission
+         emits PoolSettled event on settlement:
+     ReferenceError: tradingPoolPda is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:3854:17
+      at Generator.next (<anonymous>)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/content-pool-icbs.test.ts:37:12)
+      at Context.<anonymous> (tests/content-pool-icbs.test.ts:3849:60)
+      at processImmediate (node:internal/timers:505:21)
+
+  27) PoolFactory ICBS Tests
+       2. Pool Creation
+         2.2 Registry Management
+           prevents duplicate pools for same content_id:
+     AssertionError: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/pool-factory-icbs.test.ts:340:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/pool-factory-icbs.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  28) PoolFactory ICBS Tests
+       3. Authority Management
+         3.1 Pool Authority Updates
+           rejects pool_authority update from pool_authority itself:
+     AssertionError: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/pool-factory-icbs.test.ts:493:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/pool-factory-icbs.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  29) PoolFactory ICBS Tests
+       4. Default Parameter Updates
+         4.1 Update Default ICBS Parameters
+           allows factory_authority to update default_f:
+     Error: Account `factory` not provided.
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  30) PoolFactory ICBS Tests
+       4. Default Parameter Updates
+         4.1 Update Default ICBS Parameters
+           allows factory_authority to update default_beta:
+     Error: Account `factory` not provided.
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  31) PoolFactory ICBS Tests
+       4. Default Parameter Updates
+         4.1 Update Default ICBS Parameters
+           validates parameter bounds on update:
+     AssertionError: Should fail with InvalidParameter error: expected 'Error: Account `factory` not provided.' to include '6501'
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/pool-factory-icbs.test.ts:649:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/pool-factory-icbs.test.ts:39:65)
+
+  32) PoolFactory ICBS Tests
+       4. Default Parameter Updates
+         4.1 Update Default ICBS Parameters
+           allows update of min_initial_deposit:
+     Error: Account `factory` not provided.
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  33) PoolFactory ICBS Tests
+       4. Default Parameter Updates
+         4.1 Update Default ICBS Parameters
+           allows update of min_settle_interval:
+     Error: Account `factory` not provided.
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  34) PoolFactory ICBS Tests
+       4. Default Parameter Updates
+         4.1 Update Default ICBS Parameters
+           rejects updates from non-factory-authority:
+     AssertionError: Should fail with unauthorized error: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/pool-factory-icbs.test.ts:739:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/pool-factory-icbs.test.ts:39:65)
+
+  35) PoolFactory ICBS Tests
+       4. Default Parameter Updates
+         4.1 Update Default ICBS Parameters
+           existing pools retain original parameters after default update:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  36) PoolFactory ICBS Tests
+       5. State Consistency
+         5.1 Pool Counter
+           increments total_pools atomically:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+      at async Promise.all (index 0)
+
+  37) PoolFactory ICBS Tests
+       5. State Consistency
+         5.2 PDA Derivation
+           derives consistent PDAs for registries:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  38) PoolFactory ICBS Tests
+       8. Event Emission
+         emits PoolCreated event on pool creation:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  39) PoolFactory ICBS Tests
+       8. Event Emission
+         emits DefaultsUpdated event on parameter change:
+     Error: Account `factory` not provided.
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+
+
+error Command failed with exit code 39.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.
+Cleaning up validator...
