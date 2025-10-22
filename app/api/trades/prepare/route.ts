@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
       tradeType: tradeType,
       tradeAmount: amount,
       walletAddress: body.walletAddress,
+      side: side.toUpperCase() as 'LONG' | 'SHORT',
     });
 
     // Validate sufficient balance

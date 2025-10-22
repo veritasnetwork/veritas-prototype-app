@@ -102,26 +102,16 @@ serve(async (req) => {
     console.log(`📅 Current epoch: ${currentEpoch}`)
     console.log(`⏰ Timestamp: ${new Date().toISOString()}`)
 
-    // Verify belief exists and is active
+    // Verify belief exists
     const { data: belief, error: beliefError } = await supabaseClient
       .from('beliefs')
-      .select('id, expiration_epoch, status')
+      .select('id')
       .eq('id', belief_id)
       .single()
 
     if (beliefError || !belief) {
       throw new Error(`Belief not found: ${beliefError?.message || 'Unknown error'}`)
     }
-
-    if (belief.status !== 'active') {
-      throw new Error(`Belief ${belief_id.substring(0, 8)} is not active (status: ${belief.status})`)
-    }
-
-    if (belief.expiration_epoch <= currentEpoch) {
-      throw new Error(`Belief ${belief_id.substring(0, 8)} has expired (expiration: ${belief.expiration_epoch}, current: ${currentEpoch})`)
-    }
-
-    console.log(`🔄 Expiration epoch: ${belief.expiration_epoch} (${belief.expiration_epoch - currentEpoch} epochs remaining)`)
 
     // Get ALL participants who have ever submitted to this belief market
     const { data: submissions, error: submissionsError } = await supabaseClient
@@ -319,8 +309,7 @@ serve(async (req) => {
     // Step 6: Stake Redistribution (ΔS = score × w_i)
     const redistributionData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-stake-redistribution', {
       belief_id: belief_id,
-      information_scores: btsData.information_scores,
-      belief_weights: weightsData.belief_weights
+      information_scores: btsData.information_scores
     })
 
     console.log(`💰 Step 6: Stake redistribution complete`)

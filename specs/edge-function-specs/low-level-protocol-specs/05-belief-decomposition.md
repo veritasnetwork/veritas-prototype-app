@@ -1,5 +1,13 @@
 # Belief Decomposition Implementation
 
+## Purpose
+
+Extracts the **common knowledge baseline** (prior) from **private signals** in agent beliefs using Belief Decomposition, a Bayesian technique that separates:
+- **Common prior**: Shared baseline probability all agents agree on
+- **Private signals**: Independent information each agent contributes beyond the prior
+
+This enables the protocol to compute a full-information aggregate that properly weights private information against shared beliefs.
+
 ## Main Decomposition
 
 **Endpoint:** `/protocol/beliefs/decompose`
@@ -21,6 +29,8 @@
 - `agent_meta_predictions`: object {agent_id: number}
 - `active_agent_indicators`: array[string]
 - `decomposition_quality`: number ∈ [0,1] - Health metric of decomposition
+- `leave_one_out_aggregates`: object {agent_id: number} - Belief aggregate excluding each agent (for BTS scoring)
+- `leave_one_out_meta_aggregates`: object {agent_id: number} - Meta-prediction aggregate excluding each agent (for BTS scoring)
 
 ### Algorithm
 
@@ -38,151 +48,51 @@
    - Require minimum 2 submissions for decomposition
 
 3. **Extract belief and meta-prediction vectors:**
-   ```typescript
-   const beliefs: number[] = [];
-   const metaPredictions: number[] = [];
-   const orderedWeights: number[] = [];
-
-   for (const submission of submissions) {
-     const weight = weights[submission.agent_id];
-     if (!weight) continue; // Skip if no weight
-
-     // Clamp to avoid numerical issues
-     beliefs.push(clamp(submission.belief, EPSILON_PROBABILITY, 1 - EPSILON_PROBABILITY));
-     metaPredictions.push(clamp(submission.meta_prediction, EPSILON_PROBABILITY, 1 - EPSILON_PROBABILITY));
-     orderedWeights.push(weight);
-   }
-   ```
+   - Filter submissions to agents with non-zero weights
+   - Clamp all values to [ε, 1-ε] to prevent numerical issues
+   - Build parallel arrays: beliefs[], metaPredictions[], orderedWeights[]
 
 4. **Estimate local expectations matrix W (weighted regression):**
-   ```typescript
-   // For binary beliefs, W is 2×2: [[w11, w12], [w21, w22]]
-   // where w_ij = E[P(j|signal) | world=i]
-
-   // Weighted sums for regression
-   let sumWB = 0, sumWM = 0, sumWB2 = 0, sumWBM = 0, sumW = 0;
-
-   for (let i = 0; i < n; i++) {
-     const w = orderedWeights[i];
-     const b = beliefs[i];
-     const m = metaPredictions[i];
-
-     sumW += w;
-     sumWB += w * b;
-     sumWM += w * m;
-     sumWB2 += w * b * b;
-     sumWBM += w * b * m;
-   }
-
-   // Ridge regression with regularization
-   const RIDGE_EPSILON = 0.00001;
-   const denominator = sumWB2 - (sumWB * sumWB / sumW) + RIDGE_EPSILON;
-
-   // Matrix elements (for binary case)
-   const w11 = (sumWBM - (sumWB * sumWM / sumW)) / denominator;
-   const w21 = (sumWM - w11 * sumWB) / sumW;
-   const w12 = 1 - w11;  // Row sum = 1
-   const w22 = 1 - w21;  // Row sum = 1
-
-   const W = {
-     w11: clamp(w11, 0, 1),
-     w12: clamp(w12, 0, 1),
-     w21: clamp(w21, 0, 1),
-     w22: clamp(w22, 0, 1)
-   };
-   ```
+   - Compute weighted regression of meta-predictions on beliefs
+   - For binary case: W is 2×2 where w_ij = E[P(j|signal) | world=i]
+   - Use ridge regularization (ε=1e-5) to prevent singular matrix
+   - Clamp w11 and w21 to [0,1], set w12=1-w11, w22=1-w21 to enforce row-stochastic property
 
 5. **Extract common prior (stationary distribution):**
-   ```typescript
-   // For binary case, closed-form solution
-   // Prior is the left eigenvector of W with eigenvalue 1
-
-   const prior = W.w21 / (W.w21 + (1 - W.w11));
-
-   // Clamp to valid probability range
-   const commonPrior = clamp(prior, EPSILON_PROBABILITY, 1 - EPSILON_PROBABILITY);
-   ```
+   - Compute left eigenvector of W with eigenvalue 1 (stationary distribution)
+   - Binary case closed form: prior = w21 / (w21 + (1 - w11))
+   - Clamp to [ε, 1-ε]
 
 6. **Calculate weighted aggregate with prior correction:**
-   ```typescript
-   // Belief Decomposition formula (weighted version)
-   // Aggregate = Π(belief_i^w_i) / prior^(Σw_i)
-
-   let logProduct = 0;
-   let effectiveN = 0;  // This is Σw_i
-
-   for (let i = 0; i < n; i++) {
-     logProduct += orderedWeights[i] * Math.log(beliefs[i]);
-     effectiveN += orderedWeights[i];
-   }
-
-   // Compute aggregate in log space for numerical stability
-   const logAggregate = logProduct - effectiveN * Math.log(commonPrior);
-
-   // Convert back to probability space
-   const unnormalizedAggregate = Math.exp(logAggregate);
-
-   // Normalize (for binary case)
-   const logComplement =
-     orderedWeights.reduce((sum, w, i) =>
-       sum + w * Math.log(1 - beliefs[i]), 0) -
-     effectiveN * Math.log(1 - commonPrior);
-
-   const unnormalizedComplement = Math.exp(logComplement);
-
-   const aggregate = unnormalizedAggregate /
-     (unnormalizedAggregate + unnormalizedComplement);
-
-   // Final clamping
-   const finalAggregate = clamp(aggregate, EPSILON_PROBABILITY, 1 - EPSILON_PROBABILITY);
-   ```
+   - BD formula: Aggregate = Π(belief_i^w_i) / prior^(Σw_i)
+   - Compute in log space: logAggregate = Σ(w_i × log(belief_i)) - effectiveN × log(prior)
+   - Normalize using log-sum-exp trick to prevent overflow:
+     - logComplement = Σ(w_i × log(1-belief_i)) - effectiveN × log(1-prior)
+     - aggregate = 1 / (1 + exp(logComplement - logAggregate))
+   - Clamp to [ε, 1-ε]
 
 7. **Calculate decomposition quality metric:**
-   ```typescript
-   // Check matrix condition number for numerical stability
-   const conditionNumber = computeConditionNumber(W);
-   const matrixHealth = 1 / (1 + Math.log10(conditionNumber));
-
-   // Check prediction accuracy (how well W explains meta-predictions)
-   let predictionError = 0;
-   for (let i = 0; i < n; i++) {
-     const predictedMeta = beliefs[i] * W.w11 + (1 - beliefs[i]) * W.w21;
-     predictionError += Math.abs(predictedMeta - metaPredictions[i]);
-   }
-   const predictionAccuracy = 1 - (predictionError / n);
-
-   // Combined quality score
-   const decompositionQuality = 0.7 * matrixHealth + 0.3 * predictionAccuracy;
-   ```
+   - Matrix health: 1 / (1 + log₁₀(conditionNumber))
+   - Prediction accuracy: 1 - (average error predicting meta from beliefs via W)
+   - Combined: quality = 0.7 × matrixHealth + 0.3 × predictionAccuracy
+   - Quality < 0.3 triggers fallback to naive aggregation
 
 8. **Calculate disagreement entropy metrics:**
-   ```typescript
-   // Binary entropy function
-   const H = (p: number) => {
-     if (p <= 0 || p >= 1) return 0;
-     return -p * Math.log2(p) - (1 - p) * Math.log2(1 - p);
-   };
-
-   // Average entropy across agents (weighted)
-   const H_avg = orderedWeights.reduce((sum, w, i) =>
-     sum + w * H(beliefs[i]), 0);
-
-   // Entropy of aggregate
-   const H_agg = H(finalAggregate);
-
-   // Jensen-Shannon disagreement
-   const D_JS = Math.max(0, H_agg - H_avg);
-   const D_JS_norm = Math.min(1.0, D_JS);
-
-   // Certainty
-   const certainty = 1.0 - D_JS_norm;
-   ```
+   - Binary entropy: H(p) = -p×log₂(p) - (1-p)×log₂(1-p)
+   - Weighted average entropy: H_avg = Σ(w_i × H(belief_i))
+   - Jensen-Shannon disagreement: D_JS = max(0, H(aggregate) - H_avg)
+   - Certainty = 1 - D_JS (normalized to [0,1])
 
 9. **Collect metadata:**
-   - Extract meta_predictions map from submissions
-   - Filter active_agents where is_active = true
+   - Extract meta_predictions map and active_agent_indicators from submissions
 
-10. **Return:** Complete decomposition results
+10. **Calculate leave-one-out aggregates (for BTS scoring):**
+   - For each agent: compute weighted average of beliefs/metas excluding that agent
+   - Renormalize by remaining weight sum
+   - If only 1 agent remains after exclusion: return neutral (0.5, 0.5)
+   - Returns: leave_one_out_aggregates and leave_one_out_meta_aggregates maps
+
+11. **Return:** Complete decomposition results including leave-one-out aggregates
 
 ## Leave-One-Out Decomposition
 
@@ -462,70 +372,13 @@ No schema changes required. BD uses existing:
 
 ## Edge Cases
 
-### All Agents Have Identical Beliefs
-- **Scenario**: All beliefs = 0.6, all meta = 0.6
-- **Expected behavior**:
-  - Aggregate = 0.6 (exact)
-  - Common prior ≈ 0.6
-  - Certainty ≈ 1.0 (no disagreement)
-  - Disagreement entropy ≈ 0
-  - Matrix may be singular → use ridge regularization
-  - Decomposition quality may be low → consider fallback
-
-### Extreme Disagreement (Polarized)
-- **Scenario**: Half agents believe 0.95, half believe 0.05
-- **Expected behavior**:
-  - Aggregate ≈ 0.5 (balanced)
-  - Common prior ≈ 0.5
-  - Certainty < 0.5 (high disagreement)
-  - Disagreement entropy > 0.5
-  - Matrix should be well-conditioned
-  - Decomposition quality depends on meta-predictions
-
-### Two Participants (Minimum)
-- **Scenario**: Only 2 agents submit
-- **Expected behavior**:
-  - Decomposition proceeds (meets minimum)
-  - Matrix has 4 parameters, 2 data points → underdetermined
-  - Ridge regularization critical for stability
-  - Quality likely low → may fallback
-  - Naive aggregation more reliable for n=2
-
-### All Weights on One Agent
-- **Scenario**: One agent has weight 1.0, others 0.0
-- **Expected behavior**:
-  - After filtering: Only 1 participant remains
-  - Triggers "insufficient participants" error (409)
-  - Fallback to naive aggregation (returns single agent's belief)
-
-### Beliefs at Probability Extremes
-- **Scenario**: Beliefs = 0.9999, 0.0001
-- **Expected behavior**:
-  - Clamped to [1e-10, 1-1e-10]
-  - Log computations remain stable
-  - Warning logged: "Extreme probabilities clamped"
-  - Decomposition proceeds normally
-
-### Meta-Predictions Uncorrelated with Beliefs
-- **Scenario**: Random meta-predictions, structured beliefs
-- **Expected behavior**:
-  - Matrix W cannot predict meta from beliefs
-  - Prediction accuracy < 0.3
-  - Decomposition quality < 0.3 → fallback
-  - Falls back to naive aggregation
-
-### Highly Correlated Beliefs
-- **Scenario**: Beliefs = [0.5, 0.51, 0.49, 0.50]
-- **Expected behavior**:
-  - Variance near zero → matrix near-singular
-  - Ridge regularization prevents singular matrix
-  - Condition number high → quality low
-  - May fallback depending on meta-predictions
-
-### Leave-One-Out with n=2 Total
-- **Scenario**: 2 submissions, exclude 1 → 1 remains
-- **Expected behavior**:
-  - Insufficient participants after exclusion
-  - Return defaults: (0.5, 0.5, 0.5)
-  - No error thrown
-  - BTS scoring handles gracefully
+| Scenario | Behavior | Quality Impact |
+|----------|----------|----------------|
+| **Identical beliefs** (all 0.6) | Aggregate=0.6, prior≈0.6, certainty≈1.0 | Low (singular matrix) → may fallback |
+| **Extreme disagreement** (0.95 vs 0.05) | Aggregate≈0.5, prior≈0.5, certainty<0.5 | Depends on meta-predictions |
+| **n=2 participants** | Proceeds but underdetermined (4 params, 2 points) | Low → likely fallback |
+| **Single weighted agent** | Error 409 (insufficient participants) | N/A - triggers fallback |
+| **Extreme probabilities** (>0.999 or <0.001) | Clamped to [ε, 1-ε], logs warning | No impact if moderate |
+| **Uncorrelated metas** | W can't predict → low accuracy | <0.3 → fallback |
+| **Highly correlated beliefs** | Near-singular matrix, high condition number | Low → may fallback |
+| **Leave-one-out n=2** | Returns neutral defaults (0.5, 0.5, 0.5) | N/A - graceful degradation |

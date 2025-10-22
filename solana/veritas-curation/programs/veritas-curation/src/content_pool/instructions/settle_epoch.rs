@@ -4,7 +4,7 @@ use crate::content_pool::{
     state::*,
     events::SettlementEvent,
     errors::ContentPoolError,
-    curve::ICBSCurve,
+    curve::{ICBSCurve, mul_x96},
 };
 
 #[derive(Accounts)]
@@ -94,8 +94,18 @@ pub fn handler(
     // Update sqrt lambda to reflect the reserve changes
     // Since R = s × p and s is unchanged, we need to adjust lambda (price scaling)
     // New lambda = old lambda × f
-    let sqrt_f_long_x96 = integer_sqrt((f_long as u128 * Q96_ONE * Q96_ONE) / 1_000_000)?;
-    let sqrt_f_short_x96 = integer_sqrt((f_short as u128 * Q96_ONE * Q96_ONE) / 1_000_000)?;
+    // We want sqrt(f) in X96 format. f is in millionths (1_000_000 = 1.0)
+    // sqrt(f) * 2^96 = sqrt(f * 2^192) = sqrt((f * 2^192) / 1_000_000)
+    // To avoid overflow, we compute: sqrt(f * (2^192 / 1_000_000))
+    // (2^192 / 1_000_000) is a very large number, so we do: sqrt((f << 192) / 1_000_000)
+    // But (f << 192) overflows. Instead: sqrt_f_x96 = sqrt(f) * 2^96
+    // = integer_sqrt(f) * integer_sqrt(2^192) / integer_sqrt(1_000_000)
+    // = integer_sqrt(f) * 2^96 / 1000
+    let sqrt_f_long_raw = integer_sqrt(f_long as u128)?;
+    let sqrt_f_short_raw = integer_sqrt(f_short as u128)?;
+    let sqrt_million = 1000u128; // sqrt(1_000_000) = 1000
+    let sqrt_f_long_x96 = (sqrt_f_long_raw * Q96_ONE) / sqrt_million;
+    let sqrt_f_short_x96 = (sqrt_f_short_raw * Q96_ONE) / sqrt_million;
 
     pool.sqrt_lambda_long_x96 = mul_x96(pool.sqrt_lambda_long_x96, sqrt_f_long_x96)?;
     pool.sqrt_lambda_short_x96 = mul_x96(pool.sqrt_lambda_short_x96, sqrt_f_short_x96)?;
@@ -156,11 +166,4 @@ fn integer_sqrt(n: u128) -> Result<u128> {
         y = (x + n / x) / 2;
     }
     Ok(x)
-}
-
-fn mul_x96(a: u128, b: u128) -> Result<u128> {
-    let product = (a as u128)
-        .checked_mul(b as u128)
-        .ok_or(ContentPoolError::NumericalOverflow)?;
-    Ok(product / Q96_ONE)
 }

@@ -39,8 +39,6 @@ INSERT INTO system_config (key, value, description) VALUES
     ('min_participants_for_scoring', '2', 'Minimum participants required for BTS scoring'),
     ('min_stake_per_belief', '0.5', 'Minimum stake allocated per belief (USD)'),
     ('initial_agent_stake', '10000.0', 'Default stake amount for new agents (USD) - $10k for alpha'),
-    ('min_belief_duration', '10', 'Minimum belief market duration in epochs (10 epochs = 48h at 4.8h/epoch)'),
-    ('max_belief_duration', '100', 'Maximum belief market duration in epochs'),
     ('max_beliefs_per_agent', '1000', 'Maximum number of beliefs per agent'),
     ('max_agents_per_belief', '10000', 'Maximum number of agents per belief market'),
 
@@ -136,8 +134,6 @@ CREATE TABLE beliefs (
     -- Creator and Lifecycle
     creator_agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
     created_epoch INTEGER NOT NULL DEFAULT 0,
-    expiration_epoch INTEGER NOT NULL,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired', 'processed')),
 
     -- Learning Assessment (from previous epoch)
     previous_aggregate DECIMAL(10,8) NOT NULL CHECK (previous_aggregate >= 0 AND previous_aggregate <= 1),
@@ -151,7 +147,7 @@ CREATE TABLE beliefs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-COMMENT ON TABLE beliefs IS 'Belief markets for intersubjective consensus using Bayesian Truth Serum';
+COMMENT ON TABLE beliefs IS 'Belief markets for intersubjective consensus using Bayesian Truth Serum (persist indefinitely)';
 COMMENT ON COLUMN beliefs.delta_relevance IS 'Change in aggregate belief from previous epoch (used for pool redistribution)';
 COMMENT ON COLUMN beliefs.certainty IS 'Certainty metric from learning assessment (NOT uncertainty)';
 
@@ -434,8 +430,6 @@ CREATE INDEX idx_users_auth_credentials ON users(auth_provider, auth_id)
 
 -- Beliefs
 CREATE INDEX idx_beliefs_creator_agent ON beliefs(creator_agent_id);
-CREATE INDEX idx_beliefs_status ON beliefs(status);
-CREATE INDEX idx_beliefs_expires_at_epoch ON beliefs(expiration_epoch);
 CREATE INDEX idx_beliefs_delta_relevance ON beliefs(delta_relevance) WHERE delta_relevance IS NOT NULL;
 CREATE INDEX idx_beliefs_certainty ON beliefs(certainty) WHERE certainty IS NOT NULL;
 

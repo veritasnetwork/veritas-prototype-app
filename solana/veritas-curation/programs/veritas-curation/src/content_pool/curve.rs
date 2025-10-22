@@ -16,6 +16,34 @@ pub const Q96: u128 = 1 << 96;
 /// Example: 100 USDC = 100_000_000 lamports → 100 scaled units
 pub const SUPPLY_SCALE: u64 = 1_000_000;
 
+/// GCD helper for overflow-safe multiplication and division
+#[inline]
+fn gcd_u128(mut a: u128, mut b: u128) -> u128 {
+    while b != 0 {
+        let t = a % b;
+        a = b;
+        b = t;
+    }
+    a
+}
+
+/// Overflow-safe mul_div: computes (a * b) / den with GCD reduction
+/// Reduces b/den first to avoid overflow in a*b
+#[inline]
+fn mul_div_u128(a: u128, b: u128, den: u128) -> Result<u128> {
+    if den == 0 {
+        return err!(ContentPoolError::DivisionByZero);
+    }
+    // Reduce b/den first to avoid overflow in a*b
+    let g = gcd_u128(b, den);
+    let (b_r, den_r) = (b / g, den / g);
+
+    Ok(a.checked_mul(b_r)
+        .ok_or(ContentPoolError::NumericalOverflow)?
+        .checked_div(den_r)
+        .ok_or(ContentPoolError::NumericalOverflow)?)
+}
+
 impl ICBSCurve {
     /// Calculate the cost function C(s_L, s_S)
     ///
@@ -168,15 +196,14 @@ impl ICBSCurve {
 
         // Solve: norm_after = (usdc_in / λ) + norm_before
         // usdc_in / λ = (usdc_in * Q96) / lambda_x96
-        let usdc_scaled = (usdc_in as u128)
-            .checked_mul(Q96)
-            .ok_or(ContentPoolError::NumericalOverflow)?;
-        let delta_norm = usdc_scaled
-            .checked_div(lambda_x96)
-            .ok_or(ContentPoolError::DivisionByZero)?;
+        // Use GCD-reduced mul_div to avoid overflow
+        let delta_norm = mul_div_u128(usdc_in as u128, Q96, lambda_x96)?;
         let norm_after = norm_before
             .checked_add(delta_norm)
             .ok_or(ContentPoolError::NumericalOverflow)?;
+
+        // Guard against overflow in squaring: if norm_after > u64::MAX, squaring will overflow u128
+        require!(norm_after <= u64::MAX as u128, ContentPoolError::NumericalOverflow);
 
         // Now: norm_after² = (current_s + Δs)² + s_other²
         // So: (current_s + Δs)² = norm_after² - s_other²
@@ -316,7 +343,7 @@ impl ICBSCurve {
 ///
 /// Computes floor((a * b) / 2^96) without overflow for Q96 inputs.
 /// Uses 64-bit limb decomposition to safely handle a, b up to 2^96.
-fn mul_x96(a: u128, b: u128) -> Result<u128> {
+pub fn mul_x96(a: u128, b: u128) -> Result<u128> {
     const MASK64: u128 = (1u128 << 64) - 1;
 
     // Decompose into 64-bit limbs: a = a1*2^64 + a0
@@ -567,5 +594,19 @@ mod tests {
         // With F=1, the cost function should increase when supply increases
         assert!(cost_more_long > cost_base, "Cost should increase with s_long: base={}, with_more_long={}", cost_base, cost_more_long);
         assert!(cost_more_short > cost_base, "Cost should increase with s_short: base={}, with_more_short={}", cost_base, cost_more_short);
+    }
+
+    #[test]
+    fn tiny_trade_no_overflow() {
+        // Test that tiny trades (0.001 USDC) don't cause overflow
+        // 60/40 supplies, λ=1
+        let s_l = 60_000_000u64;
+        let s_s = 40_000_000u64;
+        let sqrt_lambda_x96 = Q96; // λ=1
+        // 0.001 USDC
+        let (tokens, _) = ICBSCurve::calculate_buy(
+            s_l, 1_000, sqrt_lambda_x96, s_s, 1, 1, 2, true
+        ).unwrap();
+        assert!(tokens > 0, "Should mint tokens for minimum trade");
     }
 }

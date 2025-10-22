@@ -16,7 +16,6 @@
 #### Output
 - `weights`: object {agent_id: normalized_weight} where sum = 1.0
 - `belief_weights`: object {agent_id: w_i} where w_i = 2% of last trade
-- `effective_stakes`: object {agent_id: w_i} (DEPRECATED: alias for backward compatibility)
 
 ### Algorithm
 

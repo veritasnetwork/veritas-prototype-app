@@ -45,7 +45,7 @@ export async function GET(
 
     // Fetch user's holdings with post and pool data
     // NOTE: We don't fetch content_json to improve performance - it's not needed for holdings list
-    const { data: holdings, error: holdingsError } = await supabase
+    const { data: positions, error: holdingsError } = await supabase
       .from('user_pool_balances')
       .select(`
         token_balance,
@@ -55,6 +55,9 @@ export async function GET(
         total_usdc_received,
         pool_address,
         post_id,
+        token_type,
+        belief_lock,
+        last_trade_at,
         posts:post_id (
           id,
           post_type,
@@ -84,9 +87,43 @@ export async function GET(
       );
     }
 
+    // Aggregate by pool (LONG + SHORT)
+    const holdingsMap = new Map<string, any>();
+    for (const pos of positions || []) {
+      if (!holdingsMap.has(pos.pool_address)) {
+        holdingsMap.set(pos.pool_address, {
+          pool_address: pos.pool_address,
+          post_id: pos.post_id,
+          posts: pos.posts,
+          pool_deployments: pos.pool_deployments,
+          long_balance: 0,
+          short_balance: 0,
+          long_lock: 0,
+          short_lock: 0,
+          total_lock_usdc: 0,
+          last_trade_at: pos.last_trade_at,
+        });
+      }
+
+      const entry = holdingsMap.get(pos.pool_address);
+      if (pos.token_type === 'LONG') {
+        entry.long_balance = pos.token_balance;
+        entry.long_lock = pos.belief_lock / 1_000_000;
+      } else {
+        entry.short_balance = pos.token_balance;
+        entry.short_lock = pos.belief_lock / 1_000_000;
+      }
+      entry.total_lock_usdc = entry.long_lock + entry.short_lock;
+      if (new Date(pos.last_trade_at) > new Date(entry.last_trade_at)) {
+        entry.last_trade_at = pos.last_trade_at;
+      }
+    }
+
+    const holdings = Array.from(holdingsMap.values());
+
     // Transform and calculate current values - fetch pool data from chain
     const transformedHoldings = await Promise.all(
-      (holdings || []).map(async (holding: any) => {
+      holdings.map(async (holding: any) => {
         const post = holding.posts;
         const poolAddress = holding.pool_deployments?.pool_address;
 
@@ -101,7 +138,7 @@ export async function GET(
             if (poolData) {
               // Use average of long/short prices for holdings display
               currentPrice = (poolData.priceLong + poolData.priceShort) / 2;
-              currentValueUsdc = holding.token_balance * currentPrice;
+              currentValueUsdc = holding.long_balance * poolData.priceLong + holding.short_balance * poolData.priceShort;
             }
           } catch (error) {
             console.warn(`Failed to fetch pool data for ${poolAddress}:`, error);
@@ -132,10 +169,10 @@ export async function GET(
             vault_balance: poolData?.vaultBalance || 0,
           },
           balance: {
-            token_balance: holding.token_balance,
+            long_balance: holding.long_balance,
+            short_balance: holding.short_balance,
+            total_lock_usdc: holding.total_lock_usdc,
             current_value_usdc: currentValueUsdc,
-            total_usdc_spent: holding.total_usdc_spent,
-            total_bought: holding.total_bought,
           },
         };
       })

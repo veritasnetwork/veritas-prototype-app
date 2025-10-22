@@ -32,9 +32,7 @@ interface UserDashboardActivity {
     belief_info: {
       creator_agent_id: string
       created_epoch: number
-      expiration_epoch: number
       current_aggregate: number
-      status: string
     }
     post_context?: {
       post_id: string
@@ -197,9 +195,7 @@ serve(async (req) => {
         belief_info: {
           creator_agent_id: submission.belief_info.creator_agent_id,
           created_epoch: submission.belief_info.created_epoch,
-          expiration_epoch: submission.belief_info.expiration_epoch,
-          current_aggregate: submission.belief_info.current_aggregate,
-          status: submission.belief_info.status
+          current_aggregate: submission.belief_info.current_aggregate
         },
         post_context: postContextMap[submission.belief_id] || null
       })) : []

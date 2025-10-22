@@ -47,13 +47,15 @@ describe("PoolFactory ICBS Tests", () => {
 
     // Setup test user
     testUser = Keypair.generate();
-    await provider.connection.requestAirdrop(testUser.publicKey, 10 * LAMPORTS_PER_SOL);
+    const airdropSig = await provider.connection.requestAirdrop(testUser.publicKey, 10 * LAMPORTS_PER_SOL);
+    await provider.connection.confirmTransaction(airdropSig);
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Setup authorities
     factoryAuthority = payer.publicKey; // Use provider wallet as factory authority
     poolAuthority = TEST_POOL_AUTHORITY;
-    await provider.connection.requestAirdrop(poolAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
+    const airdropSig2 = await provider.connection.requestAirdrop(poolAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
+    await provider.connection.confirmTransaction(airdropSig2);
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Derive PDAs
@@ -215,7 +217,8 @@ describe("PoolFactory ICBS Tests", () => {
         assert.equal(factoryAfter.totalPools.toString(), poolsBefore.add(new BN(1)).toString());
       });
 
-      it("requires protocol authority co-signature", async () => {
+      it("allows permissionless pool creation", async () => {
+        // Pool creation is permissionless - any user can create a pool
         const contentId = Keypair.generate().publicKey;
 
         const [poolPda] = PublicKey.findProgramAddressSync(
@@ -228,28 +231,24 @@ describe("PoolFactory ICBS Tests", () => {
           program.programId
         );
 
-        // Try without protocol authority signature
-        try {
-          await program.methods
-            .createPool(contentId)
-            .accounts({
-              factory: factoryPda,
-              pool: poolPda,
-              registry: registryPda,
-              contentIdAccount: contentId,
-              custodian: custodianPda,
-              creator: testUser.publicKey,
-              payer: payer.publicKey,
-              protocolAuthority: poolAuthority.publicKey,
-              systemProgram: SystemProgram.programId,
-            })
-            // Missing poolAuthority signature
-            .rpc();
-          assert.fail("Should have failed with UnauthorizedProtocol");
-        } catch (e: any) {
-          // Should fail with signature verification or unauthorized (6001)
-          assert.ok(e.toString().includes("signature") || e.toString().includes("6001"));
-        }
+        // Create pool without protocol authority - should succeed
+        await program.methods
+          .createPool(contentId)
+          .accounts({
+            factory: factoryPda,
+            pool: poolPda,
+            registry: registryPda,
+            custodian: custodianPda,
+            creator: testUser.publicKey,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser])
+          .rpc();
+
+        // Verify pool was created
+        const pool = await program.account.contentPool.fetch(poolPda);
+        assert.equal(pool.creator.toBase58(), testUser.publicKey.toBase58());
       });
     });
 
@@ -325,14 +324,12 @@ describe("PoolFactory ICBS Tests", () => {
               factory: factoryPda,
               pool: poolPda,
               registry: registryPda,
-              contentIdAccount: contentId,
               custodian: custodianPda,
               creator: testUser.publicKey,
               payer: payer.publicKey,
-              protocolAuthority: poolAuthority.publicKey,
               systemProgram: SystemProgram.programId,
             })
-            .signers([poolAuthority, testUser])
+            .signers([testUser])
             .rpc();
           assert.fail("Should have failed with duplicate pool");
         } catch (e: any) {
@@ -361,6 +358,7 @@ describe("PoolFactory ICBS Tests", () => {
           .createPool(contentId) // Always uses factory defaults
           .accounts({
             factory: factoryPda,
+            authority: payer.publicKey,
             pool: poolPda,
             registry: registryPda,
             custodian: custodianPda,
@@ -430,8 +428,10 @@ describe("PoolFactory ICBS Tests", () => {
       newFactoryAuthority = Keypair.generate();
 
       // Fund new authorities
-      await provider.connection.requestAirdrop(newPoolAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
-      await provider.connection.requestAirdrop(newFactoryAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
+      const airdropSig3 = await provider.connection.requestAirdrop(newPoolAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
+      await provider.connection.confirmTransaction(airdropSig3);
+      const airdropSig4 = await provider.connection.requestAirdrop(newFactoryAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
+      await provider.connection.confirmTransaction(airdropSig4);
       await new Promise(resolve => setTimeout(resolve, 1000));
     });
 
@@ -443,7 +443,7 @@ describe("PoolFactory ICBS Tests", () => {
           .updatePoolAuthority(newPoolAuthority.publicKey)
           .accounts({
             factory: factoryPda,
-            authority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc(); // Provider wallet signs by default
 
@@ -455,7 +455,7 @@ describe("PoolFactory ICBS Tests", () => {
           .updatePoolAuthority(poolAuthority.publicKey)
           .accounts({
             factory: factoryPda,
-            authority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
       });
@@ -466,14 +466,14 @@ describe("PoolFactory ICBS Tests", () => {
             .updatePoolAuthority(newPoolAuthority.publicKey)
             .accounts({
               factory: factoryPda,
-              authority: testUser.publicKey,
+            authority: testUser.publicKey,
             })
             .signers([testUser])
             .rpc();
           assert.fail("Should have failed with Unauthorized");
         } catch (e: any) {
-          // Error code 7020 - Unauthorized
-          assert.ok(e.toString().includes("7020") || e.toString().includes("Unauthorized"));
+          // Error code 7020 - Unauthorized (only factory_authority can update)
+          assert.ok(e.toString().includes("7020") || e.toString().includes("Unauthorized"), `Got error: ${e.toString()}`);
         }
       });
 
@@ -483,14 +483,14 @@ describe("PoolFactory ICBS Tests", () => {
             .updatePoolAuthority(newPoolAuthority.publicKey)
             .accounts({
               factory: factoryPda,
-              authority: poolAuthority.publicKey,
+            authority: poolAuthority.publicKey,
             })
-            .signers([poolAuthority, testUser])
+            .signers([poolAuthority])
             .rpc();
           assert.fail("Should have failed with Unauthorized");
         } catch (e: any) {
-          // Error code 7020 - Unauthorized (only factory_authority can)
-          assert.ok(e.toString().includes("7020") || e.toString().includes("Unauthorized"));
+          // Error code 7020 - Unauthorized (only factory_authority can, not pool_authority)
+          assert.ok(e.toString().includes("7020") || e.toString().includes("Unauthorized"), `Got error: ${e.toString()}`);
         }
       });
 
@@ -500,7 +500,7 @@ describe("PoolFactory ICBS Tests", () => {
             .updatePoolAuthority(PublicKey.default)
             .accounts({
               factory: factoryPda,
-              authority: factoryAuthority,
+            authority: payer.publicKey,
             })
             .rpc();
           assert.fail("Should have failed with InvalidAuthority");
@@ -521,7 +521,7 @@ describe("PoolFactory ICBS Tests", () => {
           .updateFactoryAuthority(newFactoryAuthority.publicKey)
           .accounts({
             factory: factoryPda,
-            authority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
 
@@ -534,7 +534,7 @@ describe("PoolFactory ICBS Tests", () => {
             .updatePoolAuthority(Keypair.generate().publicKey)
             .accounts({
               factory: factoryPda,
-              authority: factoryAuthority,
+            authority: payer.publicKey,
             })
             .rpc();
           assert.fail("Old authority should not work");
@@ -542,8 +542,19 @@ describe("PoolFactory ICBS Tests", () => {
           assert.ok(e.toString().includes("Unauthorized"));
         }
 
-        // Note: Cannot restore original authority without new authority's signature
-        // This is intentional - ownership transfer is permanent
+        // Restore original authority using new authority's signature
+        await program.methods
+          .updateFactoryAuthority(payer.publicKey)
+          .accounts({
+            factory: factoryPda,
+            authority: newFactoryAuthority.publicKey,
+          })
+          .signers([newFactoryAuthority])
+          .rpc();
+
+        // Verify restoration
+        const factoryRestored = await program.account.poolFactory.fetch(factoryPda);
+        assert.equal(factoryRestored.factoryAuthority.toBase58(), payer.publicKey.toBase58());
       });
     });
   });
@@ -556,10 +567,10 @@ describe("PoolFactory ICBS Tests", () => {
 
         // Update default_f to 3
         await program.methods
-          .updateDefaults(3, null, null, null, null)
+          .updateDefaults(3, null, null, null, null, null)
           .accounts({
             factory: factoryPda,
-            factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
 
@@ -583,14 +594,12 @@ describe("PoolFactory ICBS Tests", () => {
             factory: factoryPda,
             pool: newPoolPda,
             registry: newRegistryPda,
-            contentIdAccount: newContentId,
             custodian: custodianPda,
             creator: testUser.publicKey,
             payer: payer.publicKey,
-            protocolAuthority: poolAuthority.publicKey,
             systemProgram: SystemProgram.programId,
           })
-          .signers([poolAuthority, testUser])
+          .signers([testUser])
           .rpc();
 
         const newPool = await program.account.contentPool.fetch(newPoolPda);
@@ -598,10 +607,10 @@ describe("PoolFactory ICBS Tests", () => {
 
         // Restore original value
         await program.methods
-          .updateDefaults(oldF, null, null, null, null)
+          .updateDefaults(oldF, null, null, null, null, null)
           .accounts({
             factory: factoryPda,
-            factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
       });
@@ -613,10 +622,10 @@ describe("PoolFactory ICBS Tests", () => {
 
         // Update beta to 2/3 (0.667)
         await program.methods
-          .updateDefaults(null, 2, 3, null, null)
+          .updateDefaults(null, 2, 3, null, null, null)
           .accounts({
             factory: factoryPda,
-            factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
 
@@ -626,10 +635,10 @@ describe("PoolFactory ICBS Tests", () => {
 
         // Restore original values
         await program.methods
-          .updateDefaults(null, oldBetaNum, oldBetaDen, null, null)
+          .updateDefaults(null, oldBetaNum, oldBetaDen, null, null, null)
           .accounts({
             factory: factoryPda,
-            factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
       });
@@ -638,86 +647,97 @@ describe("PoolFactory ICBS Tests", () => {
         // Try to set f = 11 (above max of 10)
         try {
           await program.methods
-            .updateDefaults(11, null, null, null, null)
+            .updateDefaults(11, null, null, null, null, null)
             .accounts({
               factory: factoryPda,
-              factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
             })
             .rpc();
           assert.fail("Should have failed with f = 11");
         } catch (e: any) {
-          assert.include(e.toString(), "6501", "Should fail with InvalidParameter error");
+          assert.ok(
+            e.toString().includes("InvalidParameter") ||
+            e.toString().includes("Invalid"),
+            `Should fail with InvalidParameter error, got: ${e.toString()}`
+          );
         }
 
         // Try to set beta > 0.9 (beta_num/beta_den = 9/10 = 0.9 is max)
         try {
           await program.methods
-            .updateDefaults(null, 95, 100, null, null) // 0.95 > 0.9
+            .updateDefaults(null, 95, 100, null, null, null) // 0.95 > 0.9
             .accounts({
               factory: factoryPda,
-              factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
             })
             .rpc();
           assert.fail("Should have failed with beta = 0.95");
         } catch (e: any) {
-          assert.include(e.toString(), "6501", "Should fail with InvalidParameter error");
+          // Error code 13031 - InvalidBeta (or legacy 7012 - InvalidParameters)
+          assert.ok(
+            e.toString().includes("InvalidBeta") ||
+            e.toString().includes("13031") ||
+            e.toString().includes("7012") ||
+            e.toString().includes("InvalidParameter"),
+            `Should fail with InvalidBeta error, got: ${e.toString()}`
+          );
         }
       });
 
       it("allows update of min_initial_deposit", async () => {
         const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
-        const oldMinDeposit = factoryBefore.defaultMinInitialDeposit;
+        const oldMinDeposit = factoryBefore.minInitialDeposit;
 
         // Update to 200 USDC
         await program.methods
-          .updateDefaults(null, null, null, new BN(200_000_000), null)
+          .updateDefaults(null, null, null, null, new BN(200_000_000), null)
           .accounts({
             factory: factoryPda,
-            factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
 
         const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
         assert.ok(
-          factoryAfter.defaultMinInitialDeposit.eq(new BN(200_000_000)),
+          factoryAfter.minInitialDeposit.eq(new BN(200_000_000)),
           "min_initial_deposit should be 200 USDC"
         );
 
         // Restore original value
         await program.methods
-          .updateDefaults(null, null, null, oldMinDeposit, null)
+          .updateDefaults(null, null, null, null, oldMinDeposit, null)
           .accounts({
             factory: factoryPda,
-            factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
       });
 
       it("allows update of min_settle_interval", async () => {
         const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
-        const oldMinInterval = factoryBefore.defaultMinSettleInterval;
+        const oldMinInterval = factoryBefore.minSettleInterval;
 
         // Update to 600 seconds (10 minutes)
         await program.methods
-          .updateDefaults(null, null, null, null, new BN(600))
+          .updateDefaults(null, null, null, null, null, new BN(600))
           .accounts({
             factory: factoryPda,
-            factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
 
         const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
         assert.ok(
-          factoryAfter.defaultMinSettleInterval.eq(new BN(600)),
+          factoryAfter.minSettleInterval.eq(new BN(600)),
           "min_settle_interval should be 600 seconds"
         );
 
         // Restore original value
         await program.methods
-          .updateDefaults(null, null, null, null, oldMinInterval)
+          .updateDefaults(null, null, null, null, null, oldMinInterval)
           .accounts({
             factory: factoryPda,
-            factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
       });
@@ -726,19 +746,19 @@ describe("PoolFactory ICBS Tests", () => {
         // Try to update as testUser (not factory authority)
         try {
           await program.methods
-            .updateDefaults(5, null, null, null, null)
+            .updateDefaults(5, null, null, null, null, null)
             .accounts({
               factory: factoryPda,
-              factoryAuthority: testUser.publicKey,
+            authority: testUser.publicKey,
             })
             .signers([testUser])
             .rpc();
           assert.fail("Should have failed from non-factory-authority");
         } catch (e: any) {
-          // Should fail with constraint error
+          // Should fail with Unauthorized (7020) since testUser is not factory_authority
           assert.ok(
-            e.toString().includes("6009") || e.toString().includes("ConstraintHasOne"),
-            "Should fail with unauthorized error"
+            e.toString().includes("7020") || e.toString().includes("Unauthorized"),
+            `Should fail with unauthorized error, got: ${e.toString()}`
           );
         }
       });
@@ -761,14 +781,12 @@ describe("PoolFactory ICBS Tests", () => {
             factory: factoryPda,
             pool: pool1Pda,
             registry: pool1RegistryPda,
-            contentIdAccount: pool1ContentId,
             custodian: custodianPda,
             creator: testUser.publicKey,
             payer: payer.publicKey,
-            protocolAuthority: poolAuthority.publicKey,
             systemProgram: SystemProgram.programId,
           })
-          .signers([poolAuthority, testUser])
+          .signers([testUser])
           .rpc();
 
         const pool1Before = await program.account.contentPool.fetch(pool1Pda);
@@ -778,10 +796,10 @@ describe("PoolFactory ICBS Tests", () => {
 
         // Update factory defaults
         await program.methods
-          .updateDefaults(2, 3, 5, null, null) // f=2, beta=3/5=0.6
+          .updateDefaults(2, 3, 5, null, null, null) // f=2, beta=3/5=0.6
           .accounts({
             factory: factoryPda,
-            factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
 
@@ -802,14 +820,12 @@ describe("PoolFactory ICBS Tests", () => {
             factory: factoryPda,
             pool: pool2Pda,
             registry: pool2RegistryPda,
-            contentIdAccount: pool2ContentId,
             custodian: custodianPda,
             creator: testUser.publicKey,
             payer: payer.publicKey,
-            protocolAuthority: poolAuthority.publicKey,
             systemProgram: SystemProgram.programId,
           })
-          .signers([poolAuthority, testUser])
+          .signers([testUser])
           .rpc();
 
         // Verify pool1 retained original parameters
@@ -826,10 +842,10 @@ describe("PoolFactory ICBS Tests", () => {
 
         // Restore factory defaults
         await program.methods
-          .updateDefaults(DEFAULT_F, DEFAULT_BETA_NUM, DEFAULT_BETA_DEN, null, null)
+          .updateDefaults(DEFAULT_F, DEFAULT_BETA_NUM, DEFAULT_BETA_DEN, null, null, null)
           .accounts({
             factory: factoryPda,
-            factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
           })
           .rpc();
       });
@@ -862,14 +878,12 @@ describe("PoolFactory ICBS Tests", () => {
                 factory: factoryPda,
                 pool: poolPda,
                 registry: registryPda,
-                contentIdAccount: contentId,
                 custodian: custodianPda,
                 creator: testUser.publicKey,
                 payer: payer.publicKey,
-                protocolAuthority: poolAuthority.publicKey,
                 systemProgram: SystemProgram.programId,
               })
-              .signers([poolAuthority, testUser])
+              .signers([testUser])
               .rpc()
           );
         }
@@ -911,14 +925,12 @@ describe("PoolFactory ICBS Tests", () => {
             factory: factoryPda,
             pool: poolPda,
             registry: expectedRegistry,
-            contentIdAccount: contentId,
             custodian: custodianPda,
             creator: testUser.publicKey,
             payer: payer.publicKey,
-            protocolAuthority: poolAuthority.publicKey,
             systemProgram: SystemProgram.programId,
           })
-          .signers([poolAuthority, testUser])
+          .signers([testUser])
           .rpc();
 
         const registry = await program.account.poolRegistry.fetch(expectedRegistry);
@@ -945,14 +957,12 @@ describe("PoolFactory ICBS Tests", () => {
                 [Buffer.from("registry"), contentId.toBuffer()],
                 program.programId
               )[0],
-              contentIdAccount: contentId,
               custodian: custodianPda,
               creator: testUser.publicKey,
               payer: payer.publicKey,
-              protocolAuthority: poolAuthority.publicKey,
               systemProgram: SystemProgram.programId,
             })
-            .signers([poolAuthority, testUser])
+            .signers([testUser])
             .rpc();
           assert.fail("Should have failed with InvalidContentId");
         } catch (e: any) {
@@ -982,27 +992,22 @@ describe("PoolFactory ICBS Tests", () => {
           factory: factoryPda,
           pool: eventPoolPda,
           registry: eventRegistryPda,
-          contentIdAccount: eventContentId,
           custodian: custodianPda,
           creator: testUser.publicKey,
           payer: payer.publicKey,
-          protocolAuthority: poolAuthority.publicKey,
           systemProgram: SystemProgram.programId,
         })
-        .signers([poolAuthority, testUser])
+        .signers([testUser])
         .rpc();
 
-      // Verify transaction succeeded (implies event emitted)
-      const txDetails = await provider.connection.getTransaction(tx, {
-        commitment: "confirmed",
-        maxSupportedTransactionVersion: 0,
-      });
+      // Wait for confirmation
+      await provider.connection.confirmTransaction(tx, "confirmed");
 
-      assert.ok(txDetails, "Transaction should exist");
-
-      // Verify pool was created
+      // Verify pool was created (transaction succeeded, implying event was emitted)
       const pool = await program.account.contentPool.fetch(eventPoolPda);
       assert.ok(pool.contentId.equals(eventContentId), "Pool should have correct content_id");
+
+      // Note: Local validator may not store tx history, so we verify state change instead of fetching tx
     });
 
     it("emits DefaultsUpdated event on parameter change", async () => {
@@ -1011,31 +1016,28 @@ describe("PoolFactory ICBS Tests", () => {
 
       // Update default_f (should emit event)
       const tx = await program.methods
-        .updateDefaults(5, null, null, null, null)
+        .updateDefaults(5, null, null, null, null, null)
         .accounts({
           factory: factoryPda,
-          factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
         })
         .rpc();
 
-      // Verify transaction succeeded (implies event emitted)
-      const txDetails = await provider.connection.getTransaction(tx, {
-        commitment: "confirmed",
-        maxSupportedTransactionVersion: 0,
-      });
+      // Wait for confirmation
+      await provider.connection.confirmTransaction(tx, "confirmed");
 
-      assert.ok(txDetails, "Transaction should exist");
-
-      // Verify factory was updated
+      // Verify factory was updated (transaction succeeded, implying event was emitted)
       const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
       assert.equal(factoryAfter.defaultF, 5, "default_f should be updated to 5");
 
+      // Note: Local validator may not store tx history, so we verify state change instead of fetching tx
+
       // Restore original value
       await program.methods
-        .updateDefaults(oldF, null, null, null, null)
+        .updateDefaults(oldF, null, null, null, null, null)
         .accounts({
           factory: factoryPda,
-          factoryAuthority: factoryAuthority,
+            authority: payer.publicKey,
         })
         .rpc();
     });

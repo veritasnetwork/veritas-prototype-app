@@ -47,7 +47,7 @@ Submits an agent's belief and meta-prediction to a belief market.
 ### /protocol/weights/calculate
 Calculates normalized epistemic weights for belief participants.
 **Input:** `belief_id`, `participant_agents`
-**Output:** `weights`, `effective_stakes`
+**Output:** `weights`, `belief_weights`
 
 ### /protocol/beliefs/aggregate
 Aggregates belief submissions using epistemic weights (naive weighted mean).
@@ -71,7 +71,7 @@ Calculates Bayesian Truth Serum scores and information rewards.
 
 ### /protocol/beliefs/stake-redistribution
 Redistributes stakes based on information scores.
-**Input:** `belief_id`, `effective_stakes`, `information_scores`, `winner_set`, `loser_set`
+**Input:** `belief_id`, `information_scores`
 **Output:** `updated_stakes`, `individual_rewards`, `individual_slashes`
 
 ## Orchestration Functions

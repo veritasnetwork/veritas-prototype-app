@@ -30,7 +30,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null); // Optional cover for articles (requires title)
   const [showTitleCover, setShowTitleCover] = useState(false); // Toggle for title/cover section
 
-  const [duration, setDuration] = useState(48);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,7 +107,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     setUploadedMediaUrl(null);
     setArticleTitle('');
     setCoverImageUrl(null);
-    setDuration(48);
     setError(null);
     onClose();
   };
@@ -174,7 +172,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
           caption: (postType === 'image' || postType === 'video') ? caption || undefined : undefined,
           article_title: postType === 'text' && articleTitle ? articleTitle : undefined,
           cover_image_url: postType === 'text' && coverImageUrl ? coverImageUrl : undefined,
-          belief_duration_hours: duration,
         }),
       });
 
@@ -194,7 +191,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       setUploadedMediaUrl(null);
       setArticleTitle('');
       setCoverImageUrl(null);
-      setDuration(48);
       setError(null);
       onClose();
 
@@ -438,27 +434,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
               </div>
             </div>
           )}
-
-          {/* Belief Duration */}
-          <div className="border-t border-gray-800 pt-4">
-            <div>
-              <label htmlFor="post-duration" className="block text-sm font-medium text-gray-300 mb-2">
-                Market Duration
-              </label>
-              <select
-                id="post-duration"
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
-                disabled={isSubmitting}
-                className="input w-full"
-              >
-                <option value={24}>24 hours</option>
-                <option value={48}>48 hours</option>
-                <option value={72}>72 hours</option>
-                <option value={168}>1 week</option>
-              </select>
-            </div>
-          </div>
 
           {/* Error Message */}
           {error && (

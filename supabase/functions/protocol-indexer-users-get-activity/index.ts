@@ -29,10 +29,8 @@ interface AgentActivity {
     belief_info: {
       creator_agent_id: string
       created_epoch: number
-      expiration_epoch: number
       current_aggregate: number
       current_disagreement_entropy: number
-      status: string
     }
   }>
 }
@@ -128,7 +126,7 @@ serve(async (req) => {
       if (beliefIds.length > 0) {
         const { data: beliefsData, error: beliefsError } = await supabaseClient
           .from('beliefs')
-          .select('id, creator_agent_id, created_epoch, expiration_epoch, previous_aggregate, previous_disagreement_entropy, status')
+          .select('id, creator_agent_id, created_epoch, previous_aggregate, previous_disagreement_entropy')
           .in('id', beliefIds)
 
         if (!beliefsError && beliefsData) {
@@ -161,7 +159,7 @@ serve(async (req) => {
 
           if (stakeResponse.ok) {
             const stakeData = await stakeResponse.json()
-            stakeAllocated = stakeData.effective_stakes[agent.id] || 0
+            stakeAllocated = stakeData.belief_weights[agent.id] || 0
           }
         } catch (error) {
           console.warn(`Failed to calculate stake for agent ${agent.id} belief ${submission.belief_id}:`, error)
@@ -184,17 +182,13 @@ serve(async (req) => {
           belief_info: beliefInfo ? {
             creator_agent_id: beliefInfo.creator_agent_id,
             created_epoch: beliefInfo.created_epoch,
-            expiration_epoch: beliefInfo.expiration_epoch,
             current_aggregate: beliefInfo.previous_aggregate,
-            current_disagreement_entropy: beliefInfo.previous_disagreement_entropy,
-            status: beliefInfo.status
+            current_disagreement_entropy: beliefInfo.previous_disagreement_entropy
           } : {
             creator_agent_id: '',
             created_epoch: 0,
-            expiration_epoch: 0,
             current_aggregate: 0,
-            current_disagreement_entropy: 0,
-            status: 'unknown'
+            current_disagreement_entropy: 0
           }
         })
       }

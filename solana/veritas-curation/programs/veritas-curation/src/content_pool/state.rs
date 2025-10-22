@@ -116,8 +116,9 @@ pub enum TradeType {
 
 // Constants
 pub const MAX_SAFE_SUPPLY: u64 = 1_000_000_000_000;  // 1 trillion tokens (with 6 decimals)
-pub const MIN_TRADE_SIZE: u64 = 1_000;               // 0.001 USDC
+pub const MIN_TRADE_SIZE: u64 = 100_000;             // 0.1 USDC (for BUY) - increased to prevent overflow in ICBS calculations
 pub const MAX_TRADE_SIZE: u64 = 1_000_000_000_000;   // 1M USDC
+pub const MIN_TOKEN_TRADE_SIZE: u64 = 1;         // 0.000001 tokens (for SELL) - very permissive
 
 // Initial Deposit Limits
 pub const MIN_INITIAL_DEPOSIT: u64 = 100_000_000;  // 100 USDC (6 decimals)

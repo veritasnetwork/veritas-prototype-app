@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
       cover_image_url,
       initial_belief,
       meta_belief,
-      belief_duration_hours,
       tx_signature,
       pool_deployment,
     } = body;
@@ -148,8 +147,6 @@ export async function POST(request: NextRequest) {
 
     const agent_id = userData.agent_id;
     const currentEpoch = parseInt(configData?.value || '0');
-    const durationInEpochs = Math.ceil(belief_duration_hours / 1); // Assuming 1 hour per epoch
-    const expirationEpoch = currentEpoch + durationInEpochs;
 
     const { data: belief, error: beliefError } = await supabase
       .from('beliefs')
@@ -157,7 +154,6 @@ export async function POST(request: NextRequest) {
         id: post_id, // Same ID as post
         creator_agent_id: agent_id,
         created_epoch: currentEpoch,
-        expiration_epoch: expirationEpoch,
         previous_aggregate: initial_belief ?? 0.5, // Default to 0.5 (neutral) if not provided
         previous_disagreement_entropy: 0.0,
       })

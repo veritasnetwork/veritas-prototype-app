@@ -6,6 +6,10 @@ const MIN_PARTICIPANTS = 2;
 const MAX_CONDITION_NUMBER = 1000;
 const MATRIX_STOCHASTIC_TOLERANCE = 1e-6;
 const QUALITY_THRESHOLD = 0.3;
+const BOUNDARY_CLUSTER_THRESHOLD = 0.02; // Within 2% of boundaries (0.01 clamping threshold + buffer)
+const MIN_SUPPORT_DIVERSITY = 0.2; // Require at least 20% spread in belief space
+const BOUNDARY_SAFE_MIN = 0.01; // Must match protocol-beliefs-submit
+const BOUNDARY_SAFE_MAX = 0.99; // Must match protocol-beliefs-submit
 
 interface DecompositionInput {
   belief_id: string;
@@ -27,6 +31,8 @@ interface DecompositionOutput {
   agent_meta_predictions: Record<string, number>;
   active_agent_indicators: string[];
   decomposition_quality: number;
+  leave_one_out_aggregates: Record<string, number>;
+  leave_one_out_meta_aggregates: Record<string, number>;
 }
 
 interface LeaveOneOutInput {
@@ -135,6 +141,64 @@ function renormalizeMatrix(W: { w11: number; w12: number; w21: number; w22: numb
   console.log(`Matrix renormalized. New sums: Row0=${W.w11 + W.w12}, Row1=${W.w21 + W.w22}`);
 }
 
+function validateFullSupport(beliefs: number[], orderedWeights: number[]): void {
+  // Check that beliefs don't all cluster at boundaries (0 or 1)
+  // This ensures we have full support across the belief space
+
+  const n = beliefs.length;
+  if (n < MIN_PARTICIPANTS) return; // Will be caught elsewhere
+
+  // Count how many beliefs are near boundaries (< 0.1 or > 0.9)
+  let nearLowerBound = 0;
+  let nearUpperBound = 0;
+  let totalWeight = 0;
+  let weightNearBounds = 0;
+
+  for (let i = 0; i < n; i++) {
+    const b = beliefs[i];
+    const w = orderedWeights[i];
+    totalWeight += w;
+
+    if (b < BOUNDARY_CLUSTER_THRESHOLD) {
+      nearLowerBound++;
+      weightNearBounds += w;
+    } else if (b > (1 - BOUNDARY_CLUSTER_THRESHOLD)) {
+      nearUpperBound++;
+      weightNearBounds += w;
+    }
+  }
+
+  // If >80% of weighted beliefs are clustered at boundaries, reject
+  if (weightNearBounds / totalWeight > 0.8) {
+    throw new DecompositionError(
+      409,
+      `Beliefs cluster at boundaries: ${((weightNearBounds/totalWeight)*100).toFixed(1)}% of weighted beliefs near ${BOUNDARY_SAFE_MIN} or ${BOUNDARY_SAFE_MAX}. ` +
+      `Need more diverse beliefs for decomposition. ` +
+      `Note: Submissions are automatically clamped to [${BOUNDARY_SAFE_MIN}, ${BOUNDARY_SAFE_MAX}] range at submission time.`,
+      {
+        near_lower: nearLowerBound,
+        near_upper: nearUpperBound,
+        total: n,
+        weight_near_bounds: weightNearBounds,
+        total_weight: totalWeight,
+        boundary_threshold: BOUNDARY_CLUSTER_THRESHOLD
+      }
+    );
+  }
+
+  // Check minimum spread in belief space
+  const minBelief = Math.min(...beliefs);
+  const maxBelief = Math.max(...beliefs);
+  const spread = maxBelief - minBelief;
+
+  if (spread < MIN_SUPPORT_DIVERSITY) {
+    console.warn(
+      `Low belief diversity: spread=${spread.toFixed(3)} (min=${MIN_SUPPORT_DIVERSITY}). ` +
+      `Range: [${minBelief.toFixed(3)}, ${maxBelief.toFixed(3)}]. Decomposition may be unreliable.`
+    );
+  }
+}
+
 function validateInvariants(
   aggregate: number,
   commonPrior: number,
@@ -179,6 +243,37 @@ async function performDecomposition(
   weights: Record<string, number>,
   excludeAgentId?: string
 ): Promise<DecompositionOutput | LeaveOneOutOutput> {
+  // Validate and normalize weights internally
+  const weightSum = Object.values(weights).reduce((sum, w) => sum + w, 0);
+
+  // For leave-one-out, weights were already re-normalized by caller, so just validate
+  if (Math.abs(weightSum - 1.0) > EPSILON_PROBABILITY) {
+    // If not normalized, throw error
+    throw new DecompositionError(
+      400,
+      `Weights must sum to 1.0, got ${weightSum}`,
+      { weight_sum: weightSum }
+    );
+  }
+
+  // Validate individual weight values
+  for (const [agentId, weight] of Object.entries(weights)) {
+    if (typeof weight !== "number" || !isFinite(weight) || isNaN(weight)) {
+      throw new DecompositionError(
+        400,
+        `Weight for agent ${agentId} is NaN or Infinity`,
+        { agent_id: agentId, weight }
+      );
+    }
+    if (weight < 0) {
+      throw new DecompositionError(
+        400,
+        `All weights must be non-negative, agent ${agentId} has weight ${weight}`,
+        { agent_id: agentId, weight }
+      );
+    }
+  }
+
   // Get current epoch
   const { data: configData, error: configError } = await supabase
     .from("system_config")
@@ -295,6 +390,9 @@ async function performDecomposition(
       { beliefs_len: beliefs.length, meta_len: metaPredictions.length, weights_len: orderedWeights.length }
     );
   }
+
+  // Validate full support (beliefs don't cluster at boundaries)
+  validateFullSupport(beliefs, orderedWeights);
 
   // Estimate local expectations matrix W (weighted regression)
   let sumW = 0, sumWB = 0, sumWM = 0, sumWB2 = 0, sumWBM = 0;
@@ -460,6 +558,23 @@ async function performDecomposition(
     );
   }
 
+  // ACTIONABLE QUALITY THRESHOLD: Fail decomposition if quality too low
+  if (decompositionQuality < QUALITY_THRESHOLD) {
+    throw new DecompositionError(
+      409,
+      `Decomposition quality ${decompositionQuality.toFixed(3)} below threshold ${QUALITY_THRESHOLD}. ` +
+      `Matrix condition number: ${conditionNumber.toFixed(1)}, Prediction accuracy: ${predictionAccuracy.toFixed(3)}. ` +
+      `Consider using naive aggregation instead.`,
+      {
+        quality: decompositionQuality,
+        threshold: QUALITY_THRESHOLD,
+        condition_number: conditionNumber,
+        prediction_accuracy: predictionAccuracy,
+        matrix_health: matrixHealth
+      }
+    );
+  }
+
   // Calculate disagreement entropy metrics
   const H_avg = orderedWeights.reduce((sum, w, i) =>
     sum + w * binaryEntropy(beliefs[i]), 0);
@@ -472,6 +587,135 @@ async function performDecomposition(
   // Validate all invariants
   validateInvariants(finalAggregate, commonPrior, certainty, decompositionQuality, beliefs, metaPredictions, orderedWeights);
 
+  // Calculate leave-one-out aggregates for BTS scoring using FULL BD decomposition
+  // For each agent r: re-estimate W^{-r}, extract prior^{-r}, compute aggregate^{-r}
+  const leaveOneOutAggregates: Record<string, number> = {};
+  const leaveOneOutMetaAggregates: Record<string, number> = {};
+
+  const agentIds = Object.keys(agentMetaPredictions);
+
+  for (const targetAgentId of agentIds) {
+    // Find index of target agent in ordered arrays
+    let targetIndex = -1;
+    let currentIdx = 0;
+
+    for (const submission of submissions) {
+      if (weights[submission.agent_id] && submission.agent_id === targetAgentId) {
+        targetIndex = currentIdx;
+        break;
+      }
+      if (weights[submission.agent_id]) {
+        currentIdx++;
+      }
+    }
+
+    if (targetIndex === -1) continue; // Agent not found
+
+    // Build reduced belief/meta/weight arrays excluding target agent
+    const beliefsMinusR: number[] = [];
+    const metasMinusR: number[] = [];
+    const weightsMinusR: number[] = [];
+    let totalWeightMinusR = 0;
+
+    for (let i = 0; i < beliefs.length; i++) {
+      if (i !== targetIndex) {
+        beliefsMinusR.push(beliefs[i]);
+        metasMinusR.push(metaPredictions[i]);
+        weightsMinusR.push(orderedWeights[i]);
+        totalWeightMinusR += orderedWeights[i];
+      }
+    }
+
+    // If only 1 agent remains, can't do BD decomposition
+    if (beliefsMinusR.length < MIN_PARTICIPANTS || totalWeightMinusR <= EPSILON_PROBABILITY) {
+      leaveOneOutAggregates[targetAgentId] = 0.5;
+      leaveOneOutMetaAggregates[targetAgentId] = 0.5;
+      continue;
+    }
+
+    // Re-normalize weights for remaining agents
+    const normalizedWeightsMinusR = weightsMinusR.map(w => w / totalWeightMinusR);
+
+    // Re-estimate W^{-r} using weighted regression
+    let sumW_r = 0, sumWB_r = 0, sumWM_r = 0, sumWB2_r = 0, sumWBM_r = 0;
+
+    for (let i = 0; i < beliefsMinusR.length; i++) {
+      const w = normalizedWeightsMinusR[i];
+      const b = beliefsMinusR[i];
+      const m = metasMinusR[i];
+
+      sumW_r += w;
+      sumWB_r += w * b;
+      sumWM_r += w * m;
+      sumWB2_r += w * b * b;
+      sumWBM_r += w * b * m;
+    }
+
+    const variance_r = sumWB2_r - (sumWB_r * sumWB_r / sumW_r);
+    const denominator_r = variance_r + RIDGE_EPSILON;
+
+    const w11_raw_r = (sumWBM_r - (sumWB_r * sumWM_r / sumW_r)) / denominator_r;
+    const w21_raw_r = (sumWM_r - w11_raw_r * sumWB_r) / sumW_r;
+
+    const W_r = {
+      w11: clamp(w11_raw_r, 0, 1),
+      w12: 0,
+      w21: clamp(w21_raw_r, 0, 1),
+      w22: 0,
+    };
+    W_r.w12 = 1 - W_r.w11;
+    W_r.w22 = 1 - W_r.w21;
+
+    // Extract prior^{-r} from W^{-r}
+    const denomPrior_r = W_r.w21 + (1 - W_r.w11);
+    let prior_r: number;
+
+    if (Math.abs(denomPrior_r) < EPSILON_PROBABILITY) {
+      prior_r = 0.5; // Fallback
+    } else {
+      prior_r = clamp(W_r.w21 / denomPrior_r, EPSILON_PROBABILITY, 1 - EPSILON_PROBABILITY);
+    }
+
+    // Compute aggregate^{-r} using BD formula with prior^{-r}
+    let logProduct_r = 0;
+    let effectiveN_r = 0;
+
+    for (let i = 0; i < beliefsMinusR.length; i++) {
+      logProduct_r += normalizedWeightsMinusR[i] * Math.log(beliefsMinusR[i]);
+      effectiveN_r += normalizedWeightsMinusR[i];
+    }
+
+    const logAggregate_r = logProduct_r - effectiveN_r * Math.log(prior_r);
+
+    let logComplement_r = 0;
+    for (let i = 0; i < beliefsMinusR.length; i++) {
+      logComplement_r += normalizedWeightsMinusR[i] * Math.log(1 - beliefsMinusR[i]);
+    }
+    logComplement_r -= effectiveN_r * Math.log(1 - prior_r);
+
+    let aggregate_r: number;
+    const logDiff_r = logComplement_r - logAggregate_r;
+
+    if (!isFinite(logAggregate_r) || !isFinite(logComplement_r)) {
+      aggregate_r = 0.5; // Fallback
+    } else if (logDiff_r > 700) {
+      aggregate_r = EPSILON_PROBABILITY;
+    } else if (logDiff_r < -700) {
+      aggregate_r = 1 - EPSILON_PROBABILITY;
+    } else {
+      aggregate_r = 1 / (1 + Math.exp(logDiff_r));
+    }
+
+    leaveOneOutAggregates[targetAgentId] = clamp(aggregate_r, EPSILON_PROBABILITY, 1 - EPSILON_PROBABILITY);
+
+    // Meta aggregate is simple weighted average (no BD needed)
+    let metaSum_r = 0;
+    for (let i = 0; i < metasMinusR.length; i++) {
+      metaSum_r += normalizedWeightsMinusR[i] * metasMinusR[i];
+    }
+    leaveOneOutMetaAggregates[targetAgentId] = clamp(metaSum_r, EPSILON_PROBABILITY, 1 - EPSILON_PROBABILITY);
+  }
+
   return {
     aggregate: finalAggregate,
     common_prior: commonPrior,
@@ -482,6 +726,8 @@ async function performDecomposition(
     agent_meta_predictions: agentMetaPredictions,
     active_agent_indicators: activeAgentIndicators,
     decomposition_quality: decompositionQuality,
+    leave_one_out_aggregates: leaveOneOutAggregates,
+    leave_one_out_meta_aggregates: leaveOneOutMetaAggregates,
   };
 }
 
@@ -525,22 +771,7 @@ Deno.serve(async (req) => {
         throw new DecompositionError(422, "weights must contain at least one agent");
       }
 
-      // Validate weight values
-      for (const [agentId, weight] of Object.entries(input.weights)) {
-        if (typeof weight !== "number" || !isFinite(weight) || isNaN(weight)) {
-          throw new DecompositionError(400, `Weight for agent ${agentId} is NaN or Infinity`, { agent_id: agentId, weight });
-        }
-        if (weight < 0) {
-          throw new DecompositionError(400, `All weights must be non-negative, agent ${agentId} has weight ${weight}`, { agent_id: agentId, weight });
-        }
-      }
-
-      // Verify weight normalization
-      const weightSum = Object.values(input.weights).reduce((sum, w) => sum + w, 0);
-      if (Math.abs(weightSum - 1.0) > EPSILON_PROBABILITY) {
-        throw new DecompositionError(400, `Weights must sum to 1.0, got ${weightSum}`, { weight_sum: weightSum });
-      }
-
+      // Weight validation is now handled inside performDecomposition
       const result = await performDecomposition(supabase, input.belief_id, input.weights);
 
       return new Response(JSON.stringify(result), {
@@ -572,17 +803,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Validate weight values
-      for (const [agentId, weight] of Object.entries(input.weights)) {
-        if (typeof weight !== "number" || !isFinite(weight) || isNaN(weight)) {
-          throw new DecompositionError(400, `Weight for agent ${agentId} is NaN or Infinity`, { agent_id: agentId, weight });
-        }
-        if (weight < 0) {
-          throw new DecompositionError(400, `All weights must be non-negative, agent ${agentId} has weight ${weight}`, { agent_id: agentId, weight });
-        }
-      }
-
-      // Re-normalize weights
+      // Re-normalize weights (validation will happen inside performDecomposition)
       const weightSum = Object.values(input.weights).reduce((sum, w) => sum + w, 0);
       const normalizedWeights: Record<string, number> = {};
 

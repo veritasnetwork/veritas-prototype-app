@@ -11,7 +11,7 @@ use crate::content_pool::{
     state::*,
     events::MarketDeployedEvent,
     errors::ContentPoolError,
-    curve::ICBSCurve,
+    curve::{ICBSCurve, Q96},
     math::{mul_div_u128, mul_shift_right_96},
 };
 use crate::pool_factory::state::PoolFactory;
@@ -215,77 +215,144 @@ pub fn handler(
     let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
     token::transfer(cpi_ctx, initial_deposit)?;
 
-    // === ON-MANIFOLD DEPLOYMENT ===
-    // Calculate token amounts using proper bonding curve: s = t × v
-    // where t = D·v_ref / (p0·K·||v||²)
+    // === ON-MANIFOLD DEPLOYMENT (√allocation + candidate search) ===
+    // For F=1, β=0.5: C(s_L, s_S) = ||s|| and p_i = λ·s_i/||s||
+    // We pick integer supplies (s_L, s_S) to match the allocation ratio,
+    // then set λ = D/||s|| to hit the deposit exactly (staying on-manifold).
 
-    // Step 1: v_l = long_allocation / p0, v_s = short_allocation / p0
-    // (use a 1e6 scale K to keep precision: v' = K * v)
-    const K: u128 = USDC_PRECISION as u128;
+    require!(
+        p0 > 0,
+        ContentPoolError::InvalidParameter
+    );
 
-    let v_l = (long_allocation as u128)
-        .checked_mul(K)
-        .ok_or(ContentPoolError::NumericalOverflow)?
-        .checked_div(p0 as u128)
+    let a_l: u128 = long_allocation as u128;
+    let a_s: u128 = short_allocation as u128;
+    let a_ref: u128 = a_l.max(a_s);
+
+    // Base supplies from √allocation (floor)
+    let s_l0 = integer_sqrt(
+        a_l.checked_mul(a_ref)
+            .ok_or(ContentPoolError::NumericalOverflow)?
+    )?.checked_div(p0 as u128)
         .ok_or(ContentPoolError::InvalidParameter)?;
 
-    let v_s = (short_allocation as u128)
-        .checked_mul(K)
-        .ok_or(ContentPoolError::NumericalOverflow)?
-        .checked_div(p0 as u128)
+    let s_s0 = integer_sqrt(
+        a_s.checked_mul(a_ref)
+            .ok_or(ContentPoolError::NumericalOverflow)?
+    )?.checked_div(p0 as u128)
         .ok_or(ContentPoolError::InvalidParameter)?;
 
-    // Step 2: pin the larger side to p0
-    let v_ref = v_l.max(v_s);
-
-    // Step 3: ||v||^2
-    let v_l2 = v_l
-        .checked_mul(v_l)
-        .ok_or(ContentPoolError::NumericalOverflow)?;
-    let v_s2 = v_s
-        .checked_mul(v_s)
-        .ok_or(ContentPoolError::NumericalOverflow)?;
-    let v_norm2 = v_l2
-        .checked_add(v_s2)
-        .ok_or(ContentPoolError::NumericalOverflow)?;
-
-    // Step 4 (FIXED SCALE): t = D·v_ref / (p0·K·||v||²)
-    let denominator = (p0 as u128)
-        .checked_mul(v_norm2)
-        .ok_or(ContentPoolError::NumericalOverflow)?
-        .checked_mul(K)
-        .ok_or(ContentPoolError::NumericalOverflow)?; // <-- multiply, don't divide
-
-    let t = mul_div_u128(initial_deposit as u128, v_ref, denominator)?;
-
-    // Step 5: s = floor( t * v / K )
-    let s_long = (t
-        .checked_mul(v_l)
-        .ok_or(ContentPoolError::NumericalOverflow)?
-        .checked_div(K)
-        .ok_or(ContentPoolError::NumericalOverflow)?) as u64;
-
-    let s_short = (t
-        .checked_mul(v_s)
-        .ok_or(ContentPoolError::NumericalOverflow)?
-        .checked_div(K)
-        .ok_or(ContentPoolError::NumericalOverflow)?) as u64;
-
-    msg!("deploy_market: initial_deposit={}, long_alloc={}, p0={}", initial_deposit, long_allocation, p0);
-    msg!("deploy_market: v_l={}, v_s={}, v_ref={}, v_norm2={}", v_l, v_s, v_ref, v_norm2);
-    msg!("deploy_market: denominator={}, t={}", denominator, t);
-    msg!("deploy_market: s_long={}, s_short={}", s_long, s_short);
-
-    // Validate that both token amounts are non-zero
-    // This can fail if deposit is too small or allocation too extreme
     require!(
-        s_long > 0,
+        s_l0 > 0 && s_s0 > 0,
         ContentPoolError::InvalidAllocation
     );
-    require!(
-        s_short > 0,
-        ContentPoolError::InvalidAllocation
-    );
+
+    // Candidate search: try {s_l0, s_l0+1} × {s_s0, s_s0+1} to fix floor rounding
+    // Pick the candidate that minimizes reserve ratio error
+    struct Candidate {
+        s_long: u64,
+        s_short: u64,
+        lambda_x96: u128,
+        sqrt_lambda_x96: u128,
+        sqrt_price_long_x96: u128,
+        sqrt_price_short_x96: u128,
+        r_long: u64,
+        r_short: u64,
+        ratio_error: u128,
+    }
+
+    let mut best: Option<Candidate> = None;
+    // Only try base + bump smaller side by +1 (2 candidates to save CUs)
+    let candidates = if s_l0 >= s_s0 {
+        [(s_l0, s_s0), (s_l0, s_s0 + 1)]
+    } else {
+        [(s_l0, s_s0), (s_l0 + 1, s_s0)]
+    };
+
+    for &(s_l_cand, s_s_cand) in &candidates {
+        let s_l_u64 = s_l_cand as u64;
+        let s_s_u64 = s_s_cand as u64;
+
+        // Calculate ||s||
+        let s_norm = integer_sqrt(
+            s_l_cand.checked_mul(s_l_cand)
+                .ok_or(ContentPoolError::NumericalOverflow)?
+                .checked_add(s_s_cand.checked_mul(s_s_cand)
+                    .ok_or(ContentPoolError::NumericalOverflow)?)
+                .ok_or(ContentPoolError::NumericalOverflow)?
+        )?.max(1);
+
+        // λ from deposit: λ = D / ||s|| (Q96 format)
+        // lambda_x96 = (deposit * Q96) / norm
+        let lambda_x96 = mul_div_u128(initial_deposit as u128, Q96, s_norm)?;
+
+        // sqrt_lambda_x96 = sqrt(lambda) * Q96 = sqrt(lambda_x96) * 2^48
+        // Because sqrt(a * 2^96) = sqrt(a) * 2^48
+        let sqrt_lambda_x96 = integer_sqrt(lambda_x96)?
+            .checked_shl(48)
+            .ok_or(ContentPoolError::NumericalOverflow)?;
+
+        // Calculate prices from ICBS curve
+        let sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price(
+            s_l_u64,
+            s_s_u64,
+            TokenSide::Long,
+            sqrt_lambda_x96,
+            ctx.accounts.pool.f,
+            ctx.accounts.pool.beta_num,
+            ctx.accounts.pool.beta_den,
+        )?;
+
+        let sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price(
+            s_l_u64,
+            s_s_u64,
+            TokenSide::Short,
+            sqrt_lambda_x96,
+            ctx.accounts.pool.f,
+            ctx.accounts.pool.beta_num,
+            ctx.accounts.pool.beta_den,
+        )?;
+
+        // Calculate reserves
+        let p_long_q96 = mul_shift_right_96(sqrt_price_long_x96, sqrt_price_long_x96)?;
+        let p_short_q96 = mul_shift_right_96(sqrt_price_short_x96, sqrt_price_short_x96)?;
+        let r_long = mul_shift_right_96(p_long_q96, s_l_cand)? as u64;
+        let r_short = mul_shift_right_96(p_short_q96, s_s_cand)? as u64;
+
+        // Score by reserve ratio error: minimize |r_long * A_S - r_short * A_L|
+        let cross_l = (r_long as u128).checked_mul(a_s)
+            .ok_or(ContentPoolError::NumericalOverflow)?;
+        let cross_s = (r_short as u128).checked_mul(a_l)
+            .ok_or(ContentPoolError::NumericalOverflow)?;
+        let ratio_error = if cross_l > cross_s {
+            cross_l - cross_s
+        } else {
+            cross_s - cross_l
+        };
+
+        let candidate = Candidate {
+            s_long: s_l_u64,
+            s_short: s_s_u64,
+            lambda_x96,
+            sqrt_lambda_x96,
+            sqrt_price_long_x96,
+            sqrt_price_short_x96,
+            r_long,
+            r_short,
+            ratio_error,
+        };
+
+        if best.is_none() || ratio_error < best.as_ref().unwrap().ratio_error {
+            best = Some(candidate);
+        }
+    }
+
+    let chosen = best.ok_or(ContentPoolError::InvalidParameter)?;
+
+    msg!("deploy_market: chosen s_long={}, s_short={}, ratio_error={}",
+         chosen.s_long, chosen.s_short, chosen.ratio_error);
+    msg!("deploy_market: r_long={}, r_short={}, r_sum={}",
+         chosen.r_long, chosen.r_short, chosen.r_long as u128 + chosen.r_short as u128);
 
     // Mint tokens to deployer
     let pool = &ctx.accounts.pool;
@@ -306,7 +373,7 @@ pub fn handler(
         mint_long_accounts,
         seeds,
     );
-    token::mint_to(mint_long_ctx, s_long)?;
+    token::mint_to(mint_long_ctx, chosen.s_long)?;
 
     // Mint SHORT tokens
     let mint_short_accounts = MintTo {
@@ -319,60 +386,39 @@ pub fn handler(
         mint_short_accounts,
         seeds,
     );
-    token::mint_to(mint_short_ctx, s_short)?;
+    token::mint_to(mint_short_ctx, chosen.s_short)?;
 
-    // Step 6: λ_x96 = (p0<<96) * ||s|| / s_ref
-    let sL = s_long as u128;
-    let sS = s_short as u128;
-    let sL2 = sL
-        .checked_mul(sL)
+    // Use the chosen values for pool state
+    let s_long = chosen.s_long;
+    let s_short = chosen.s_short;
+    let sqrt_lambda_x96 = chosen.sqrt_lambda_x96;
+    let sqrt_price_long_x96 = chosen.sqrt_price_long_x96;
+    let sqrt_price_short_x96 = chosen.sqrt_price_short_x96;
+
+    // Micro-adjust reserves to exactly match initial_deposit (fix rounding errors)
+    let mut r_long = chosen.r_long;
+    let mut r_short = chosen.r_short;
+    let r_sum = (r_long as u128).checked_add(r_short as u128)
         .ok_or(ContentPoolError::NumericalOverflow)?;
-    let sS2 = sS
-        .checked_mul(sS)
-        .ok_or(ContentPoolError::NumericalOverflow)?;
-    let s_norm = integer_sqrt(
-        sL2.checked_add(sS2)
-            .ok_or(ContentPoolError::NumericalOverflow)?
-    )?
-    .max(1);
+    let deposit_u128 = initial_deposit as u128;
 
-    let s_ref = sL.max(sS);
-    let p0_q96 = (p0 as u128) << 96;
-
-    let lambda_x96 = mul_div_u128(p0_q96, s_norm, s_ref)?;
-
-    // ---- NEW: compute √λ in Q96 and use it everywhere sqrt-λ is expected ----
-    let sqrt_lambda_x96 = (integer_sqrt(lambda_x96)?) << 48;
-
-    // Step 7: prices using ICBS (pass √λ, not λ)
-    let sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price(
-        s_long,
-        s_short,
-        TokenSide::Long,
-        sqrt_lambda_x96, // <-- FIXED: pass √λ, not λ
-        pool.f,
-        pool.beta_num,
-        pool.beta_den,
-    )?;
-
-    let sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price(
-        s_long,
-        s_short,
-        TokenSide::Short,
-        sqrt_lambda_x96, // <-- FIXED: pass √λ, not λ
-        pool.f,
-        pool.beta_num,
-        pool.beta_den,
-    )?;
-
-    // Step 8: reserves r = s * price
-    // price_q96 = (sqrt_price_x96^2) >> 96
-    let p_long_q96 = mul_shift_right_96(sqrt_price_long_x96, sqrt_price_long_x96)?;
-    let p_short_q96 = mul_shift_right_96(sqrt_price_short_x96, sqrt_price_short_x96)?;
-
-    // r = (price_q96 * s) >> 96  (Q96 first arg!)
-    let r_long = mul_shift_right_96(p_long_q96, s_long as u128)? as u64; // <-- swapped args
-    let r_short = mul_shift_right_96(p_short_q96, s_short as u128)? as u64; // <-- swapped args
+    if r_sum > deposit_u128 {
+        // Reduce larger reserve proportionally
+        let diff = (r_sum - deposit_u128) as u64;
+        if r_long >= r_short {
+            r_long = r_long.saturating_sub(diff);
+        } else {
+            r_short = r_short.saturating_sub(diff);
+        }
+    } else if r_sum < deposit_u128 {
+        // Increase larger reserve proportionally
+        let diff = (deposit_u128 - r_sum) as u64;
+        if r_long >= r_short {
+            r_long = r_long.saturating_add(diff);
+        } else {
+            r_short = r_short.saturating_add(diff);
+        }
+    }
 
     // Update pool state
     let pool = &mut ctx.accounts.pool;
@@ -393,11 +439,9 @@ pub fn handler(
     pool.sqrt_price_short_x96 = sqrt_price_short_x96;
 
     // initial q from reserves (on-manifold), not from USDC split
-    let r_sum = (r_long as u128)
-        .checked_add(r_short as u128)
-        .ok_or(ContentPoolError::NumericalOverflow)?;
-    let initial_q_bps = if r_sum > 0 {
-        ((r_long as u128) * 10_000u128 / r_sum) as u64
+    // r_sum is now guaranteed to equal initial_deposit after micro-adjust
+    let initial_q_bps = if initial_deposit > 0 {
+        ((r_long as u128) * 10_000u128 / (initial_deposit as u128)) as u64
     } else {
         5_000
     };

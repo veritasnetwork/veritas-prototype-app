@@ -90,11 +90,21 @@ pub fn handler(
     let sqrt_price_long_x96_before = pool.sqrt_price_long_x96;
     let sqrt_price_short_x96_before = pool.sqrt_price_short_x96;
 
-    // Validate trade size
-    require!(
-        amount >= MIN_TRADE_SIZE && amount <= MAX_TRADE_SIZE,
-        ContentPoolError::InvalidTradeAmount
-    );
+    // Validate trade size (different minimums for buy vs sell)
+    match trade_type {
+        TradeType::Buy => {
+            require!(
+                amount >= MIN_TRADE_SIZE && amount <= MAX_TRADE_SIZE,
+                ContentPoolError::InvalidTradeAmount
+            );
+        }
+        TradeType::Sell => {
+            require!(
+                amount >= MIN_TOKEN_TRADE_SIZE,
+                ContentPoolError::InvalidTradeAmount
+            );
+        }
+    }
 
     // Validate correct mint
     let expected_mint = match side {
@@ -217,6 +227,19 @@ pub fn handler(
                     pool.sqrt_price_long_x96 = new_sqrt_price;
                     // Update virtual reserve: R_L = s_L × p_L
                     pool.r_long = ICBSCurve::virtual_reserves(pool.s_long, pool.sqrt_price_long_x96)?;
+
+                    // Recalculate SHORT price due to inverse coupling
+                    // p_S depends on both s_L and s_S through the denominator √(s_L² + s_S²)
+                    pool.sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price(
+                        pool.s_long,
+                        pool.s_short,
+                        TokenSide::Short,
+                        pool.sqrt_lambda_short_x96,
+                        pool.f,
+                        pool.beta_num,
+                        pool.beta_den,
+                    )?;
+                    pool.r_short = ICBSCurve::virtual_reserves(pool.s_short, pool.sqrt_price_short_x96)?;
                 }
                 TokenSide::Short => {
                     let new_supply = pool.s_short
@@ -233,6 +256,19 @@ pub fn handler(
                     pool.sqrt_price_short_x96 = new_sqrt_price;
                     // Update virtual reserve: R_S = s_S × p_S
                     pool.r_short = ICBSCurve::virtual_reserves(pool.s_short, pool.sqrt_price_short_x96)?;
+
+                    // Recalculate LONG price due to inverse coupling
+                    // p_L depends on both s_L and s_S through the denominator √(s_L² + s_S²)
+                    pool.sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price(
+                        pool.s_long,
+                        pool.s_short,
+                        TokenSide::Long,
+                        pool.sqrt_lambda_long_x96,
+                        pool.f,
+                        pool.beta_num,
+                        pool.beta_den,
+                    )?;
+                    pool.r_long = ICBSCurve::virtual_reserves(pool.s_long, pool.sqrt_price_long_x96)?;
                 }
             }
 
@@ -340,6 +376,18 @@ pub fn handler(
                     pool.sqrt_price_long_x96 = new_sqrt_price;
                     // Update virtual reserve: R_L = s_L × p_L
                     pool.r_long = ICBSCurve::virtual_reserves(pool.s_long, pool.sqrt_price_long_x96)?;
+
+                    // Recalculate SHORT price due to inverse coupling
+                    pool.sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price(
+                        pool.s_long,
+                        pool.s_short,
+                        TokenSide::Short,
+                        pool.sqrt_lambda_short_x96,
+                        pool.f,
+                        pool.beta_num,
+                        pool.beta_den,
+                    )?;
+                    pool.r_short = ICBSCurve::virtual_reserves(pool.s_short, pool.sqrt_price_short_x96)?;
                 }
                 TokenSide::Short => {
                     pool.s_short = pool.s_short
@@ -348,6 +396,18 @@ pub fn handler(
                     pool.sqrt_price_short_x96 = new_sqrt_price;
                     // Update virtual reserve: R_S = s_S × p_S
                     pool.r_short = ICBSCurve::virtual_reserves(pool.s_short, pool.sqrt_price_short_x96)?;
+
+                    // Recalculate LONG price due to inverse coupling
+                    pool.sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price(
+                        pool.s_long,
+                        pool.s_short,
+                        TokenSide::Long,
+                        pool.sqrt_lambda_long_x96,
+                        pool.f,
+                        pool.beta_num,
+                        pool.beta_den,
+                    )?;
+                    pool.r_long = ICBSCurve::virtual_reserves(pool.s_long, pool.sqrt_price_long_x96)?;
                 }
             }
 

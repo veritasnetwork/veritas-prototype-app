@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
       const tokenAmount = parseFloat(body.token_amount);
 
       if (body.trade_type === 'buy') {
-        const beliefLock = usdcAmount * 0.02; // 2% belief lock
+        const beliefLockMicro = Math.floor(usdcAmount * 0.02);
 
         // First check if balance exists
         const { data: existingBalance } = await supabase
@@ -194,6 +194,7 @@ export async function POST(req: NextRequest) {
           .select('token_balance, total_bought, total_usdc_spent')
           .eq('user_id', body.user_id)
           .eq('pool_address', body.pool_address)
+          .eq('token_type', body.side)
           .single();
 
         if (existingBalance) {
@@ -203,14 +204,15 @@ export async function POST(req: NextRequest) {
             .update({
               token_balance: (existingBalance.token_balance || 0) + tokenAmount,
               last_buy_amount: usdcAmount,
-              belief_lock: beliefLock,
+              belief_lock: beliefLockMicro,
               total_bought: (existingBalance.total_bought || 0) + tokenAmount,
               total_usdc_spent: (existingBalance.total_usdc_spent || 0) + usdcAmount,
               last_trade_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             })
             .eq('user_id', body.user_id)
-            .eq('pool_address', body.pool_address);
+            .eq('pool_address', body.pool_address)
+            .eq('token_type', body.side);
 
           if (updateError) {
             console.error('[USER BALANCES] Failed to update user_pool_balances:', updateError);
@@ -223,11 +225,14 @@ export async function POST(req: NextRequest) {
               user_id: body.user_id,
               pool_address: body.pool_address,
               post_id: body.post_id,
+              token_type: body.side,
               token_balance: tokenAmount,
               last_buy_amount: usdcAmount,
-              belief_lock: beliefLock,
+              belief_lock: beliefLockMicro,
               total_bought: tokenAmount,
               total_usdc_spent: usdcAmount,
+              total_sold: 0,
+              total_usdc_received: 0,
               last_trade_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             });
@@ -244,24 +249,46 @@ export async function POST(req: NextRequest) {
           .select('token_balance, total_sold, total_usdc_received')
           .eq('user_id', body.user_id)
           .eq('pool_address', body.pool_address)
+          .eq('token_type', body.side)
           .single();
 
-        if (existingBalance) {
-          // Decrease token balance (belief_lock unchanged until position fully closed)
-          const { error: updateError } = await supabase
-            .from('user_pool_balances')
-            .update({
-              token_balance: existingBalance.token_balance - tokenAmount,
-              total_sold: (existingBalance.total_sold || 0) + tokenAmount,
-              total_usdc_received: (existingBalance.total_usdc_received || 0) + usdcAmount,
-              last_trade_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', body.user_id)
-            .eq('pool_address', body.pool_address);
+        if (!existingBalance) {
+          console.error('[USER BALANCES] No position found for sell');
+        } else {
+          const newBalance = existingBalance.token_balance - tokenAmount;
 
-          if (updateError) {
-            console.error('[USER BALANCES] Failed to update user_pool_balances on sell:', updateError);
+          if (newBalance < 0) {
+            console.error('[USER BALANCES] Insufficient balance for sell');
+          } else if (newBalance === 0) {
+            // AUTO-DELETE when position fully closed
+            const { error: deleteError } = await supabase
+              .from('user_pool_balances')
+              .delete()
+              .eq('user_id', body.user_id)
+              .eq('pool_address', body.pool_address)
+              .eq('token_type', body.side);
+
+            if (deleteError) {
+              console.error('[USER BALANCES] Failed to delete closed position:', deleteError);
+            }
+          } else {
+            // Update balance
+            const { error: updateError } = await supabase
+              .from('user_pool_balances')
+              .update({
+                token_balance: newBalance,
+                total_sold: (existingBalance.total_sold || 0) + tokenAmount,
+                total_usdc_received: (existingBalance.total_usdc_received || 0) + usdcAmount,
+                last_trade_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('user_id', body.user_id)
+              .eq('pool_address', body.pool_address)
+              .eq('token_type', body.side);
+
+            if (updateError) {
+              console.error('[USER BALANCES] Failed to update user_pool_balances on sell:', updateError);
+            }
           }
         }
       }

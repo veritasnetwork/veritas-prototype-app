@@ -18,7 +18,6 @@ interface WeightsCalculateRequest {
 interface WeightsCalculateResponse {
   weights: Record<string, number>
   belief_weights: Record<string, number>  // Raw w_i values (2% of last trade)
-  effective_stakes?: Record<string, number>  // DEPRECATED: For backward compatibility only
 }
 
 serve(async (req) => {
@@ -28,10 +27,10 @@ serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client
+    // Initialize Supabase client with SERVICE_ROLE for protocol operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
     // Parse request body
@@ -83,6 +82,7 @@ serve(async (req) => {
     console.log(`Found pool address for belief ${belief_id}: ${poolAddress}`)
 
     // 3. Get belief weights (w_i) from user_pool_balances
+    // Aggregate LONG + SHORT gross locks per agent
     const beliefWeights: Record<string, number> = {}
 
     for (const agentId of participant_agents) {
@@ -101,13 +101,13 @@ serve(async (req) => {
         )
       }
 
-      // Get belief_lock (= w_i) from user_pool_balances for this pool
-      const { data: balance, error: balanceError } = await supabaseClient
+      // Get belief_locks for both LONG and SHORT positions
+      const { data: locks, error: balanceError } = await supabaseClient
         .from('user_pool_balances')
-        .select('belief_lock, token_balance, last_buy_amount')
+        .select('belief_lock, token_balance')
         .eq('user_id', userData.id)
         .eq('pool_address', poolAddress)
-        .maybeSingle()
+        .gt('token_balance', 0)
 
       if (balanceError) {
         console.error(`Failed to get balance for agent ${agentId}, pool ${poolAddress}:`, balanceError)
@@ -117,32 +117,35 @@ serve(async (req) => {
         )
       }
 
-      // If no balance record OR position is closed (token_balance = 0), use zero weight
-      if (!balance || balance.token_balance <= 0) {
+      // Aggregate gross locks (LONG + SHORT)
+      let grossLock = 0
+      for (const lock of locks || []) {
+        grossLock += lock.belief_lock || 0
+      }
+
+      // If no open positions, use zero weight
+      if (grossLock === 0) {
         console.log(`Agent ${agentId} has no open position in pool ${poolAddress}, w_i = 0`)
         beliefWeights[agentId] = 0
         continue
       }
 
-      // w_i = belief_lock (already 2% of last_buy_amount)
-      const w_i = balance.belief_lock || 0
-
       // Apply minimum threshold
-      beliefWeights[agentId] = Math.max(w_i, EPSILON_STAKES)
+      beliefWeights[agentId] = Math.max(grossLock / 1_000_000, EPSILON_STAKES)
 
-      console.log(`Agent ${agentId}: last_buy = ${balance.last_buy_amount}, belief_lock = ${balance.belief_lock}, w_i = ${beliefWeights[agentId]}`)
+      console.log(`Agent ${agentId}: gross_lock = ${grossLock} μUSDC, w_i = ${beliefWeights[agentId]} USDC`)
     }
 
     // 4. Normalize belief weights to get aggregation weights (sum = 1.0)
     const weights: Record<string, number> = {}
 
-    // Sum all belief_weights values
-    const weightsSum = Object.values(beliefWeights).reduce((sum, w) => sum + w, 0)
+    // Sum all belief_weights values (raw w_i in USDC)
+    const totalBeliefWeight = Object.values(beliefWeights).reduce((sum, w) => sum + w, 0)
 
-    if (weightsSum > EPSILON_STAKES) {
+    if (totalBeliefWeight > EPSILON_STAKES) {
       // For each agent: weight = w_i / Σw_j
       for (const agentId of participant_agents) {
-        weights[agentId] = beliefWeights[agentId] / weightsSum
+        weights[agentId] = beliefWeights[agentId] / totalBeliefWeight
       }
     } else {
       // All agents have zero weights (no open positions)
@@ -155,10 +158,10 @@ serve(async (req) => {
       }
     }
 
-    // 4. Verify normalization
-    const weightsSum = Object.values(weights).reduce((sum, weight) => sum + weight, 0)
-    if (Math.abs(weightsSum - 1.0) > EPSILON_PROBABILITY) {
-      console.error(`Normalization failure: weights sum to ${weightsSum}, expected 1.0`)
+    // 5. Verify normalization (normalized weights should sum to 1.0)
+    const normalizedSum = Object.values(weights).reduce((sum, weight) => sum + weight, 0)
+    if (Math.abs(normalizedSum - 1.0) > EPSILON_PROBABILITY) {
+      console.error(`Normalization failure: weights sum to ${normalizedSum}, expected 1.0`)
       return new Response(
         JSON.stringify({ error: 'Normalization failure', code: 500 }),
         { 
@@ -171,13 +174,12 @@ serve(async (req) => {
     // 5. Return: Weights (normalized) and belief_weights (raw w_i)
     const response: WeightsCalculateResponse = {
       weights,
-      belief_weights: beliefWeights,
-      effective_stakes: beliefWeights  // DEPRECATED: Alias for backward compatibility
+      belief_weights: beliefWeights
     }
 
     console.log(`Weights calculation complete for belief ${belief_id}:`)
     console.log(`  - Participants: ${participant_agents.length}`)
-    console.log(`  - Total belief weight: ${weightsSum}`)
+    console.log(`  - Total belief weight: ${totalBeliefWeight.toFixed(4)} USDC`)
     console.log(`  - Normalized weights:`, weights)
 
     return new Response(
