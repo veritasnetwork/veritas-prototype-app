@@ -56,7 +56,7 @@ pub const REGISTRY_SEED: &[u8] = b"registry";
 pub const DEFAULT_F: u16 = 1;  // Reduced from 3 to avoid numerical overflow
 pub const DEFAULT_BETA_NUM: u16 = 1;
 pub const DEFAULT_BETA_DEN: u16 = 2;  // β = 0.5
-pub const DEFAULT_P0: u64 = 100_000;  // 0.1 USDC per token (in lamports/micro-USDC)
+pub const DEFAULT_P0: u64 = 1_000_000;  // 1.0 USDC per token (in micro-USDC, 6 decimals)
 
 // Default Limits
 pub const DEFAULT_MIN_INITIAL_DEPOSIT: u64 = 100_000_000;  // 100 USDC

@@ -17,7 +17,8 @@ interface WeightsCalculateRequest {
 
 interface WeightsCalculateResponse {
   weights: Record<string, number>
-  effective_stakes: Record<string, number>
+  belief_weights: Record<string, number>  // Raw w_i values (2% of last trade)
+  effective_stakes?: Record<string, number>  // DEPRECATED: For backward compatibility only
 }
 
 serve(async (req) => {
@@ -50,106 +51,107 @@ serve(async (req) => {
     if (!participant_agents || !Array.isArray(participant_agents) || participant_agents.length === 0) {
       return new Response(
         JSON.stringify({ error: 'participant_agents array is required and must be non-empty', code: 422 }),
-        { 
+        {
           status: 422,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
-    // 2. Calculate effective stakes for each agent
-    const effectiveStakes: Record<string, number> = {}
+    // 2. Get pool_address for this belief
+    const { data: poolDeployment, error: poolError } = await supabaseClient
+      .from('pool_deployments')
+      .select('pool_address')
+      .eq('belief_id', belief_id)
+      .single()
+
+    if (poolError || !poolDeployment) {
+      console.error(`No pool deployment found for belief ${belief_id}:`, poolError)
+      return new Response(
+        JSON.stringify({
+          error: `No pool found for belief ${belief_id}. Cannot calculate weights without pool deployment.`,
+          code: 404
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    const poolAddress = poolDeployment.pool_address
+    console.log(`Found pool address for belief ${belief_id}: ${poolAddress}`)
+
+    // 3. Get belief weights (w_i) from user_pool_balances
+    const beliefWeights: Record<string, number> = {}
 
     for (const agentId of participant_agents) {
-      // Query agents table by agent_id
-      const { data: agentData, error: agentError } = await supabaseClient
-        .from('agents')
-        .select('total_stake')
-        .eq('id', agentId)
-        .single()
-
-      if (agentError) {
-        console.error(`Failed to get agent ${agentId}:`, agentError)
-        return new Response(
-          JSON.stringify({ error: 'Agent not found', code: 404 }),
-          {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
-      }
-
       // Get user_id from agent_id
-      const { data: userData } = await supabaseClient
+      const { data: userData, error: userError } = await supabaseClient
         .from('users')
         .select('id')
         .eq('agent_id', agentId)
         .single()
 
-      if (!userData) {
+      if (userError || !userData) {
+        console.error(`Failed to get user for agent ${agentId}:`, userError)
         return new Response(
-          JSON.stringify({ error: 'User not found for agent', code: 404 }),
+          JSON.stringify({ error: `User not found for agent ${agentId}`, code: 404 }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // Count open positions for this agent (replaces active_belief_count)
-      const { data: openPositions, error: positionsError } = await supabaseClient
+      // Get belief_lock (= w_i) from user_pool_balances for this pool
+      const { data: balance, error: balanceError } = await supabaseClient
         .from('user_pool_balances')
-        .select('pool_address')
+        .select('belief_lock, token_balance, last_buy_amount')
         .eq('user_id', userData.id)
-        .gt('token_balance', 0)
+        .eq('pool_address', poolAddress)
+        .maybeSingle()
 
-      if (positionsError) {
-        console.error(`Failed to get positions for agent ${agentId}:`, positionsError)
+      if (balanceError) {
+        console.error(`Failed to get balance for agent ${agentId}, pool ${poolAddress}:`, balanceError)
         return new Response(
-          JSON.stringify({ error: 'Failed to get positions', code: 500 }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
+          JSON.stringify({ error: 'Failed to get user balance', code: 500 }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      const activePositionCount = openPositions?.length || 0
-
-      // Verify agent has active positions (avoid division by zero)
-      if (activePositionCount === 0) {
-        return new Response(
-          JSON.stringify({ error: 'Division by zero - agent has no open positions', code: 501 }),
-          {
-            status: 501,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
+      // If no balance record OR position is closed (token_balance = 0), use zero weight
+      if (!balance || balance.token_balance <= 0) {
+        console.log(`Agent ${agentId} has no open position in pool ${poolAddress}, w_i = 0`)
+        beliefWeights[agentId] = 0
+        continue
       }
 
-      // Calculate: effective_stake = total_stake / active_position_count
-      let effectiveStake = agentData.total_stake / activePositionCount
+      // w_i = belief_lock (already 2% of last_buy_amount)
+      const w_i = balance.belief_lock || 0
 
-      // Apply minimum: max(effective_stake, EPSILON_STAKES)
-      effectiveStake = Math.max(effectiveStake, EPSILON_STAKES)
+      // Apply minimum threshold
+      beliefWeights[agentId] = Math.max(w_i, EPSILON_STAKES)
 
-      // Store in effective_stakes map
-      effectiveStakes[agentId] = effectiveStake
+      console.log(`Agent ${agentId}: last_buy = ${balance.last_buy_amount}, belief_lock = ${balance.belief_lock}, w_i = ${beliefWeights[agentId]}`)
     }
 
-    // 3. Normalize stakes to weights
+    // 4. Normalize belief weights to get aggregation weights (sum = 1.0)
     const weights: Record<string, number> = {}
-    
-    // Sum all effective_stakes values
-    const stakesSum = Object.values(effectiveStakes).reduce((sum, stake) => sum + stake, 0)
-    
-    if (stakesSum > EPSILON_STAKES) {
-      // For each agent: weight = effective_stake / sum
+
+    // Sum all belief_weights values
+    const weightsSum = Object.values(beliefWeights).reduce((sum, w) => sum + w, 0)
+
+    if (weightsSum > EPSILON_STAKES) {
+      // For each agent: weight = w_i / Σw_j
       for (const agentId of participant_agents) {
-        weights[agentId] = effectiveStakes[agentId] / stakesSum
+        weights[agentId] = beliefWeights[agentId] / weightsSum
       }
     } else {
-      // Assign equal weights: 1.0 / number_of_agents (no meaningful stakes)
+      // All agents have zero weights (no open positions)
+      // Assign equal weights: 1.0 / number_of_agents
+      console.log(`WARNING: All agents have zero belief weights for belief ${belief_id}. Using equal weights.`)
       const equalWeight = 1.0 / participant_agents.length
       for (const agentId of participant_agents) {
         weights[agentId] = equalWeight
+        beliefWeights[agentId] = EPSILON_STAKES  // Set minimum for redistribution
       }
     }
 
@@ -166,15 +168,21 @@ serve(async (req) => {
       )
     }
 
-    // 5. Return: Weights and effective stakes maps
+    // 5. Return: Weights (normalized) and belief_weights (raw w_i)
     const response: WeightsCalculateResponse = {
       weights,
-      effective_stakes: effectiveStakes
+      belief_weights: beliefWeights,
+      effective_stakes: beliefWeights  // DEPRECATED: Alias for backward compatibility
     }
+
+    console.log(`Weights calculation complete for belief ${belief_id}:`)
+    console.log(`  - Participants: ${participant_agents.length}`)
+    console.log(`  - Total belief weight: ${weightsSum}`)
+    console.log(`  - Normalized weights:`, weights)
 
     return new Response(
       JSON.stringify(response),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )

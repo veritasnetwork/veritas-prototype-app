@@ -219,9 +219,9 @@ serve(async (req) => {
     console.log(`   - Absolute relevance: ${(finalAggregate * 100).toFixed(1)}%`)
     console.log(`   - Certainty: ${(aggregationData.certainty * 100).toFixed(1)}%`)
 
-    // Calculate total stake from effective stakes
-    const totalStake = Object.values(weightsData.effective_stakes as Record<string, number>)
-      .reduce((sum: number, stake: number) => sum + stake, 0)
+    // Calculate total belief weight (sum of all w_i)
+    const totalStake = Object.values(weightsData.belief_weights as Record<string, number>)
+      .reduce((sum: number, w: number) => sum + w, 0)
 
     // Record belief history for charts (absolute BD relevance)
     const { error: historyInsertError } = await supabaseClient
@@ -316,13 +316,11 @@ serve(async (req) => {
       .join(', ')
     console.log(`🎯 Information scores: ${scoresSummary}`)
 
-    // Step 6: Stake Redistribution (always 100%)
+    // Step 6: Stake Redistribution (ΔS = score × w_i)
     const redistributionData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-stake-redistribution', {
       belief_id: belief_id,
       information_scores: btsData.information_scores,
-      winners: btsData.winners,
-      losers: btsData.losers,
-      current_effective_stakes: weightsData.effective_stakes
+      belief_weights: weightsData.belief_weights
     })
 
     console.log(`💰 Step 6: Stake redistribution complete`)
