@@ -11,6 +11,10 @@
  * This function remains for backward compatibility only.
  * It can still batch-process multiple beliefs, but this is not the recommended approach.
  *
+ * ⚠️ WARNING: This function uses the OLD effective_stakes model (S/n).
+ * After the belief weight refactor, this may produce incorrect results.
+ * The refactored functions use belief_weights (w_i = 2% of last trade).
+ *
  * @deprecated Use protocol-belief-epoch-process instead
  */
 
@@ -26,11 +30,15 @@ interface EpochProcessingRequest {
   current_epoch?: number
 }
 
+/**
+ * @deprecated This interface uses effective_stakes which has been replaced by belief_weights.
+ * This function is deprecated and should not be used.
+ */
 interface BeliefProcessingResult {
   belief_id: string
   participant_count: number
   weights: Record<string, number>
-  effective_stakes: Record<string, number>
+  effective_stakes: Record<string, number>  // DEPRECATED: Use belief_weights
   aggregate: number
   jensen_shannon_disagreement_entropy: number
   certainty: number
