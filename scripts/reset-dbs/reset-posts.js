@@ -158,16 +158,19 @@ async function resetPosts() {
     console.log('\n🔍 Verifying database state...');
     const { data: finalPosts, error: countError } = await supabase
       .from('posts')
-      .select('id, title, created_at, users:user_id(username)')
+      .select('id, content, created_at')
       .order('created_at');
 
     if (countError) {
       console.error('❌ Failed to verify posts:', countError.message);
     } else {
       console.log('📊 Final post count:', finalPosts.length);
-      finalPosts.forEach(post => {
-        console.log(`   - "${post.title}" by @${post.users.username} (${post.id.slice(0, 8)}...)`);
-      });
+      if (finalPosts.length > 0) {
+        finalPosts.forEach(post => {
+          const preview = post.content?.slice(0, 50) || '(no content)';
+          console.log(`   - ${preview} (${post.id.slice(0, 8)}...)`);
+        });
+      }
     }
 
     // Check total beliefs and belief submissions

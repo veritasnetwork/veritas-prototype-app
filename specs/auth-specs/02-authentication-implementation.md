@@ -49,10 +49,20 @@ All routes are publicly accessible. Authentication only required for write opera
 ### Login Process
 1. User visits `/feed` and sees auth popup if not authenticated
 2. User clicks "Connect Wallet" triggering Privy modal with email/Apple/wallet providers
-3. OAuth flow completes returning Privy JWT to client
-4. App calls `/api/auth/status` to verify JWT and auto-register/fetch user
-5. User automatically gets $10k starting stake on first login
-6. Auth popup closes, user can now create posts and trade
+3. OAuth flow completes, Privy SDK returns JWT + user object with Solana address to client
+4. App calls `POST /api/auth/status` with JWT (Authorization header) and Solana address (body)
+5. Server verifies JWT and queries users table by `auth_id` (Privy user ID)
+6. **If user exists**: Returns user object, auth popup closes, user sees normal feed
+7. **If user does NOT exist**: Returns `needsOnboarding: true`
+8. App shows onboarding modal (ONLY after successful authentication)
+9. User fills username (required) and optional display name/avatar
+10. App calls edge function `app-user-creation` which atomically creates agent ($10k stake) + user
+11. Onboarding completes, user sees normal feed with full access
+
+### Critical Flow Requirements
+- **Auth BEFORE onboarding**: Onboarding modal MUST only appear if `authenticated === true AND needsOnboarding === true`
+- **No premature onboarding**: Never show onboarding before wallet connection (prevents incorrect UX)
+- **Auto-registration**: User record auto-created during onboarding, not on first login check
 
 ## Error Handling
 

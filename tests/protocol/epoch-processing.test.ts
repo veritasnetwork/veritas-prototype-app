@@ -85,8 +85,8 @@ Deno.test("Epoch Processing - Process qualifying belief", async () => {
   assertEquals(processedBelief.participant_count, 3, "Should have 3 participants");
 
   // Validate aggregate bounds: min(0.2, 0.8, 0.5) ≤ aggregate ≤ max(0.2, 0.8, 0.5)
-  assert(processedBelief.pre_mirror_descent_aggregate >= 0.2, "Aggregate should be >= minimum belief");
-  assert(processedBelief.pre_mirror_descent_aggregate <= 0.8, "Aggregate should be <= maximum belief");
+  assert(processedBelief.aggregate >= 0.2, "Aggregate should be >= minimum belief");
+  assert(processedBelief.aggregate <= 0.8, "Aggregate should be <= maximum belief");
 
   // Validate weights sum to 1.0
   const weightsSum = Object.values(processedBelief.weights).reduce((sum, weight) => sum + weight, 0);
@@ -276,8 +276,8 @@ Deno.test("Epoch Processing - Aggregate bounds validation", async () => {
   assert(processedBelief, "Should have processed belief");
 
   // Expected: 0.2 ≤ aggregate ≤ 0.8
-  assert(processedBelief.pre_mirror_descent_aggregate >= 0.2, "Aggregate should be >= minimum belief (0.2)");
-  assert(processedBelief.pre_mirror_descent_aggregate <= 0.8, "Aggregate should be <= maximum belief (0.8)");
+  assert(processedBelief.aggregate >= 0.2, "Aggregate should be >= minimum belief (0.2)");
+  assert(processedBelief.aggregate <= 0.8, "Aggregate should be <= maximum belief (0.8)");
 });
 
 Deno.test("Epoch Processing - Certainty computation", async () => {
@@ -374,7 +374,7 @@ Deno.test('Epoch Processing - Active Status: Old Epoch Submissions Should Not Be
     if (submission.epoch < currentEpoch && submission.is_active === true) {
       throw new Error(
         `INVALID STATE DETECTED: Submission from epoch ${submission.epoch} is still active in epoch ${currentEpoch}. ` +
-        `Active submissions from previous epochs should be turned passive by learning assessment.`
+        `Active submissions from previous epochs should be turned passive by BTS scoring.`
       );
     }
 
@@ -402,13 +402,13 @@ Deno.test('Epoch Processing - Active Status: Learning Assessment Should Update A
     assertEquals(submission.is_active, true, 'Initial submissions should be active');
   }
 
-  // Process epoch (this should trigger learning assessment)
+  // Process epoch (this should trigger BTS scoring)
   const initialEpoch = await getCurrentEpoch();
   const epochResult = await callSupabaseFunction('protocol-epochs-process', { current_epoch: initialEpoch });
 
   // Check if learning occurred
   const processedBelief = epochResult.data.processed_beliefs.find(b => b.belief_id === scenario.beliefId);
-  const learningOccurred = processedBelief && processedBelief.learning_occurred;
+  const learningOccurred = processedBelief && processedBelief.redistribution_occurred;
 
   if (!learningOccurred) {
     // If no learning occurred, agents should become passive
@@ -438,7 +438,7 @@ Deno.test('Epoch Processing - Active Status: Database Integrity Check', async ()
     if (submission.epoch < currentEpoch) {
       throw new Error(
         `DATABASE INTEGRITY VIOLATION: Submission ${submission.id} from epoch ${submission.epoch} ` +
-        `is still marked active in epoch ${currentEpoch}. This indicates a bug in the learning assessment ` +
+        `is still marked active in epoch ${currentEpoch}. This indicates a bug in the BTS scoring ` +
         `or epoch processing logic.`
       );
     }

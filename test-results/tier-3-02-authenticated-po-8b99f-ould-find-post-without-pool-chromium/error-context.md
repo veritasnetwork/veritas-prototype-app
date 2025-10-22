@@ -1,0 +1,46 @@
+# Page snapshot
+
+```yaml
+- generic [active]:
+  - alert [ref=e1]
+  - generic [ref=e6] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e7]:
+      - img [ref=e8]
+    - generic [ref=e11]:
+      - button "Open issues overlay" [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: "1"
+          - generic [ref=e15]: "2"
+        - generic [ref=e16]:
+          - text: Issue
+          - generic [ref=e17]: s
+      - button "Collapse issues badge" [ref=e18]:
+        - img [ref=e19]
+  - generic [ref=e22]:
+    - generic [ref=e23]:
+      - img "Veritas Logo" [ref=e24]
+      - heading "VERITAS" [level=2] [ref=e25]
+    - heading "Complete Your Profile" [level=3] [ref=e26]
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - generic [ref=e29]: Wallet
+        - generic [ref=e30]: GVuL...pTsn
+      - generic [ref=e31]:
+        - generic [ref=e32]: USDC Balance
+        - generic [ref=e33]: $0.00
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - generic [ref=e36]: Username *
+        - textbox "Username *" [ref=e37]:
+          - /placeholder: johndoe
+      - generic [ref=e38]:
+        - generic [ref=e39]: Display Name (optional)
+        - textbox "Display Name (optional)" [ref=e40]:
+          - /placeholder: John Doe
+      - generic [ref=e41]:
+        - generic [ref=e42]: Profile Photo (optional)
+        - generic [ref=e43]:
+          - img [ref=e45]
+          - generic [ref=e47] [cursor=pointer]: Choose File
+      - button "COMPLETE PROFILE" [disabled] [ref=e48]
+```

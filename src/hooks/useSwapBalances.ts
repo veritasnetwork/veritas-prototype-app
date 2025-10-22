@@ -38,14 +38,14 @@ export function useSwapBalances(poolAddress: string, postId: string) {
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
 
-        // Step 1: Get the pool's vault and token mint addresses from database
+        // Step 1: Get LONG/SHORT mint addresses for ICBS pool
         const { data: poolData, error: poolError } = await supabase
           .from('pool_deployments')
-          .select('usdc_vault_address, token_mint_address')
+          .select('long_mint_address, short_mint_address')
           .eq('pool_address', poolAddress)
           .single();
 
-        if (poolError || !poolData?.usdc_vault_address || !poolData?.token_mint_address) {
+        if (poolError || !poolData) {
           console.error('[useSwapBalances] Pool not found:', poolError);
           setUsdcBalance(0);
           setShareBalance(0);
@@ -53,13 +53,23 @@ export function useSwapBalances(poolAddress: string, postId: string) {
           return;
         }
 
-        const vaultAddress = new PublicKey(poolData.usdc_vault_address);
-        const tokenMint = new PublicKey(poolData.token_mint_address);
+        // Step 2: Get USDC mint from environment (network-specific)
+        // Localnet: Uses test USDC mint from deployment
+        // Devnet/Mainnet: Uses standard USDC mint addresses
+        const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'localnet';
+        const usdcMintStr =
+          network === 'localnet'
+            ? process.env.NEXT_PUBLIC_USDC_MINT_LOCALNET
+            : process.env.NEXT_PUBLIC_USDC_MINT_ADDRESS;
 
-        // Step 2: Fetch the vault account to get the USDC mint address
-        // This is network-agnostic - works on localnet, devnet, and mainnet
-        const vaultAccount = await getAccount(connection, vaultAddress);
-        const usdcMint = vaultAccount.mint; // The actual USDC mint used by this pool
+        if (!usdcMintStr) {
+          console.error('[useSwapBalances] USDC mint not configured');
+          setUsdcBalance(0);
+          setShareBalance(0);
+          setLoading(false);
+          return;
+        }
+        const usdcMint = new PublicKey(usdcMintStr);
 
         // Step 3: Get user's USDC token account balance
         try {
@@ -77,19 +87,26 @@ export function useSwapBalances(poolAddress: string, postId: string) {
           setUsdcBalance(0);
         }
 
-        // Step 4: Fetch share balance from blockchain (use the pool's token mint)
+        // Step 4: Fetch LONG token balance (ICBS pools have LONG/SHORT, not single share token)
+        // For now, we'll track LONG balance as the primary "share" balance
+        // TODO: Add separate state for LONG vs SHORT balances
         try {
-          const shareTokenAccount = await getAssociatedTokenAddress(
-            tokenMint, // Use the pool's share token mint, not USDC mint
-            walletPubkey
-          );
+          if (poolData.long_mint_address) {
+            const longMint = new PublicKey(poolData.long_mint_address);
+            const longTokenAccount = await getAssociatedTokenAddress(
+              longMint,
+              walletPubkey
+            );
 
-          const accountInfo = await getAccount(connection, shareTokenAccount);
-          // Convert from atomic units (6 decimals) to display units
-          const balance = Number(accountInfo.amount) / 1_000_000;
-          setShareBalance(balance);
+            const accountInfo = await getAccount(connection, longTokenAccount);
+            // Convert from atomic units (6 decimals) to display units
+            const balance = Number(accountInfo.amount) / 1_000_000;
+            setShareBalance(balance);
+          } else {
+            setShareBalance(0);
+          }
         } catch (err) {
-          console.error('[useSwapBalances] Share account error:', err);
+          console.error('[useSwapBalances] LONG token account error:', err);
           setShareBalance(0);
         }
       } catch (error) {

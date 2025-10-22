@@ -1,133 +1,158 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token, TokenAccount};
-use anchor_spl::associated_token::AssociatedToken;
+use crate::content_pool::{
+    state::ContentPool,
+    events::PoolInitializedEvent,
+};
+use crate::pool_factory::{
+    state::{PoolFactory, PoolRegistry, REGISTRY_SEED, MIN_F, MAX_F, MIN_BETA, MAX_BETA},
+    events::PoolCreatedEvent,
+    errors::FactoryError,
+};
+use crate::veritas_custodian::state::VeritasCustodian;
 
-use crate::content_pool::state::{ContentPool, ProtocolConfig};
-use crate::pool_factory::state::{PoolFactory, PoolRegistry, FACTORY_SEED, POOL_SEED, REGISTRY_SEED};
-use crate::errors::ErrorCode;
-
-/// Permissionless pool creation with registry tracking and SPL token
+/// Create a new ContentPool via PoolFactory
+/// Users can create pools but parameters are controlled by the factory authority
 pub fn create_pool(
     ctx: Context<CreatePool>,
-    post_id: [u8; 32],
-    initial_k_quadratic: u128,
-    token_name: [u8; 32],
-    token_symbol: [u8; 10],
+    content_id: Pubkey,
 ) -> Result<()> {
     let factory = &mut ctx.accounts.factory;
     let pool = &mut ctx.accounts.pool;
     let registry = &mut ctx.accounts.registry;
+    let clock = Clock::get()?;
 
-    // Validate post_id
-    require!(post_id != [0u8; 32], ErrorCode::InvalidPostId);
+    // Always use factory defaults - users cannot override
+    let f = factory.default_f;
+    let beta_num = factory.default_beta_num;
+    let beta_den = factory.default_beta_den;
 
-    // Optional: Validate parameters against config
-    if let Some(config) = ctx.accounts.config.as_ref() {
-        require!(initial_k_quadratic >= config.min_k_quadratic, ErrorCode::InvalidParameters);
-        require!(initial_k_quadratic <= config.max_k_quadratic, ErrorCode::InvalidParameters);
-    }
+    // Initialize pool state
+    pool.content_id = content_id;
+    pool.creator = ctx.accounts.creator.key();
+    pool.market_deployer = Pubkey::default(); // Not yet deployed
 
-    // Validate token metadata (check not all zeros)
-    require!(token_name != [0u8; 32], ErrorCode::InvalidParameters);
-    require!(token_symbol != [0u8; 10], ErrorCode::InvalidParameters);
+    // Mints will be set during deploy_market
+    pool.long_mint = Pubkey::default();
+    pool.short_mint = Pubkey::default();
 
-    // Initialize ContentPool with pure quadratic curve
-    pool.post_id = post_id;
-    pool.factory = factory.key();  // Reference to factory for authority
-    pool.k_quadratic = initial_k_quadratic;
-    pool.token_supply = 0;
-    pool.reserve = 0;
-    pool.token_mint = ctx.accounts.token_mint.key();
+    // Vaults will be set during deploy_market
+    pool.vault = Pubkey::default();
+    pool.stake_vault = ctx.accounts.custodian.usdc_vault; // Reference to custodian's USDC vault
 
-    // Store token metadata (already in correct format)
-    pool.token_name = token_name;
-    pool.token_symbol = token_symbol;
+    // ICBS parameters
+    pool.f = f;
+    pool.beta_num = beta_num;
+    pool.beta_den = beta_den;
+    pool._padding1 = [0; 10];
 
-    pool.token_decimals = 6; // Always 6 decimals to match USDC
+    // Initial supplies and reserves (all zero)
+    pool.s_long = 0;
+    pool.s_short = 0;
+    pool.r_long = 0;
+    pool.r_short = 0;
 
-    pool.usdc_vault = ctx.accounts.pool_usdc_vault.key();
+    // Sqrt prices and lambdas will be set during deploy_market
+    pool.sqrt_price_long_x96 = 0;
+    pool.sqrt_price_short_x96 = 0;
+    pool.sqrt_lambda_long_x96 = 0;
+    pool.sqrt_lambda_short_x96 = 0;
+
+    // Settlement parameters
+    pool.last_settle_ts = 0;
+    pool.min_settle_interval = factory.min_settle_interval;
+    pool.current_epoch = 0;
+
+    // Decay parameters
+    let current_time = clock.unix_timestamp;
+    pool.expiration_timestamp = current_time + (crate::content_pool::state::BELIEF_DURATION_HOURS as i64 * 3600);
+    pool.last_decay_update = pool.expiration_timestamp; // Start tracking from expiration
+
+    // Stats
+    pool.vault_balance = 0;
+    pool.initial_q = 0;
+
+    // Factory reference
+    pool.factory = factory.key();
+
+    // PDA bump
     pool.bump = ctx.bumps.pool;
+    pool._padding2 = [0; 7];
 
     // Create registry entry
-    registry.post_id = post_id;
+    registry.content_id = content_id;
     registry.pool_address = pool.key();
-    registry.created_at = Clock::get()?.unix_timestamp;
+    registry.creator = ctx.accounts.creator.key();
+    registry.created_at = clock.unix_timestamp;
     registry.bump = ctx.bumps.registry;
 
-    // Safe increment with overflow check
-    factory.total_pools = factory.total_pools
+    // Update factory stats
+    factory.total_pools = factory
+        .total_pools
         .checked_add(1)
-        .ok_or(ErrorCode::NumericalOverflow)?;
+        .ok_or(FactoryError::InvalidParameters)?;
 
-    msg!("Pool created for post_id={:?}, pool_address={}",
-         post_id, pool.key());
+    // Emit events
+    emit!(PoolInitializedEvent {
+        pool: pool.key(),
+        content_id,
+        creator: pool.creator,
+        f: pool.f,
+        beta_num: pool.beta_num,
+        beta_den: pool.beta_den,
+        timestamp: clock.unix_timestamp,
+    });
+
+    emit!(PoolCreatedEvent {
+        pool: pool.key(),
+        content_id,
+        creator: ctx.accounts.creator.key(),
+        f,
+        beta_num,
+        beta_den,
+        registry: registry.key(),
+        timestamp: clock.unix_timestamp,
+    });
+
     Ok(())
 }
 
 #[derive(Accounts)]
-#[instruction(post_id: [u8; 32], initial_k_quadratic: u128, token_name: [u8; 32], token_symbol: [u8; 10])]
+#[instruction(content_id: Pubkey)]
 pub struct CreatePool<'info> {
-    #[account(
-        mut,
-        seeds = [FACTORY_SEED],
-        bump = factory.bump
-    )]
+    #[account(mut)]
     pub factory: Account<'info, PoolFactory>,
 
+    /// The pool to be created
     #[account(
         init,
         payer = payer,
-        space = 8 + 220,  // Pure quadratic curve, no linear region
-        seeds = [POOL_SEED, post_id.as_ref()],
+        space = 8 + ContentPool::LEN,
+        seeds = [b"content_pool", content_id.as_ref()],
         bump
     )]
     pub pool: Account<'info, ContentPool>,
 
-    // SPL token mint for this pool
+    /// Registry entry for this pool (prevents duplicates)
     #[account(
         init,
         payer = payer,
-        mint::decimals = 6,
-        mint::authority = pool,
-        seeds = [b"mint", post_id.as_ref()],
-        bump,
-    )]
-    pub token_mint: Account<'info, Mint>,
-
-    #[account(
-        init,
-        payer = payer,
-        token::mint = usdc_mint,
-        token::authority = pool,
-        seeds = [b"vault", post_id.as_ref()],
-        bump,
-    )]
-    pub pool_usdc_vault: Account<'info, TokenAccount>,
-
-    #[account(
-        init,
-        payer = payer,
-        space = 8 + 73,
-        seeds = [REGISTRY_SEED, post_id.as_ref()],
+        space = 8 + PoolRegistry::LEN,
+        seeds = [REGISTRY_SEED, content_id.as_ref()],
         bump
     )]
     pub registry: Account<'info, PoolRegistry>,
 
-    // Optional config for validation
-    #[account(
-        seeds = [b"config"],
-        bump = config.bump,
-    )]
-    pub config: Option<Account<'info, ProtocolConfig>>,
+    /// VeritasCustodian (for stake vault reference)
+    pub custodian: Account<'info, VeritasCustodian>,
 
-    pub usdc_mint: Account<'info, Mint>,
+    /// Pool creator
     pub creator: Signer<'info>,
 
+    /// Payer for account creation
     #[account(mut)]
     pub payer: Signer<'info>,
 
+
+    /// System program for account creation
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
-    pub rent: Sysvar<'info, Rent>,
 }

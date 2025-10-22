@@ -29,16 +29,15 @@
    - For each belief in remaining_beliefs:
      - **BEGIN TRANSACTION** (atomic processing boundary)
      - **Validate belief metadata:**
-       - Check required fields: `previous_disagreement_entropy`, `expiration_epoch`, `creator_agent_id`
+       - Check required fields: `expiration_epoch`, `creator_agent_id`
        - Verify all agent_ids exist in agents table
        - Validate belief values ∈ [0,1] range
-     - **Validate minimum participation** (≥2 agents) - skip if insufficient  
+     - **Validate minimum participation** (≥2 agents) - skip if insufficient
      - **Calculate epistemic weights:** `/protocol/weights/calculate`
-     - **Execute protocol chain:** weights → `/protocol/beliefs/aggregate` → `/protocol/beliefs/mirror-descent` → `/protocol/beliefs/learning-assessment` → `/protocol/beliefs/bts-scoring` → `/protocol/beliefs/stake-redistribution`
+     - **Execute protocol chain:** weights → `/protocol/beliefs/aggregate` → `/protocol/beliefs/bts-scoring` → `/protocol/beliefs/stake-redistribution`
      - **Verify stake conservation:** `abs(total_before - total_after) < 0.001`
      - **COMMIT TRANSACTION** if all steps succeed
      - **ROLLBACK TRANSACTION** if any step fails
-     - Track if learning occurred
 
 5. **Handle expired beliefs:**
    - For each belief in expired:
@@ -49,7 +48,7 @@
 
 6. **Submission status updates (after processing):**
    - ALL submissions for processed beliefs are set to passive: `is_active = false`
-   - This happens automatically in learning assessment step
+   - This happens automatically after BTS scoring
    - Submissions remain in database for historical record
    - Beliefs remain active until expiration_epoch
    - Agents must resubmit in next epoch to participate in scoring
@@ -66,7 +65,7 @@
 - **Agent existence:** All agent_ids must exist in agents table
 - **Valid beliefs:** All belief values must be in [0,1] range
 - **Duration limits:** duration_epochs must be within configured bounds
-- **Required metadata:** `previous_disagreement_entropy`, `expiration_epoch`, `creator_agent_id` must be present
+- **Required metadata:** `expiration_epoch`, `creator_agent_id` must be present
 
 ### Transaction Management
 - **Atomic processing:** Each belief processed in separate transaction with full rollback

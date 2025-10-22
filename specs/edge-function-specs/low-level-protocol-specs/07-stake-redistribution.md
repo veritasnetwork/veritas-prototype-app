@@ -5,77 +5,75 @@
 ## Interface
 **Input:**
 - `belief_id`: string
-- `learning_occurred`: boolean
-- `economic_learning_rate`: number
 - `information_scores`: object {agent_id: number}
-- `winner_set`: array[string]
-- `loser_set`: array[string]
+- `winners`: array[string]
+- `losers`: array[string]
+- `current_effective_stakes`: object {agent_id: number}
 
 **Output:**
-- `updated_stakes`: object {agent_id: number}
+- `redistribution_occurred`: boolean
+- `updated_total_stakes`: object {agent_id: number}
 - `individual_rewards`: object {agent_id: number}
 - `individual_slashes`: object {agent_id: number}
+- `slashing_pool`: number
 
 ## Algorithm
-1. **Check learning condition:**
-   - If `!learning_occurred`: return unchanged stakes, empty rewards/slashes
+1. **Validate inputs:**
+   - `belief_id` must be non-empty
+   - `information_scores` and `current_effective_stakes` must be non-empty
 
-2. **Load agent stakes:**
-   - `agents = db.agents.where(id IN (winner_set + loser_set))`
-   - Calculate effective stakes: `effective_stake = agent.total_stake / agent.active_belief_count`
+2. **Check zero-sum constraint:**
+   - If only winners OR only losers (not both): return no redistribution
+   - Need both for zero-sum transfers
 
-3. **Calculate slashing pool:**
-   - `loser_stakes = sum(effective_stake for agent_id in loser_set)`
-   - `slash_pool = economic_learning_rate * loser_stakes`
+3. **Calculate slashing pool (100% redistribution):**
+   - `loser_stakes = sum(current_effective_stakes[id] for id in losers)`
+   - `slash_pool = loser_stakes` (full redistribution)
 
 4. **Calculate individual transfers:**
    - **Slashes:** For each loser:
-     - `noise_contribution = abs(information_scores[agent_id])`  
-     - `total_noise = sum(abs(information_scores[id]) for id in loser_set)`
+     - `noise_contribution = abs(information_scores[agent_id])`
+     - `total_noise = sum(abs(information_scores[id]) for id in losers)`
      - `slash_amount = (noise_contribution / total_noise) * slash_pool`
    - **Rewards:** For each winner:
      - `signal_contribution = information_scores[agent_id]`
-     - `total_signal = sum(information_scores[id] for id in winner_set)`  
+     - `total_signal = sum(information_scores[id] for id in winners)`
      - `reward_amount = (signal_contribution / total_signal) * slash_pool`
 
-5. **Update agent stakes:**
-   - Winners: `new_stake = old_stake + reward_amount`
-   - Losers: `new_stake = old_stake - slash_amount`  
-   - Passive: unchanged
+5. **Load current agent stakes from database:**
+   - `agents = db.agents.where(id IN current_effective_stakes.keys())`
+   - Get current `total_stake` for each agent
 
-6. **Verify conservation:**
+6. **Update agent stakes:**
+   - Winners: `new_stake = old_stake + reward_amount`
+   - Losers: `new_stake = max(0, old_stake - slash_amount)` (prevent negative)
+   - Others: unchanged
+
+7. **Verify conservation:**
    ```python
    total_rewards = sum(rewards.values())
    total_slashes = sum(slashes.values())
-   
+
    # Strong conservation check
-   if abs(total_rewards - total_slashes) > CONSERVATION_TOLERANCE:
-       # ROLLBACK TRANSACTION
-       return {"error": f"Conservation violated: rewards={total_rewards}, slashes={total_slashes}", 
-               "code": ERROR_CONSERVATION_VIOLATION}
+   if abs(total_rewards - total_slashes) > 0.001:
+       # RETURN ERROR
+       return {"error": f"Conservation violated: rewards={total_rewards}, slashes={total_slashes}",
+               "code": 500}
    ```
 
-7. **Save updates:**
-   - **BEGIN TRANSACTION** (if not already in one)
-   - `db.agents.bulk_update(updated_agents)`
+8. **Save updates:**
+   - `db.agents.update(total_stake)` for each affected agent
    - Verify all updates succeeded
-   - **COMMIT TRANSACTION** only if conservation verified
+   - If any fail, return error
 
-8. **Handle submission cleanup:**
-   - If learning occurred:
-     - **Flush submissions:** `db.belief_submissions.delete(belief_id=belief_id)`  
-     - **Update agent counts:** `agent.active_belief_count -= 1` for each participant
-     - **Note:** Belief remains active until expiration_epoch
-
-9. **Return:** Updated stakes, individual transfers
+9. **Return:** Redistribution results with updated stakes and transfers
 
 ## Database Updates
 - **agents table:** UPDATE total_stake for all affected agents
-- **agents table:** UPDATE active_belief_count (if learning occurred)
-- **belief_submissions table:** DELETE all submissions (if learning occurred)
 
 ## Edge Cases
-- No losers → no redistribution, `slash_pool = 0`
-- No winners → slashed amounts stay in system (edge case, shouldn't happen)
-- Division by zero in signal/noise calculations → handle gracefully
-- Conservation violation → log error, proceed with best approximation
+- No losers → no redistribution, `slash_pool = 0`, `redistribution_occurred = false`
+- No winners → no redistribution, `slash_pool = 0`, `redistribution_occurred = false`
+- Only winners or only losers → no redistribution (zero-sum constraint)
+- Division by zero in signal/noise calculations → distribute equally among agents
+- Conservation violation → return 500 error, do not save

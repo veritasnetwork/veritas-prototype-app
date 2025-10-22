@@ -4,7 +4,7 @@ import { SUPABASE_URL, headers } from '../test-config.ts'
 
 interface BTSScoringRequest {
   belief_id: string
-  post_mirror_descent_beliefs: Record<string, number>
+  agent_beliefs: Record<string, number>
   leave_one_out_aggregates: Record<string, number>
   leave_one_out_meta_aggregates: Record<string, number>
   normalized_weights: Record<string, number>
@@ -50,7 +50,7 @@ Deno.test("BTS Scoring - Basic Two Agent Scenario", async () => {
 
   const request: BTSScoringRequest = {
     belief_id: "test-belief-1",
-    post_mirror_descent_beliefs: {
+    agent_beliefs: {
       "agent-a": 0.9,
       "agent-b": 0.4
     },
@@ -89,7 +89,7 @@ Deno.test("BTS Scoring - Basic Two Agent Scenario", async () => {
   assertEquals(result.information_scores["agent-b"], result.bts_scores["agent-b"] * 0.5)
 
   // Verify winner/loser partition is complete and non-overlapping
-  const totalAgents = Object.keys(request.post_mirror_descent_beliefs).length
+  const totalAgents = Object.keys(request.agent_beliefs).length
   const categorizedAgents = result.winners.length + result.losers.length
   assertEquals(categorizedAgents <= totalAgents, true) // Some agents might have exactly 0 score
 
@@ -103,7 +103,7 @@ Deno.test("BTS Scoring - Mathematical Verification", async () => {
   // Simple case where we can manually verify the BTS calculation
   const request: BTSScoringRequest = {
     belief_id: "test-belief-2",
-    post_mirror_descent_beliefs: {
+    agent_beliefs: {
       "agent-1": 0.7
     },
     leave_one_out_aggregates: {
@@ -146,7 +146,7 @@ Deno.test("BTS Scoring - Edge Case: Extreme Probabilities", async () => {
   // Test with probabilities near 0 and 1 to verify clamping works
   const request: BTSScoringRequest = {
     belief_id: "test-belief-3",
-    post_mirror_descent_beliefs: {
+    agent_beliefs: {
       "agent-extreme": 0.001,    // Very confident in false
       "agent-moderate": 0.5      // Neutral
     },
@@ -184,7 +184,7 @@ Deno.test("BTS Scoring - Three Agent Scenario", async () => {
   // More complex scenario with three agents
   const request: BTSScoringRequest = {
     belief_id: "test-belief-4",
-    post_mirror_descent_beliefs: {
+    agent_beliefs: {
       "agent-1": 0.8,   // Confident in true
       "agent-2": 0.3,   // Leaning false
       "agent-3": 0.6    // Moderate true
@@ -232,7 +232,7 @@ Deno.test("BTS Scoring - Input Validation", async () => {
   try {
     await callBTSScoring({
       belief_id: "",
-      post_mirror_descent_beliefs: { "agent-1": 0.5 },
+      agent_beliefs: { "agent-1": 0.5 },
       leave_one_out_aggregates: { "agent-1": 0.5 },
       leave_one_out_meta_aggregates: { "agent-1": 0.5 },
       normalized_weights: { "agent-1": 1.0 },
@@ -247,7 +247,7 @@ Deno.test("BTS Scoring - Input Validation", async () => {
   try {
     await callBTSScoring({
       belief_id: "test",
-      post_mirror_descent_beliefs: { "agent-1": 0.5 },
+      agent_beliefs: { "agent-1": 0.5 },
       leave_one_out_aggregates: { "agent-1": 0.5 },
       leave_one_out_meta_aggregates: { "agent-1": 0.5 },
       normalized_weights: {},  // Missing agent-1
@@ -263,7 +263,7 @@ Deno.test("BTS Scoring - Zero Stakes Edge Case", async () => {
   // Test with zero stakes (should still compute BTS scores but zero information scores)
   const request: BTSScoringRequest = {
     belief_id: "test-belief-5",
-    post_mirror_descent_beliefs: {
+    agent_beliefs: {
       "agent-zero": 0.7
     },
     leave_one_out_aggregates: {

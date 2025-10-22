@@ -43,3 +43,30 @@ All posts must have associated belief markets. No multimedia support.
 - No multimedia support (media_url/media_type removed)
 - Default belief duration is 10 epochs (48h at 1 hour per epoch)
 
+## Storage Buckets
+
+### profile-photos
+Supabase Storage bucket for user profile photos.
+
+| Property | Value |
+|----------|-------|
+| Bucket ID | `profile-photos` |
+| Public Access | Yes (read-only) |
+| Upload Policy | Authenticated users only |
+| File Types | Images (JPEG, PNG, WebP, etc.) |
+| Max File Size | Configured in Supabase project settings |
+
+**Policies:**
+- **Upload**: Authenticated users can upload profile photos
+- **Update**: Authenticated users can update their profile photos
+- **Delete**: Authenticated users can delete their profile photos
+- **Read**: Public can view all profile photos (for display in feeds, profiles, etc.)
+
+**Relationship to users table:**
+- `users.avatar_url` stores the full Supabase Storage URL
+- Format: `https://{project}.supabase.co/storage/v1/object/public/profile-photos/{filename}`
+
+**Upload API:**
+- Route: `/api/media/upload-profile-photo`
+- Handles file validation, upload to storage, and updates `users.avatar_url`
+

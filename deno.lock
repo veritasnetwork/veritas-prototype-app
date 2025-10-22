@@ -45,22 +45,43 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@coral-xyz/anchor@~0.31.1",
         "npm:@privy-io/react-auth@^2.25.0",
+        "npm:@privy-io/server-auth@^1.32.5",
+        "npm:@solana-program/compute-budget@0.9",
+        "npm:@solana-program/system@~0.8.1",
+        "npm:@solana-program/token@0.6",
+        "npm:@solana/kit@^3.0.3",
+        "npm:@solana/spl-token@~0.3.9",
+        "npm:@solana/web3.js@^1.87.6",
         "npm:@supabase/supabase-js@^2.57.2",
+        "npm:@tiptap/extension-dropcursor@^3.6.6",
+        "npm:@tiptap/extension-image@^3.6.6",
+        "npm:@tiptap/extension-link@^3.6.6",
+        "npm:@tiptap/extension-placeholder@^3.6.5",
+        "npm:@tiptap/react@^3.6.5",
+        "npm:@tiptap/starter-kit@^3.6.5",
         "npm:@types/node@^20.19.1",
         "npm:@types/react-dom@19",
         "npm:@types/react@19",
         "npm:autoprefixer@^10.4.21",
+        "npm:borsh@0.7",
         "npm:clsx@^2.1.1",
         "npm:eslint-config-next@15.3.4",
         "npm:eslint@9",
+        "npm:lightweight-charts@^4.2.0",
         "npm:lucide-react@0.524",
+        "npm:next-themes@~0.4.6",
         "npm:next@15.3.4",
         "npm:postcss@^8.5.6",
         "npm:react-dom@19",
         "npm:react@19",
+        "npm:recharts@^3.2.1",
+        "npm:swr@^2.3.6",
+        "npm:tailwind-merge@^3.3.1",
         "npm:tailwindcss@^3.4.17",
-        "npm:typescript@5"
+        "npm:typescript@5",
+        "npm:zod@^4.1.12"
       ]
     }
   }

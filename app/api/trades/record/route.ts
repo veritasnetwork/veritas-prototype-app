@@ -1,268 +1,293 @@
 /**
- * Record Trade API Route
- * POST /api/trades/record
- * Records buy/sell trades and updates user_pool_balances via trigger
+ * Trade Recording API (Optimistic Updates)
+ *
+ * Records trades optimistically for immediate UI feedback.
+ * Event indexer will confirm/correct these records when blockchain events arrive.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { PoolSyncService } from '@/services/pool-sync.service';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+interface RecordTradeRequest {
+  user_id: string;
+  pool_address: string;
+  post_id: string;
+  wallet_address: string;
+  trade_type: 'buy' | 'sell';
+  side: 'LONG' | 'SHORT';
+  token_amount: string;
+  usdc_amount: string;
+  tx_signature: string;
 
-export async function POST(request: NextRequest) {
+  // ICBS State Snapshots (BEFORE trade)
+  s_long_before?: number;
+  s_short_before?: number;
+
+  // ICBS State Snapshots (AFTER trade)
+  s_long_after?: number;
+  s_short_after?: number;
+
+  // Sqrt prices (AFTER trade)
+  sqrt_price_long_x96?: string;
+  sqrt_price_short_x96?: string;
+
+  // Human-readable prices (AFTER trade)
+  price_long?: number;
+  price_short?: number;
+
+  // Virtual reserves (AFTER trade)
+  r_long_after?: number;
+  r_short_after?: number;
+
+  // Belief submission (optional)
+  initial_belief?: number;
+  meta_belief?: number;
+}
+
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const {
-      user_id,
-      pool_address,
-      post_id,
-      wallet_address,
-      trade_type,
-      token_amount,
-      usdc_amount,
-      token_supply_after,
-      reserve_after,
-      k_quadratic,
-      tx_signature
-    } = body;
+    const body: RecordTradeRequest = await req.json();
 
     // Validate required fields
-    if (!user_id || !pool_address || !post_id || !wallet_address || !trade_type ||
-        !token_amount || !usdc_amount || token_supply_after === undefined ||
-        reserve_after === undefined || k_quadratic === undefined || !tx_signature) {
+    if (!body.tx_signature || !body.wallet_address || !body.trade_type || !body.usdc_amount || !body.side) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Validate trade_type
-    if (trade_type !== 'buy' && trade_type !== 'sell') {
+    // Create Supabase client
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json(
-        { error: 'trade_type must be "buy" or "sell"' },
-        { status: 400 }
-      );
-    }
-
-    console.log(`[API] Recording ${trade_type} trade:`, {
-      user_id,
-      pool_address,
-      token_amount,
-      usdc_amount,
-      tx_signature
-    });
-
-    // ALWAYS sync balance first to avoid constraint violations
-    // This ensures the balance matches the pool supply after the trade
-    if (trade_type === 'sell') {
-      console.log('[API] Pre-syncing balance for sell trade');
-      console.log('[API] Setting balance to pool supply:', parseFloat(token_supply_after));
-
-      // For sells, set balance to pool supply (since user is likely the only holder)
-      const { error: syncError } = await supabase
-        .from('user_pool_balances')
-        .upsert({
-          user_id,
-          pool_address,
-          post_id,
-          token_balance: parseFloat(token_supply_after),
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,pool_address'
-        });
-
-      if (syncError) {
-        console.error('[API] Failed to sync balance:', syncError);
-      } else {
-        console.log('[API] Balance synced successfully');
-      }
-    }
-
-    // Now try to insert the trade
-    const { data: trade, error } = await supabase
-      .from('trades')
-      .insert({
-        user_id,
-        pool_address,
-        post_id,
-        wallet_address,
-        trade_type,
-        token_amount: parseFloat(token_amount),
-        usdc_amount: parseFloat(usdc_amount),
-        token_supply_after: parseFloat(token_supply_after),
-        reserve_after: parseFloat(reserve_after),
-        k_quadratic: parseFloat(k_quadratic),
-        tx_signature,
-        recorded_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[API] Failed to insert trade:', error);
-
-      // Check for duplicate tx_signature
-      if (error.code === '23505') {
-        return NextResponse.json(
-          { error: 'Trade already recorded (duplicate tx_signature)' },
-          { status: 409 }
-        );
-      }
-
-      // If it's a check constraint violation, try to fix the balance
-      if (error.code === '23514' && error.message.includes('user_pool_balances_token_balance_check')) {
-        console.log('[API] Balance check constraint violation - attempting to sync with on-chain state');
-
-        // Calculate what the balance should be based on all trades
-        const { data: allTrades, error: tradesError } = await supabase
-          .from('trades')
-          .select('trade_type, token_amount')
-          .eq('user_id', user_id)
-          .eq('pool_address', pool_address);
-
-        if (!tradesError && allTrades) {
-          const totalBought = allTrades
-            .filter(t => t.trade_type === 'buy')
-            .reduce((sum, t) => sum + Number(t.token_amount), 0);
-          const totalSold = allTrades
-            .filter(t => t.trade_type === 'sell')
-            .reduce((sum, t) => sum + Number(t.token_amount), 0);
-
-          // Add the current trade
-          const newBought = trade_type === 'buy' ? totalBought + parseFloat(token_amount) : totalBought;
-          const newSold = trade_type === 'sell' ? totalSold + parseFloat(token_amount) : totalSold;
-          const expectedBalance = newBought - newSold;
-
-          // If expected balance would be negative or exceed supply, use supply-based calculation
-          const poolSupply = parseFloat(token_supply_after);
-          let correctedBalance = expectedBalance;
-
-          if (trade_type === 'sell') {
-            // For sells, the user's balance should be approximately the pool supply
-            // (assuming they're the primary holder)
-            correctedBalance = poolSupply;
-          }
-
-          // Update or insert the balance
-          const { error: balanceError } = await supabase
-            .from('user_pool_balances')
-            .upsert({
-              user_id,
-              pool_address,
-              post_id,
-              token_balance: Math.max(0, correctedBalance),
-              total_bought: newBought,
-              total_sold: newSold,
-              total_usdc_spent: trade_type === 'buy' ?
-                (allTrades.filter(t => t.trade_type === 'buy').reduce((sum, t) => sum + Number(t.usdc_amount || 0), 0) + parseFloat(usdc_amount)) :
-                (allTrades.filter(t => t.trade_type === 'buy').reduce((sum, t) => sum + Number(t.usdc_amount || 0), 0)),
-              total_usdc_received: trade_type === 'sell' ?
-                (allTrades.filter(t => t.trade_type === 'sell').reduce((sum, t) => sum + Number(t.usdc_amount || 0), 0) + parseFloat(usdc_amount)) :
-                (allTrades.filter(t => t.trade_type === 'sell').reduce((sum, t) => sum + Number(t.usdc_amount || 0), 0)),
-              first_trade_at: new Date().toISOString(),
-              last_trade_at: new Date().toISOString()
-            }, {
-              onConflict: 'user_id,pool_address'
-            });
-
-          if (!balanceError) {
-            // Try inserting the trade again
-            const { data: retryTrade, error: retryError } = await supabase
-              .from('trades')
-              .insert({
-                user_id,
-                pool_address,
-                post_id,
-                wallet_address,
-                trade_type,
-                token_amount: parseFloat(token_amount),
-                usdc_amount: parseFloat(usdc_amount),
-                token_supply_after: parseFloat(token_supply_after),
-                reserve_after: parseFloat(reserve_after),
-                k_quadratic: parseFloat(k_quadratic),
-                tx_signature,
-                recorded_at: new Date().toISOString()
-              })
-              .select()
-              .single();
-
-            if (!retryError) {
-              console.log('[API] Successfully recorded trade after balance sync');
-              return NextResponse.json({
-                success: true,
-                trade_id: retryTrade.id,
-                synced_balance: true
-              });
-            }
-          }
-        }
-      }
-
-      return NextResponse.json(
-        { error: error.message },
+        { error: 'Server configuration error' },
         { status: 500 }
       );
     }
 
-    console.log('[API] Trade recorded successfully:', trade.id);
-    console.log('[API] Pool data to update:', {
-      token_supply_after,
-      reserve_after,
-      k_quadratic
-    });
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Update pool_deployments with fresh on-chain data
-    // token_supply_after and reserve_after are already in atomic units from hooks
-    const { error: poolUpdateError } = await supabase
-      .from('pool_deployments')
-      .update({
-        token_supply: token_supply_after.toString(),
-        reserve: reserve_after.toString(),
-        k_quadratic: k_quadratic.toString(), // Also update k_quadratic
-        last_synced_at: new Date().toISOString()
+    // Optimistically record trade with complete ICBS data
+    // Event indexer will mark as confirmed when it sees the on-chain event
+    const { error } = await supabase
+      .from('trades')
+      .insert({
+        tx_signature: body.tx_signature,
+        pool_address: body.pool_address,
+        post_id: body.post_id,
+        user_id: body.user_id,
+        wallet_address: body.wallet_address,
+        trade_type: body.trade_type,
+        side: body.side,
+        usdc_amount: parseFloat(body.usdc_amount),
+        token_amount: parseFloat(body.token_amount),
+        // ICBS snapshots (if provided)
+        s_long_before: body.s_long_before,
+        s_short_before: body.s_short_before,
+        s_long_after: body.s_long_after,
+        s_short_after: body.s_short_after,
+        // Sqrt prices
+        sqrt_price_long_x96: body.sqrt_price_long_x96,
+        sqrt_price_short_x96: body.sqrt_price_short_x96,
+        // Human-readable prices
+        price_long: body.price_long,
+        price_short: body.price_short,
+        // Virtual reserves
+        r_long_after: body.r_long_after,
+        r_short_after: body.r_short_after,
+        // Metadata
+        recorded_by: 'server',
+        confirmed: false,
+        created_at: new Date().toISOString(),
       })
-      .eq('pool_address', pool_address);
+      // Use ON CONFLICT DO NOTHING for idempotency
+      // If indexer already recorded this tx_signature, skip
+      .select()
+      .single();
 
-    if (poolUpdateError) {
-      console.error('[API] Failed to update pool deployment:', poolUpdateError);
-    } else {
-      console.log('[API] Pool deployment updated with fresh data');
+    if (error) {
+      // If conflict on tx_signature, it's already recorded (by server or indexer)
+      if (error.code === '23505') { // Unique violation
+        return NextResponse.json({
+          message: 'Trade already recorded',
+          recorded: false
+        });
+      }
+
+      console.error('Failed to record trade:', error);
+      return NextResponse.json(
+        { error: 'Failed to record trade', details: error.message },
+        { status: 500 }
+      );
     }
 
-    // Manually update user_pool_balances since we dropped the trigger
-    await supabase
-      .from('user_pool_balances')
-      .upsert({
-        user_id,
-        pool_address,
-        post_id,
-        token_balance: parseFloat(token_supply_after),
-        total_bought: trade_type === 'buy' ? parseFloat(token_amount) : 0,
-        total_sold: trade_type === 'sell' ? parseFloat(token_amount) : 0,
-        total_usdc_spent: trade_type === 'buy' ? parseFloat(usdc_amount) : 0,
-        total_usdc_received: trade_type === 'sell' ? parseFloat(usdc_amount) : 0,
-        first_trade_at: new Date().toISOString(),
-        last_trade_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id,pool_address',
-        ignoreDuplicates: false
-      });
+    // Get agent_id from users (needed for both belief submission and stake tracking)
+    let agentId: string | null = null;
+    let beliefSubmissionId: string | null = null;
 
-    console.log('[API] Balance updated manually');
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('agent_id')
+      .eq('id', body.user_id)
+      .single();
+
+    if (userError || !user?.agent_id) {
+      console.error('[AGENT LOOKUP] Could not find agent for user:', body.user_id);
+    } else {
+      agentId = user.agent_id;
+    }
+
+    // If belief data is provided, create a belief submission
+    if (body.initial_belief !== undefined && body.meta_belief !== undefined && agentId) {
+      try {
+        // Get belief_id from pool_deployments via post_id
+        const { data: poolDeployment, error: poolError } = await supabase
+          .from('pool_deployments')
+          .select('belief_id')
+          .eq('post_id', body.post_id)
+          .single();
+
+        if (poolError || !poolDeployment) {
+          console.error('[BELIEF SUBMISSION] Could not find pool deployment for post:', body.post_id);
+        } else {
+          // Submit belief (upsert to update if already exists)
+          const { data: beliefData, error: beliefError } = await supabase
+            .from('belief_submissions')
+            .upsert({
+              agent_id: agentId,
+              belief_id: poolDeployment.belief_id,
+              belief: body.initial_belief,
+              meta_prediction: body.meta_belief,
+              timestamp: new Date().toISOString(),
+            }, {
+              onConflict: 'agent_id,belief_id',
+            })
+            .select('id')
+            .single();
+
+          if (beliefError) {
+            console.error('[BELIEF SUBMISSION] Failed to record belief:', beliefError);
+          } else if (beliefData) {
+            beliefSubmissionId = beliefData.id;
+          }
+        }
+      } catch (beliefSubmissionError) {
+        console.error('[BELIEF SUBMISSION] Error recording belief:', beliefSubmissionError);
+        // Don't fail the trade recording if belief submission fails
+      }
+    }
+
+    // Update user_pool_balances for stake lock tracking
+    try {
+      const usdcAmount = parseFloat(body.usdc_amount);
+      const tokenAmount = parseFloat(body.token_amount);
+
+      if (body.trade_type === 'buy') {
+        const beliefLock = usdcAmount * 0.02; // 2% belief lock
+
+        // First check if balance exists
+        const { data: existingBalance } = await supabase
+          .from('user_pool_balances')
+          .select('token_balance, total_bought, total_usdc_spent')
+          .eq('user_id', body.user_id)
+          .eq('pool_address', body.pool_address)
+          .single();
+
+        if (existingBalance) {
+          // Update existing record
+          const { error: updateError } = await supabase
+            .from('user_pool_balances')
+            .update({
+              token_balance: (existingBalance.token_balance || 0) + tokenAmount,
+              last_buy_amount: usdcAmount,
+              belief_lock: beliefLock,
+              total_bought: (existingBalance.total_bought || 0) + tokenAmount,
+              total_usdc_spent: (existingBalance.total_usdc_spent || 0) + usdcAmount,
+              last_trade_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', body.user_id)
+            .eq('pool_address', body.pool_address);
+
+          if (updateError) {
+            console.error('[USER BALANCES] Failed to update user_pool_balances:', updateError);
+          }
+        } else {
+          // Insert new record
+          const { error: insertError } = await supabase
+            .from('user_pool_balances')
+            .insert({
+              user_id: body.user_id,
+              pool_address: body.pool_address,
+              post_id: body.post_id,
+              token_balance: tokenAmount,
+              last_buy_amount: usdcAmount,
+              belief_lock: beliefLock,
+              total_bought: tokenAmount,
+              total_usdc_spent: usdcAmount,
+              last_trade_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+
+          if (insertError) {
+            console.error('[USER BALANCES] Failed to insert user_pool_balances:', insertError);
+          }
+        }
+
+      } else if (body.trade_type === 'sell') {
+        // Get current balance first
+        const { data: existingBalance } = await supabase
+          .from('user_pool_balances')
+          .select('token_balance, total_sold, total_usdc_received')
+          .eq('user_id', body.user_id)
+          .eq('pool_address', body.pool_address)
+          .single();
+
+        if (existingBalance) {
+          // Decrease token balance (belief_lock unchanged until position fully closed)
+          const { error: updateError } = await supabase
+            .from('user_pool_balances')
+            .update({
+              token_balance: existingBalance.token_balance - tokenAmount,
+              total_sold: (existingBalance.total_sold || 0) + tokenAmount,
+              total_usdc_received: (existingBalance.total_usdc_received || 0) + usdcAmount,
+              last_trade_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', body.user_id)
+            .eq('pool_address', body.pool_address);
+
+          if (updateError) {
+            console.error('[USER BALANCES] Failed to update user_pool_balances on sell:', updateError);
+          }
+        }
+      }
+
+    } catch (balanceError) {
+      console.error('[USER BALANCES] Error updating user_pool_balances:', balanceError);
+      // Don't fail the trade recording if balance tracking fails
+    }
+
+    // Sync pool state after recording trade (non-blocking)
+    // Uses PoolSyncService for clean, reusable sync logic
+    PoolSyncService.syncAfterTrade(body.pool_address);
 
     return NextResponse.json({
-      success: true,
-      trade_id: trade.id
+      message: 'Trade recorded optimistically',
+      recorded: true,
+      note: 'Will be confirmed by event indexer'
     });
 
   } catch (error) {
-    console.error('[API] Trade recording error:', error);
+    console.error('Error in trade recording:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        error: 'Failed to record trade',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

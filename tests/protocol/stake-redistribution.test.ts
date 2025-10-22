@@ -4,8 +4,6 @@ import { SUPABASE_URL, headers, generateUniqueUsername } from '../test-config.ts
 
 interface StakeRedistributionRequest {
   belief_id: string
-  learning_occurred: boolean
-  economic_learning_rate: number
   information_scores: Record<string, number>
   winners: string[]
   losers: string[]
@@ -119,8 +117,6 @@ async function submitBelief(agentId: string, beliefId: string, beliefValue: numb
 Deno.test("Stake Redistribution - No Learning Case", async () => {
   const request: StakeRedistributionRequest = {
     belief_id: "test-belief-1",
-    learning_occurred: false,
-    economic_learning_rate: 0.0,
     information_scores: {},
     winners: [],
     losers: [],
@@ -156,8 +152,6 @@ Deno.test("Stake Redistribution - Basic Learning Case", async () => {
   // Agent A is winner (+0.5 info score), B and C are losers (-0.3, -0.2)
   const request: StakeRedistributionRequest = {
     belief_id: beliefId,
-    learning_occurred: true,
-    economic_learning_rate: 0.2, // 20% of loser stakes go to redistribution
     information_scores: {
       [agentA]: 0.5,  // Winner
       [agentB]: -0.3, // Loser
@@ -227,8 +221,6 @@ Deno.test("Stake Redistribution - Multiple Winners", async () => {
   // A and B are winners, C and D are losers
   const request: StakeRedistributionRequest = {
     belief_id: "test-belief-3",
-    learning_occurred: true,
-    economic_learning_rate: 0.1, // 10% redistribution
     information_scores: {
       [agentA]: 0.6,  // Winner (higher score)
       [agentB]: 0.4,  // Winner (lower score)
@@ -282,8 +274,6 @@ Deno.test("Stake Redistribution - Edge Case: Zero Economic Learning Rate", async
 
   const request: StakeRedistributionRequest = {
     belief_id: "test-belief-4",
-    learning_occurred: true,
-    economic_learning_rate: 0.0, // No economic redistribution despite learning
     information_scores: {
       [agentA]: 0.5,
       [agentB]: -0.5
@@ -315,8 +305,6 @@ Deno.test("Stake Redistribution - Edge Case: No Winners or Losers", async () => 
 
   const request: StakeRedistributionRequest = {
     belief_id: "test-belief-5",
-    learning_occurred: true,
-    economic_learning_rate: 0.2,
     information_scores: {
       [agentA]: 0.0 // Exactly zero information score
     },
@@ -342,8 +330,6 @@ Deno.test("Stake Redistribution - Input Validation", async () => {
   try {
     await callStakeRedistribution({
       belief_id: "",
-      learning_occurred: true,
-      economic_learning_rate: 0.2,
       information_scores: {},
       winners: [],
       losers: [],
@@ -358,8 +344,6 @@ Deno.test("Stake Redistribution - Input Validation", async () => {
   try {
     await callStakeRedistribution({
       belief_id: "test",
-      learning_occurred: true,
-      economic_learning_rate: 1.5, // Invalid: > 1
       information_scores: {},
       winners: [],
       losers: [],
@@ -386,8 +370,6 @@ Deno.test("Stake Redistribution - Conservation Verification", async () => {
 
   const request: StakeRedistributionRequest = {
     belief_id: "test-belief-6",
-    learning_occurred: true,
-    economic_learning_rate: 0.3, // 30% redistribution
     information_scores: {
       [agentA]: 0.7,  // Winner
       [agentB]: 0.3,  // Winner

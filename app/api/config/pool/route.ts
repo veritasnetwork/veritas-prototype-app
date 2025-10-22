@@ -8,12 +8,14 @@ const supabase = createClient(
 
 export async function GET() {
   try {
-    // Fetch pool config from system_config table
+    // Fetch ICBS pool config from system_config table
     const { data, error } = await supabase
       .from('system_config')
       .select('key, value')
       .in('key', [
-        'default_pool_k_quadratic',
+        'default_pool_f',
+        'default_pool_beta_num',
+        'default_pool_beta_den',
         'default_pool_reserve_cap',
         'default_pool_linear_slope',
         'default_pool_virtual_liquidity',

@@ -1,23 +1,27 @@
 # Veritas Curation SDK
 
-Transaction builders and utilities for integrating Veritas Curation Protocol into your Next.js app.
+Transaction builders and utilities for ICBS two-sided prediction markets on Solana.
+
+## Overview
+
+The Veritas SDK provides TypeScript transaction builders for:
+- **ContentPool** - Two-sided ICBS markets (LONG/SHORT tokens)
+- **PoolFactory** - Standardized pool deployment
+- **VeritasCustodian** - User USDC custody (global)
 
 ## Installation
 
 The SDK is part of the Anchor workspace. To use it in your Next.js app:
 
 1. **Build the program first:**
-
    ```bash
    cd solana/veritas-curation
    anchor build
    ```
 
-2. **Copy the IDL to your Next.js app:**
-
+2. **Copy the IDL to your SDK directory:**
    ```bash
-   cp target/idl/veritas_curation.json ../../src/solana/idl/
-   cp target/types/veritas_curation.ts ../../src/solana/types/
+   cp target/idl/veritas_curation.json ../../src/lib/solana/target/idl/
    ```
 
 3. **Install dependencies in your Next.js app:**
@@ -31,251 +35,311 @@ The SDK is part of the Anchor workspace. To use it in your Next.js app:
 Add these to your `.env.local`:
 
 ```env
-# From deployments/program-{network}.json
-NEXT_PUBLIC_PROGRAM_ID=GMwWgtvi2USgPa7BeVhDhxGprwpWEAjLm6VTMYHmyxAu
+# Program ID
+NEXT_PUBLIC_PROGRAM_ID=6njQqMDxSdMqXFpR25s6uZ4mQLEk6PDcBucsst5rAWNz
 
-# From deployments/config-{network}.json
-NEXT_PUBLIC_CONFIG_PDA=<config_pda>
-
-# From deployments/treasury-{network}.json
-NEXT_PUBLIC_TREASURY_PDA=<treasury_pda>
-
-# From deployments/factory-{network}.json
+# Factory PDA (from deployment)
 NEXT_PUBLIC_FACTORY_PDA=<factory_pda>
+
+# Protocol Authority (backend service wallet)
+NEXT_PUBLIC_PROTOCOL_AUTHORITY=<authority_pubkey>
 
 # Network configuration
 NEXT_PUBLIC_SOLANA_NETWORK=devnet
 NEXT_PUBLIC_RPC_ENDPOINT=https://api.devnet.solana.com
 
 # USDC Mint (devnet)
-NEXT_PUBLIC_USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+NEXT_PUBLIC_USDC_MINT=Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr
 ```
 
-## Usage
+## Quick Start
 
-### 1. Initialize a User's Custodian (on signup)
+### Initialize Anchor Connection
 
 ```typescript
-import {
-  initProgram,
-  initializeUserCustodian,
-} from "@/solana/sdk/client-example";
-import { usePrivy, useSolana } from "@privy-io/react-auth";
+import * as anchor from '@coral-xyz/anchor';
+import { Program } from '@coral-xyz/anchor';
+import { VeritasCuration } from './types/veritas_curation';
+import idl from './idl/veritas_curation.json';
 
-const { wallet, sendTransaction } = useSolana();
-
-const tx = await initializeUserCustodian(
-  program,
-  wallet.publicKey,
-  protocolAuthority,
-  usdcMint
+// Initialize provider
+const connection = new anchor.web3.Connection(
+  process.env.NEXT_PUBLIC_RPC_ENDPOINT!
 );
+const wallet = /* your wallet adapter */;
+const provider = new anchor.AnchorProvider(connection, wallet, {});
+anchor.setProvider(provider);
 
-if (tx) {
-  const sig = await sendTransaction(tx, connection);
-  console.log("Custodian initialized:", sig);
-}
+// Initialize program
+const program = new Program<VeritasCuration>(
+  idl as VeritasCuration,
+  new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID!),
+  provider
+);
 ```
 
-### 2. Create a Pool (when user creates a post)
+### Deploy a ContentPool (ICBS Market)
 
 ```typescript
-import { createPoolForPost } from "@/solana/sdk/client-example";
+import { buildDeployMarketTx } from './sdk/transaction-builders';
+import { PublicKey } from '@solana/web3.js';
 
-const tx = await createPoolForPost(
+const contentId = new PublicKey(postId); // Post ID as PublicKey
+const deployer = wallet.publicKey;
+
+const tx = await buildDeployMarketTx(
   program,
-  wallet.publicKey,
-  postId, // Your database post ID
-  addresses
+  {
+    deployer,
+    contentId,
+    initialDeposit: new anchor.BN(1_000_000), // 1 USDC in micro-USDC
+    usdcMint: new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT!),
+    protocolAuthority: new PublicKey(process.env.NEXT_PUBLIC_PROTOCOL_AUTHORITY!),
+    factoryAddress: new PublicKey(process.env.NEXT_PUBLIC_FACTORY_PDA!),
+    // Optional: custom ICBS parameters
+    f: 3, // Growth exponent (default)
+    betaNum: 1, // Beta numerator (default)
+    betaDen: 2, // Beta denominator (β = 0.5, default)
+  }
 );
 
-const sig = await sendTransaction(tx, connection);
-
-// Save pool address to your database
-const poolPda = derivePoolPda(postId);
-await db.posts.update({ id: postId, poolAddress: poolPda });
+// Sign and send
+const signature = await wallet.sendTransaction(tx, connection);
+await connection.confirmTransaction(signature);
 ```
 
-### 3. Buy Tokens (user makes a prediction)
+### Execute a Trade (Buy/Sell LONG or SHORT)
 
 ```typescript
-import { buyPoolTokens } from "@/solana/sdk/client-example";
+import { buildTradeTx, TokenSide, TradeType } from './sdk/transaction-builders';
 
-const tx = await buyPoolTokens(
+// Buy LONG tokens
+const buyLongTx = await buildTradeTx(
   program,
-  wallet.publicKey,
-  postId,
-  10, // 10 USDC
-  addresses
+  {
+    trader: wallet.publicKey,
+    contentId: new PublicKey(postId),
+    side: TokenSide.Long,
+    tradeType: TradeType.Buy,
+    amount: new anchor.BN(5_000_000), // 5 USDC
+    stakeSkim: new anchor.BN(500_000), // 0.5 USDC stake skim
+    minTokensOut: new anchor.BN(0), // Set slippage protection
+    minUsdcOut: new anchor.BN(0),
+    protocolAuthority: new PublicKey(process.env.NEXT_PUBLIC_PROTOCOL_AUTHORITY!),
+    usdcMint: new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT!),
+    factoryAddress: new PublicKey(process.env.NEXT_PUBLIC_FACTORY_PDA!),
+  }
 );
 
-const sig = await sendTransaction(tx, connection);
+// Sell SHORT tokens
+const sellShortTx = await buildTradeTx(
+  program,
+  {
+    trader: wallet.publicKey,
+    contentId: new PublicKey(postId),
+    side: TokenSide.Short,
+    tradeType: TradeType.Sell,
+    amount: new anchor.BN(1_000_000), // 1 SHORT token (atomic units)
+    stakeSkim: new anchor.BN(0),
+    minTokensOut: new anchor.BN(0),
+    minUsdcOut: new anchor.BN(4_500_000), // Expect at least 4.5 USDC back
+    protocolAuthority: new PublicKey(process.env.NEXT_PUBLIC_PROTOCOL_AUTHORITY!),
+    usdcMint: new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT!),
+    factoryAddress: new PublicKey(process.env.NEXT_PUBLIC_FACTORY_PDA!),
+  }
+);
 ```
 
-### 4. Sell Tokens
+### Settle Pool Epoch (Backend Service)
 
 ```typescript
-import { sellPoolTokens } from "@/solana/sdk/client-example";
+import { buildSettleEpochTx } from './sdk/transaction-builders';
 
-const tx = await sellPoolTokens(
+const settleTx = await buildSettleEpochTx(
   program,
-  wallet.publicKey,
-  postId,
-  100, // 100 tokens
-  addresses
+  settler.publicKey, // Service wallet
+  new PublicKey(postId), // Content ID
+  0.65, // BD score (0-1 range, 65% relevance)
+  protocolAuthority, // Must sign
+  new PublicKey(process.env.NEXT_PUBLIC_FACTORY_PDA!)
 );
 
-const sig = await sendTransaction(tx, connection);
+// Protocol authority must pre-sign or co-sign
+const signature = await program.provider.sendAndConfirm(settleTx, [
+  settler,
+  protocolAuthority
+]);
 ```
 
 ## Transaction Builders
 
-### Available Functions
+All builders are in `transaction-builders.ts`:
 
-- `buildInitializeCustodianTx()` - Create user custody account
-- `buildCreatePoolTx()` - Create new content pool
-- `buildBuyTx()` - Buy pool tokens
-- `buildSellTx()` - Sell pool tokens
-- `buildDepositTx()` - Deposit USDC to custodian
-- `buildWithdrawTx()` - Withdraw USDC from custodian
+### ContentPool Transactions
+- `buildDeployMarketTx()` - Deploy new ICBS market with LONG/SHORT mints
+- `buildTradeTx()` - Unified buy/sell for LONG/SHORT tokens
+- `buildAddLiquidityTx()` - Add bilateral liquidity to both sides
+- `buildSettleEpochTx()` - Apply BD-based settlement (scales reserves)
+- `buildClosePoolTx()` - Admin emergency pool closure
 
-### Helper Functions
+### PoolFactory Transactions
+- `buildInitializeFactoryTx()` - Bootstrap factory (one-time)
+- `buildCreatePoolTx()` - Create pool via factory
+- `buildUpdateDefaultsTx()` - Update default ICBS parameters
+- `buildUpdateFactoryAuthorityTx()` - Transfer factory control
+- `buildUpdatePoolAuthorityTx()` - Transfer pool authority
 
-- `custodianExists()` - Check if user has custodian
-- `poolExists()` - Check if pool exists for post
-- `getPoolData()` - Fetch pool state
-- `getCustodianData()` - Fetch custodian state
+## PDA Helpers
 
-## PDA Helper
-
-Derive program-derived addresses:
+The `PDAHelper` class provides methods to derive program-derived addresses:
 
 ```typescript
-import { PDAHelper } from "./transaction-builders";
+import { PDAHelper } from './sdk/pda-helper';
 
-const pdaHelper = new PDAHelper(programId);
+const pdaHelper = new PDAHelper(program.programId);
 
-const [poolPda, poolBump] = pdaHelper.getPoolPda(postIdBuffer);
-const [custodianPda] = pdaHelper.getCustodianPda(userWallet);
+// ContentPool PDAs
+const [poolPda, poolBump] = pdaHelper.getContentPoolPda(contentIdPubkey);
+const [longMintPda] = pdaHelper.getLongMintPda(contentIdPubkey);
+const [shortMintPda] = pdaHelper.getShortMintPda(contentIdPubkey);
+const [vaultPda] = pdaHelper.getPoolVaultPda(contentIdPubkey);
+
+// PoolFactory PDAs
+const [factoryPda] = pdaHelper.getPoolFactoryPda();
+const [registryPda] = pdaHelper.getPoolRegistryPda(contentIdPubkey);
+
+// VeritasCustodian PDAs (global, not per-user)
+const [custodianPda] = pdaHelper.getGlobalCustodianPda();
+const [custodianVaultPda] = pdaHelper.getGlobalCustodianVaultPda();
 ```
 
-## Integration Patterns
+## ICBS Pricing (Client-Side Estimation)
 
-### Pattern 1: API Routes (Server-side transaction building)
+Calculate prices locally for UI display:
 
 ```typescript
-// app/api/solana/create-pool/route.ts
-export async function POST(req: NextRequest) {
-  const tx = await buildCreatePoolTx(...);
+import { calculateICBSPrice, TokenSide, calculateMarketPrediction } from './icbs-pricing';
 
-  // Serialize for client to sign
-  const serialized = tx.serialize({ requireAllSignatures: false });
+// Get current marginal price
+const longPrice = calculateICBSPrice(
+  pool.supplyLong, // Atomic units (6 decimals)
+  pool.supplyShort,
+  TokenSide.Long,
+  1.0, // Lambda scaling (default)
+  3, // F growth exponent
+  1, // Beta numerator
+  2  // Beta denominator (β = 0.5)
+);
 
-  return NextResponse.json({
-    transaction: serialized.toString("base64")
-  });
+// Calculate market prediction (q)
+const prediction = calculateMarketPrediction(
+  pool.supplyLong,
+  pool.supplyShort
+);
+console.log(`Market predicts ${(prediction * 100).toFixed(1)}% relevance`);
+
+// Estimate trade outcomes
+import { estimateTokensOut, estimateUsdcOut } from './icbs-pricing';
+
+const tokensReceived = estimateTokensOut(
+  pool.supplyLong, // Current side supply
+  pool.supplyShort, // Other side supply
+  5.0, // USDC to spend
+  TokenSide.Long
+);
+
+const usdcReceived = estimateUsdcOut(
+  pool.supplyLong,
+  pool.supplyShort,
+  1.0, // Tokens to sell
+  TokenSide.Long
+);
+```
+
+## Square Root Price Conversion
+
+On-chain prices are stored as `sqrt(price) * 2^96`. Convert for display:
+
+```typescript
+import { sqrtPriceX96ToPrice } from './sqrt-price-helpers';
+
+// From on-chain to human-readable
+const pool = await program.account.contentPool.fetch(poolPda);
+const longPrice = sqrtPriceX96ToPrice(pool.sqrtPriceLongX96);
+const shortPrice = sqrtPriceX96ToPrice(pool.sqrtPriceShortX96);
+
+console.log(`LONG: $${longPrice.toFixed(4)}, SHORT: $${shortPrice.toFixed(4)}`);
+```
+
+## Token Side and Trade Type Enums
+
+```typescript
+export enum TokenSide {
+  Long = 0,
+  Short = 1,
 }
-```
 
-### Pattern 2: Client-side (with Privy/Phantom)
-
-```typescript
-"use client";
-
-import { usePrivy, useSolana } from "@privy-io/react-auth";
-
-const { wallet, sendTransaction } = useSolana();
-const tx = await buildCreatePoolTx(...);
-const sig = await sendTransaction(tx, connection);
-```
-
-### Pattern 3: Read-only queries
-
-```typescript
-import { getPoolData } from "./transaction-builders";
-
-const pool = await getPoolData(program, postIdBuffer);
-console.log("Reserve:", pool.reserve.toString());
-console.log("Token supply:", pool.tokenSupply.toString());
+export enum TradeType {
+  Buy = 0,
+  Sell = 1,
+}
 ```
 
 ## Error Handling
 
 ```typescript
 try {
-  const tx = await buyPoolTokens(...);
-  const sig = await sendTransaction(tx, connection);
-
-  // Wait for confirmation
-  await connection.confirmTransaction(sig, "confirmed");
-
-  console.log("Success:", sig);
+  const tx = await buildTradeTx(program, params);
+  const sig = await wallet.sendTransaction(tx, connection);
+  await connection.confirmTransaction(sig);
 } catch (error) {
-  if (error.message.includes("InsufficientFunds")) {
-    // Handle insufficient balance
-  } else if (error.message.includes("ReserveCap")) {
-    // Handle reserve cap exceeded
+  if (error.message.includes('InsufficientBalance')) {
+    console.error('Not enough USDC in wallet');
+  } else if (error.message.includes('SlippageExceeded')) {
+    console.error('Price moved too much, adjust minTokensOut/minUsdcOut');
+  } else {
+    console.error('Transaction failed:', error);
   }
 }
 ```
 
-## Best Practices
+## Testing
 
-1. **Always check if accounts exist** before initializing
+Run SDK tests:
 
-   ```typescript
-   const exists = await custodianExists(program, wallet.publicKey);
-   if (!exists) {
-     await initializeUserCustodian(...);
-   }
-   ```
+```bash
+cd solana/veritas-curation
+anchor test
+```
 
-2. **Handle transaction failures gracefully**
+Test specific functionality:
 
-   - Show user-friendly error messages
-   - Retry with exponential backoff for network errors
-   - Log failures for debugging
+```bash
+./test-isolated.sh tests/content-pool-icbs.test.ts
+```
 
-3. **Update your database atomically**
+## Architecture Notes
 
-   ```typescript
-   const sig = await sendTransaction(tx, connection);
-   await connection.confirmTransaction(sig);
+### ICBS Markets
+- Each post gets its own ContentPool with separate LONG/SHORT token mints
+- Prices follow the formula: `p = λ × F × s^(F/β - 1) × (s_L^(F/β) + s_S^(F/β))^(β - 1)`
+- Market prediction: `q = R_L / (R_L + R_S)` where `R = supply × price`
 
-   // Only after confirmation
-   await db.updatePostPoolAddress(postId, poolPda);
-   ```
+### Settlement
+- Pools settle independently each epoch based on BD scores
+- Reserves scale proportionally: accurate predictions gain value, inaccurate lose
+- No zero-sum redistribution between pools
 
-4. **Use connection pooling** for better performance
-   ```typescript
-   const connection = new Connection(rpcUrl, {
-     commitment: "confirmed",
-     confirmTransactionInitialTimeout: 60000,
-   });
-   ```
+### Global Custodian
+- Single `VeritasCustodian` account for the entire protocol
+- Users don't need individual custodian accounts
+- Simplifies trading flow and reduces account rent
 
-## Troubleshooting
+## Documentation
 
-### "Transaction simulation failed"
-
-- Check user has enough SOL for rent
-- Verify all accounts are initialized
-- Check USDC balance for buy transactions
-
-### "Account already exists"
-
-- User already has a custodian → skip initialization
-- Pool already exists → fetch existing pool
-
-### "Custom program error: 0x1771"
-
-- This is `InsufficientFunds` - user needs more USDC
-
-## Support
-
-For issues:
-
-1. Check deployment artifacts in `deployments/`
-2. Verify environment variables
-3. Test on devnet first
-4. Review Anchor program logs
+Full specifications in `/specs/solana-specs/`:
+- `solana_architecture_spec.md` - Overall architecture
+- `smart-contracts/ContentPool.md` - ContentPool details
+- `smart-contracts/PoolFactory.md` - Factory details
+- `smart-contracts/icbs-high-level.md` - ICBS mathematics
+- `pool-deployment-flow.md` - Deployment workflow

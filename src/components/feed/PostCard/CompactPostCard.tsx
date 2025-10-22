@@ -8,7 +8,7 @@
 import { useRouter } from 'next/navigation';
 import type { Post } from '@/types/post.types';
 import { getPostTitle, getPostPreview } from '@/types/post.types';
-import { formatPoolData } from '@/lib/solana/bonding-curve';
+import { calculateICBSPrice, TokenSide, calculateMarketPrediction } from '@/lib/solana/icbs-pricing';
 
 interface CompactPostCardProps {
   post: Post;
@@ -21,11 +21,20 @@ export function CompactPostCard({ post, onClick }: CompactPostCardProps) {
   // Get preview text for display
   const preview = getPostPreview(post, 120);
 
-  // Calculate pool metrics
-  const poolPrice = post.poolTokenSupply !== undefined &&
-                    post.poolReserveBalance !== undefined &&
-                    post.poolKQuadratic !== undefined
-    ? formatPoolData(post.poolTokenSupply, post.poolReserveBalance, post.poolKQuadratic)
+  // Calculate pool metrics using ICBS
+  const poolData = post.poolLongTokenSupply && post.poolShortTokenSupply
+    ? {
+        longPrice: calculateICBSPrice(post.poolLongTokenSupply, post.poolShortTokenSupply, TokenSide.Long),
+        shortPrice: calculateICBSPrice(post.poolLongTokenSupply, post.poolShortTokenSupply, TokenSide.Short),
+        prediction: calculateMarketPrediction(post.poolLongTokenSupply, post.poolShortTokenSupply),
+      }
+    : null;
+
+  // Calculate total pool value (virtual reserves)
+  // Note: poolLongTokenSupply and poolShortTokenSupply are already in display units from API
+  const poolValue = poolData
+    ? post.poolLongTokenSupply! * poolData.longPrice +
+      post.poolShortTokenSupply! * poolData.shortPrice
     : null;
 
   const handleClick = () => {
@@ -53,9 +62,9 @@ export function CompactPostCard({ post, onClick }: CompactPostCardProps) {
         )}
 
         {/* Pool Size Badge */}
-        {post.poolAddress && poolPrice && (
+        {post.poolAddress && poolValue && (
           <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/80 backdrop-blur-sm rounded text-xs font-medium text-blue-400 border border-blue-500/30">
-            ${Number(poolPrice.reserve).toFixed(2)}
+            ${poolValue.toFixed(2)}
           </div>
         )}
       </div>

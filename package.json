@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "clean": "rm -rf .next node_modules/.cache",
+    "dev:fresh": "npm run clean && npm run dev",
     "sync-idl": "cp solana/veritas-curation/target/idl/veritas_curation.json supabase/functions/_shared/veritas_curation_idl.json && echo '✅ IDL synced to edge functions'",
     "reset:users": "node scripts/reset-dbs/reset-users.js",
     "reset:posts": "node scripts/reset-dbs/reset-posts.js",
@@ -15,7 +17,15 @@
     "reset:all": "node scripts/reset-dbs/reset-all.js",
     "meta-test:small": "node scripts/meta-test.js small",
     "meta-test:medium": "node scripts/meta-test.js medium",
-    "meta-test:large": "node scripts/meta-test.js large"
+    "meta-test:large": "node scripts/meta-test.js large",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:tier1": "playwright test tests/e2e/tier-1",
+    "test:e2e:tier2": "playwright test tests/e2e/tier-2",
+    "test:e2e:tier3": "playwright test tests/e2e/tier-3",
+    "test:e2e:auth": "playwright test tests/e2e/tier-2/03-authenticated-post-creation.spec.ts tests/e2e/tier-3/02-authenticated-pool-deployment.spec.ts",
+    "test:e2e:auth:headed": "playwright test tests/e2e/tier-2/03-authenticated-post-creation.spec.ts tests/e2e/tier-3/02-authenticated-pool-deployment.spec.ts --headed"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
@@ -48,10 +58,12 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@types/node": "^20.19.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.21",
+    "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
     "postcss": "^8.5.6",

@@ -3,111 +3,134 @@
 ## High-Level Overview
 
 ### Purpose
-ContentPool creates a speculation market for content relevance using a bonding curve mechanism with real SPL tokens. Users can bet on whether content will gain or lose relevance by buying tokens from the curve (minting) or selling tokens back to the curve (burning). The protocol automatically redistributes value between pools each epoch based on relevance changes.
+ContentPool creates a two-sided prediction market for content relevance using ICBS (Inversely Coupled Bonding Surface). Users can bet on content gaining relevance (buy LONG) or losing relevance (buy SHORT). The pool settles against absolute BD (Belief Decomposition) scores, adjusting reserve ratios to reward accurate predictions.
 
-### Core Innovation: Elastic-K Mechanism
-When the protocol applies penalties or rewards, we scale the bonding curve coefficients (k values) proportionally to reserve changes. This ensures all token holders gain/lose value equally without requiring token rebalancing.
+### Core Innovation: ICBS with Ratio-Based Settlement
+The ICBS bonding surface creates inverse coupling between LONG and SHORT sides - buying one makes the other cheaper. Settlement scales virtual reserves by accuracy factors (f_L = x/q, f_S = (1-x)/(1-q)), implementing a proper scoring rule without cross-pool dependencies.
 
 ### Economic Flow
-1. **Users speculate** by buying tokens when they believe content will gain relevance
-2. **Protocol measures** actual relevance changes via Veritas BTS scoring
-3. **Value redistributes** automatically - declining content pools lose USDC to rising content pools
-4. **Token prices adjust** via elastic-k scaling, rewarding correct predictions
+1. **Market deployment** - First trader seeds pool with $100+ USDC, setting initial prediction q
+2. **Users speculate** - Buy LONG if bullish, SHORT if bearish on content relevance
+3. **Protocol measures** - BD algorithm calculates absolute relevance score x ∈ [0, 1]
+4. **Settlement** - Reserves scale by f = x/q (LONG) and f = (1-x)/(1-q) (SHORT)
+5. **Value redistribution** - Correct predictions gain, incorrect predictions lose (zero-sum)
 
 ## Mathematical Foundation
 
-### Cube Root Bonding Curve
-The pool uses a cube root supply function that provides natural early-stage accessibility while maintaining growth potential:
+### ICBS Cost Function
 
-**Supply Function:**
-$$s(R) = \left(\frac{3R}{k}\right)^{1/3} \times 100$$
+The pool uses an inversely coupled bonding surface that provides manipulation resistance through inverse price coupling:
 
-Where:
-- `R` = reserve (USDC in pool, in dollar units not micro-USDC)
-- `s` = token supply (in shares, not atomic units)
-- `k` = curve steepness parameter (default k=1)
-
-**Price Function (derived):**
-$$P(s) = \max(P_{floor}, \frac{k \times s^2}{1,000,000})$$
+**Cost Function:**
+$$C(s_L, s_S) = (s_L^{F/\beta} + s_S^{F/\beta})^{\beta}$$
 
 Where:
-- `P_floor` = minimum price of $0.0001 per token (100 micro-USDC per share)
-- Price is in USDC per share
+- `s_L`, `s_S` = LONG/SHORT token supplies (Q64.64 fixed-point)
+- `F` = growth exponent (default: 1 for numerical stability and 1-homogeneity)
+- `β` = coupling coefficient (default: 0.5)
+
+**Marginal Prices:**
+$$p_L = \lambda_L \times F \times s_L^{F/\beta - 1} \times (s_L^{F/\beta} + s_S^{F/\beta})^{\beta - 1}$$
+$$p_S = \lambda_S \times F \times s_S^{F/\beta - 1} \times (s_L^{F/\beta} + s_S^{F/\beta})^{\beta - 1}$$
+
+**With default parameters (F=1, β=0.5):**
+$$p_L = \lambda_L \times s_L \times (s_L^2 + s_S^2)^{-0.5} = \lambda_L \times \frac{s_L}{\sqrt{s_L^2 + s_S^2}}$$
 
 **Key Properties:**
-- For k=1 and $10 USDC: yields ~310 tokens (cbrt(30) * 100 ≈ 310.7)
-- For k=1 and $1 USDC: yields ~144 tokens (cbrt(3) * 100 ≈ 144.2)
-- Early buyers get reasonable token amounts
-- Price grows quadratically, rewarding early adopters
-- Smooth continuous growth throughout entire curve
-- Dynamic k parameter enables pool redistribution without token rebalancing
+- **1-homogeneous**: C(λs_L, λs_S) = λ × C(s_L, s_S) (exact with F=1)
+- **Inverse coupling**: Buying LONG increases p_L and decreases p_S
+- **Manipulation resistant**: Can't pump one side without making the other cheap
+- **Symmetric**: C(s_L, s_S) = C(s_S, s_L) when parameters are equal
 
-### Reserve Calculation
-The reserve (total USDC in pool) is calculated from the supply function:
+### Virtual Reserves
 
-**From supply to reserve:**
-$$R = \frac{k \times s^3}{3 \times 100^3} = \frac{k \times s^3}{3,000,000}$$
+Due to homogeneity, virtual reserves equal simple products (no integration needed):
 
-**Example calculations:**
-- 310 tokens → R = (1 × 310³) / 3,000,000 ≈ $9.92 USDC
-- 144 tokens → R = (1 × 144³) / 3,000,000 ≈ $0.995 USDC
+**Reserve Calculation:**
+$$R_L = s_L \times p_L$$
+$$R_S = s_S \times p_S$$
+$$R_{total} = R_L + R_S = C(s_L, s_S)$$
 
-### Elastic-K Scaling
-When the protocol adds/removes USDC without user trades (epoch adjustments):
+**Market Prediction (Reserve Ratio):**
+$$q = \frac{R_L}{R_L + R_S}$$
 
-**Scaling Ratio:**
-$$ratio = \frac{R_{new}}{R_{old}}$$
+Where q ∈ [0, 1] represents the market's predicted relevance score.
 
-**Coefficient Update:**
-$$k_{quadratic}^{new} = k_{quadratic}^{old} \times ratio$$
+**Nash Equilibrium:**
+Rational traders buy LONG until expected profit = 0, which occurs when q = E[x].
 
-**Properties Preserved:**
-- Token supply unchanged
-- Reserve consistency maintained (integral still equals reserve)
-- All holders affected proportionally
-- Price remains continuous (no phase transitions)
+### Settlement Mechanics
+
+Settlement scales reserves based on prediction accuracy:
+
+**Settlement Factors:**
+$$f_L = \frac{x}{q}$$
+$$f_S = \frac{1 - x}{1 - q}$$
+
+Where:
+- `x` = BD score (actual relevance) ∈ [0, 1]
+- `q` = market prediction (before settlement)
+- q is clamped to [1%, 99%] to prevent division issues
+
+**Reserve Scaling:**
+$$R_L' = R_L \times f_L$$
+$$R_S' = R_S \times f_S$$
+
+**Properties:**
+- Token supplies (s_L, s_S) never change during settlement
+- Prices scale proportionally: p' = p × f
+- Position values change: value' = tokens × p × f
+- Zero-sum: R_L' + R_S' = R_L + R_S
+- Convergence: q' = x after settlement
+
+**Examples:**
+
+| q (prediction) | x (actual) | f_L  | f_S  | LONG gain | SHORT gain |
+|----------------|------------|------|------|-----------|------------|
+| 0.5            | 0.5        | 1.0  | 1.0  | 0%        | 0%         |
+| 0.4            | 0.6        | 1.5  | 0.67 | +50%      | -33%       |
+| 0.8            | 0.2        | 0.25 | 4.0  | -75%      | +300%      |
 
 ## Configurable Parameters
 
-### Global Parameters (ProtocolConfig)
-Stored on-chain in singleton PDA, adjustable by protocol authority:
+### Global Parameters (PoolFactory)
+Set at factory level, applied to all new pools:
 
 | Parameter | Purpose | Default Value | Range |
 |-----------|---------|---------------|-------|
-| `default_k_quadratic` | Default curve steepness | 1 (balanced curve) | [100, 10,000,000] |
-| `min_k_quadratic` | Minimum allowed k for new pools | 100 (0.0001) | > 0 |
-| `max_k_quadratic` | Maximum allowed k for new pools | 10,000,000 (10.0) | > min_k |
-| `min_trade_amount` | Minimum buy/sell amount | 1,000,000 (1 USDC) | > 0 |
+| `default_f` | Growth exponent | 1 | [1, 10] |
+| `default_beta_num` | β numerator | 1 | > 0 |
+| `default_beta_den` | β denominator | 2 (β=0.5) | > 0 |
+| `min_initial_deposit` | Minimum deployment | 100 USDC | > 0 |
+| `min_settle_interval` | Settlement cooldown | 300 seconds | > 0 |
 
 ### Per-Pool Parameters (ContentPool)
-Set at pool creation:
+Set at pool initialization:
 
 | Parameter | Purpose | Set At | Can Update? |
 |-----------|---------|--------|-------------|
-| `k_quadratic` | Curve steepness coefficient | Initialization (validated against bounds) | Via elastic-k only |
+| `f` | Growth exponent | Initialization | No |
+| `beta_num/beta_den` | Coupling coefficient | Initialization | No |
+| `sqrt_lambda_long_x96` | LONG curve scale | Market deployment | Yes (settlement) |
+| `sqrt_lambda_short_x96` | SHORT curve scale | Market deployment | Yes (settlement) |
+| `min_settle_interval` | Cooldown period | Initialization | No |
 
 ### Economic Impact Examples
 
-**Flat Curve (k=0.0001):**
-- $1 USDC → ~14,422 tokens
-- $10 USDC → ~31,072 tokens
-- Early adopter advantage: Very low
-- Accessibility: Very high
-- Speculation upside: Limited
+**Low Coupling (β=0.9):**
+- Weak inverse coupling
+- LONG and SHORT prices more independent
+- Less manipulation resistance
 
-**Moderate Curve (k=1):**
-- $1 USDC → ~144 tokens
-- $10 USDC → ~310 tokens
-- Early adopter advantage: Moderate
-- Balanced accessibility and growth
+**Moderate Coupling (β=0.5):**
+- Balanced inverse coupling
+- Strong manipulation resistance
 - **Default configuration**
 
-**Steep Curve (k=10):**
-- $1 USDC → ~66 tokens
-- $10 USDC → ~143 tokens
-- Early adopter advantage: High
-- Accessibility: Lower
-- Speculation upside: Significant
+**High Coupling (β=0.1):**
+- Very strong inverse coupling
+- Maximum manipulation resistance
+- Prices heavily interdependent
 
 ---
 
@@ -116,967 +139,515 @@ Set at pool creation:
 ### Data Structures
 
 #### Primary Account: ContentPool
+
 ```rust
 #[account]
 pub struct ContentPool {
-    // Identification (32 bytes)
-    pub post_id: [u8; 32],      // Hash identifier of content (unique key)
+    // Identity (96 bytes)
+    pub content_id: Pubkey,           // Post/belief identifier (32 bytes)
+    pub creator: Pubkey,              // Pool creator (32 bytes)
+    pub market_deployer: Pubkey,      // First trader who deployed market (32 bytes)
 
-    // Bonding Curve Parameters (16 bytes)
-    pub k_quadratic: u128,      // Curve steepness coefficient (mutable via elastic-k)
-                                 // Note: Called k_quadratic for historical reasons,
-                                 // but applies to the cube root formula
+    // Mints (64 bytes)
+    pub long_mint: Pubkey,            // SPL token mint for LONG side (32 bytes)
+    pub short_mint: Pubkey,           // SPL token mint for SHORT side (32 bytes)
 
-    // Current State (32 bytes)
-    pub token_supply: u128,     // Total SPL tokens minted (atomic units, 6 decimals)
-    pub reserve: u128,          // Total USDC in pool (micro-USDC, 6 decimals)
+    // Vaults (64 bytes)
+    pub vault: Pubkey,                // USDC vault for this pool (32 bytes)
+    pub stake_vault: Pubkey,          // Global stake vault (VeritasCustodian) (32 bytes)
 
-    // Token Information (75 bytes)
-    pub token_mint: Pubkey,     // SPL token mint address (32 bytes)
-    pub token_name: [u8; 32],   // Token name (32 bytes)
-    pub token_symbol: [u8; 10], // Token symbol (10 bytes)
-    pub token_decimals: u8,     // Token decimals - always 6 (1 byte)
+    // ICBS Parameters (16 bytes)
+    pub f: u16,                       // Growth exponent (default: 3)
+    pub beta_num: u16,                // β numerator (default: 1)
+    pub beta_den: u16,                // β denominator (default: 2, so β = 0.5)
+    pub _padding1: [u8; 10],          // Alignment padding
 
-    // Accounts (64 bytes)
-    pub usdc_vault: Pubkey,     // Associated token account for USDC
-    pub factory: Pubkey,        // Reference to PoolFactory (authority source of truth)
+    // Token Supplies - Integer (16 bytes)
+    pub s_long: u64,                  // LONG token supply (integer, 6 decimals)
+    pub s_short: u64,                 // SHORT token supply (integer, 6 decimals)
 
-    // PDA (1 byte)
-    pub bump: u8,               // PDA bump seed
+    // Virtual Reserves - Integer (16 bytes)
+    pub r_long: u64,                  // LONG virtual reserve (R_L = s_L × p_L)
+    pub r_short: u64,                 // SHORT virtual reserve (R_S = s_S × p_S)
+
+    // Square Root Prices - X96 (32 bytes)
+    pub sqrt_price_long_x96: u128,    // sqrt(price_long) * 2^96
+    pub sqrt_price_short_x96: u128,   // sqrt(price_short) * 2^96
+
+    // Square Root Lambda Scale - X96 (32 bytes)
+    pub sqrt_lambda_long_x96: u128,   // sqrt(λ_L) * 2^96
+    pub sqrt_lambda_short_x96: u128,  // sqrt(λ_S) * 2^96
+
+    // Settlement (16 bytes)
+    pub last_settle_ts: i64,          // Last settlement timestamp (8 bytes)
+    pub min_settle_interval: i64,     // Cooldown between settlements (default: 300s)
+
+    // Stats (16 bytes)
+    pub vault_balance: u64,           // Actual USDC in vault (for invariant checking)
+    pub initial_q: u64,               // Initial q set by deployer (Q32.32)
+
+    // Factory Reference (32 bytes)
+    pub factory: Pubkey,              // PoolFactory that created this pool
+
+    // Bump (1 byte + 7 padding)
+    pub bump: u8,                     // PDA bump seed
+    pub _padding2: [u8; 7],           // Alignment
 }
-// Total: 220 bytes + 8 discriminator = 228 bytes
+// Total: 408 bytes + 8 discriminator = 416 bytes
 ```
 
 **PDA Derivation:**
 ```rust
-seeds = [b"pool", post_id]
+seeds = [b"content_pool", content_id.as_ref()]
 (address, bump) = Pubkey::find_program_address(seeds, program_id)
 ```
 
-#### Protocol Configuration Account
-```rust
-#[account]
-pub struct ProtocolConfig {
-    // Authority (33 bytes)
-    pub authority: Pubkey,              // 32 bytes
-    pub bump: u8,                       // 1 byte
-
-    // Default curve parameters (16 bytes)
-    pub default_k_quadratic: u128,      // 16 bytes
-
-    // Validation bounds (32 bytes)
-    pub min_k_quadratic: u128,          // 16 bytes
-    pub max_k_quadratic: u128,          // 16 bytes
-
-    // Trading limits (8 bytes)
-    pub min_trade_amount: u64,          // 8 bytes
-
-    // Reserved for future use (16 bytes)
-    pub reserved: [u64; 2],             // 16 bytes
-}
-// Total: 105 bytes + 8 discriminator = 113 bytes
-
-// PDA: seeds = [b"config"]
-```
-
 #### Constants
+
 ```rust
-// Precision (immutable)
-const USDC_DECIMALS: u8 = 6;
-const TOKEN_PRECISION: u128 = 1_000_000;                // SPL tokens have 6 decimals
-const USDC_PRECISION: u128 = 1_000_000;                 // USDC has 6 decimals
-const SHARE_MULTIPLIER: u128 = 100;                     // The 100x in the formula s(R) = cbrt(3R/k) * 100
-const RATIO_PRECISION: u128 = 1_000_000;                // Precision for elastic-k ratio calculations
-const PRICE_FLOOR_MICRO: u128 = 100;                    // $0.0001 per share = 100 micro-USDC
+// Supply Limits
+pub const MAX_SAFE_SUPPLY: u64 = 1_000_000_000_000;  // 1 trillion tokens (with 6 decimals)
+pub const MIN_TRADE_SIZE: u64 = 1_000;               // 0.001 USDC
+pub const MAX_TRADE_SIZE: u64 = 1_000_000_000_000;   // 1M USDC
 
-// Default initial values (used if no ProtocolConfig exists)
-const DEFAULT_K_QUADRATIC: u128 = 1;                     // k=1 for balanced curve
+// Initial Deposit Limits
+pub const MIN_INITIAL_DEPOSIT: u64 = 100_000_000;    // 100 USDC (6 decimals)
+pub const MAX_INITIAL_DEPOSIT: u64 = 10_000_000_000; // 10K USDC (6 decimals)
 
-// Bounds for parameters
-const DEFAULT_MIN_K_QUADRATIC: u128 = 100;              // Min 0.0001
-const DEFAULT_MAX_K_QUADRATIC: u128 = 10_000_000;       // Max 10
-const DEFAULT_MIN_TRADE_AMOUNT: u64 = 1_000_000;        // 1 USDC
+// Price Bounds (in micro-USDC per token)
+pub const MIN_PRICE_MICRO: u64 = 1;                  // 0.000001 USDC/token
+pub const MAX_PRICE_MICRO: u64 = 1_000_000_000_000;  // 1M USDC/token
+
+// Settlement
+pub const MIN_PREDICTION_BPS: u16 = 100;      // 1% in basis points
+pub const MAX_PREDICTION_BPS: u16 = 9900;     // 99% in basis points
+pub const MIN_SETTLE_INTERVAL: i64 = 300;     // 5 minutes
+
+// Fixed-Point for X96 format
+pub const Q96_ONE: u128 = 1 << 96;        // 1.0 in X96
+pub const Q32_ONE: u64 = 1 << 32;         // 1.0 in Q32.32 (for BD scores)
+
+// Q64.64 constants (for settlement logic)
+pub const Q64_ONE: u128 = 1 << 64;
+pub const Q64_MIN_PREDICTION: u128 = Q64_ONE / 100;      // 1%
+pub const Q64_MAX_PREDICTION: u128 = Q64_ONE * 99 / 100; // 99%
+pub const ROUNDING_TOLERANCE: u128 = 1000;
+
+// Decimals
+pub const USDC_DECIMALS: u8 = 6;
+pub const TOKEN_DECIMALS: u8 = 6;  // Changed from 9 to match USDC
+
+// Flat Rate (Market Deployment) - in micro-USDC
+pub const FLAT_RATE: u64 = 1_000_000;  // 1 USDC per token initial price
+
+// Default ICBS Parameters
+pub const DEFAULT_F: u16 = 1;  // Growth exponent (reduced from 3 to avoid numerical overflow)
+pub const DEFAULT_BETA_NUM: u16 = 1;
+pub const DEFAULT_BETA_DEN: u16 = 2;  // β = 0.5
 ```
 
 ### Function Signatures
 
 #### State Modifying Functions
 
+**Note**: Pool creation is handled by `PoolFactory::create_pool`, not by ContentPool directly. ContentPool instructions are called after the pool account is initialized.
+
 ```rust
-// 0. Initialize protocol configuration (one-time setup)
-pub fn initialize_config(
-    ctx: Context<InitializeConfig>,
+// 1. Deploy market (first trader seeds liquidity)
+// Called after PoolFactory::create_pool has initialized the pool account
+pub fn deploy_market(
+    ctx: Context<DeployMarket>,
+    initial_deposit: u64,         // Total USDC (min: 100 USDC)
+    long_allocation: u64,         // USDC allocated to LONG side
 ) -> Result<()>
 
-// 1. Update protocol configuration
-pub fn update_config(
-    ctx: Context<UpdateConfig>,
-    default_k_quadratic: Option<u128>,
-    min_k_quadratic: Option<u128>,
-    max_k_quadratic: Option<u128>,
-    min_trade_amount: Option<u64>,
+// 2. Trade (buy or sell tokens)
+pub fn trade(
+    ctx: Context<Trade>,
+    side: TokenSide,              // LONG or SHORT
+    trade_type: TradeType,        // BUY or SELL
+    amount: u64,                  // USDC for buy, tokens for sell
+    stake_skim: u64,              // Backend-calculated (buys only)
+    min_tokens_out: u64,          // Slippage protection (buys)
+    min_usdc_out: u64,            // Slippage protection (sells)
 ) -> Result<()>
 
-// 2. Create new pool
-pub fn initialize_pool(
-    ctx: Context<InitializePool>,
-    post_id: [u8; 32],
-    initial_k_quadratic: u128,
-    token_name: String,
-    token_symbol: String,
+// 3. Settle epoch (protocol authority + user)
+pub fn settle_epoch(
+    ctx: Context<SettleEpoch>,
+    bd_score: u32,                // BD score in Q32.32 [0, 2^32]
 ) -> Result<()>
 
-// 3. User buys tokens with USDC
-pub fn buy(
-    ctx: Context<Buy>,
-    usdc_amount: u64,
+// 4. Add liquidity (any user)
+pub fn add_liquidity(
+    ctx: Context<AddLiquidity>,
+    usdc_amount: u64,              // Total USDC to add
 ) -> Result<()>
 
-// 4. User sells tokens for USDC
-pub fn sell(
-    ctx: Context<Sell>,
-    token_amount: u128,
-) -> Result<()>
-
-// 5. Protocol applies penalty (removes USDC)
-pub fn apply_pool_penalty(
-    ctx: Context<ApplyPoolPenalty>,
-    penalty_amount: u64,
-) -> Result<()>
-
-// 6. Protocol applies reward (adds USDC)
-pub fn apply_pool_reward(
-    ctx: Context<ApplyPoolReward>,
-    reward_amount: u64,
+// 5. Close pool (creator + protocol authority)
+pub fn close_pool(
+    ctx: Context<ClosePool>,
 ) -> Result<()>
 ```
 
 #### View Functions
 
 ```rust
-// 7. Get current pool state (Solana accounts are readable by default)
-// No function needed - clients read ContentPool account directly
-// Calculations done client-side using cube root formula:
-//   - shares = token_supply / 10^6 (convert atomic units to shares)
-//   - current_price = max(PRICE_FLOOR, k * shares²) (in micro-USDC per share)
-//   - market_cap = current_price * shares
-
-// 8. Get protocol configuration (Solana accounts are readable by default)
-// No function needed - clients read ProtocolConfig account directly
+// Pool state (Solana accounts are readable by default)
+// Clients read ContentPool account directly and calculate:
+//   - Current prices: p_L, p_S using ICBS formulas
+//   - Reserve ratio: q = R_L / (R_L + R_S)
+//   - Position value: tokens × price
 ```
-
-**Note:** The detailed buy/sell implementations below use the cube root supply function:
-- `s(R) = cbrt(3R/k) * 100` for calculating tokens from USDC
-- `R = k * s³ / 3,000,000` for calculating USDC from tokens
 
 ### Instruction Contexts
 
 ```rust
 #[derive(Accounts)]
-#[instruction(post_id: [u8; 32])]
 pub struct InitializePool<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 220,
-        seeds = [b"pool", post_id.as_ref()],
+        space = 8 + 352,
+        seeds = [b"content_pool", content_id.as_ref()],
         bump
+    )]
+    pub pool: Account<'info, ContentPool>,
+
+    pub content_id: UncheckedAccount<'info>,
+    #[account(mut)]
+    pub factory: Account<'info, PoolFactory>,
+    pub creator: Signer<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct DeployMarket<'info> {
+    #[account(
+        mut,
+        seeds = [b"content_pool", pool.content_id.as_ref()],
+        bump = pool.bump,
+        constraint = pool.market_deployer == Pubkey::default() @ ErrorCode::MarketAlreadyDeployed
     )]
     pub pool: Account<'info, ContentPool>,
 
     #[account(
         init,
         payer = payer,
-        associated_token::mint = usdc_mint,
-        associated_token::authority = pool,
+        mint::decimals = 6,
+        mint::authority = pool,
+        seeds = [b"long_mint", pool.content_id.as_ref()],
+        bump
     )]
-    pub usdc_vault: Account<'info, TokenAccount>,
+    pub long_mint: Account<'info, Mint>,
 
-    // Optional: May not exist for first pools
-    #[account(
-        seeds = [b"config"],
-        bump = config.bump,
-    )]
-    pub config: Option<Account<'info, ProtocolConfig>>,
-
-    pub usdc_mint: Account<'info, Mint>,
-    pub authority: Signer<'info>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
-    pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
-    pub rent: Sysvar<'info, Rent>,
-}
-```
-
-## Detailed Implementation
-
-### 0. Initialize Protocol Configuration
-
-Creates the singleton protocol configuration account (one-time setup).
-
-**Validation:**
-```rust
-// ProtocolConfig must not already exist (Anchor init constraint handles this)
-```
-
-**State Initialization:**
-```rust
-// Initialize with default values
-config.authority = authority.key();
-config.bump = bump;
-
-config.default_k_quadratic = DEFAULT_K_QUADRATIC;
-
-config.min_k_quadratic = DEFAULT_MIN_K_QUADRATIC;
-config.max_k_quadratic = DEFAULT_MAX_K_QUADRATIC;
-config.min_trade_amount = DEFAULT_MIN_TRADE_AMOUNT;
-
-config.reserved = [0; 2]; // Zero-initialized for future use
-```
-
-**Context:**
-```rust
-#[derive(Accounts)]
-pub struct InitializeConfig<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 89,
-        seeds = [b"config"],
+        mint::decimals = 6,
+        mint::authority = pool,
+        seeds = [b"short_mint", pool.content_id.as_ref()],
         bump
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub short_mint: Account<'info, Mint>,
 
-    pub authority: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        token::mint = usdc_mint,
+        token::authority = pool,
+        seeds = [b"vault", pool.content_id.as_ref()],
+        bump
+    )]
+    pub vault: Account<'info, TokenAccount>,
 
+    #[account(mut)]
+    pub deployer_usdc: Account<'info, TokenAccount>,
+    #[account(init_if_needed, payer = payer, associated_token::mint = long_mint, associated_token::authority = deployer)]
+    pub deployer_long: Account<'info, TokenAccount>,
+    #[account(init_if_needed, payer = payer, associated_token::mint = short_mint, associated_token::authority = deployer)]
+    pub deployer_short: Account<'info, TokenAccount>,
+
+    pub usdc_mint: Account<'info, Mint>,
+    pub deployer: Signer<'info>,
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
 }
-```
 
----
-
-### 1. Update Protocol Configuration
-
-Updates protocol-wide parameters (authority only).
-
-**Validation:**
-```rust
-require!(ctx.accounts.authority.key() == config.authority, ErrorCode::Unauthorized);
-
-// Validate new bounds if provided
-if let Some(min_k) = min_k_quadratic {
-    require!(min_k > 0, ErrorCode::InvalidParameters);
-}
-if let Some(max_k) = max_k_quadratic {
-    require!(max_k >= config.min_k_quadratic, ErrorCode::InvalidParameters);
-}
-if let Some(min_cap) = min_supply_cap {
-    require!(min_cap > 0, ErrorCode::InvalidParameters);
-}
-if let Some(max_cap) = max_supply_cap {
-    require!(max_cap >= config.min_supply_cap, ErrorCode::InvalidParameters);
-}
-```
-
-**State Updates:**
-```rust
-// Update only provided values (Option pattern)
-if let Some(val) = default_k_quadratic {
-    config.default_k_quadratic = val;
-}
-if let Some(val) = default_supply_cap {
-    config.default_supply_cap = val;
-}
-if let Some(val) = min_k_quadratic {
-    config.min_k_quadratic = val;
-}
-if let Some(val) = max_k_quadratic {
-    config.max_k_quadratic = val;
-}
-if let Some(val) = min_supply_cap {
-    config.min_supply_cap = val;
-}
-if let Some(val) = max_supply_cap {
-    config.max_supply_cap = val;
-}
-if let Some(val) = min_trade_amount {
-    config.min_trade_amount = val;
-}
-```
-
-**Context:**
-```rust
 #[derive(Accounts)]
-pub struct UpdateConfig<'info> {
+pub struct Trade<'info> {
     #[account(
         mut,
-        seeds = [b"config"],
-        bump = config.bump
+        seeds = [b"content_pool", pool.content_id.as_ref()],
+        bump = pool.bump,
+        constraint = pool.market_deployer != Pubkey::default() @ ErrorCode::MarketNotDeployed
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub pool: Account<'info, ContentPool>,
 
-    pub authority: Signer<'info>,
+    #[account(mut)]
+    pub factory: Account<'info, PoolFactory>,
+
+    #[account(mut)]
+    pub trader_usdc: Account<'info, TokenAccount>,
+    #[account(mut, constraint = vault.key() == pool.vault)]
+    pub vault: Account<'info, TokenAccount>,
+    #[account(mut, constraint = stake_vault.key() == pool.stake_vault)]
+    pub stake_vault: Account<'info, TokenAccount>,
+
+    #[account(init_if_needed, payer = payer, associated_token::mint = token_mint, associated_token::authority = trader)]
+    pub trader_tokens: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub token_mint: Account<'info, Mint>,
+    pub usdc_mint: Account<'info, Mint>,
+
+    pub trader: Signer<'info>,
+    #[account(constraint = protocol_authority.key() == factory.pool_authority)]
+    pub protocol_authority: Signer<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct SettleEpoch<'info> {
+    #[account(
+        mut,
+        seeds = [b"content_pool", pool.content_id.as_ref()],
+        bump = pool.bump
+    )]
+    pub pool: Account<'info, ContentPool>,
+
+    #[account(constraint = factory.key() == pool.factory)]
+    pub factory: Account<'info, PoolFactory>,
+
+    #[account(constraint = protocol_authority.key() == factory.pool_authority)]
+    pub protocol_authority: Signer<'info>,
+
+    pub settler: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct ClosePool<'info> {
+    #[account(
+        mut,
+        close = creator,
+        seeds = [b"content_pool", pool.content_id.as_ref()],
+        bump = pool.bump,
+        constraint = pool.creator == creator.key()
+    )]
+    pub pool: Account<'info, ContentPool>,
+
+    #[account(constraint = factory.key() == pool.factory)]
+    pub factory: Account<'info, PoolFactory>,
+
+    #[account(mut, constraint = vault.key() == pool.vault)]
+    pub vault: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub creator_usdc: Account<'info, TokenAccount>,
+
+    pub creator: Signer<'info>,
+    #[account(constraint = protocol_authority.key() == factory.pool_authority)]
+    pub protocol_authority: Signer<'info>,
+
+    pub token_program: Program<'info, Token>,
 }
 ```
 
----
+### Events
 
-### 2. Initialize Pool
-
-Creates a new content speculation pool with bonding curve parameters.
-
-**Validation:**
 ```rust
-// Load config (may not exist for first pool - use defaults)
-let config = ctx.accounts.config.as_ref();
-
-let min_k = config.map_or(DEFAULT_MIN_K_QUADRATIC, |c| c.min_k_quadratic);
-let max_k = config.map_or(DEFAULT_MAX_K_QUADRATIC, |c| c.max_k_quadratic);
-let min_cap = config.map_or(DEFAULT_MIN_SUPPLY_CAP, |c| c.min_supply_cap);
-let max_cap = config.map_or(DEFAULT_MAX_SUPPLY_CAP, |c| c.max_supply_cap);
-
-// Validate against bounds
-require!(initial_k_quadratic >= min_k, ErrorCode::InvalidParameters);
-require!(initial_k_quadratic <= max_k, ErrorCode::InvalidParameters);
-require!(supply_cap >= min_cap, ErrorCode::InvalidParameters);
-require!(supply_cap <= max_cap, ErrorCode::InvalidParameters);
-```
-
-**State Initialization:**
-```rust
-// Validate and store token metadata
-require!(token_name.len() <= 32, ErrorCode::InvalidParameters);
-require!(token_symbol.len() <= 10, ErrorCode::InvalidParameters);
-
-let mut name_bytes = [0u8; 32];
-name_bytes[..token_name.len()].copy_from_slice(token_name.as_bytes());
-let mut symbol_bytes = [0u8; 10];
-symbol_bytes[..token_symbol.len()].copy_from_slice(token_symbol.as_bytes());
-
-// Initialize pool account (k_linear not stored, will be derived)
-pool.post_id = post_id;
-pool.factory = factory.key();  // Reference to PoolFactory for authority lookup
-pool.token_mint = token_mint.key();
-pool.token_name = name_bytes;
-pool.token_symbol = symbol_bytes;
-pool.token_decimals = 6;  // Same as USDC for simplicity
-pool.k_quadratic = initial_k_quadratic;
-pool.supply_cap = supply_cap;
-pool.token_supply = 0;
-pool.reserve = 0;
-pool.usdc_vault = usdc_vault.key();
-pool.bump = bump;
-```
-
-**Account Creation:**
-- Pool PDA created with seeds `[b"pool", post_id]`
-- Token mint created with pool PDA as mint authority (no separate mint authority PDA)
-- USDC vault created as associated token account
-- Pool has authority over vault via PDA signing
-- Pool references PoolFactory for dynamic authority validation
-- Freeze authority set to None for trustless operation
-
-**Note:** This function is typically called by PoolFactory::create_pool, not directly
-
----
-
-### 3. Buy Tokens
-
-User purchases pool tokens with USDC. Price determined by bonding curve integral.
-
-**Validation:**
-```rust
-// Load config (may not exist - use default)
-let config = ctx.accounts.config.as_ref();
-let min_trade = config.map_or(DEFAULT_MIN_TRADE_AMOUNT, |c| c.min_trade_amount);
-
-require!(usdc_amount >= min_trade, ErrorCode::InvalidAmount);
-```
-
-**Token Calculation:**
-```rust
-let s0 = pool.token_supply;
-let usdc_in = usdc_amount as u128;
-let s1: u128;
-
-// Determine which region we're in and will end up in
-if s0 < pool.supply_cap {
-    // Starting in quadratic region
-
-    // Check if we stay in quadratic
-    let s_cap_cubed = pool.supply_cap
-        .checked_pow(3)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-    let s0_cubed = s0
-        .checked_pow(3)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-    let cost_to_cap = pool.k_quadratic
-        .checked_mul(s_cap_cubed.checked_sub(s0_cubed)?)?
-        .checked_div(3)?;
-
-    if usdc_in <= cost_to_cap {
-        // Case A: Staying in quadratic region
-        // Solve: (k_quad/3) * (s1³ - s0³) = usdc_in
-        let s1_cubed = s0_cubed
-            .checked_add(
-                usdc_in
-                    .checked_mul(3)?
-                    .checked_div(pool.k_quadratic)?
-            )?;
-        s1 = cbrt(s1_cubed)?;
-    } else {
-        // Case B: Crossing from quadratic to linear
-        let remaining = usdc_in.checked_sub(cost_to_cap)?;
-
-        // Derive k_linear = k_quadratic × supply_cap
-        let k_linear = get_k_linear(pool)?;
-
-        // Solve linear portion: (k_linear/2) * (s1² - s_cap²) = remaining
-        let s_cap_squared = pool.supply_cap
-            .checked_pow(2)
-            .ok_or(ErrorCode::NumericalOverflow)?;
-        let s1_squared = s_cap_squared
-            .checked_add(
-                remaining
-                    .checked_mul(2)?
-                    .checked_div(k_linear)?
-            )?;
-        s1 = sqrt(s1_squared)?;
-    }
-} else {
-    // Case C: Starting and staying in linear region
-    // Derive k_linear = k_quadratic × supply_cap
-    let k_linear = get_k_linear(pool)?;
-
-    // Solve: (k_linear/2) * (s1² - s0²) = usdc_in
-    let s0_squared = s0
-        .checked_pow(2)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-    let s1_squared = s0_squared
-        .checked_add(
-            usdc_in
-                .checked_mul(2)?
-                .checked_div(k_linear)?
-        )?;
-    s1 = sqrt(s1_squared)?;
+#[event]
+pub struct PoolInitializedEvent {
+    pub pool: Pubkey,
+    pub content_id: Pubkey,
+    pub creator: Pubkey,
+    pub f: u16,
+    pub beta_num: u16,
+    pub beta_den: u16,
+    pub timestamp: i64,
 }
 
-let tokens_out = s1.checked_sub(s0)?;
-```
-
-**State Updates:**
-```rust
-// Transfer USDC from user to pool
-token::transfer(
-    CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        Transfer {
-            from: ctx.accounts.user_usdc_account.to_account_info(),
-            to: ctx.accounts.pool_usdc_vault.to_account_info(),
-            authority: ctx.accounts.user.to_account_info(),
-        },
-    ),
-    usdc_amount,
-)?;
-
-// Mint new tokens to user (pool PDA is mint authority)
-let pool_seeds = &[
-    b"pool",
-    pool.post_id.as_ref(),
-    &[pool.bump],
-];
-token::mint_to(
-    CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
-        MintTo {
-            mint: ctx.accounts.token_mint.to_account_info(),
-            to: ctx.accounts.user_token_account.to_account_info(),
-            authority: pool.to_account_info(),
-        },
-        &[pool_seeds],
-    ),
-    tokens_out as u64,
-)?;
-
-// Update pool state
-pool.token_supply = s1;
-pool.reserve = pool.reserve.checked_add(usdc_in)?;
-```
-
-**Return:** Number of tokens minted (tokens_out)
-
----
-
-### 4. Sell Tokens
-
-User sells pool tokens back to the curve for USDC. Tokens are burned and USDC is returned based on bonding curve integral.
-
-**Validation:**
-```rust
-require!(token_amount > 0, ErrorCode::InvalidAmount);
-require!(token_amount <= pool.token_supply, ErrorCode::InsufficientBalance);
-
-// Verify user has the tokens they're trying to sell
-let user_balance = ctx.accounts.user_token_account.amount;
-require!(token_amount <= user_balance as u128, ErrorCode::InsufficientBalance);
-```
-
-**Payout Calculation:**
-```rust
-let s0 = pool.token_supply;
-let s1 = s0.checked_sub(token_amount)?;
-let payout: u128;
-
-// Determine which regions we're crossing
-if s1 >= pool.supply_cap {
-    // Case A: Staying in linear region
-    // Derive k_linear = k_quadratic × supply_cap
-    let k_linear = get_k_linear(pool)?;
-
-    // payout = (k_linear/2) * (s0² - s1²)
-    let s0_squared = s0
-        .checked_pow(2)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-    let s1_squared = s1
-        .checked_pow(2)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-    payout = k_linear
-        .checked_mul(s0_squared.checked_sub(s1_squared)?)?
-        .checked_div(2)?;
-
-} else if s0 > pool.supply_cap && s1 < pool.supply_cap {
-    // Case B: Crossing from linear back to quadratic
-    // Derive k_linear = k_quadratic × supply_cap
-    let k_linear = get_k_linear(pool)?;
-
-    // Linear portion: s_cap to s0
-    let s0_squared = s0
-        .checked_pow(2)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-    let s_cap_squared = pool.supply_cap
-        .checked_pow(2)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-    let linear_payout = k_linear
-        .checked_mul(s0_squared.checked_sub(s_cap_squared)?)?
-        .checked_div(2)?;
-
-    // Quadratic portion: s1 to s_cap
-    let s_cap_cubed = pool.supply_cap
-        .checked_pow(3)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-    let s1_cubed = s1
-        .checked_pow(3)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-    let quad_payout = pool.k_quadratic
-        .checked_mul(s_cap_cubed.checked_sub(s1_cubed)?)?
-        .checked_div(3)?;
-
-    payout = linear_payout.checked_add(quad_payout)?;
-
-} else {
-    // Case C: Staying in quadratic region
-    // payout = (k_quadratic/3) * (s0³ - s1³)
-    let s0_cubed = s0
-        .checked_pow(3)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-    let s1_cubed = s1
-        .checked_pow(3)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-    payout = pool.k_quadratic
-        .checked_mul(s0_cubed.checked_sub(s1_cubed)?)?
-        .checked_div(3)?;
+#[event]
+pub struct MarketDeployedEvent {
+    pub pool: Pubkey,
+    pub deployer: Pubkey,
+    pub initial_deposit: u64,
+    pub long_allocation: u64,
+    pub short_allocation: u64,
+    pub initial_q: u64,             // Q32.32
+    pub long_tokens: u64,
+    pub short_tokens: u64,
+    pub timestamp: i64,
 }
 
-// Convert to USDC decimals (payout is in u128, need u64)
-let usdc_out = u64::try_from(payout)?;
-require!(usdc_out <= pool_vault.amount, ErrorCode::InsufficientReserve);
-```
+#[event]
+pub struct TradeEvent {
+    pub pool: Pubkey,
+    pub trader: Pubkey,
+    pub side: TokenSide,
+    pub trade_type: TradeType,
+    pub usdc_amount: u64,           // Total USDC
+    pub usdc_to_trade: u64,         // After skim
+    pub usdc_to_stake: u64,         // Skim amount
+    pub tokens_out: u64,
+    pub new_price: u128,            // Price in micro-USDC
+    pub token_supply_after: u128,   // Total token supply after trade
+    pub reserve_after: u64,         // USDC reserve after trade
+    pub timestamp: i64,
+}
 
-**State Updates:**
-```rust
-// Burn the tokens from user's account
-// Note: Users can also burn tokens directly if they own them (standard SPL behavior)
-// This burn is user-authorized, not pool-authorized
-token::burn(
-    CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        Burn {
-            mint: ctx.accounts.token_mint.to_account_info(),
-            from: ctx.accounts.user_token_account.to_account_info(),
-            authority: ctx.accounts.user.to_account_info(),
-        },
-    ),
-    token_amount as u64,
-)?;
+#[event]
+pub struct SettlementEvent {
+    pub pool: Pubkey,
+    pub settler: Pubkey,
+    pub bd_score: u32,              // BD score (micro-units, 0-1M)
+    pub market_prediction_q: u128,  // Market prediction (micro-units)
+    pub f_long: u128,               // Settlement factor for LONG (micro-units)
+    pub f_short: u128,              // Settlement factor for SHORT (micro-units)
+    pub r_long_before: u128,        // Virtual reserve before settlement
+    pub r_short_before: u128,       // Virtual reserve before settlement
+    pub r_long_after: u128,         // Virtual reserve after settlement
+    pub r_short_after: u128,        // Virtual reserve after settlement
+    pub timestamp: i64,
+}
 
-// Transfer USDC from pool to user (requires PDA signer)
-let pool_seeds = &[b"pool", pool.post_id.as_ref(), &[pool.bump]];
-let pool_signer = &[&pool_seeds[..]];
-
-token::transfer(
-    CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
-        Transfer {
-            from: ctx.accounts.pool_usdc_vault.to_account_info(),
-            to: ctx.accounts.user_usdc_account.to_account_info(),
-            authority: pool.to_account_info(),
-        },
-        pool_signer,
-    ),
-    usdc_out,
-)?;
-
-// Update pool state
-pool.token_supply = s1;
-pool.reserve = pool.reserve.checked_sub(payout)?;
-```
-
-**Return:** USDC payout amount (usdc_out)
-
----
-
-### 5. Apply Pool Penalty
-
-Protocol removes USDC from pool when content relevance declines. Applies elastic-k scaling.
-
-**Validation:**
-```rust
-// Validate authority via PoolFactory
-require!(pool.factory == ctx.accounts.factory.key(), ErrorCode::InvalidFactory);
-require!(ctx.accounts.authority.key() == ctx.accounts.factory.pool_authority, ErrorCode::Unauthorized);
-require!(penalty_amount > 0, ErrorCode::InvalidAmount);
-
-// Critical: Check reserve can be safely converted to u64
-let reserve_u64 = u64::try_from(pool.reserve)
-    .map_err(|_| ErrorCode::NumericalOverflow)?;
-require!(penalty_amount <= reserve_u64, ErrorCode::InsufficientReserve);
-
-// Prevent draining pool completely (leave dust for rounding)
-require!(penalty_amount < reserve_u64, ErrorCode::InsufficientReserve);
-```
-
-**Transfer and Elastic-K Scaling:**
-```rust
-// Step 1: Transfer USDC from pool to treasury
-token::transfer(
-    CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
-        Transfer {
-            from: ctx.accounts.pool_usdc_vault.to_account_info(),
-            to: ctx.accounts.treasury_usdc_vault.to_account_info(),
-            authority: pool.to_account_info(),
-        },
-        &[&[b"pool", pool.post_id.as_ref(), &[pool.bump]]],
-    ),
-    penalty_amount,
-)?;
-
-// Step 2: Update reserve
-let old_reserve = pool.reserve;
-let new_reserve = old_reserve.checked_sub(penalty_amount as u128)?;
-pool.reserve = new_reserve;
-
-// Step 3: Apply elastic-k scaling
-// Critical: Check old_reserve isn't zero (should never happen if validations pass)
-require!(old_reserve > 0, ErrorCode::InvalidAmount);
-
-// ratio = new_reserve / old_reserve (with precision)
-let ratio = new_reserve
-    .checked_mul(RATIO_PRECISION)?
-    .checked_div(old_reserve)?;
-
-// Scale k_quadratic (k_linear derived automatically as k_quadratic × supply_cap)
-pool.k_quadratic = pool.k_quadratic
-    .checked_mul(ratio)?
-    .checked_div(RATIO_PRECISION)?;
-```
-
-**Effect:** All token holders lose value proportionally
-
----
-
-### 6. Apply Pool Reward
-
-Protocol adds USDC to pool when content relevance rises. Applies elastic-k scaling.
-
-**Validation:**
-```rust
-// Validate authority via PoolFactory
-require!(pool.factory == ctx.accounts.factory.key(), ErrorCode::InvalidFactory);
-require!(ctx.accounts.authority.key() == ctx.accounts.factory.pool_authority, ErrorCode::Unauthorized);
-require!(reward_amount > 0, ErrorCode::InvalidAmount);
-```
-
-**Transfer and Elastic-K Scaling:**
-```rust
-// Step 1: Transfer USDC from treasury to pool
-let treasury_seeds = &[b"treasury", &[treasury.bump]];
-token::transfer(
-    CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
-        Transfer {
-            from: ctx.accounts.treasury_usdc_vault.to_account_info(),
-            to: ctx.accounts.pool_usdc_vault.to_account_info(),
-            authority: ctx.accounts.treasury.to_account_info(),
-        },
-        &[treasury_seeds],
-    ),
-    reward_amount,
-)?;
-
-// Step 2: Update reserve
-let old_reserve = pool.reserve;
-let new_reserve = old_reserve.checked_add(reward_amount as u128)?;
-pool.reserve = new_reserve;
-
-// Step 3: Apply elastic-k scaling
-// Critical: Check old_reserve isn't zero (should never happen if validations pass)
-require!(old_reserve > 0, ErrorCode::InvalidAmount);
-
-// ratio = new_reserve / old_reserve (with precision)
-let ratio = new_reserve
-    .checked_mul(RATIO_PRECISION)?
-    .checked_div(old_reserve)?;
-
-// Scale k_quadratic (k_linear derived automatically as k_quadratic × supply_cap)
-pool.k_quadratic = pool.k_quadratic
-    .checked_mul(ratio)?
-    .checked_div(RATIO_PRECISION)?;
-```
-
-**Effect:** All token holders gain value proportionally
-
----
-
-### 7. Set Supply Cap
-
-Adjusts the transition point between quadratic and linear curve regions.
-
-**Validation:**
-```rust
-// Validate authority via PoolFactory
-require!(pool.factory == ctx.accounts.factory.key(), ErrorCode::InvalidFactory);
-require!(ctx.accounts.authority.key() == ctx.accounts.factory.pool_authority, ErrorCode::Unauthorized);
-require!(new_supply_cap >= MIN_SUPPLY_CAP, ErrorCode::InvalidParameters);
-```
-
-**State Update:**
-```rust
-// Simply update supply_cap - k_linear will be derived automatically
-// Continuity maintained by relationship: k_linear = k_quadratic × supply_cap
-pool.supply_cap = new_supply_cap;
-```
-
-**Note:** Can be called even with existing token supply. If tokens > new_cap, they're already in linear region. The k_linear value is always derived on-demand from k_quadratic × supply_cap, so no update needed.
-
----
-
-## Helper Functions
-
-These critical mathematical functions must be implemented correctly:
-
-### Get k_linear (Derived)
-```rust
-pub fn get_k_linear(pool: &ContentPool) -> Result<u128> {
-    // k_linear = k_quadratic × supply_cap (maintains continuity)
-    pool.k_quadratic
-        .checked_mul(pool.supply_cap)
-        .ok_or(ErrorCode::NumericalOverflow.into())
+#[event]
+pub struct PoolClosedEvent {
+    pub pool: Pubkey,
+    pub creator: Pubkey,
+    pub remaining_usdc: u64,
+    pub timestamp: i64,
 }
 ```
 
-### Square Root (Integer)
-```rust
-pub fn sqrt(n: u128) -> Result<u128> {
-    if n == 0 {
-        return Ok(0);
-    }
-
-    // Newton's method for integer square root
-    // Critical: Use checked operations to prevent overflow
-    let mut x = n;
-    let mut y = x.checked_add(1)
-        .ok_or(ErrorCode::NumericalOverflow)?
-        .checked_div(2)
-        .ok_or(ErrorCode::NumericalOverflow)?;
-
-    while y < x {
-        x = y;
-        // y = (x + n/x) / 2
-        let n_div_x = n.checked_div(x)
-            .ok_or(ErrorCode::NumericalOverflow)?;
-        y = x.checked_add(n_div_x)
-            .ok_or(ErrorCode::NumericalOverflow)?
-            .checked_div(2)
-            .ok_or(ErrorCode::NumericalOverflow)?;
-    }
-
-    Ok(x)
-}
-```
-
-### Cube Root (Integer)
-```rust
-pub fn cbrt(n: u128) -> Result<u128> {
-    if n == 0 {
-        return Ok(0);
-    }
-
-    // Binary search for cube root
-    // Critical: Bound hi to prevent overflow in cubing
-    let mut lo = 1u128;
-    let mut hi = n.min(2_097_151); // cbrt(u128::MAX) ≈ 2^42
-
-    while lo <= hi {
-        let mid = lo.checked_add(hi)
-            .ok_or(ErrorCode::NumericalOverflow)?
-            .checked_div(2)
-            .ok_or(ErrorCode::NumericalOverflow)?;
-
-        let mid_squared = mid
-            .checked_mul(mid)
-            .ok_or(ErrorCode::NumericalOverflow)?;
-        let cubed = mid_squared
-            .checked_mul(mid)
-            .ok_or(ErrorCode::NumericalOverflow)?;
-
-        match cubed.cmp(&n) {
-            std::cmp::Ordering::Equal => return Ok(mid),
-            std::cmp::Ordering::Less => {
-                lo = mid.checked_add(1)
-                    .ok_or(ErrorCode::NumericalOverflow)?;
-            },
-            std::cmp::Ordering::Greater => {
-                // Prevent underflow when mid = 0
-                if mid == 0 {
-                    return Ok(0);
-                }
-                hi = mid - 1;
-            }
-        }
-    }
-
-    Ok(hi) // Return floor(cbrt(n))
-}
-```
-
----
-
-## Error Codes
+### Error Codes
 
 ```rust
 #[error_code]
-pub enum ErrorCode {
-    #[msg("Invalid parameters")]
-    InvalidParameters = 6000,
+pub enum ContentPoolError {
+    // Initialization (6000-6009)
+    #[msg("Invalid growth exponent F (must be 1-10)")]
+    InvalidExponent,
+    #[msg("Invalid coupling coefficient β (must be 0.1-0.9)")]
+    InvalidBeta,
+    #[msg("Invalid factory address")]
+    InvalidFactory,
 
-    #[msg("Unauthorized access")]
-    Unauthorized = 6001,
+    // Market deployment (6010-6019)
+    #[msg("Market already deployed for this pool")]
+    MarketAlreadyDeployed,
+    #[msg("Market not deployed yet")]
+    MarketNotDeployed,
+    #[msg("Initial deposit below minimum ($100 USDC)")]
+    BelowMinimumDeposit,
+    #[msg("Invalid LONG/SHORT allocation")]
+    InvalidAllocation,
 
+    // Trade (6020-6039)
+    #[msg("Trade size below minimum")]
+    TradeTooSmall,
+    #[msg("Trade size above maximum")]
+    TradeTooLarge,
     #[msg("Insufficient balance")]
-    InsufficientBalance = 6002,
+    InsufficientBalance,
+    #[msg("Invalid stake skim amount")]
+    InvalidStakeSkim,
+    #[msg("Invalid trade amount")]
+    InvalidTradeAmount,
+    #[msg("Slippage tolerance exceeded")]
+    SlippageExceeded,
+    #[msg("Supply overflow (exceeds safety bound)")]
+    SupplyOverflow,
 
-    #[msg("Insufficient pool reserve")]
-    InsufficientReserve = 6003,
+    // Settlement (6040-6049)
+    #[msg("Settlement cooldown not elapsed")]
+    SettlementCooldown,
+    #[msg("Invalid BD score (must be 0-1 in Q32.32)")]
+    InvalidBDScore,
+    #[msg("No liquidity in pool")]
+    NoLiquidity,
+    #[msg("Settlement invariant violated")]
+    SettlementInvariantViolation,
+    #[msg("Settlement convergence failed")]
+    SettlementConvergenceFailed,
 
-    #[msg("Invalid amount")]
-    InvalidAmount = 6004,
-
+    // Math (6050-6059)
     #[msg("Numerical overflow")]
-    NumericalOverflow = 6005,
+    NumericalOverflow,
+    #[msg("Division by zero")]
+    DivisionByZero,
+    #[msg("Reserve invariant violated")]
+    ReserveInvariantViolation,
+    #[msg("Price calculation failed")]
+    PriceCalculationFailed,
+    #[msg("Solver failed to converge")]
+    SolverConvergenceFailed,
 
-    #[msg("Transfer failed")]
-    TransferFailed = 6006,
+    // Authority (6060-6069)
+    #[msg("Unauthorized (not pool creator)")]
+    Unauthorized,
+    #[msg("Unauthorized protocol authority")]
+    UnauthorizedProtocol,
 
-    #[msg("Invalid factory reference")]
-    InvalidFactory = 6007,
+    // Accounts (6070-6079)
+    #[msg("Invalid mint")]
+    InvalidMint,
+    #[msg("Invalid vault")]
+    InvalidVault,
+    #[msg("Invalid stake vault")]
+    InvalidStakeVault,
+    #[msg("Invalid owner")]
+    InvalidOwner,
+
+    // Closure (6080-6089)
+    #[msg("Positions still open (cannot close pool)")]
+    PositionsStillOpen,
+    #[msg("Vault not empty")]
+    VaultNotEmpty,
 }
 ```
 
-## Mathematical Invariants
+---
 
-The following properties must ALWAYS hold:
+## Integration Points
 
-### 1. Reserve-Curve Consistency
-```
-reserve = ∫[0 to token_supply] P(s) ds
-```
-The reserve must equal the integral of the price function from 0 to current supply.
+### PoolFactory
+- Pool created via `PoolFactory::create_pool`
+- Factory validates content_id exists (backend check)
+- Pool stores factory address for authority validation
 
-### 2. Curve Continuity
-```
-k_quadratic × supply_cap² = k_linear × supply_cap
-```
-Price must be continuous at the transition point.
+### VeritasCustodian
+- Pool references global stake vault
+- Trade instruction sends stake skim to custodian vault
+- Backend validates stake sufficiency before signing
 
-### 3. Proportional Value Changes
-```
-new_price / old_price = new_reserve / old_reserve = new_k / old_k
-```
-All token holders gain/lose the same percentage from epoch adjustments.
+### Backend (Protocol Authority)
+- Signs trades after calculating stake skim
+- Signs settlements after running BD algorithm
+- Uses keypair from `./solana/veritas-curation/keys/authority.json` (local/devnet)
 
-### 4. Zero-Sum Redistribution
-```
-Σ(penalties) = Σ(rewards)
-```
-Total penalties collected must equal total rewards distributed each epoch.
+### Database
+- Event indexer syncs TradeEvent → user_positions, user_stakes
+- Event indexer syncs SettlementEvent → bd_scores
+- Optimistic locking via version fields prevents race conditions
 
 ---
 
-## Critical Safety Considerations
+**Related Specifications:**
+- [PoolFactory.md](PoolFactory.md) - Pool creation and registry
+- [VeritasCustodian.md](archive/VeritasCustodian.md) - Stake custody
+- [ICBS-EXPLAINED.md](ICBS-EXPLAINED.md) - Conceptual overview
+- [ICBS-anchor-spec.md](ICBS-anchor-spec.md) - Detailed implementation guide
 
-### 1. Overflow Protection
-- **EVERY mathematical operation uses checked arithmetic**
-- `pow(n)` replaced with `checked_pow(n)`
-- Intermediate calculations broken down to catch overflows early
-- u128 → u64 conversions explicitly checked with `try_from`
-
-### 2. Division by Zero Prevention
-- Always check denominators before division
-- `old_reserve > 0` check before ratio calculation
-- `x > 0` check in sqrt Newton's method
-
-### 3. PDA Signing Security
-```rust
-// CORRECT: Seeds must match PDA derivation exactly
-let seeds = &[b"pool", pool.post_id.as_ref(), &[pool.bump]];
-let signer = &[&seeds[..]];
-
-// WRONG: Missing bump or wrong seed order breaks PDA
-```
-
-### 4. Authority Validation
-- ALWAYS check `ctx.accounts.authority.key() == pool.authority`
-- No instruction should modify state without authority check
-- User operations (buy/sell) don't need authority
-
-### 5. Reserve Integrity
-- Never allow reserve to go negative
-- Check `penalty_amount < reserve` (strict inequality for dust)
-- Convert reserve to u64 safely before comparisons
-
-### 6. Token Supply Consistency
-- Only buy/sell modify token_supply
-- Epoch adjustments NEVER change token_supply
-- Supply changes must match exact integral calculations
-
-### 7. Rounding Errors
-- Integer math means rounding down
-- Small dust amounts may accumulate
-- Consider minimum trade amounts to prevent griefing
-
-### 8. Reentrancy Protection
-- Anchor's account validation prevents reentrancy
-- State updates before external calls (CEI pattern)
-
-### 9. Front-Running Mitigation
-- Bonding curve prices are deterministic
-- No slippage protection needed (price is exact)
-- MEV can't manipulate curve parameters (only authority can)
+**Implementation Guidance:**
+- [implementation-guidance.md](implementation-guidance.md) - Detailed validation, testing, security considerations

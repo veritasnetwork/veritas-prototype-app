@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sqrtPriceX96ToPrice, USDC_PRECISION } from '@/lib/solana/sqrt-price-helpers';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -95,9 +96,14 @@ export async function GET(
           created_at,
           pool_deployments!left(
             pool_address,
-            token_supply,
-            reserve,
-            k_quadratic
+            s_long_supply,
+            s_short_supply,
+            vault_balance,
+            sqrt_price_long_x96,
+            sqrt_price_short_x96,
+            f,
+            beta_num,
+            beta_den
           )
         `)
         .eq('user_id', user.id)
@@ -125,6 +131,25 @@ export async function GET(
     // Transform posts to match new Post type schema
     const recent_posts = (recentPosts || []).map((post: any) => {
       const pool = post.pool_deployments?.[0];
+
+      // Calculate prices from sqrt prices
+      let priceLong = null;
+      let priceShort = null;
+      if (pool?.sqrt_price_long_x96) {
+        try {
+          priceLong = sqrtPriceX96ToPrice(pool.sqrt_price_long_x96);
+        } catch (e) {
+          console.warn('Failed to calculate priceLong:', e);
+        }
+      }
+      if (pool?.sqrt_price_short_x96) {
+        try {
+          priceShort = sqrtPriceX96ToPrice(pool.sqrt_price_short_x96);
+        } catch (e) {
+          console.warn('Failed to calculate priceShort:', e);
+        }
+      }
+
       return {
         id: post.id,
         post_type: post.post_type || 'text',
@@ -140,9 +165,16 @@ export async function GET(
         },
         belief: null, // TODO: Implement belief aggregation from belief_submissions
         poolAddress: pool?.pool_address || null,
-        poolTokenSupply: pool?.token_supply || null,
-        poolReserveBalance: pool?.reserve ? pool.reserve * 1_000_000 : null, // Convert to micro-USDC
-        poolKQuadratic: pool?.k_quadratic || null,
+        poolSupplyLong: pool?.s_long_supply ? Number(pool.s_long_supply) / USDC_PRECISION : null,
+        poolSupplyShort: pool?.s_short_supply ? Number(pool.s_short_supply) / USDC_PRECISION : null,
+        poolPriceLong: priceLong,
+        poolPriceShort: priceShort,
+        poolSqrtPriceLongX96: pool?.sqrt_price_long_x96 || null,
+        poolSqrtPriceShortX96: pool?.sqrt_price_short_x96 || null,
+        poolVaultBalance: pool?.vault_balance ? Number(pool.vault_balance) / USDC_PRECISION : null,
+        poolF: pool?.f || null,
+        poolBetaNum: pool?.beta_num || null,
+        poolBetaDen: pool?.beta_den || null,
         // Default values for required fields
         relevanceScore: 0,
         signals: { truth: 0, novelty: 0, importance: 0, virality: 0 },

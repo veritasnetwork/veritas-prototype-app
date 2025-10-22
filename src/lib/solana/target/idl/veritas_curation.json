@@ -1,5 +1,5 @@
 {
-  "address": "6njQqMDxSdMqXFpR25s6uZ4mQLEk6PDcBucsst5rAWNz",
+  "address": "5hX4MjCF7EwCfjVSsa5zMjbNCQRtfo98YWhph7tCMw7F",
   "metadata": {
     "name": "veritas_curation",
     "version": "0.1.0",
@@ -8,308 +8,24 @@
   },
   "instructions": [
     {
-      "name": "apply_pool_penalty",
+      "name": "add_liquidity",
+      "docs": [
+        "Add bilateral liquidity to both sides of the market"
+      ],
       "discriminator": [
-        192,
-        34,
-        148,
-        223,
-        180,
-        74,
-        175,
-        179
+        181,
+        157,
+        89,
+        67,
+        143,
+        182,
+        52,
+        72
       ],
       "accounts": [
         {
           "name": "pool",
           "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "pool.post_id",
-                "account": "ContentPool"
-              }
-            ]
-          }
-        },
-        {
-          "name": "factory",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  97,
-                  99,
-                  116,
-                  111,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "pool_usdc_vault",
-          "writable": true
-        },
-        {
-          "name": "treasury_usdc_vault",
-          "writable": true
-        },
-        {
-          "name": "authority",
-          "signer": true
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "penalty_amount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "apply_pool_reward",
-      "discriminator": [
-        5,
-        37,
-        205,
-        57,
-        2,
-        185,
-        224,
-        202
-      ],
-      "accounts": [
-        {
-          "name": "pool",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "pool.post_id",
-                "account": "ContentPool"
-              }
-            ]
-          }
-        },
-        {
-          "name": "factory",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  97,
-                  99,
-                  116,
-                  111,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "pool_usdc_vault",
-          "writable": true
-        },
-        {
-          "name": "treasury",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "treasury_usdc_vault",
-          "writable": true
-        },
-        {
-          "name": "authority",
-          "signer": true
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "reward_amount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "buy",
-      "discriminator": [
-        102,
-        6,
-        61,
-        18,
-        1,
-        218,
-        235,
-        234
-      ],
-      "accounts": [
-        {
-          "name": "pool",
-          "writable": true
-        },
-        {
-          "name": "token_mint",
-          "writable": true
-        },
-        {
-          "name": "pool_usdc_vault",
-          "writable": true
-        },
-        {
-          "name": "user_usdc_account",
-          "writable": true
-        },
-        {
-          "name": "user_token_account",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "account",
-                "path": "user"
-              },
-              {
-                "kind": "const",
-                "value": [
-                  6,
-                  221,
-                  246,
-                  225,
-                  215,
-                  101,
-                  161,
-                  147,
-                  217,
-                  203,
-                  225,
-                  70,
-                  206,
-                  235,
-                  121,
-                  172,
-                  28,
-                  180,
-                  133,
-                  237,
-                  95,
-                  91,
-                  55,
-                  145,
-                  58,
-                  140,
-                  245,
-                  133,
-                  126,
-                  255,
-                  0,
-                  169
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "token_mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "user",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "config",
-          "optional": true,
           "pda": {
             "seeds": [
               {
@@ -318,25 +34,123 @@
                   99,
                   111,
                   110,
-                  102,
-                  105,
-                  103
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  112,
+                  111,
+                  111,
+                  108
                 ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.content_id",
+                "account": "ContentPool"
               }
             ]
           }
         },
         {
+          "name": "long_token_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  110,
+                  103,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.content_id",
+                "account": "ContentPool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "short_token_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  111,
+                  114,
+                  116,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.content_id",
+                "account": "ContentPool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool_reserve",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.content_id",
+                "account": "ContentPool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_usdc_account",
+          "writable": true
+        },
+        {
+          "name": "user_long_account",
+          "writable": true
+        },
+        {
+          "name": "user_short_account",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "associated_token_program",
-          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
@@ -345,6 +159,79 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "close_pool",
+      "docs": [
+        "Close an empty pool"
+      ],
+      "discriminator": [
+        140,
+        189,
+        209,
+        23,
+        239,
+        62,
+        239,
+        11
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.content_id",
+                "account": "ContentPool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "factory"
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "creator_usdc",
+          "writable": true
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "protocol_authority",
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
     },
     {
       "name": "create_pool",
@@ -361,32 +248,27 @@
       "accounts": [
         {
           "name": "factory",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  97,
-                  99,
-                  116,
-                  111,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "pool",
+          "docs": [
+            "The pool to be created"
+          ],
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
                   112,
                   111,
                   111,
@@ -395,56 +277,16 @@
               },
               {
                 "kind": "arg",
-                "path": "post_id"
-              }
-            ]
-          }
-        },
-        {
-          "name": "token_mint",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  105,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "arg",
-                "path": "post_id"
-              }
-            ]
-          }
-        },
-        {
-          "name": "pool_usdc_vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              },
-              {
-                "kind": "arg",
-                "path": "post_id"
+                "path": "content_id"
               }
             ]
           }
         },
         {
           "name": "registry",
+          "docs": [
+            "Registry entry for this pool (prevents duplicates)"
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -463,45 +305,187 @@
               },
               {
                 "kind": "arg",
-                "path": "post_id"
+                "path": "content_id"
               }
             ]
           }
         },
         {
-          "name": "config",
-          "optional": true,
+          "name": "custodian",
+          "docs": [
+            "VeritasCustodian (for stake vault reference)"
+          ]
+        },
+        {
+          "name": "creator",
+          "docs": [
+            "Pool creator"
+          ],
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "docs": [
+            "Payer for account creation"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "docs": [
+            "System program for account creation"
+          ],
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "content_id",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "deploy_market",
+      "docs": [
+        "Deploy market with initial liquidity (first trader)"
+      ],
+      "discriminator": [
+        220,
+        236,
+        177,
+        120,
+        89,
+        124,
+        206,
+        46
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "factory",
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  99,
-                  111,
-                  110,
                   102,
-                  105,
-                  103
+                  97,
+                  99,
+                  116,
+                  111,
+                  114,
+                  121
                 ]
               }
             ]
           }
         },
         {
+          "name": "long_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  110,
+                  103,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.content_id",
+                "account": "ContentPool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "short_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  111,
+                  114,
+                  116,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.content_id",
+                "account": "ContentPool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.content_id",
+                "account": "ContentPool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "deployer_usdc",
+          "writable": true
+        },
+        {
+          "name": "deployer_long",
+          "writable": true
+        },
+        {
+          "name": "deployer_short",
+          "writable": true
+        },
+        {
           "name": "usdc_mint"
         },
         {
-          "name": "creator",
+          "name": "deployer",
           "signer": true
         },
         {
           "name": "payer",
           "writable": true,
           "signer": true
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
         },
         {
           "name": "token_program",
@@ -512,41 +496,18 @@
           "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
         {
-          "name": "post_id",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
+          "name": "initial_deposit",
+          "type": "u64"
         },
         {
-          "name": "initial_k_quadratic",
-          "type": "u128"
-        },
-        {
-          "name": "token_name",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "token_symbol",
-          "type": {
-            "array": [
-              "u8",
-              10
-            ]
-          }
+          "name": "long_allocation",
+          "type": "u64"
         }
       ]
     },
@@ -610,52 +571,32 @@
       ]
     },
     {
-      "name": "initialize_config",
+      "name": "get_current_state",
+      "docs": [
+        "View-only instruction: Get current pool state with decay applied",
+        "Does not mutate on-chain state"
+      ],
       "discriminator": [
-        208,
-        127,
-        21,
-        1,
-        194,
-        190,
-        196,
-        70
+        61,
+        14,
+        169,
+        37,
+        143,
+        64,
+        109,
+        77
       ],
       "accounts": [
         {
-          "name": "config",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true
-        },
-        {
-          "name": "payer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "name": "pool"
         }
       ],
-      "args": []
+      "args": [],
+      "returns": {
+        "defined": {
+          "name": "CurrentPoolState"
+        }
+      }
     },
     {
       "name": "initialize_custodian",
@@ -803,89 +744,32 @@
         {
           "name": "pool_authority",
           "type": "pubkey"
+        },
+        {
+          "name": "custodian",
+          "type": "pubkey"
         }
       ]
     },
     {
-      "name": "initialize_pool",
+      "name": "settle_epoch",
+      "docs": [
+        "Settle epoch with BD score"
+      ],
       "discriminator": [
-        95,
-        180,
-        10,
-        172,
-        84,
-        174,
-        232,
-        40
+        148,
+        223,
+        178,
+        38,
+        201,
+        158,
+        167,
+        13
       ],
       "accounts": [
         {
           "name": "pool",
           "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108
-                ]
-              },
-              {
-                "kind": "arg",
-                "path": "post_id"
-              }
-            ]
-          }
-        },
-        {
-          "name": "token_mint",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  105,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "arg",
-                "path": "post_id"
-              }
-            ]
-          }
-        },
-        {
-          "name": "usdc_vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              },
-              {
-                "kind": "arg",
-                "path": "post_id"
-              }
-            ]
-          }
-        },
-        {
-          "name": "config",
-          "optional": true,
           "pda": {
             "seeds": [
               {
@@ -894,185 +778,11 @@
                   99,
                   111,
                   110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "usdc_mint"
-        },
-        {
-          "name": "factory"
-        },
-        {
-          "name": "payer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "associated_token_program",
-          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-        },
-        {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "post_id",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "initial_k_quadratic",
-          "type": "u128"
-        },
-        {
-          "name": "token_name",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "token_symbol",
-          "type": {
-            "array": [
-              "u8",
-              10
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "initialize_treasury",
-      "discriminator": [
-        124,
-        186,
-        211,
-        195,
-        85,
-        165,
-        129,
-        166
-      ],
-      "accounts": [
-        {
-          "name": "treasury",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
                   116,
-                  114,
                   101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "usdc_vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
+                  110,
                   116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121,
                   95,
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "usdc_mint"
-        },
-        {
-          "name": "authority",
-          "signer": true
-        },
-        {
-          "name": "payer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "sell",
-      "discriminator": [
-        51,
-        230,
-        133,
-        164,
-        1,
-        127,
-        131,
-        173
-      ],
-      "accounts": [
-        {
-          "name": "pool",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
                   112,
                   111,
                   111,
@@ -1081,41 +791,28 @@
               },
               {
                 "kind": "account",
-                "path": "pool.post_id",
+                "path": "pool.content_id",
                 "account": "ContentPool"
               }
             ]
           }
         },
         {
-          "name": "token_mint",
-          "writable": true
+          "name": "factory"
         },
         {
-          "name": "pool_usdc_vault",
-          "writable": true
-        },
-        {
-          "name": "user_usdc_account",
-          "writable": true
-        },
-        {
-          "name": "user_token_account",
-          "writable": true
-        },
-        {
-          "name": "user",
+          "name": "protocol_authority",
           "signer": true
         },
         {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "settler",
+          "signer": true
         }
       ],
       "args": [
         {
-          "name": "token_amount",
-          "type": "u64"
+          "name": "bd_score",
+          "type": "u32"
         }
       ]
     },
@@ -1163,6 +860,303 @@
         {
           "name": "paused",
           "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "trade",
+      "docs": [
+        "Trade on the ICBS market (buy or sell LONG/SHORT tokens)"
+      ],
+      "discriminator": [
+        178,
+        144,
+        26,
+        216,
+        241,
+        187,
+        206,
+        130
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.content_id",
+                "account": "ContentPool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "factory",
+          "writable": true
+        },
+        {
+          "name": "trader_usdc",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "stake_vault",
+          "writable": true
+        },
+        {
+          "name": "trader_tokens",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "trader"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_mint",
+          "writable": true
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "trader",
+          "signer": true
+        },
+        {
+          "name": "protocol_authority",
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "side",
+          "type": {
+            "defined": {
+              "name": "TokenSide"
+            }
+          }
+        },
+        {
+          "name": "trade_type",
+          "type": {
+            "defined": {
+              "name": "TradeType"
+            }
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "stake_skim",
+          "type": "u64"
+        },
+        {
+          "name": "min_tokens_out",
+          "type": "u64"
+        },
+        {
+          "name": "min_usdc_out",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "update_defaults",
+      "discriminator": [
+        117,
+        104,
+        211,
+        196,
+        159,
+        196,
+        168,
+        117
+      ],
+      "accounts": [
+        {
+          "name": "factory",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  99,
+                  116,
+                  111,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "default_f",
+          "type": {
+            "option": "u16"
+          }
+        },
+        {
+          "name": "default_beta_num",
+          "type": {
+            "option": "u16"
+          }
+        },
+        {
+          "name": "default_beta_den",
+          "type": {
+            "option": "u16"
+          }
+        },
+        {
+          "name": "default_p0",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "min_initial_deposit",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "min_settle_interval",
+          "type": {
+            "option": "i64"
+          }
         }
       ]
     },
@@ -1351,52 +1345,6 @@
       ]
     },
     {
-      "name": "update_treasury_authority",
-      "discriminator": [
-        185,
-        149,
-        66,
-        195,
-        105,
-        183,
-        32,
-        244
-      ],
-      "accounts": [
-        {
-          "name": "treasury",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true
-        }
-      ],
-      "args": [
-        {
-          "name": "new_authority",
-          "type": "pubkey"
-        }
-      ]
-    },
-    {
       "name": "withdraw",
       "discriminator": [
         183,
@@ -1501,32 +1449,6 @@
       ]
     },
     {
-      "name": "ProtocolConfig",
-      "discriminator": [
-        207,
-        91,
-        250,
-        28,
-        152,
-        179,
-        215,
-        209
-      ]
-    },
-    {
-      "name": "ProtocolTreasury",
-      "discriminator": [
-        162,
-        26,
-        123,
-        61,
-        102,
-        146,
-        47,
-        73
-      ]
-    },
-    {
       "name": "VeritasCustodian",
       "discriminator": [
         112,
@@ -1542,6 +1464,32 @@
   ],
   "events": [
     {
+      "name": "DecayAppliedEvent",
+      "discriminator": [
+        32,
+        12,
+        233,
+        113,
+        233,
+        94,
+        42,
+        216
+      ]
+    },
+    {
+      "name": "DefaultsUpdatedEvent",
+      "discriminator": [
+        182,
+        95,
+        200,
+        120,
+        138,
+        251,
+        114,
+        254
+      ]
+    },
+    {
       "name": "DepositEvent",
       "discriminator": [
         120,
@@ -1552,6 +1500,136 @@
         142,
         107,
         144
+      ]
+    },
+    {
+      "name": "FactoryAuthorityUpdatedEvent",
+      "discriminator": [
+        128,
+        144,
+        61,
+        121,
+        30,
+        178,
+        211,
+        177
+      ]
+    },
+    {
+      "name": "FactoryInitializedEvent",
+      "discriminator": [
+        242,
+        223,
+        218,
+        189,
+        15,
+        226,
+        221,
+        64
+      ]
+    },
+    {
+      "name": "LiquidityAdded",
+      "discriminator": [
+        154,
+        26,
+        221,
+        108,
+        238,
+        64,
+        217,
+        161
+      ]
+    },
+    {
+      "name": "MarketDeployedEvent",
+      "discriminator": [
+        86,
+        26,
+        216,
+        214,
+        251,
+        115,
+        66,
+        175
+      ]
+    },
+    {
+      "name": "PoolAuthorityUpdatedEvent",
+      "discriminator": [
+        213,
+        47,
+        117,
+        236,
+        89,
+        192,
+        242,
+        67
+      ]
+    },
+    {
+      "name": "PoolClosedEvent",
+      "discriminator": [
+        76,
+        55,
+        28,
+        161,
+        130,
+        142,
+        226,
+        133
+      ]
+    },
+    {
+      "name": "PoolCreatedEvent",
+      "discriminator": [
+        25,
+        94,
+        75,
+        47,
+        112,
+        99,
+        53,
+        63
+      ]
+    },
+    {
+      "name": "PoolInitializedEvent",
+      "discriminator": [
+        249,
+        103,
+        129,
+        77,
+        214,
+        169,
+        88,
+        24
+      ]
+    },
+    {
+      "name": "SettlementEvent",
+      "discriminator": [
+        48,
+        132,
+        218,
+        111,
+        54,
+        173,
+        61,
+        129
+      ]
+    },
+    {
+      "name": "TradeEvent",
+      "discriminator": [
+        189,
+        219,
+        127,
+        211,
+        78,
+        230,
+        97,
+        238
       ]
     },
     {
@@ -1570,143 +1648,146 @@
   ],
   "errors": [
     {
-      "code": 6000,
-      "name": "InvalidParameters",
-      "msg": "Invalid parameters"
+      "code": 13000,
+      "name": "AlreadyInitialized",
+      "msg": "Factory already initialized"
     },
     {
-      "code": 6001,
-      "name": "Unauthorized",
-      "msg": "Unauthorized access"
-    },
-    {
-      "code": 6002,
-      "name": "InsufficientBalance",
-      "msg": "Insufficient balance"
-    },
-    {
-      "code": 6003,
-      "name": "InsufficientReserve",
-      "msg": "Insufficient pool reserve"
-    },
-    {
-      "code": 6004,
-      "name": "InvalidAmount",
-      "msg": "Invalid amount"
-    },
-    {
-      "code": 6005,
-      "name": "NumericalOverflow",
-      "msg": "Numerical overflow"
-    },
-    {
-      "code": 6006,
-      "name": "TransferFailed",
-      "msg": "Transfer failed"
-    },
-    {
-      "code": 6007,
-      "name": "InvalidFactory",
-      "msg": "Invalid factory reference"
-    },
-    {
-      "code": 6008,
+      "code": 13001,
       "name": "InvalidAuthority",
       "msg": "Invalid authority address"
     },
     {
-      "code": 6009,
-      "name": "InvalidPostId",
-      "msg": "Invalid post ID"
-    },
-    {
-      "code": 6010,
-      "name": "BelowMinimum",
-      "msg": "Below minimum amount"
-    },
-    {
-      "code": 6011,
-      "name": "InsufficientVaultBalance",
-      "msg": "Insufficient vault balance"
-    },
-    {
-      "code": 6012,
-      "name": "AlreadyInitialized",
-      "msg": "Account already initialized"
-    },
-    {
-      "code": 6013,
+      "code": 13010,
       "name": "PoolAlreadyExists",
-      "msg": "Pool already exists for post_id"
+      "msg": "Pool already exists for content_id"
     },
     {
-      "code": 6014,
-      "name": "InvalidVault",
-      "msg": "Invalid vault"
+      "code": 13011,
+      "name": "InvalidContentId",
+      "msg": "Invalid content_id"
     },
     {
-      "code": 6015,
-      "name": "InvalidRecipient",
-      "msg": "Invalid recipient"
+      "code": 13012,
+      "name": "InvalidParameters",
+      "msg": "Invalid ICBS parameters"
     },
     {
-      "code": 6016,
-      "name": "InvalidMint",
-      "msg": "Invalid mint"
+      "code": 13020,
+      "name": "Unauthorized",
+      "msg": "Unauthorized (not factory authority)"
     },
     {
-      "code": 6017,
-      "name": "InvalidAccountingState",
-      "msg": "Invalid accounting state"
+      "code": 13021,
+      "name": "UnauthorizedProtocol",
+      "msg": "Unauthorized protocol authority"
     },
     {
-      "code": 6018,
-      "name": "SystemPaused",
-      "msg": "System paused"
+      "code": 13030,
+      "name": "InvalidF",
+      "msg": "Invalid growth exponent F"
+    },
+    {
+      "code": 13031,
+      "name": "InvalidBeta",
+      "msg": "Invalid coupling coefficient β"
+    },
+    {
+      "code": 13032,
+      "name": "InvalidMinDeposit",
+      "msg": "Invalid minimum deposit"
+    },
+    {
+      "code": 13033,
+      "name": "InvalidSettleInterval",
+      "msg": "Invalid settle interval"
     }
   ],
   "types": [
     {
       "name": "ContentPool",
+      "docs": [
+        "Primary account structure for ContentPool",
+        "Total size: 432 bytes + 8 discriminator = 440 bytes"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "post_id",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "k_quadratic",
-            "type": "u128"
-          },
-          {
-            "name": "token_supply",
-            "type": "u128"
-          },
-          {
-            "name": "reserve",
-            "type": "u128"
-          },
-          {
-            "name": "token_mint",
+            "name": "content_id",
+            "docs": [
+              "Post/belief identifier (32 bytes)"
+            ],
             "type": "pubkey"
           },
           {
-            "name": "token_name",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            "name": "creator",
+            "docs": [
+              "Pool creator (32 bytes)"
+            ],
+            "type": "pubkey"
           },
           {
-            "name": "token_symbol",
+            "name": "market_deployer",
+            "docs": [
+              "First trader who deployed market (32 bytes)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "long_mint",
+            "docs": [
+              "SPL token mint for LONG side (32 bytes)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "short_mint",
+            "docs": [
+              "SPL token mint for SHORT side (32 bytes)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "vault",
+            "docs": [
+              "USDC vault for this pool (32 bytes)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_vault",
+            "docs": [
+              "Global stake vault (VeritasCustodian) (32 bytes)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "f",
+            "docs": [
+              "Growth exponent (default: 3)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "beta_num",
+            "docs": [
+              "β numerator (default: 1)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "beta_den",
+            "docs": [
+              "β denominator (default: 2, so β = 0.5)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "_padding1",
+            "docs": [
+              "Alignment padding"
+            ],
             "type": {
               "array": [
                 "u8",
@@ -1715,20 +1796,323 @@
             }
           },
           {
-            "name": "token_decimals",
+            "name": "s_long",
+            "docs": [
+              "LONG token supply (integer, 6 decimals)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "s_short",
+            "docs": [
+              "SHORT token supply (integer, 6 decimals)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "r_long",
+            "docs": [
+              "LONG virtual reserve (R_L = s_L × p_L)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "r_short",
+            "docs": [
+              "SHORT virtual reserve (R_S = s_S × p_S)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "sqrt_price_long_x96",
+            "docs": [
+              "sqrt(price_long) * 2^96"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "sqrt_price_short_x96",
+            "docs": [
+              "sqrt(price_short) * 2^96"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "sqrt_lambda_long_x96",
+            "docs": [
+              "sqrt(λ_L) * 2^96"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "sqrt_lambda_short_x96",
+            "docs": [
+              "sqrt(λ_S) * 2^96"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "last_settle_ts",
+            "docs": [
+              "Last settlement timestamp (8 bytes)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "min_settle_interval",
+            "docs": [
+              "Cooldown between settlements (default: 300s)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "current_epoch",
+            "docs": [
+              "Current epoch for this pool (independent per-pool epoch counter)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "expiration_timestamp",
+            "docs": [
+              "When belief expires - decay starts after this timestamp (8 bytes)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "last_decay_update",
+            "docs": [
+              "Last time decay was applied on-chain (8 bytes)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "vault_balance",
+            "docs": [
+              "Actual USDC in vault (for invariant checking)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "initial_q",
+            "docs": [
+              "Initial q set by deployer (Q32.32)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "factory",
+            "docs": [
+              "PoolFactory that created this pool"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
             "type": "u8"
           },
           {
-            "name": "usdc_vault",
+            "name": "_padding2",
+            "docs": [
+              "Alignment"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "CurrentPoolState",
+      "docs": [
+        "Return type for get_current_state view function"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "r_long",
+            "docs": [
+              "Decayed LONG reserves (micro-USDC)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "r_short",
+            "docs": [
+              "Decayed SHORT reserves (micro-USDC)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "q",
+            "docs": [
+              "Relevance score in Q32 format (use q / Q32_ONE to get 0.0-1.0 value)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "price_long",
+            "docs": [
+              "LONG price in micro-USDC per token"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "price_short",
+            "docs": [
+              "SHORT price in micro-USDC per token"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "s_long",
+            "docs": [
+              "LONG supply (unchanged by decay)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "s_short",
+            "docs": [
+              "SHORT supply (unchanged by decay)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "sqrt_price_long_x96",
+            "docs": [
+              "Square root of LONG price in X96 format"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "sqrt_price_short_x96",
+            "docs": [
+              "Square root of SHORT price in X96 format"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "days_expired",
+            "docs": [
+              "Days since expiration (0 if not expired)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "days_since_last_update",
+            "docs": [
+              "Days since last on-chain decay update"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "decay_pending",
+            "docs": [
+              "True if decay will be applied on next trade"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "expiration_timestamp",
+            "docs": [
+              "Timestamp when decay starts"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "last_decay_update",
+            "docs": [
+              "Timestamp of last on-chain decay execution"
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DecayAppliedEvent",
+      "docs": [
+        "Event emitted when decay is applied on-chain"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
             "type": "pubkey"
           },
+          {
+            "name": "days_applied",
+            "type": "i64"
+          },
+          {
+            "name": "r_long_before",
+            "type": "u64"
+          },
+          {
+            "name": "r_short_before",
+            "type": "u64"
+          },
+          {
+            "name": "r_long_after",
+            "type": "u64"
+          },
+          {
+            "name": "r_short_after",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DefaultsUpdatedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
           {
             "name": "factory",
             "type": "pubkey"
           },
           {
-            "name": "bump",
-            "type": "u8"
+            "name": "default_f",
+            "type": "u16"
+          },
+          {
+            "name": "default_beta_num",
+            "type": "u16"
+          },
+          {
+            "name": "default_beta_den",
+            "type": "u16"
+          },
+          {
+            "name": "default_p0",
+            "type": "u64"
+          },
+          {
+            "name": "min_initial_deposit",
+            "type": "u64"
+          },
+          {
+            "name": "min_settle_interval",
+            "type": "i64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
           }
         ]
       }
@@ -1745,6 +2129,234 @@
           {
             "name": "amount",
             "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FactoryAuthorityUpdatedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "factory",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FactoryInitializedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "factory",
+            "type": "pubkey"
+          },
+          {
+            "name": "factory_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "pool_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "custodian",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LiquidityAdded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_amount",
+            "type": "u64"
+          },
+          {
+            "name": "long_tokens_out",
+            "type": "u64"
+          },
+          {
+            "name": "short_tokens_out",
+            "type": "u64"
+          },
+          {
+            "name": "new_r_long",
+            "type": "u64"
+          },
+          {
+            "name": "new_r_short",
+            "type": "u64"
+          },
+          {
+            "name": "new_s_long",
+            "type": "u64"
+          },
+          {
+            "name": "new_s_short",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketDeployedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "deployer",
+            "type": "pubkey"
+          },
+          {
+            "name": "initial_deposit",
+            "type": "u64"
+          },
+          {
+            "name": "long_allocation",
+            "type": "u64"
+          },
+          {
+            "name": "short_allocation",
+            "type": "u64"
+          },
+          {
+            "name": "initial_q",
+            "type": "u64"
+          },
+          {
+            "name": "long_tokens",
+            "type": "u64"
+          },
+          {
+            "name": "short_tokens",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolAuthorityUpdatedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "factory",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolClosedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "remaining_usdc",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolCreatedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "content_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "f",
+            "type": "u16"
+          },
+          {
+            "name": "beta_num",
+            "type": "u16"
+          },
+          {
+            "name": "beta_den",
+            "type": "u16"
+          },
+          {
+            "name": "registry",
+            "type": "pubkey"
           },
           {
             "name": "timestamp",
@@ -1771,8 +2383,72 @@
             "type": "u64"
           },
           {
+            "name": "default_f",
+            "type": "u16"
+          },
+          {
+            "name": "default_beta_num",
+            "type": "u16"
+          },
+          {
+            "name": "default_beta_den",
+            "type": "u16"
+          },
+          {
+            "name": "default_p0",
+            "type": "u64"
+          },
+          {
+            "name": "min_initial_deposit",
+            "type": "u64"
+          },
+          {
+            "name": "min_settle_interval",
+            "type": "i64"
+          },
+          {
+            "name": "custodian",
+            "type": "pubkey"
+          },
+          {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolInitializedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "content_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "f",
+            "type": "u16"
+          },
+          {
+            "name": "beta_num",
+            "type": "u16"
+          },
+          {
+            "name": "beta_den",
+            "type": "u16"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
           }
         ]
       }
@@ -1783,16 +2459,15 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "post_id",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            "name": "content_id",
+            "type": "pubkey"
           },
           {
             "name": "pool_address",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
             "type": "pubkey"
           },
           {
@@ -1807,62 +2482,187 @@
       }
     },
     {
-      "name": "ProtocolConfig",
+      "name": "SettlementEvent",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "authority",
+            "name": "pool",
             "type": "pubkey"
           },
           {
-            "name": "bump",
-            "type": "u8"
+            "name": "settler",
+            "type": "pubkey"
           },
           {
-            "name": "default_k_quadratic",
-            "type": "u128"
-          },
-          {
-            "name": "min_k_quadratic",
-            "type": "u128"
-          },
-          {
-            "name": "max_k_quadratic",
-            "type": "u128"
-          },
-          {
-            "name": "min_trade_amount",
+            "name": "epoch",
             "type": "u64"
           },
           {
-            "name": "reserved",
-            "type": {
-              "array": [
-                "u64",
-                2
-              ]
-            }
+            "name": "bd_score",
+            "type": "u32"
+          },
+          {
+            "name": "market_prediction_q",
+            "type": "u128"
+          },
+          {
+            "name": "f_long",
+            "type": "u128"
+          },
+          {
+            "name": "f_short",
+            "type": "u128"
+          },
+          {
+            "name": "r_long_before",
+            "type": "u128"
+          },
+          {
+            "name": "r_short_before",
+            "type": "u128"
+          },
+          {
+            "name": "r_long_after",
+            "type": "u128"
+          },
+          {
+            "name": "r_short_after",
+            "type": "u128"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
           }
         ]
       }
     },
     {
-      "name": "ProtocolTreasury",
+      "name": "TokenSide",
+      "docs": [
+        "Token side for trading"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Long"
+          },
+          {
+            "name": "Short"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TradeEvent",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "authority",
+            "name": "pool",
             "type": "pubkey"
           },
           {
-            "name": "usdc_vault",
+            "name": "trader",
             "type": "pubkey"
           },
           {
-            "name": "bump",
-            "type": "u8"
+            "name": "side",
+            "type": {
+              "defined": {
+                "name": "TokenSide"
+              }
+            }
+          },
+          {
+            "name": "trade_type",
+            "type": {
+              "defined": {
+                "name": "TradeType"
+              }
+            }
+          },
+          {
+            "name": "usdc_amount",
+            "type": "u64"
+          },
+          {
+            "name": "usdc_to_trade",
+            "type": "u64"
+          },
+          {
+            "name": "usdc_to_stake",
+            "type": "u64"
+          },
+          {
+            "name": "tokens_traded",
+            "type": "u64"
+          },
+          {
+            "name": "s_long_before",
+            "type": "u64"
+          },
+          {
+            "name": "s_short_before",
+            "type": "u64"
+          },
+          {
+            "name": "sqrt_price_long_x96_before",
+            "type": "u128"
+          },
+          {
+            "name": "sqrt_price_short_x96_before",
+            "type": "u128"
+          },
+          {
+            "name": "s_long_after",
+            "type": "u64"
+          },
+          {
+            "name": "s_short_after",
+            "type": "u64"
+          },
+          {
+            "name": "sqrt_price_long_x96_after",
+            "type": "u128"
+          },
+          {
+            "name": "sqrt_price_short_x96_after",
+            "type": "u128"
+          },
+          {
+            "name": "r_long_after",
+            "type": "u64"
+          },
+          {
+            "name": "r_short_after",
+            "type": "u64"
+          },
+          {
+            "name": "vault_balance_after",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TradeType",
+      "docs": [
+        "Trade type"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Buy"
+          },
+          {
+            "name": "Sell"
           }
         ]
       }

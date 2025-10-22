@@ -2,10 +2,13 @@
  * User Holdings API Route
  * GET /api/users/[username]/holdings
  * Returns token holdings for a user with post and pool data
+ *
+ * ICBS Version - Fetches prices from on-chain pool data
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { fetchPoolData } from '@/lib/solana/fetch-pool-data';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -67,10 +70,7 @@ export async function GET(
           )
         ),
         pool_deployments:pool_address (
-          pool_address,
-          token_supply,
-          reserve,
-          k_quadratic
+          pool_address
         )
       `)
       .eq('user_id', user.id)
@@ -84,53 +84,62 @@ export async function GET(
       );
     }
 
-    // Transform and calculate current values
-    const transformedHoldings = (holdings || []).map((holding: any) => {
-      const post = holding.posts;
-      const pool = holding.pool_deployments;
+    // Transform and calculate current values - fetch pool data from chain
+    const transformedHoldings = await Promise.all(
+      (holdings || []).map(async (holding: any) => {
+        const post = holding.posts;
+        const poolAddress = holding.pool_deployments?.pool_address;
 
-      // Calculate current price from bonding curve
-      const tokenSupply = pool?.token_supply || 0;
-      const reserve = (pool?.reserve || 0) / 1_000_000; // micro-USDC to USDC
-      const kQuadratic = pool?.k_quadratic || 1;
+        // Fetch current pool data from chain
+        let poolData = null;
+        let currentPrice = 0;
+        let currentValueUsdc = 0;
 
-      const currentPrice = tokenSupply > 0
-        ? reserve / (kQuadratic * Math.pow(tokenSupply, 2))
-        : 0;
+        if (poolAddress) {
+          try {
+            poolData = await fetchPoolData(poolAddress);
+            if (poolData) {
+              // Use average of long/short prices for holdings display
+              currentPrice = (poolData.priceLong + poolData.priceShort) / 2;
+              currentValueUsdc = holding.token_balance * currentPrice;
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch pool data for ${poolAddress}:`, error);
+          }
+        }
 
-      // Calculate current value
-      const currentValueUsdc = holding.token_balance * currentPrice;
-
-      return {
-        post: {
-          id: post?.id,
-          post_type: post?.post_type || 'text',
-          content_text: post?.content_text,
-          caption: post?.caption,
-          media_urls: post?.media_urls,
-          user_id: post?.user_id,
-          created_at: post?.created_at,
-          author: {
-            username: post?.users?.username || 'Unknown',
-            display_name: post?.users?.display_name || post?.users?.username || 'Unknown',
-            avatar_url: post?.users?.avatar_url || null,
+        return {
+          post: {
+            id: post?.id,
+            post_type: post?.post_type || 'text',
+            content_text: post?.content_text,
+            caption: post?.caption,
+            media_urls: post?.media_urls,
+            user_id: post?.user_id,
+            created_at: post?.created_at,
+            author: {
+              username: post?.users?.username || 'Unknown',
+              display_name: post?.users?.display_name || post?.users?.username || 'Unknown',
+              avatar_url: post?.users?.avatar_url || null,
+            },
           },
-        },
-        pool: {
-          pool_address: pool?.pool_address,
-          token_supply: tokenSupply,
-          reserve: reserve,
-          k_quadratic: kQuadratic,
-          current_price: currentPrice,
-        },
-        balance: {
-          token_balance: holding.token_balance,
-          current_value_usdc: currentValueUsdc,
-          total_usdc_spent: holding.total_usdc_spent,
-          total_bought: holding.total_bought,
-        },
-      };
-    });
+          pool: {
+            pool_address: poolAddress,
+            price_long: poolData?.priceLong || 0,
+            price_short: poolData?.priceShort || 0,
+            current_price: currentPrice,
+            total_supply: poolData?.totalSupply || 0, // Already in display units from fetchPoolData
+            vault_balance: poolData?.vaultBalance || 0,
+          },
+          balance: {
+            token_balance: holding.token_balance,
+            current_value_usdc: currentValueUsdc,
+            total_usdc_spent: holding.total_usdc_spent,
+            total_bought: holding.total_bought,
+          },
+        };
+      })
+    );
 
     // Sort by current value (highest first)
     transformedHoldings.sort((a, b) =>

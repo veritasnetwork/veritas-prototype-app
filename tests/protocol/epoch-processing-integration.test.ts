@@ -11,13 +11,10 @@ interface BeliefProcessingResult {
   participant_count: number
   weights: Record<string, number>
   effective_stakes: Record<string, number>
-  pre_mirror_descent_aggregate: number
-  post_mirror_descent_aggregate: number
+  aggregate: number
   jensen_shannon_disagreement_entropy: number
-  post_mirror_descent_disagreement_entropy: number
   certainty: number
-  learning_occurred: boolean
-  economic_learning_rate: number
+  redistribution_occurred: boolean
 }
 
 interface EpochProcessingResponse {
@@ -204,13 +201,13 @@ Deno.test("End-to-End Integration - Learning Triggers BTS Scoring and Stake Redi
   await callEpochProcessing({ current_epoch: currentEpoch })
 
   // In epoch 2, submit different beliefs from A and B to create BTS score differences
-  // Leave C passive so mirror descent reduces entropy (triggering learning)
+  // Leave C passive so aggregation reduces entropy (triggering learning)
   await submitBelief(agentA, beliefId, 0.7, 0.65)  // Agent A: somewhat convergent
   await submitBelief(agentB, beliefId, 0.4, 0.55)  // Agent B: different view
-  // Agent C doesn't submit, becomes passive, will be pulled toward aggregate by mirror descent
-  // This creates: learning (entropy reduction via mirror descent) + BTS winners/losers (A vs B disagreement)
+  // Agent C doesn't submit, becomes passive, will be pulled toward aggregate by aggregation
+  // This creates: learning (entropy reduction via aggregation) + BTS winners/losers (A vs B disagreement)
 
-  console.log("Submitted different beliefs from A (0.7) and B (0.4), C passive for mirror descent")
+  console.log("Submitted different beliefs from A (0.7) and B (0.4), C passive for aggregation")
 
   // Record initial stakes
   const initialStakeA = await getAgentStake(agentA)
@@ -244,19 +241,16 @@ Deno.test("End-to-End Integration - Learning Triggers BTS Scoring and Stake Redi
   assertEquals(processedBelief.participant_count, 3, "Should have 3 total participants (A, B, C - all submitted in epoch 1)")
 
   console.log("Processed belief result:", {
-    learning_occurred: processedBelief.learning_occurred,
-    economic_learning_rate: processedBelief.economic_learning_rate,
-    pre_aggregate: processedBelief.pre_mirror_descent_aggregate,
-    post_aggregate: processedBelief.post_mirror_descent_aggregate,
+    redistribution_occurred: processedBelief.redistribution_occurred,
+    pre_aggregate: processedBelief.aggregate,
+    post_aggregate: processedBelief.aggregate,
     pre_entropy: processedBelief.jensen_shannon_disagreement_entropy,
-    post_entropy: processedBelief.post_mirror_descent_disagreement_entropy,
+    post_entropy: processedBelief.jensen_shannon_disagreement_entropy,
     certainty: processedBelief.certainty
   })
 
   // Verify learning occurred (should happen with diverse beliefs and meta-predictions)
-  assertEquals(processedBelief.learning_occurred, true, "Learning should have occurred with diverse beliefs")
-  assertExists(processedBelief.economic_learning_rate)
-  assertEquals(processedBelief.economic_learning_rate > 0, true, "Economic learning rate should be positive")
+  assertEquals(processedBelief.redistribution_occurred, true, "Learning should have occurred with diverse beliefs")
 
   console.log("=== Verifying stake redistribution occurred ===")
 
@@ -342,12 +336,11 @@ Deno.test("End-to-End Integration - No Learning Skips BTS and Redistribution", a
   assertExists(processedBelief, `Belief ${beliefId} should be in processed beliefs`)
 
   console.log("No learning case result:", {
-    learning_occurred: processedBelief.learning_occurred,
-    economic_learning_rate: processedBelief.economic_learning_rate
+    redistribution_occurred: processedBelief.redistribution_occurred,
   })
 
   // Verify no learning occurred
-  assertEquals(processedBelief.learning_occurred, false, "No learning should occur with consensus")
+  assertEquals(processedBelief.redistribution_occurred, false, "No learning should occur with consensus")
 
   // Check final stakes (should be unchanged if no learning)
   const finalStakeA = await getAgentStake(agentA)

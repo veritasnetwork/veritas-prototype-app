@@ -18,6 +18,21 @@ export type TradeHistoryData = TradeHistoryResponse;
 const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
   const res = await fetch(url);
   if (!res.ok) {
+    // Return empty data for 404s (pool not deployed yet) instead of throwing
+    if (res.status === 404) {
+      return {
+        priceData: [],
+        volumeData: [],
+        stats: {
+          totalVolume: 0,
+          totalTrades: 0,
+          highestPrice: 0,
+          lowestPrice: 0,
+          priceChange24h: 0,
+          priceChangePercent24h: 0,
+        },
+      };
+    }
     throw new Error('Failed to fetch trade history');
   }
   const data = await res.json();

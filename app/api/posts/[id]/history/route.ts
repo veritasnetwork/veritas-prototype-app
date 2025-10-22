@@ -18,10 +18,10 @@ export async function GET(
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Fetch belief history
+    // Fetch belief history (absolute BD relevance scores)
     const { data: beliefHistory, error: beliefError } = await supabase
       .from('belief_relevance_history')
-      .select('epoch, aggregate, delta_relevance, certainty, disagreement_entropy, recorded_at')
+      .select('epoch, aggregate, certainty, disagreement_entropy, recorded_at')
       .eq('post_id', params.id)
       .order('epoch', { ascending: true });
 
@@ -29,16 +29,30 @@ export async function GET(
       console.error('Error fetching belief history:', beliefError);
     }
 
-    // Fetch price history (from VIEW)
+    // Fetch price history from trades (ICBS: track LONG and SHORT prices separately)
     const { data: priceHistory, error: priceError } = await supabase
-      .from('pool_price_snapshots')
-      .select('price, token_supply, reserve, recorded_at, triggered_by, tx_signature')
+      .from('trades')
+      .select('side, sqrt_price_long_x96, sqrt_price_short_x96, price_long, price_short, s_long_after, s_short_after, recorded_at, trade_type, tx_signature')
       .eq('post_id', params.id)
       .order('recorded_at', { ascending: true });
 
     if (priceError) {
       console.error('Error fetching price history:', priceError);
     }
+
+    // Transform trades into price snapshots (one entry per trade showing both LONG and SHORT prices)
+    const transformedPriceHistory = (priceHistory || []).map((trade: any) => ({
+      side: trade.side,
+      sqrt_price_long_x96: trade.sqrt_price_long_x96,
+      sqrt_price_short_x96: trade.sqrt_price_short_x96,
+      price_long: trade.price_long,
+      price_short: trade.price_short,
+      supply_long: trade.s_long_after,
+      supply_short: trade.s_short_after,
+      recorded_at: trade.recorded_at,
+      triggered_by: trade.trade_type,
+      tx_signature: trade.tx_signature
+    }));
 
     // Fetch trade history for this post
     const { data: tradeHistory, error: tradeError } = await supabase
@@ -64,7 +78,7 @@ export async function GET(
 
     return NextResponse.json({
       belief_history: beliefHistory || [],
-      price_history: priceHistory || [],
+      price_history: transformedPriceHistory || [],
       trade_history: tradeHistory || []
     });
 

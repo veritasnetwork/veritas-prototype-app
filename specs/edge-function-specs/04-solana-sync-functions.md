@@ -338,17 +338,22 @@ Confirms a pool deployment by recording the transaction signature. Used after po
 
 ---
 
-## /solana/pool-redistribution
+## /pool-settlement
 
-**Current Implementation:** [supabase/functions/pool-redistribution/index.ts](../../supabase/functions/pool-redistribution/index.ts)
+**Current Implementation:** [supabase/functions/pool-settlement/index.ts](../../supabase/functions/pool-settlement/index.ts)
 
 **⚠️ SERVICE_ROLE ONLY - Not callable by users**
 
-Executes pool penalty/reward redistribution based on epoch outcomes. This is the core economic mechanism of Veritas.
+Settles individual pools based on BD (Belief Decomposition) relevance scores. Each pool settles independently against absolute BD scores - no cross-pool redistribution.
 
 ### Request Parameters
 
-None (triggered by epoch cron job)
+```typescript
+{
+  epoch: number              // Epoch to settle
+  pool_addresses?: string[]  // Optional: specific pools to settle (default: all)
+}
+```
 
 ### Response
 
@@ -356,217 +361,128 @@ None (triggered by epoch cron job)
 ```typescript
 {
   success: true
-  penalties: number              // Number of penalties applied
-  rewards: number                // Number of rewards distributed
-  penaltyPot: number             // Total penalty pot size (USDC)
-  totalTransactions: number      // Total on-chain transactions
-  failedPenalties: Array<{
-    pool: string
+  epoch: number
+  settled_count: number
+  failed_count: number
+  settlements: Array<{
+    pool_address: string
+    belief_id: string
+    bd_score: number          // BD relevance score x ∈ [0,1]
+    market_prediction_q: number  // q = R_long / (R_long + R_short)
+    f_long: number            // Settlement factor: x / q
+    f_short: number           // Settlement factor: (1-x) / (1-q)
+    tx_signature: string
+  }>
+  errors: Array<{
+    pool_address: string
     error: string
   }>
-  failedRewards: Array<{
-    pool: string
-    error: string
-  }>
-  penaltySignatures: string[]    // Transaction signatures for penalties
-  rewardSignatures: string[]     // Transaction signatures for rewards
-}
-```
-
-**Skipped (200):**
-```typescript
-{
-  success: true
-  message: "Solana not configured" | "No pools to process" | "No valid pools to process"
-  penalties: 0
-  rewards: 0
-}
-```
-
-**Error (500):**
-```typescript
-{
-  error: "Pool redistribution failed"
-  message: string
-  code: 500
 }
 ```
 
 ### Process
 
-#### Phase 0: Setup & Validation
+1. **Fetch pools to settle:**
+   - Query pools with associated beliefs
+   - Filter for pools with BD scores calculated this epoch
 
-1. Check `SOLANA_PROGRAM_ID` configured (skip if not)
-2. Load protocol authority keypair from `SOLANA_AUTHORITY_SECRET_KEY`
-3. Initialize Anchor program with IDL
-4. Derive treasury PDA: `["treasury"]`
-5. Derive treasury USDC vault PDA: `["treasury-vault"]`
+2. **For each pool:**
+   - Fetch BD relevance score `x ∈ [0,1]` from belief
+   - Read on-chain pool state (R_long, R_short)
+   - Calculate market prediction `q = R_long / (R_long + R_short)`
+   - Compute settlement factors:
+     - `f_long = x / q` (if q ≠ 0)
+     - `f_short = (1-x) / (1-q)` (if q ≠ 1)
+   - Build `settle_epoch` transaction
+   - Execute with protocol authority signature
+   - Record settlement in `settlements` table
 
-#### Phase 1: Data Collection
+3. **Settlement Mechanics:**
+   - New reserves: `R_long' = R_long × f_long`, `R_short' = R_short × f_short`
+   - If `x > q`: LONG gains, SHORT loses (market underestimated)
+   - If `x < q`: SHORT gains, LONG loses (market overestimated)
+   - If `x = q`: No change (perfect prediction)
 
-6. Fetch all confirmed pools with `delta_relevance` and `certainty`:
-   ```sql
-   SELECT pool_address, usdc_vault_address, reserve, belief_id,
-          beliefs.delta_relevance, beliefs.certainty
-   FROM pool_deployments
-   INNER JOIN beliefs ON pool_deployments.belief_id = beliefs.id
-   WHERE deployment_tx_signature IS NOT NULL
-   ```
+### Key Differences from Old Design
 
-7. Validate pool data:
-   - `delta_relevance` present and in range [-1, 1]
-   - `certainty` present and in range [0, 1]
-   - `reserve` ≥ 0
-   - Skip invalid pools with warning logs
+**Old (Cross-Pool Redistribution):**
+- Pools competed for share of penalty pot
+- Used delta_relevance (change from previous epoch)
+- Required ProtocolTreasury to shuttle USDC
+- Complex winner/loser calculations
 
-#### Phase 2: Penalty Calculation
-
-8. Fetch config values from `system_config` table:
-   - `base_skim_rate` (default: 0.01 = 1%)
-   - `epoch_rollover_balance` (accumulated from previous epochs)
-
-9. Calculate penalty rates:
-   ```typescript
-   if (deltaR < 0) {
-     penalty_rate = min(abs(deltaR) * certainty, 0.10)  // Max 10%
-   } else if (deltaR === 0) {
-     penalty_rate = base_skim_rate  // Default 1%
-   } else {
-     penalty_rate = 0  // No penalty for positive impact
-   }
-   ```
-
-10. Accumulate penalty pot:
-    ```typescript
-    penalty_pot = epoch_rollover_balance
-    for each pool:
-      penalty_amount = reserve * penalty_rate
-      penalty_pot += penalty_amount
-    ```
-
-#### Phase 3: Reward Distribution
-
-11. Calculate positive impact (probability simplex):
-    ```typescript
-    positive_pools = pools.filter(p => p.deltaR > 0)
-    for each positive pool:
-      impact = deltaR * certainty
-    total_positive_impact = sum(all impacts)
-    ```
-
-12. Distribute rewards proportionally:
-    ```typescript
-    if (total_positive_impact > 0) {
-      for each positive pool:
-        reward = (penalty_pot * pool.impact) / total_positive_impact
-      // Reset epoch_rollover_balance to 0
-    } else {
-      // No winners, rollover penalty_pot to next epoch
-      // Update epoch_rollover_balance to penalty_pot
-    }
-    ```
-
-#### Phase 4: Update Database FIRST (Idempotent)
-
-13. **CRITICAL:** Update `system_config.epoch_rollover_balance` BEFORE on-chain transactions
-    - Prevents double-spending if function retries
-    - Reset to 0 if rewards distributed
-    - Update to new penalty_pot if rolling over
-
-#### Phase 5: Apply Penalties On-Chain
-
-14. For each pool with penalty > 0:
-    ```typescript
-    await program.methods
-      .applyPoolPenalty(penalty_lamports)
-      .accounts({
-        pool: pool_pubkey,
-        treasury: treasury_pda,
-        poolUsdcVault: pool_usdc_vault,
-        treasuryUsdcVault: treasury_usdc_vault,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        authority: authority_keypair.publicKey
-      })
-      .signers([authority_keypair])
-      .rpc()
-    ```
-    - Transfers USDC from pool vault to treasury vault
-    - Updates pool reserve on-chain
-    - Logs success/failure for each pool
-
-#### Phase 6: Apply Rewards On-Chain
-
-15. For each pool with reward > 0:
-    ```typescript
-    await program.methods
-      .applyPoolReward(reward_lamports)
-      .accounts({
-        pool: pool_pubkey,
-        treasury: treasury_pda,
-        treasuryUsdcVault: treasury_usdc_vault,
-        poolUsdcVault: pool_usdc_vault,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        authority: authority_keypair.publicKey
-      })
-      .signers([authority_keypair])
-      .rpc()
-    ```
-    - Transfers USDC from treasury vault to pool vault
-    - Updates pool reserve on-chain
-    - Logs success/failure for each pool
+**New (Independent Settlement):**
+- Each pool settles independently
+- Uses absolute BD score `x ∈ [0,1]`
+- No cross-pool dependencies
+- Simpler: just scale reserves by accuracy factors
 
 ### When Called
 
-- **Automated:** Called by epoch cron job after belief aggregation completes
-- **Manual:** Can be triggered by admin for testing/recovery
-- **Frequency:** Once per epoch (currently ~1 hour)
-
-### Solana Instructions Used
-
-- `apply_pool_penalty(amount: u64)` - Transfer from pool to treasury
-- `apply_pool_reward(amount: u64)` - Transfer from treasury to pool
+- Triggered by `/protocol/epochs/process` after BD scoring completes
+- Typically once per epoch for all active pools
+- Can be retried for individual pools if needed
 
 ### Environment Variables
 
-- `SOLANA_RPC_ENDPOINT`: Solana RPC URL (required)
-- `SOLANA_PROGRAM_ID`: veritas-curation program ID (required)
-- `SOLANA_AUTHORITY_SECRET_KEY`: Protocol authority keypair JSON array (required, sensitive)
-- `SUPABASE_URL`: Supabase project URL (required)
-- `SUPABASE_SERVICE_ROLE_KEY`: For database access (required)
+- `SOLANA_RPC_URL` - Solana RPC endpoint
+- `SOLANA_AUTHORITY_SECRET_KEY` - Protocol authority keypair
+- `VERITAS_CURATION_PROGRAM_ID` - ContentPool program ID
 
-### Error Handling
+### Related Documentation
 
-- Missing `SOLANA_PROGRAM_ID` → Skip gracefully (200 with message)
-- Missing `SOLANA_AUTHORITY_SECRET_KEY` → Throw error (500)
-- No pools to process → Skip gracefully (200 with message)
-- Invalid pool data → Skip pool with warning, continue
-- Failed penalty/reward transaction → Log error, track in response, continue
-- Database update failure → Throw error (prevents double-spending)
+- [Pool Settlement Service Spec](../../solana-specs/pool-settlement-service.md) - Detailed implementation
+- [ContentPool Settlement](../../solana-specs/smart-contracts/ContentPool.md#settle_epoch) - On-chain instruction
+- [Epoch Processing Chain](../EPOCH_PROCESSING_CHAIN.md#pool-settlement) - How it fits in epoch flow
 
-### Performance
+---
 
-- **Latency:** ~2-10 seconds (depends on number of pools)
-- **Transactions:** 2 per pool (1 penalty + 1 reward) in worst case
-- **Cost:** ~0.000005 SOL per transaction (~$0.0001 at $20 SOL)
-- **Bottleneck:** RPC rate limits on mainnet
+## /update-pool-mints
 
-### Security & Safety
+**Current Implementation:** [supabase/functions/update-pool-mints/index.ts](../../supabase/functions/update-pool-mints/index.ts)
 
-- **SERVICE_ROLE_KEY required** (not callable by users)
-- **Authority keypair required** (only protocol authority can execute)
-- **Idempotent:** Database updated BEFORE on-chain operations
-- **Retry-safe:** Failed transactions logged, can be manually retried
-- **Validation:** All pool data validated before calculations
-- **Constraints:** Max 10% penalty per pool prevents catastrophic losses
-- **Two-phase:** Penalties applied before rewards (treasury fills first)
+**⚠️ SERVICE_ROLE ONLY - Not callable by users**
 
-### Economic Properties
+Updates pool_deployments table with LONG and SHORT mint addresses after market deployment.
 
-- **Conservation:** Total USDC in system remains constant (penalties = rewards + rollover)
-- **Incentive alignment:** Positive delta_relevance pools rewarded, negative penalized
-- **Certainty weighting:** Higher certainty = larger penalties/rewards
-- **Base skim:** Neutral pools pay small fee to prevent gaming
-- **Rollover:** Penalty pot carries forward if no positive pools exist
+### Request Parameters
+
+```typescript
+{
+  pool_address: string       // ContentPool address
+  long_mint: string          // LONG token mint address
+  short_mint: string         // SHORT token mint address
+}
+```
+
+### Response
+
+**Success (200):**
+```typescript
+{
+  success: true
+  pool_address: string
+  long_mint: string
+  short_mint: string
+}
+```
+
+### Process
+
+1. Validate pool exists in `pool_deployments` table
+2. Update `long_mint_address` and `short_mint_address` columns
+3. Set `market_deployed_at` timestamp
+4. Return confirmation
+
+### When Called
+
+- Called automatically after `deploy_market` transaction confirms
+- Triggered by event indexer when MarketDeployed event detected
+- Can be called manually for reconciliation
+
+### Environment Variables
+
+None required (database operation only)
 
 ---
 

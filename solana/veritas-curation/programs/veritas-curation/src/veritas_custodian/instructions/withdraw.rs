@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 use crate::veritas_custodian::state::{
     VeritasCustodian, WithdrawEvent,
-    CUSTODIAN_SEED, MIN_WITHDRAWAL
+    CUSTODIAN_SEED
 };
 use crate::errors::ErrorCode;
 
@@ -25,7 +25,6 @@ pub fn withdraw(
     );
 
     require!(amount > 0, ErrorCode::InvalidAmount);
-    require!(amount >= MIN_WITHDRAWAL, ErrorCode::BelowMinimum);
 
     // Verify vault has sufficient USDC
     require!(

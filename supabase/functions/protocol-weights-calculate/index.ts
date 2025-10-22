@@ -59,12 +59,12 @@ serve(async (req) => {
 
     // 2. Calculate effective stakes for each agent
     const effectiveStakes: Record<string, number> = {}
-    
+
     for (const agentId of participant_agents) {
       // Query agents table by agent_id
       const { data: agentData, error: agentError } = await supabaseClient
         .from('agents')
-        .select('total_stake, active_belief_count')
+        .select('total_stake')
         .eq('id', agentId)
         .single()
 
@@ -72,30 +72,64 @@ serve(async (req) => {
         console.error(`Failed to get agent ${agentId}:`, agentError)
         return new Response(
           JSON.stringify({ error: 'Agent not found', code: 404 }),
-          { 
+          {
             status: 404,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
 
-      // Verify agent.active_belief_count > 0 (avoid division by zero)
-      if (agentData.active_belief_count === 0) {
+      // Get user_id from agent_id
+      const { data: userData } = await supabaseClient
+        .from('users')
+        .select('id')
+        .eq('agent_id', agentId)
+        .single()
+
+      if (!userData) {
         return new Response(
-          JSON.stringify({ error: 'Division by zero - agent has no active beliefs', code: 501 }),
-          { 
+          JSON.stringify({ error: 'User not found for agent', code: 404 }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Count open positions for this agent (replaces active_belief_count)
+      const { data: openPositions, error: positionsError } = await supabaseClient
+        .from('user_pool_balances')
+        .select('pool_address')
+        .eq('user_id', userData.id)
+        .gt('token_balance', 0)
+
+      if (positionsError) {
+        console.error(`Failed to get positions for agent ${agentId}:`, positionsError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to get positions', code: 500 }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
+      }
+
+      const activePositionCount = openPositions?.length || 0
+
+      // Verify agent has active positions (avoid division by zero)
+      if (activePositionCount === 0) {
+        return new Response(
+          JSON.stringify({ error: 'Division by zero - agent has no open positions', code: 501 }),
+          {
             status: 501,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
 
-      // Calculate: effective_stake = total_stake / active_belief_count
-      let effectiveStake = agentData.total_stake / agentData.active_belief_count
-      
+      // Calculate: effective_stake = total_stake / active_position_count
+      let effectiveStake = agentData.total_stake / activePositionCount
+
       // Apply minimum: max(effective_stake, EPSILON_STAKES)
       effectiveStake = Math.max(effectiveStake, EPSILON_STAKES)
-      
+
       // Store in effective_stakes map
       effectiveStakes[agentId] = effectiveStake
     }

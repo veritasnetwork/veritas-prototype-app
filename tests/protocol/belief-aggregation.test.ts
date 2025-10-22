@@ -87,7 +87,7 @@ Deno.test("Belief Aggregation - Single agent", async () => {
   });
 
   assert(response.ok, `Aggregation failed: ${JSON.stringify(data)}`);
-  assertEquals(data.pre_mirror_descent_aggregate, 0.7, "Single agent aggregate should equal their belief");
+  assertEquals(data.aggregate, 0.7, "Single agent aggregate should equal their belief");
   assertEquals(data.jensen_shannon_disagreement_entropy, 0, "Single agent should have zero disagreement");
   assertEquals(data.certainty, 1.0, "Single agent should have full certainty");
 });
@@ -112,7 +112,7 @@ Deno.test("Belief Aggregation - Two equal agents", async () => {
   });
 
   assert(response.ok, `Aggregation failed: ${JSON.stringify(data)}`);
-  assertEquals(data.pre_mirror_descent_aggregate, 0.5, "Equal weights should give average");
+  assertEquals(data.aggregate, 0.5, "Equal weights should give average");
   assert(data.jensen_shannon_disagreement_entropy > 0, "Two different beliefs should have disagreement");
   assert(data.certainty < 1.0, "Two different beliefs should have less than full certainty");
 });
@@ -137,7 +137,7 @@ Deno.test("Belief Aggregation - Unequal weights", async () => {
   });
 
   assert(response.ok, `Aggregation failed: ${JSON.stringify(data)}`);
-  assert(Math.abs(data.pre_mirror_descent_aggregate - 0.65) < 1e-10, "Weighted average should be 0.25*0.2 + 0.75*0.8 = 0.65");
+  assert(Math.abs(data.aggregate - 0.65) < 1e-10, "Weighted average should be 0.25*0.2 + 0.75*0.8 = 0.65");
 });
 
 Deno.test("Belief Aggregation - Weights don't sum to 1.0", async () => {
@@ -221,7 +221,7 @@ Deno.test("Belief Aggregation - Identical beliefs", async () => {
   });
 
   assert(response.ok, `Aggregation failed: ${JSON.stringify(data)}`);
-  assertEquals(data.pre_mirror_descent_aggregate, 0.6, "Identical beliefs should aggregate to same value");
+  assertEquals(data.aggregate, 0.6, "Identical beliefs should aggregate to same value");
   assert(Math.abs(data.jensen_shannon_disagreement_entropy) < EPSILON_PROBABILITY, "Identical beliefs should have zero disagreement");
   assert(Math.abs(data.certainty - 1.0) < EPSILON_PROBABILITY, "Identical beliefs should have full certainty");
 });

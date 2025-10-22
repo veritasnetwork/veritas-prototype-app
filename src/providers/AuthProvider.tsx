@@ -1,9 +1,17 @@
 'use client';
 
-import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
+import { PrivyProvider, usePrivy as useRealPrivy } from '@privy-io/react-auth';
+import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { PrivyErrorBoundary } from '@/components/auth/PrivyErrorBoundary';
+import { getRpcEndpoint, getNetworkName } from '@/lib/solana/network-config';
+import {
+  MockPrivyProvider,
+  usePrivy as useMockPrivy,
+  useWallets as useMockWallets,
+  useSolanaWallets as useMockSolanaWallets,
+} from './MockPrivyProvider';
 
 export interface User {
   id: string;
@@ -18,7 +26,9 @@ export interface User {
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
+  needsOnboarding: boolean;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -35,10 +45,18 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Determine which usePrivy to use based on mock mode
+const isMockMode = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true';
+const usePrivy = isMockMode ? useMockPrivy : useRealPrivy;
+
+// Export usePrivy for use in other components
+export { usePrivy };
+
 function AuthProviderInner({ children }: AuthProviderProps) {
   const { authenticated, ready, getAccessToken, logout: privyLogout, user: privyUser } = usePrivy();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [lastCheckTime, setLastCheckTime] = useState<number>(0);
 
   const checkUserStatus = async () => {
@@ -83,6 +101,10 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         const data = await response.json();
         if (data.user) {
           setUser(data.user);
+          setNeedsOnboarding(false);
+        } else if (data.needsOnboarding) {
+          setUser(null);
+          setNeedsOnboarding(true);
         }
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -110,7 +132,12 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
   const logout = () => {
     setUser(null);
+    setNeedsOnboarding(false);
     privyLogout();
+  };
+
+  const refreshUser = async () => {
+    await checkUserStatus();
   };
 
   useEffect(() => {
@@ -125,6 +152,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       } else {
         setIsLoading(false);
         setUser(null);
+        setNeedsOnboarding(false);
       }
     }
   }, [authenticated, ready]);
@@ -132,7 +160,9 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const authValue: AuthContextValue = {
     user,
     isLoading,
+    needsOnboarding,
     logout,
+    refreshUser,
   };
 
   return (
@@ -143,25 +173,76 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  // Use mock auth if enabled (for when Privy is down)
+  if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
+    console.log('🔓 Mock auth mode enabled');
+    return (
+      <MockPrivyProvider>
+        <AuthProviderInner>{children}</AuthProviderInner>
+      </MockPrivyProvider>
+    );
+  }
+
+  // Configure Solana wallet connectors
+  const solanaConnectors = toSolanaWalletConnectors({
+    shouldAutoConnect: true, // Enable auto-connect for linked wallets (like Phantom)
+  });
+
+  // Get Solana network configuration from environment
+  const networkName = getNetworkName();
+  const rpcEndpoint = getRpcEndpoint();
+
+  // Map localnet to devnet for Privy (Privy doesn't support custom networks)
+  // But we'll use the actual localnet RPC endpoint
+  const privyNetworkName = networkName === 'localnet' ? 'devnet' : networkName;
+
+  console.log('[AuthProvider] Configuring Privy:', {
+    actualNetwork: networkName,
+    privyNetwork: privyNetworkName,
+    rpc: rpcEndpoint
+  });
+
   return (
     <PrivyErrorBoundary>
       <PrivyProvider
         appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ''}
         config={{
           appearance: {
-            theme: 'light',
+            theme: 'dark',
             accentColor: '#676FFF',
             walletChainType: 'solana-only',
             showWalletLoginFirst: false,
-            walletList: ['detected', 'metamask', 'rainbow', 'coinbase_wallet', 'wallet_connect'],
+            // Show wallet as primary option in modals
+            walletList: ['detected', 'privy'],
           },
-          loginMethods: ['wallet', 'email', 'apple'],
+          // Use loginMethodsAndOrder instead of loginMethods for better control
+          loginMethodsAndOrder: {
+            primary: ['detected_solana_wallets', 'email'],
+            overflow: ['apple'],
+          },
           embeddedWallets: {
-            createOnLogin: 'users-without-wallets',
+            createOnLogin: 'all-users', // Always create embedded wallet
             requireUserPasswordOnCreate: false,
-            noPromptOnSignature: false,
+            noPromptOnSignature: true, // Don't prompt for password on every signature
           },
-          supportedChains: [],
+          fundingMethodConfig: {
+            moonpay: {
+              useSandbox: false,
+            },
+          },
+          // Use devnet as cluster name but with custom RPC for localnet
+          // Privy only recognizes: mainnet-beta, devnet, testnet
+          solanaClusters: [
+            {
+              name: privyNetworkName as any,
+              rpcUrl: rpcEndpoint,
+            },
+          ],
+          externalWallets: {
+            solana: {
+              connectors: solanaConnectors, // Enable Solana wallet detection
+            },
+          },
           // Disable WalletConnect to prevent redirects
           walletConnectCloudProjectId: undefined,
         }}

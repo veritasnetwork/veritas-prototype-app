@@ -1,3 +1,19 @@
+/**
+ * DEPRECATED: protocol-epochs-process (Global Epoch Processing)
+ *
+ * This function is DEPRECATED in favor of per-belief processing.
+ *
+ * NEW ARCHITECTURE:
+ * - Use `protocol-belief-epoch-process` to process individual beliefs on-demand
+ * - No global epochs - each pool has independent `current_epoch` counter
+ * - Settlement is per-pool via `pool-settle-single` or POST /api/pools/settle
+ *
+ * This function remains for backward compatibility only.
+ * It can still batch-process multiple beliefs, but this is not the recommended approach.
+ *
+ * @deprecated Use protocol-belief-epoch-process instead
+ */
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -15,13 +31,9 @@ interface BeliefProcessingResult {
   participant_count: number
   weights: Record<string, number>
   effective_stakes: Record<string, number>
-  pre_mirror_descent_aggregate: number
-  post_mirror_descent_aggregate: number
+  aggregate: number
   jensen_shannon_disagreement_entropy: number
-  post_mirror_descent_disagreement_entropy: number
   certainty: number
-  learning_occurred: boolean
-  economic_learning_rate: number
 }
 
 interface EpochProcessingResponse {
@@ -182,18 +194,94 @@ serve(async (req) => {
           .join(', ')
         console.log(`⚖️  Weights: ${weightSummary}`)
 
-        // Step 2: Calculate belief aggregation
-        const aggregationData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-aggregate', {
-          belief_id: belief.id,
-          weights: weightsData.weights
-        })
+        // Step 2: Try belief decomposition first, fall back to aggregation if it fails
+        let aggregationData;
+        let decompositionUsed = false;
 
-        console.log(`📊 Step 2: Belief aggregation complete`)
-        console.log(`📊 Pre-mirror descent aggregate: ${(aggregationData.pre_mirror_descent_aggregate * 100).toFixed(1)}%`)
-        console.log(`📊 Jensen-Shannon entropy: ${aggregationData.jensen_shannon_disagreement_entropy.toFixed(4)}`)
-        console.log(`📊 Certainty: ${(aggregationData.certainty * 100).toFixed(1)}%`)
+        try {
+          // Try decomposition first
+          aggregationData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-decompose/decompose', {
+            belief_id: belief.id,
+            weights: weightsData.weights
+          })
+          decompositionUsed = true;
 
-        // Step 3: Get active agent indicators - only agents who submitted in current epoch are active
+          console.log(`📊 Step 2: Belief DECOMPOSITION complete`)
+          console.log(`📊 Aggregate: ${(aggregationData.aggregate * 100).toFixed(1)}%`)
+          console.log(`📊 Common Prior: ${(aggregationData.common_prior * 100).toFixed(1)}%`)
+          console.log(`📊 Decomposition Quality: ${(aggregationData.decomposition_quality * 100).toFixed(1)}%`)
+          console.log(`📊 Jensen-Shannon entropy: ${aggregationData.jensen_shannon_disagreement_entropy.toFixed(4)}`)
+          console.log(`📊 Certainty: ${(aggregationData.certainty * 100).toFixed(1)}%`)
+
+          // Check decomposition quality - if too low, fall back to naive aggregation
+          if (aggregationData.decomposition_quality < 0.3) {
+            console.log(`⚠️  Decomposition quality too low (${(aggregationData.decomposition_quality * 100).toFixed(1)}%), falling back to naive aggregation`)
+            decompositionUsed = false;
+          }
+        } catch (decomposeError) {
+          console.log(`⚠️  Decomposition failed: ${decomposeError.message}, falling back to naive aggregation`)
+          decompositionUsed = false;
+        }
+
+        // Fall back to naive aggregation if decomposition failed or quality was too low
+        if (!decompositionUsed) {
+          aggregationData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-aggregate', {
+            belief_id: belief.id,
+            weights: weightsData.weights
+          })
+
+          console.log(`📊 Step 2: Belief aggregation (naive) complete`)
+          console.log(`📊 Aggregate: ${(aggregationData.aggregate * 100).toFixed(1)}%`)
+          console.log(`📊 Jensen-Shannon entropy: ${aggregationData.jensen_shannon_disagreement_entropy.toFixed(4)}`)
+          console.log(`📊 Certainty: ${(aggregationData.certainty * 100).toFixed(1)}%`)
+        }
+
+        // Use aggregation/decomposition result directly as final aggregate (absolute BD relevance)
+        const finalAggregate = aggregationData.aggregate
+
+        // Step 3: Update beliefs table with certainty and new previous_aggregate
+        const { error: beliefUpdateError } = await supabaseClient
+          .from('beliefs')
+          .update({
+            certainty: aggregationData.certainty,
+            previous_aggregate: finalAggregate
+          })
+          .eq('id', belief.id)
+
+        if (beliefUpdateError) {
+          throw new Error(`Failed to update belief: ${beliefUpdateError.message}`)
+        }
+
+        console.log(`📊 Belief table updated:`)
+        console.log(`   - Absolute relevance: ${(finalAggregate * 100).toFixed(1)}%`)
+        console.log(`   - Certainty: ${(aggregationData.certainty * 100).toFixed(1)}%`)
+
+        // Calculate total stake from effective stakes
+        const totalStake = Object.values(weightsData.effective_stakes as Record<string, number>)
+          .reduce((sum: number, stake: number) => sum + stake, 0)
+
+        // Record belief history for charts (absolute BD relevance)
+        const { error: historyInsertError } = await supabaseClient
+          .from('belief_relevance_history')
+          .insert({
+            belief_id: belief.id,
+            epoch: currentEpoch,
+            aggregate: finalAggregate,
+            certainty: aggregationData.certainty,
+            disagreement_entropy: aggregationData.jensen_shannon_disagreement_entropy,
+            participant_count: participantAgents.length,
+            total_stake: totalStake,
+            recorded_at: new Date().toISOString()
+          })
+
+        if (historyInsertError) {
+          console.error(`⚠️ Failed to record belief history: ${historyInsertError.message}`)
+          // Don't throw - this is not critical to epoch processing
+        } else {
+          console.log(`📝 Belief history recorded: epoch ${currentEpoch}, relevance ${(finalAggregate * 100).toFixed(1)}%, ${participantAgents.length} participants, $${totalStake.toFixed(2)} total stake`)
+        }
+
+        // Step 4: Get active agent indicators for BTS scoring
         const { data: currentEpochSubmissions, error: currentSubmissionsError } = await supabaseClient
           .from('belief_submissions')
           .select('agent_id, is_active')
@@ -208,181 +296,92 @@ serve(async (req) => {
         const activeAgentIndicators = (currentEpochSubmissions || [])
           .map(s => s.agent_id)
 
-        console.log(`📋 Step 3: Active agents in current epoch: ${activeAgentIndicators.length}/${participantAgents.length}`)
+        console.log(`📋 Step 4: Active agents in current epoch: ${activeAgentIndicators.length}/${participantAgents.length}`)
         if (activeAgentIndicators.length > 0) {
           console.log(`📋 Active agents: ${activeAgentIndicators.map(id => id.substring(0, 8)).join(', ')}`)
-        }
-
-        // Step 4: Apply mirror descent
-        const mirrorDescentData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-mirror-descent', {
-          belief_id: belief.id,
-          pre_mirror_descent_aggregate: aggregationData.pre_mirror_descent_aggregate,
-          certainty: aggregationData.certainty,
-          active_agent_indicators: activeAgentIndicators,
-          weights: weightsData.weights
-        })
-
-        console.log(`🎯 Step 4: Mirror descent complete`)
-        console.log(`🎯 Post-mirror descent aggregate: ${(mirrorDescentData.post_mirror_descent_aggregate * 100).toFixed(1)}%`)
-        console.log(`🎯 Post-mirror descent entropy: ${mirrorDescentData.post_mirror_descent_disagreement_entropy.toFixed(4)}`)
-        const entropyChange = aggregationData.jensen_shannon_disagreement_entropy - mirrorDescentData.post_mirror_descent_disagreement_entropy
-        console.log(`🎯 Entropy change: ${entropyChange.toFixed(4)} (${entropyChange > 0 ? 'decreased' : 'increased'})`)
-
-        // Get current previous_aggregate to calculate delta_relevance
-        const { data: currentBelief, error: beliefFetchError } = await supabaseClient
-          .from('beliefs')
-          .select('previous_aggregate')
-          .eq('id', belief.id)
-          .single()
-
-        if (beliefFetchError) {
-          throw new Error(`Failed to fetch belief: ${beliefFetchError.message}`)
-        }
-
-        const previousAggregate = currentBelief?.previous_aggregate || mirrorDescentData.post_mirror_descent_aggregate
-        const deltaRelevance = mirrorDescentData.post_mirror_descent_aggregate - previousAggregate
-
-        // Update beliefs table with certainty, delta_relevance, and new previous_aggregate
-        const { error: beliefUpdateError } = await supabaseClient
-          .from('beliefs')
-          .update({
-            certainty: aggregationData.certainty,
-            delta_relevance: deltaRelevance,
-            previous_aggregate: mirrorDescentData.post_mirror_descent_aggregate
-          })
-          .eq('id', belief.id)
-
-        if (beliefUpdateError) {
-          throw new Error(`Failed to update belief: ${beliefUpdateError.message}`)
-        }
-
-        console.log(`📊 Belief table updated:`)
-        console.log(`   - Certainty: ${(aggregationData.certainty * 100).toFixed(1)}%`)
-        console.log(`   - Delta relevance: ${deltaRelevance >= 0 ? '+' : ''}${(deltaRelevance * 100).toFixed(1)}%`)
-        console.log(`   - Previous aggregate updated: ${(mirrorDescentData.post_mirror_descent_aggregate * 100).toFixed(1)}%`)
-
-        // Record belief history for charts
-        const { error: historyInsertError } = await supabaseClient
-          .from('belief_relevance_history')
-          .insert({
-            belief_id: belief.id,
-            post_id: belief.post_id,
-            epoch: currentEpoch,
-            aggregate: mirrorDescentData.post_mirror_descent_aggregate,
-            delta_relevance: deltaRelevance,
-            certainty: aggregationData.certainty,
-            disagreement_entropy: mirrorDescentData.post_mirror_descent_disagreement_entropy,
-            recorded_at: new Date().toISOString()
-          })
-
-        if (historyInsertError) {
-          console.error(`⚠️ Failed to record belief history: ${historyInsertError.message}`)
-          // Don't throw - this is not critical to epoch processing
-        } else {
-          console.log(`📝 Belief history recorded for epoch ${currentEpoch}`)
-        }
-
-        // Step 5: Learning assessment
-        const learningAssessmentData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-learning-assessment', {
-          belief_id: belief.id,
-          post_mirror_descent_disagreement_entropy: mirrorDescentData.post_mirror_descent_disagreement_entropy,
-          post_mirror_descent_aggregate: mirrorDescentData.post_mirror_descent_aggregate
-        })
-
-        console.log(`🧠 Step 5: Learning assessment complete`)
-        console.log(`🧠 Learning occurred: ${learningAssessmentData.learning_occurred ? '✅ YES' : '❌ NO'}`)
-        console.log(`🧠 Economic learning rate: ${(learningAssessmentData.economic_learning_rate * 100).toFixed(1)}%`)
-        if (learningAssessmentData.learning_occurred) {
-          console.log(`🧠 Disagreement entropy reduction: ${learningAssessmentData.disagreement_entropy_reduction?.toFixed(4) || 'N/A'}`)
         }
 
         let btsData = null
         let redistributionData = null
 
-        // Step 6: BTS Scoring (only if learning occurred)
-        if (learningAssessmentData.learning_occurred) {
-          console.log(`\n💰 LEARNING DETECTED - Proceeding with BTS scoring and redistribution`)
+        // Step 5: BTS Scoring (always run)
+        console.log(`\n💰 Proceeding with BTS scoring and redistribution`)
 
-          // Collect post-mirror descent beliefs and meta-predictions from ALL participants
-          // Get most recent submission for each agent (as per spec: score ALL historical participants)
-          const { data: allSubmissions, error: allSubmissionsError } = await supabaseClient
-            .from('belief_submissions')
-            .select('agent_id, belief, meta_prediction, epoch, updated_at')
-            .eq('belief_id', belief.id)
-            .order('updated_at', { ascending: false })
+        // Collect agent beliefs and meta-predictions from ALL participants
+        // Get most recent submission for each agent (as per spec: score ALL historical participants)
+        const { data: allSubmissions, error: allSubmissionsError } = await supabaseClient
+          .from('belief_submissions')
+          .select('agent_id, belief, meta_prediction, epoch, updated_at')
+          .eq('belief_id', belief.id)
+          .order('updated_at', { ascending: false })
 
-          if (allSubmissionsError) {
-            throw new Error(`Failed to get all submissions for BTS: ${allSubmissionsError.message}`)
+        if (allSubmissionsError) {
+          throw new Error(`Failed to get all submissions for BTS: ${allSubmissionsError.message}`)
+        }
+
+        // Get most recent submission per agent for BTS scoring
+        const agentBeliefs: Record<string, number> = {}
+        const agentMetaPredictions: Record<string, number> = {}
+        const seenAgents = new Set<string>()
+
+        for (const submission of allSubmissions || []) {
+          if (!seenAgents.has(submission.agent_id)) {
+            // Use most recent submission for this agent
+            agentBeliefs[submission.agent_id] = submission.belief
+            agentMetaPredictions[submission.agent_id] = submission.meta_prediction
+            seenAgents.add(submission.agent_id)
           }
+        }
 
-          // Get most recent submission per agent for BTS scoring
-          const postMirrorDescentBeliefs: Record<string, number> = {}
-          const agentMetaPredictions: Record<string, number> = {}
-          const seenAgents = new Set<string>()
+        console.log(`🎯 BTS Scoring: Including ${Object.keys(agentBeliefs).length} total participants (historical + current)`)
+        console.log(`🎯 Active agents in current epoch: ${activeAgentIndicators.length}`)
+        console.log(`🎯 Historical participants: ${Object.keys(agentBeliefs).length - activeAgentIndicators.length}`)
 
-          for (const submission of allSubmissions || []) {
-            if (!seenAgents.has(submission.agent_id)) {
-              // Use most recent submission for this agent
-              postMirrorDescentBeliefs[submission.agent_id] = submission.belief
-              agentMetaPredictions[submission.agent_id] = submission.meta_prediction
-              seenAgents.add(submission.agent_id)
-            }
-          }
+        // Get leave-one-out aggregates from aggregation step
+        btsData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-bts-scoring', {
+          belief_id: belief.id,
+          agent_beliefs: agentBeliefs,
+          leave_one_out_aggregates: aggregationData.leave_one_out_aggregates,
+          leave_one_out_meta_aggregates: aggregationData.leave_one_out_meta_aggregates,
+          normalized_weights: weightsData.weights,
+          agent_meta_predictions: agentMetaPredictions
+        })
 
-          console.log(`🎯 BTS Scoring: Including ${Object.keys(postMirrorDescentBeliefs).length} total participants (historical + current)`)
-          console.log(`🎯 Active agents in current epoch: ${activeAgentIndicators.length}`)
-          console.log(`🎯 Historical participants: ${Object.keys(postMirrorDescentBeliefs).length - activeAgentIndicators.length}`)
+        console.log(`🎯 Step 5: BTS scoring complete`)
+        console.log(`🎯 Information scores calculated for ${Object.keys(btsData.information_scores).length} agents`)
+        console.log(`🎯 Winners: ${btsData.winners.length} agents (${btsData.winners.map(id => id.substring(0, 8)).join(', ')})`)
+        console.log(`🎯 Losers: ${btsData.losers.length} agents (${btsData.losers.map(id => id.substring(0, 8)).join(', ')})`)
+        const scoresSummary = Object.entries(btsData.information_scores)
+          .map(([id, score]) => `${id.substring(0, 8)}:${score.toFixed(3)}`)
+          .join(', ')
+        console.log(`🎯 Information scores: ${scoresSummary}`)
 
-          // Get leave-one-out aggregates from aggregation step
-          btsData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-bts-scoring', {
-            belief_id: belief.id,
-            post_mirror_descent_beliefs: postMirrorDescentBeliefs,
-            leave_one_out_aggregates: aggregationData.leave_one_out_aggregates,
-            leave_one_out_meta_aggregates: aggregationData.leave_one_out_meta_aggregates,
-            normalized_weights: weightsData.weights,
-            agent_meta_predictions: agentMetaPredictions
+        // Step 6: Stake Redistribution (always 100%)
+        redistributionData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-stake-redistribution', {
+          belief_id: belief.id,
+          information_scores: btsData.information_scores,
+          winners: btsData.winners,
+          losers: btsData.losers,
+          current_effective_stakes: weightsData.effective_stakes
+        })
+
+        console.log(`💰 Step 6: Stake redistribution complete`)
+        console.log(`💰 Redistribution occurred: ${redistributionData.redistribution_occurred ? '✅ YES' : '❌ NO'}`)
+        console.log(`💰 Slashing pool: $${redistributionData.slashing_pool.toFixed(2)}`)
+        if (redistributionData.redistribution_occurred) {
+          const totalRewards = Object.values(redistributionData.individual_rewards).reduce((a, b) => a + b, 0)
+          const totalSlashes = Object.values(redistributionData.individual_slashes).reduce((a, b) => a + b, 0)
+          console.log(`💰 Total rewards distributed: $${totalRewards.toFixed(2)}`)
+          console.log(`💰 Total stakes slashed: $${totalSlashes.toFixed(2)}`)
+          console.log(`💰 Zero-sum check: ${Math.abs(totalRewards - totalSlashes) < 0.01 ? '✅' : '❌'} (diff: $${Math.abs(totalRewards - totalSlashes).toFixed(4)})`)
+
+          // Log individual changes
+          Object.entries(redistributionData.individual_rewards).forEach(([id, reward]) => {
+            if (reward > 0) console.log(`💰   ${id.substring(0, 8)}: +$${reward.toFixed(2)} (reward)`)
           })
-
-          console.log(`🎯 Step 6: BTS scoring complete`)
-          console.log(`🎯 Information scores calculated for ${Object.keys(btsData.information_scores).length} agents`)
-          console.log(`🎯 Winners: ${btsData.winners.length} agents (${btsData.winners.map(id => id.substring(0, 8)).join(', ')})`)
-          console.log(`🎯 Losers: ${btsData.losers.length} agents (${btsData.losers.map(id => id.substring(0, 8)).join(', ')})`)
-          const scoresSummary = Object.entries(btsData.information_scores)
-            .map(([id, score]) => `${id.substring(0, 8)}:${score.toFixed(3)}`)
-            .join(', ')
-          console.log(`🎯 Information scores: ${scoresSummary}`)
-
-          // Step 7: Stake Redistribution
-          redistributionData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-stake-redistribution', {
-            belief_id: belief.id,
-            learning_occurred: learningAssessmentData.learning_occurred,
-            economic_learning_rate: learningAssessmentData.economic_learning_rate,
-            information_scores: btsData.information_scores,
-            winners: btsData.winners,
-            losers: btsData.losers,
-            current_effective_stakes: weightsData.effective_stakes
+          Object.entries(redistributionData.individual_slashes).forEach(([id, slash]) => {
+            if (slash > 0) console.log(`💰   ${id.substring(0, 8)}: -$${slash.toFixed(2)} (slash)`)
           })
-
-          console.log(`💰 Step 7: Stake redistribution complete`)
-          console.log(`💰 Redistribution occurred: ${redistributionData.redistribution_occurred ? '✅ YES' : '❌ NO'}`)
-          console.log(`💰 Slashing pool: $${redistributionData.slashing_pool.toFixed(2)}`)
-          if (redistributionData.redistribution_occurred) {
-            const totalRewards = Object.values(redistributionData.individual_rewards).reduce((a, b) => a + b, 0)
-            const totalSlashes = Object.values(redistributionData.individual_slashes).reduce((a, b) => a + b, 0)
-            console.log(`💰 Total rewards distributed: $${totalRewards.toFixed(2)}`)
-            console.log(`💰 Total stakes slashed: $${totalSlashes.toFixed(2)}`)
-            console.log(`💰 Zero-sum check: ${Math.abs(totalRewards - totalSlashes) < 0.01 ? '✅' : '❌'} (diff: $${Math.abs(totalRewards - totalSlashes).toFixed(4)})`)
-
-            // Log individual changes
-            Object.entries(redistributionData.individual_rewards).forEach(([id, reward]) => {
-              if (reward > 0) console.log(`💰   ${id.substring(0, 8)}: +$${reward.toFixed(2)} (reward)`)
-            })
-            Object.entries(redistributionData.individual_slashes).forEach(([id, slash]) => {
-              if (slash > 0) console.log(`💰   ${id.substring(0, 8)}: -$${slash.toFixed(2)} (slash)`)
-            })
-          }
-        } else {
-          console.log(`🧠 No learning occurred - skipping BTS scoring and stake redistribution`)
         }
 
         // Store processing result
@@ -391,13 +390,9 @@ serve(async (req) => {
           participant_count: participantAgents.length,
           weights: weightsData.weights,
           effective_stakes: weightsData.effective_stakes,
-          pre_mirror_descent_aggregate: aggregationData.pre_mirror_descent_aggregate,
-          post_mirror_descent_aggregate: mirrorDescentData.post_mirror_descent_aggregate,
+          aggregate: finalAggregate,
           jensen_shannon_disagreement_entropy: aggregationData.jensen_shannon_disagreement_entropy,
-          post_mirror_descent_disagreement_entropy: mirrorDescentData.post_mirror_descent_disagreement_entropy,
-          certainty: aggregationData.certainty,
-          learning_occurred: learningAssessmentData.learning_occurred,
-          economic_learning_rate: learningAssessmentData.economic_learning_rate
+          certainty: aggregationData.certainty
         })
 
         console.log(`✅ Belief ${belief.id.substring(0, 8)} processing complete\n`)
@@ -445,22 +440,36 @@ serve(async (req) => {
       }
     }
 
-    // 6. Pool Redistribution (if Solana is configured)
-    console.log(`\n💸 POOL REDISTRIBUTION`)
+    // 6. Pool Settlement (if Solana is configured)
+    // NOTE: Users can trigger settlement via /api/pools/settle immediately after BD completes
+    // This step settles any remaining pools that users haven't settled yet
+    console.log(`\n⚖️  POOL SETTLEMENT (AUTO)`)
+    console.log(`⚖️  Users can settle pools immediately via /api/pools/settle - this settles remaining pools`)
     try {
-      const poolRedistributionData = await callInternalFunction(supabaseUrl, anonKey, 'pool-redistribution', {})
+      const settlementData = await callInternalFunction(supabaseUrl, anonKey, 'pool-settlement', {})
 
-      if (poolRedistributionData.success) {
-        console.log(`✅ Pool redistribution complete`)
-        console.log(`💸 Penalties applied: ${poolRedistributionData.penalties}`)
-        console.log(`💸 Rewards distributed: ${poolRedistributionData.rewards}`)
-        console.log(`💸 Total transactions: ${poolRedistributionData.totalTransactions}`)
+      if (settlementData.pools_settled !== undefined) {
+        console.log(`✅ Pool settlement complete`)
+        console.log(`⚖️  Pools settled: ${settlementData.pools_settled}`)
+        console.log(`⚖️  Pools failed: ${settlementData.pools_failed}`)
+
+        if (settlementData.failed_pools && settlementData.failed_pools.length > 0) {
+          console.log(`⚠️  Failed pools:`)
+          settlementData.failed_pools.forEach(f => {
+            console.log(`   - ${f.pool_address}: ${f.error}`)
+          })
+        }
+
+        if (settlementData.successful_pools) {
+          console.log(`⚖️  Successfully settled ${settlementData.successful_pools.length} pools`)
+          console.log(`⚖️  (Some pools may have been settled earlier by users)`)
+        }
       } else {
-        console.log(`⚠️  Pool redistribution skipped: ${poolRedistributionData.message}`)
+        console.log(`⚠️  Pool settlement skipped: ${settlementData.message || 'No data returned'}`)
       }
     } catch (error) {
-      console.error(`⚠️  Pool redistribution failed (non-critical): ${error.message}`)
-      // Don't add to errors array - pool redistribution is optional
+      console.error(`⚠️  Pool settlement failed (non-critical): ${error.message}`)
+      // Don't add to errors array - pool settlement is optional (Solana may not be configured or users may have settled already)
     }
 
     // 7. Update global epoch

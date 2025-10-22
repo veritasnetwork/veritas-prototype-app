@@ -8,10 +8,11 @@ import { createClient } from '@supabase/supabase-js';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getRpcEndpoint } from '@/lib/solana/network-config';
 import { PostAPIResponseSchema } from '@/types/api';
+import { sqrtPriceX96ToPrice, USDC_PRECISION } from '@/lib/solana/sqrt-price-helpers';
 
 // Helper to read u128 little-endian
 function readU128LE(buffer: Buffer, offset: number): bigint {
-  let value = 0n;
+  let value = BigInt(0); // Changed from 0n to BigInt(0)
   for (let i = 0; i < 16; i++) {
     value |= BigInt(buffer[offset + i]) << BigInt(i * 8);
   }
@@ -20,7 +21,7 @@ function readU128LE(buffer: Buffer, offset: number): bigint {
 
 // Helper to read u64 little-endian
 function readU64LE(buffer: Buffer, offset: number): bigint {
-  let value = 0n;
+  let value = BigInt(0); // Changed from 0n to BigInt(0)
   for (let i = 0; i < 8; i++) {
     value |= BigInt(buffer[offset + i]) << BigInt(i * 8);
   }
@@ -53,11 +54,17 @@ export async function GET(
         ),
         pool_deployments (
           pool_address,
-          token_supply,
-          reserve,
-          k_quadratic,
+          s_long_supply,
+          s_short_supply,
+          vault_balance,
+          sqrt_price_long_x96,
+          sqrt_price_short_x96,
+          f,
+          beta_num,
+          beta_den,
           deployment_tx_signature,
-          usdc_vault_address,
+          long_mint_address,
+          short_mint_address,
           last_synced_at
         )
       `)
@@ -94,63 +101,50 @@ export async function GET(
 
     // Sync pool data from chain if pool exists and is stale (older than 10 seconds)
     // This ensures fresh data when viewing post details
-    if (poolData?.pool_address && poolData?.usdc_vault_address) {
+    if (poolData?.pool_address) {
       const lastSynced = poolData.last_synced_at ? new Date(poolData.last_synced_at).getTime() : 0;
       const now = Date.now();
       const SYNC_THRESHOLD_MS = 10000; // 10 seconds for individual post (more aggressive than feed)
 
       if ((now - lastSynced) > SYNC_THRESHOLD_MS) {
         try {
-          console.log('[Post API] Syncing pool data from chain...');
+          console.log('[Post API] Syncing ICBS pool data from chain...');
+
+          // Use the new fetch helper for ICBS pools
+          const { fetchPoolData } = await import('@/lib/solana/fetch-pool-data');
           const rpcEndpoint = getRpcEndpoint();
-          const connection = new Connection(rpcEndpoint, 'confirmed');
+          const poolMetrics = await fetchPoolData(poolData.pool_address, rpcEndpoint);
 
-          // Fetch pool account for token supply
-          const poolPubkey = new PublicKey(poolData.pool_address);
-          const poolAccount = await connection.getAccountInfo(poolPubkey);
+          // Update database with fresh data
+          const { error: updateError } = await supabase
+            .from('pool_deployments')
+            .update({
+              s_long_supply: poolMetrics.supplyLong,
+              s_short_supply: poolMetrics.supplyShort,
+              vault_balance: poolMetrics.vaultBalance,
+              sqrt_price_long_x96: poolMetrics._raw.sqrtPriceLongX96,
+              sqrt_price_short_x96: poolMetrics._raw.sqrtPriceShortX96,
+              last_synced_at: new Date().toISOString()
+            })
+            .eq('post_id', id);
 
-          if (poolAccount) {
-            // Parse ContentPool struct for k_quadratic and token_supply
-            // Layout: discriminator (8) + post_id (32) + k_quadratic (16) + token_supply (16) + reserve (16)
-            const offset_k_quadratic = 8 + 32; // 40
-            const offset_token_supply = 8 + 32 + 16; // 56
-            const kQuadratic = readU128LE(poolAccount.data, offset_k_quadratic);
-            const tokenSupply = readU128LE(poolAccount.data, offset_token_supply);
-
-            // Fetch vault account for USDC reserve
-            const vaultPubkey = new PublicKey(poolData.usdc_vault_address);
-            const vaultAccount = await connection.getAccountInfo(vaultPubkey);
-
-            if (vaultAccount) {
-              // SPL Token Account layout: mint(32) + owner(32) + amount(8)
-              const vaultBalance = readU64LE(vaultAccount.data, 64);
-
-              // Update database with fresh data (k_quadratic is dynamic via elastic-k)
-              const { error: updateError } = await supabase
-                .from('pool_deployments')
-                .update({
-                  k_quadratic: kQuadratic.toString(),
-                  token_supply: tokenSupply.toString(),
-                  reserve: vaultBalance.toString(),
-                  last_synced_at: new Date().toISOString()
-                })
-                .eq('post_id', id);
-
-              if (!updateError) {
-                // Update poolData with fresh values
-                poolData = {
-                  ...poolData,
-                  k_quadratic: kQuadratic.toString(),
-                  token_supply: tokenSupply.toString(),
-                  reserve: vaultBalance.toString()
-                };
-                console.log('[Post API] Pool data synced:', {
-                  kQuadratic: kQuadratic.toString(),
-                  tokenSupply: tokenSupply.toString(),
-                  reserve: vaultBalance.toString()
-                });
-              }
-            }
+          if (!updateError) {
+            // Update poolData with fresh values
+            poolData = {
+              ...poolData,
+              s_long_supply: poolMetrics.supplyLong.toString(),
+              s_short_supply: poolMetrics.supplyShort.toString(),
+              vault_balance: poolMetrics.vaultBalance.toString(),
+              sqrt_price_long_x96: poolMetrics._raw.sqrtPriceLongX96,
+              sqrt_price_short_x96: poolMetrics._raw.sqrtPriceShortX96,
+            };
+            console.log('[Post API] ICBS pool data synced:', {
+              supplyLong: poolMetrics.supplyLong,
+              supplyShort: poolMetrics.supplyShort,
+              vaultBalance: poolMetrics.vaultBalance,
+              priceLong: poolMetrics.priceLong,
+              priceShort: poolMetrics.priceShort
+            });
           }
         } catch (syncError) {
           console.warn('[Post API] Failed to sync pool data:', syncError);
@@ -158,6 +152,26 @@ export async function GET(
         }
       } else {
         console.log('[Post API] Using cached pool data (recently synced)');
+      }
+    }
+
+    // Calculate actual prices from sqrt prices
+    let priceLong: number | null = null;
+    let priceShort: number | null = null;
+
+    if (poolData?.sqrt_price_long_x96) {
+      try {
+        priceLong = sqrtPriceX96ToPrice(poolData.sqrt_price_long_x96);
+      } catch (e) {
+        console.warn('[Post API] Failed to calculate priceLong:', e);
+      }
+    }
+
+    if (poolData?.sqrt_price_short_x96) {
+      try {
+        priceShort = sqrtPriceX96ToPrice(poolData.sqrt_price_short_x96);
+      } catch (e) {
+        console.warn('[Post API] Failed to calculate priceShort:', e);
       }
     }
 
@@ -188,11 +202,19 @@ export async function GET(
       // Belief info (TODO: Implement belief aggregation from belief_submissions)
       belief: null,
 
-      // Pool info (now synced from chain if stale)
+      // Pool info (ICBS - synced from chain if stale)
       poolAddress: poolData?.pool_address || null,
-      poolTokenSupply: poolData?.token_supply ? Number(poolData.token_supply) : null,
-      poolReserveBalance: poolData?.reserve ? Number(poolData.reserve) : null, // Micro-USDC (6 decimals)
-      poolKQuadratic: poolData?.k_quadratic ? Number(poolData.k_quadratic) : 1,
+      poolSupplyLong: poolData?.s_long_supply ? Number(poolData.s_long_supply) / USDC_PRECISION : null,
+      poolSupplyShort: poolData?.s_short_supply ? Number(poolData.s_short_supply) / USDC_PRECISION : null,
+      poolPriceLong: priceLong,
+      poolPriceShort: priceShort,
+      poolSqrtPriceLongX96: poolData?.sqrt_price_long_x96 || null,
+      poolSqrtPriceShortX96: poolData?.sqrt_price_short_x96 || null,
+      poolVaultBalance: poolData?.vault_balance ? Number(poolData.vault_balance) / USDC_PRECISION : null,
+      // ICBS parameters (F is FIXED at 1 for all pools)
+      poolF: poolData?.f || 1,
+      poolBetaNum: poolData?.beta_num || 1,
+      poolBetaDen: poolData?.beta_den || 2,
 
       // Additional metadata
       likes: post.likes || 0,
@@ -201,8 +223,10 @@ export async function GET(
 
     console.log('[Post API] Returning transformed post:', {
       id: transformedPost.id,
-      poolTokenSupply: transformedPost.poolTokenSupply,
-      poolReserveBalance: transformedPost.poolReserveBalance,
+      poolSupplyLong: transformedPost.poolSupplyLong,
+      poolSupplyShort: transformedPost.poolSupplyShort,
+      poolPriceLong: transformedPost.poolPriceLong,
+      poolPriceShort: transformedPost.poolPriceShort,
       lastSynced: poolData?.last_synced_at
     });
 

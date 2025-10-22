@@ -9,11 +9,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Post } from '@/types/post.types';
 import { getPostTitle, getPostPreview, isShortFormPost } from '@/types/post.types';
-import { formatPoolData } from '@/lib/solana/bonding-curve';
 import { TrendingUp, DollarSign, BarChart3, FileText, Play } from 'lucide-react';
 import { usePanel } from '@/components/post/PostDetailPanel';
 import { FEATURES } from '@/config/features';
 import { RichTextRenderer } from '@/components/common/RichTextRenderer';
+import { formatPoolDataFromDb } from '@/lib/solana/sqrt-price-helpers';
 
 interface PostCardProps {
   post: Post;
@@ -142,11 +142,19 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
   const preview = getPostPreview(post, 150);
   const fullContent = post.content_text || preview;
 
-  // Calculate pool metrics
-  const poolData = post.poolTokenSupply !== undefined &&
-                    post.poolReserveBalance !== undefined &&
-                    post.poolKQuadratic !== undefined
-    ? formatPoolData(post.poolTokenSupply, post.poolReserveBalance, post.poolKQuadratic)
+  // Calculate pool metrics from cached ICBS data
+  const poolData = post.poolSupplyLong !== undefined &&
+                    post.poolSupplyShort !== undefined &&
+                    post.poolSqrtPriceLongX96 &&
+                    post.poolSqrtPriceShortX96 &&
+                    post.poolVaultBalance !== undefined
+    ? formatPoolDataFromDb(
+        post.poolSupplyLong,
+        post.poolSupplyShort,
+        post.poolSqrtPriceLongX96,
+        post.poolSqrtPriceShortX96,
+        post.poolVaultBalance
+      )
     : null;
 
   // Determine background for different post types

@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy } from '@/hooks/usePrivyHooks';
+import { useAuth } from '@/providers/AuthProvider';
+import { useSolanaWallet } from '@/hooks/useSolanaWallet';
+import { useEagerWalletConnect } from '@/hooks/useEagerWalletConnect';
 import { PostCard } from './PostCard';
 import { usePosts } from '@/hooks/api/usePosts';
 import { NavigationHeader } from '@/components/layout/NavigationHeader';
@@ -13,26 +16,49 @@ import { TradingChartCard } from '@/components/post/PostDetailPanel/TradingChart
 import { PoolMetricsCard } from '@/components/post/PostDetailPanel/PoolMetricsCard';
 import { BeliefScoreCard } from '@/components/post/PostDetailPanel/BeliefScoreCard';
 import { UnifiedSwapComponent } from '@/components/post/PostDetailPanel/UnifiedSwapComponent';
-import { formatPoolData } from '@/lib/solana/bonding-curve';
+import { DeployPoolCard } from '@/components/post/PostDetailPanel/DeployPoolCard';
+import { OnboardingModal } from '@/components/auth/OnboardingModal';
+import { usePoolData } from '@/hooks/usePoolData';
 import { useTradeHistory } from '@/hooks/api/useTradeHistory';
 import type { Post } from '@/types/post.types';
 
 export function Feed() {
-  const { authenticated, ready, login } = usePrivy();
+  const { authenticated, ready, login, user: privyUser } = usePrivy();
+  const { needsOnboarding, isLoading: authLoading } = useAuth();
+
+  // Automatically attempt to reconnect previously linked wallets
+  useEagerWalletConnect();
+
+  // Initialize wallet hook early to trigger Privy wallet loading
+  const { wallet: solanaWallet, isLoading: walletLoading } = useSolanaWallet();
   const { posts, loading, error, refetch } = usePosts();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
 
-  // Show auth popup if not authenticated after Privy is ready
+  // Show auth popup if not authenticated OR no Solana wallet connected
   useEffect(() => {
-    if (ready && !authenticated) {
-      setShowAuthPopup(true);
-    } else {
-      setShowAuthPopup(false);
-    }
-  }, [ready, authenticated]);
+    if (!ready) return;
+
+    // Check both authentication AND Solana wallet connection
+    const hasSolanaWallet = privyUser?.linkedAccounts?.some(
+      (account: any) => account.type === 'wallet' && account.chainType === 'solana'
+    );
+
+    console.log('[Feed] Auth check:', {
+      ready,
+      authenticated,
+      privyUser: !!privyUser,
+      linkedAccounts: privyUser?.linkedAccounts?.length,
+      hasSolanaWallet,
+      solanaWallet: !!solanaWallet,
+      walletLoading,
+    });
+
+    const needsAuth = !authenticated || !hasSolanaWallet;
+    setShowAuthPopup(needsAuth);
+  }, [ready, authenticated, privyUser, solanaWallet, walletLoading]);
 
   const handlePostClick = (postId: string) => {
     if (selectedPostId === postId) {
@@ -59,15 +85,12 @@ export function Feed() {
     }
   };
 
-  // Calculate pool data
-  const poolData = selectedPost?.poolTokenSupply !== undefined &&
-                   selectedPost?.poolReserveBalance !== undefined &&
-                   selectedPost?.poolKQuadratic !== undefined
-    ? formatPoolData(selectedPost.poolTokenSupply, selectedPost.poolReserveBalance, selectedPost.poolKQuadratic)
-    : null;
+  // Fetch pool data from chain
+  const { poolData } = usePoolData(selectedPost?.poolAddress, selectedPostId ?? undefined);
 
-  // Trade history for price change
-  const { data: tradeHistory, refresh: refreshTradeHistory } = useTradeHistory(selectedPostId || undefined, '24H');
+  // Trade history for price change - only fetch if pool exists
+  const shouldFetchTradeHistory = selectedPost?.poolAddress ? (selectedPostId ?? undefined) : undefined;
+  const { data: tradeHistory, refresh: refreshTradeHistory } = useTradeHistory(shouldFetchTradeHistory, '24H');
 
   // Refresh handler for after successful trades
   const handleTradeSuccess = async () => {
@@ -99,6 +122,95 @@ export function Feed() {
       }
     }
   };
+
+  // Wait for Privy to be ready before showing anything
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          {/* Modern circular loader */}
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 border-4 border-[#2a2a2a] rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-transparent border-t-[#B9D9EB] rounded-full animate-spin"></div>
+          </div>
+
+          {/* Animated dots */}
+          <div className="flex items-center gap-1">
+            <span className="text-gray-400 text-sm">Loading</span>
+            <div className="flex gap-0.5">
+              <span className="w-1 h-1 bg-[#B9D9EB] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+              <span className="w-1 h-1 bg-[#B9D9EB] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+              <span className="w-1 h-1 bg-[#B9D9EB] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth popup first if needed (blocks everything)
+  // IMPORTANT: Check auth BEFORE onboarding to prevent showing onboarding before wallet connection
+  // Return early - don't render feed content until authenticated with wallet
+  if (showAuthPopup) {
+    return (
+      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
+        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-8 max-w-md mx-4 shadow-2xl">
+          <div className="flex flex-col items-center gap-6 mb-6">
+            <div className="flex items-center gap-3">
+              <img
+                src="/icons/logo.png"
+                alt="Veritas Logo"
+                className="w-10 h-10"
+              />
+              <h2 className="text-[#F0EAD6] text-2xl font-bold font-mono">VERITAS</h2>
+            </div>
+            <p className="text-gray-400 text-center text-sm">
+              Connect your wallet to access the feed and start trading
+            </p>
+
+            <button
+              onClick={() => login()}
+              disabled={!ready}
+              className="w-full bg-[#B9D9EB] hover:bg-[#0C1D51] text-[#0C1D51] hover:text-[#B9D9EB] border border-[#0C1D51] font-medium py-3 px-6 rounded-lg font-mono disabled:opacity-50 transition-all duration-300 ease-in-out"
+            >
+              CONNECT WALLET & SIGN IN
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show onboarding modal ONLY if authenticated AND needs onboarding AND auth status loaded
+  // This ensures user has connected wallet before seeing onboarding, and we've checked their profile
+  if (authenticated && needsOnboarding && !authLoading) {
+    return <OnboardingModal isOpen={true} />;
+  }
+
+  // Still loading auth status - show loading screen
+  if (authenticated && authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          {/* Modern circular loader */}
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 border-4 border-[#2a2a2a] rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-transparent border-t-[#B9D9EB] rounded-full animate-spin"></div>
+          </div>
+
+          {/* Animated dots */}
+          <div className="flex items-center gap-1">
+            <span className="text-gray-400 text-sm">Loading</span>
+            <div className="flex gap-0.5">
+              <span className="w-1 h-1 bg-[#B9D9EB] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+              <span className="w-1 h-1 bg-[#B9D9EB] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+              <span className="w-1 h-1 bg-[#B9D9EB] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -181,18 +293,20 @@ export function Feed() {
             {/* Detail Cards Column - appears on right side on desktop, modal on mobile */}
             {selectedPostId && (
               <div className="hidden lg:block flex-1 space-y-4 animate-fade-in lg:h-full lg:overflow-y-auto lg:pr-4 scrollbar-hide">
-                {/* Post Content Card (Optional - can show full post content here) */}
-                {/* Uncomment if you want to show post content in the right column */}
-                {/* <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg sticky top-8">
-                  <PostDetailContent postId={selectedPostId} />
-                </div> */}
+                {/* Deploy Pool Card - Show if no pool exists */}
+                {!selectedPost?.poolAddress && (
+                  <DeployPoolCard
+                    postId={selectedPostId}
+                    onDeploySuccess={handleTradeSuccess}
+                  />
+                )}
 
-                {/* Trading Chart Card */}
+                {/* Trading Chart Card - Show if pool exists */}
                 {selectedPost?.poolAddress && (
                   <TradingChartCard postId={selectedPostId} />
                 )}
 
-                {/* Pool Metrics Card */}
+                {/* Pool Metrics Card - Show if pool exists */}
                 {poolData && (
                   <PoolMetricsCard
                     currentPrice={poolData.currentPrice}
@@ -204,17 +318,19 @@ export function Feed() {
                   />
                 )}
 
-                {/* Swap Card */}
+                {/* Swap Card - Show if pool exists */}
                 {selectedPost?.poolAddress && poolData && (
                   <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
                     <UnifiedSwapComponent
                       poolAddress={selectedPost.poolAddress}
                       postId={selectedPost.id}
-                      currentPrice={poolData.currentPrice}
-                      totalSupply={poolData.totalSupply}
-                      reserveBalance={poolData.reserveBalance}
-                      reserveBalanceRaw={selectedPost.poolReserveBalance}
-                      kQuadratic={selectedPost.poolKQuadratic || 1}
+                      priceLong={poolData.priceLong}
+                      priceShort={poolData.priceShort}
+                      supplyLong={poolData.supplyLong}
+                      supplyShort={poolData.supplyShort}
+                      f={poolData.f}
+                      betaNum={poolData.betaNum}
+                      betaDen={poolData.betaDen}
                       onTradeSuccess={handleTradeSuccess}
                     />
                   </div>
@@ -249,12 +365,20 @@ export function Feed() {
 
             {/* Content */}
             <div className="px-4 py-6 space-y-4">
-              {/* Trading Chart Card */}
+              {/* Deploy Pool Card - Show if no pool exists */}
+              {!selectedPost?.poolAddress && (
+                <DeployPoolCard
+                  postId={selectedPostId}
+                  onDeploySuccess={handleTradeSuccess}
+                />
+              )}
+
+              {/* Trading Chart Card - Show if pool exists */}
               {selectedPost?.poolAddress && (
                 <TradingChartCard postId={selectedPostId} />
               )}
 
-              {/* Pool Metrics Card */}
+              {/* Pool Metrics Card - Show if pool exists */}
               {poolData && (
                 <PoolMetricsCard
                   currentPrice={poolData.currentPrice}
@@ -266,17 +390,19 @@ export function Feed() {
                 />
               )}
 
-              {/* Swap Card */}
+              {/* Swap Card - Show if pool exists */}
               {selectedPost?.poolAddress && poolData && (
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
                   <UnifiedSwapComponent
                     poolAddress={selectedPost.poolAddress}
                     postId={selectedPost.id}
-                    currentPrice={poolData.currentPrice}
-                    totalSupply={poolData.totalSupply}
-                    reserveBalance={poolData.reserveBalance}
-                    reserveBalanceRaw={selectedPost.poolReserveBalance}
-                    kQuadratic={selectedPost.poolKQuadratic || 1}
+                    priceLong={poolData.priceLong}
+                    priceShort={poolData.priceShort}
+                    supplyLong={poolData.supplyLong}
+                    supplyShort={poolData.supplyShort}
+                    f={poolData.f}
+                    betaNum={poolData.betaNum}
+                    betaDen={poolData.betaDen}
                     onTradeSuccess={handleTradeSuccess}
                   />
                 </div>
@@ -295,38 +421,6 @@ export function Feed() {
         onClose={() => setIsCreateModalOpen(false)}
         onPostCreated={refetch}
       />
-
-      {/* Auth Popup */}
-      {showAuthPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-8 max-w-md mx-4 shadow-2xl">
-            <div className="flex items-center gap-3 mb-6">
-              <img
-                src="/icons/logo.png"
-                alt="Veritas Logo"
-                className="w-10 h-10"
-              />
-              <h2 className="text-[#F0EAD6] text-2xl font-bold font-mono">VERITAS</h2>
-            </div>
-
-            <h3 className="text-white text-lg font-medium mb-3">
-              Connect to Continue
-            </h3>
-
-            <p className="text-gray-400 text-sm mb-6">
-              Sign in to create posts, trade on content pools, and participate in the intersubjective consensus protocol.
-            </p>
-
-            <button
-              onClick={() => login()}
-              disabled={!ready}
-              className="w-full bg-[#B9D9EB] hover:bg-[#0C1D51] text-[#0C1D51] hover:text-[#B9D9EB] border border-[#0C1D51] hover:border-[#B9D9EB] font-medium py-3 px-6 rounded-lg font-mono disabled:opacity-50 transition-all duration-300 ease-in-out"
-            >
-              CONNECT WALLET
-            </button>
-          </div>
-        </div>
-      )}
     </>
   );
 }

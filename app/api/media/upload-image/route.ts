@@ -8,12 +8,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { PrivyClient } from '@privy-io/server-auth';
+import { verifyAuthHeader } from '@/lib/auth/privy-server';
 
-const privy = new PrivyClient(
-  process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
-  process.env.PRIVY_APP_SECRET!
-);
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,45 +27,15 @@ const ALLOWED_IMAGE_TYPES = [
 
 export async function POST(request: NextRequest) {
   try {
-    // Get auth token from request headers
+    // Verify authentication
     const authHeader = request.headers.get('Authorization');
+    const privyUserId = await verifyAuthHeader(authHeader);
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!privyUserId) {
       return NextResponse.json(
-        { error: 'Missing or invalid authorization header' },
+        { error: 'Invalid or missing authentication' },
         { status: 401 }
       );
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-
-    // Verify Privy JWT token
-    let privyUserId;
-    try {
-      const verifiedClaims = await privy.verifyAuthToken(token);
-      privyUserId = verifiedClaims.userId;
-    } catch (error) {
-      console.error('Privy token verification failed:', error);
-
-      // In development, allow bypass if network issues
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('⚠️ DEV MODE: Bypassing Privy verification due to network error');
-        try {
-          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-          privyUserId = payload.sub || payload.userId;
-          if (!privyUserId) throw new Error('No user ID in token');
-        } catch (parseError) {
-          return NextResponse.json(
-            { error: 'Invalid authentication token' },
-            { status: 401 }
-          );
-        }
-      } else {
-        return NextResponse.json(
-          { error: 'Invalid authentication token' },
-          { status: 401 }
-        );
-      }
     }
 
     // Get user_id from Privy user (auth_provider = 'privy' and auth_id = privyUserId)

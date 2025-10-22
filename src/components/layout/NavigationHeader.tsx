@@ -1,8 +1,9 @@
 'use client';
 
 import { useAuth } from '@/providers/AuthProvider';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
+import { FundWalletButton } from '@/components/wallet/FundWalletButton';
 import Link from 'next/link';
 
 export function NavigationHeader() {
@@ -37,9 +38,12 @@ export function NavigationHeader() {
             </button>
           )}
           {user && solanaAddress && (
-            <div className="px-2 py-1 text-xs font-mono text-gray-400 bg-gray-900 rounded">
-              {solanaAddress.slice(0, 4)}...{solanaAddress.slice(-4)}
-            </div>
+            <>
+              <div className="px-2 py-1 text-xs font-mono text-gray-400 bg-gray-900 rounded">
+                {solanaAddress.slice(0, 4)}...{solanaAddress.slice(-4)}
+              </div>
+              <FundWalletButton variant="compact" />
+            </>
           )}
         </div>
       </div>

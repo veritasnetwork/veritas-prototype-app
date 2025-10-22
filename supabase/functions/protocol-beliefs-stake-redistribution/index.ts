@@ -8,8 +8,6 @@ const corsHeaders = {
 
 interface StakeRedistributionRequest {
   belief_id: string
-  learning_occurred: boolean
-  economic_learning_rate: number
   information_scores: Record<string, number>
   winners: string[]
   losers: string[]
@@ -40,8 +38,6 @@ serve(async (req) => {
     // Parse request body
     const {
       belief_id,
-      learning_occurred,
-      economic_learning_rate,
       information_scores,
       winners,
       losers,
@@ -59,49 +55,10 @@ serve(async (req) => {
       )
     }
 
-    if (typeof learning_occurred !== 'boolean') {
-      return new Response(
-        JSON.stringify({ error: 'learning_occurred must be a boolean', code: 422 }),
-        {
-          status: 422,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    if (typeof economic_learning_rate !== 'number' || economic_learning_rate < 0 || economic_learning_rate > 1) {
-      return new Response(
-        JSON.stringify({ error: 'economic_learning_rate must be a number between 0 and 1', code: 422 }),
-        {
-          status: 422,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // 2. Handle no learning case
-    if (!learning_occurred) {
-      // No redistribution - stakes remain unchanged
-      const response: StakeRedistributionResponse = {
-        redistribution_occurred: false,
-        updated_total_stakes: {}, // No changes
-        individual_rewards: {},
-        individual_slashes: {},
-        slashing_pool: 0
-      }
-
-      return new Response(
-        JSON.stringify(response),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // 3. Validate learning occurred inputs
+    // 2. Validate required inputs
     if (!information_scores || Object.keys(information_scores).length === 0) {
       return new Response(
-        JSON.stringify({ error: 'information_scores is required when learning occurred', code: 422 }),
+        JSON.stringify({ error: 'information_scores is required', code: 422 }),
         {
           status: 422,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -111,7 +68,7 @@ serve(async (req) => {
 
     if (!current_effective_stakes || Object.keys(current_effective_stakes).length === 0) {
       return new Response(
-        JSON.stringify({ error: 'current_effective_stakes is required when learning occurred', code: 422 }),
+        JSON.stringify({ error: 'current_effective_stakes is required', code: 422 }),
         {
           status: 422,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -119,7 +76,7 @@ serve(async (req) => {
       )
     }
 
-    // 4. Validate zero-sum: Must have both winners and losers for redistribution
+    // 3. Validate zero-sum: Must have both winners and losers for redistribution
     if ((losers.length > 0 && winners.length === 0) || (winners.length > 0 && losers.length === 0)) {
       console.log('Zero-sum constraint: No redistribution when only winners or only losers')
       const response: StakeRedistributionResponse = {
@@ -137,7 +94,7 @@ serve(async (req) => {
       )
     }
 
-    // 5. Calculate slashing pool from loser stakes
+    // 4. Calculate slashing pool from loser stakes (100% redistribution)
     let slashing_pool = 0
     if (losers && losers.length > 0) {
       for (const loserId of losers) {
@@ -150,7 +107,7 @@ serve(async (req) => {
             }
           )
         }
-        slashing_pool += economic_learning_rate * current_effective_stakes[loserId]
+        slashing_pool += current_effective_stakes[loserId]
       }
     }
 

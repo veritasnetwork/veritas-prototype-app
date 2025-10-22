@@ -9,7 +9,6 @@
 -- EXTENSIONS
 -- ============================================================================
 
-CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- ============================================================================
@@ -34,7 +33,7 @@ INSERT INTO system_config (key, value, description) VALUES
     ('current_epoch', '0', 'Global epoch counter for protocol processing'),
     ('epoch_duration_seconds', '3600', 'Duration of each epoch in seconds (3600 = 1 hour, 30 for testing)'),
     ('epoch_processing_enabled', 'false', 'Whether automatic epoch processing is enabled'),
-    ('epoch_processing_trigger', 'cron', 'How epochs are triggered: cron, manual, or event-driven'),
+    ('epoch_processing_trigger', 'manual', 'How epochs are triggered: manual or event-driven'),
 
     -- Belief Market Rules
     ('min_participants_for_scoring', '2', 'Minimum participants required for BTS scoring'),
@@ -49,14 +48,8 @@ INSERT INTO system_config (key, value, description) VALUES
     ('current_epoch_start_time', '2025-09-15T10:00:00.000Z', 'Timestamp of first epoch start'),
     ('next_epoch_deadline', '2025-09-15T11:00:00.000Z', 'Next scheduled epoch target time'),
 
-    -- Cron Management
-    ('cron_job_id', '', 'Active cron job ID for epoch processing'),
-    ('cron_last_run', '', 'Timestamp of last cron execution'),
-    ('cron_next_run', '', 'Timestamp of next scheduled cron run'),
-    ('cron_status', 'stopped', 'Current status of cron job: running, stopped, error'),
+    -- System Environment
     ('deployment_environment', 'supabase', 'Deployment environment: supabase or local'),
-    ('cron_max_concurrent_jobs', '8', 'Maximum concurrent cron jobs allowed'),
-    ('cron_max_job_duration_minutes', '10', 'Maximum duration for cron job execution'),
 
     -- Pool Redistribution
     ('base_skim_rate', '0.01', 'Base penalty rate for pools with zero delta_relevance (1% = 0.01)'),
@@ -327,7 +320,6 @@ CREATE TABLE epoch_history (
     beliefs_expired INTEGER DEFAULT 0,
 
     -- Trigger Info
-    cron_triggered BOOLEAN DEFAULT false,
     manual_triggered BOOLEAN DEFAULT false,
 
     -- Status
@@ -608,7 +600,6 @@ RETURNS TABLE (
     epoch_start_time TIMESTAMPTZ,
     time_remaining_seconds INTEGER,
     next_deadline TIMESTAMPTZ,
-    cron_status TEXT,
     processing_enabled BOOLEAN
 ) AS $$
 DECLARE
@@ -622,16 +613,14 @@ BEGIN
         MAX(CASE WHEN key = 'current_epoch' THEN value::INTEGER END) as curr_epoch,
         MAX(CASE WHEN key = 'current_epoch_start_time' THEN value::TIMESTAMPTZ END) as start_tm,
         MAX(CASE WHEN key = 'next_epoch_deadline' THEN value::TIMESTAMPTZ END) as deadline_tm,
-        MAX(CASE WHEN key = 'epoch_duration_seconds' THEN value::INTEGER END) as duration,
-        MAX(CASE WHEN key = 'cron_status' THEN value END) as cron_stat
+        MAX(CASE WHEN key = 'epoch_duration_seconds' THEN value::INTEGER END) as duration
     INTO config_row
     FROM system_config
     WHERE key IN (
         'current_epoch',
         'current_epoch_start_time',
         'next_epoch_deadline',
-        'epoch_duration_seconds',
-        'cron_status'
+        'epoch_duration_seconds'
     );
 
     -- Calculate time remaining
@@ -644,7 +633,6 @@ BEGIN
     epoch_start_time := start_time;
     time_remaining_seconds := duration_sec;
     next_deadline := deadline;
-    cron_status := COALESCE(config_row.cron_stat, 'stopped');
     processing_enabled := true;
 
     RETURN NEXT;
@@ -656,173 +644,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ----------------------------------------------------------------------------
 
 -- Function to get the proper function URL for the current environment
-CREATE OR REPLACE FUNCTION get_function_url(function_name TEXT)
-RETURNS TEXT AS $$
-DECLARE
-    base_url TEXT;
-    deployment_env TEXT;
-BEGIN
-    -- Get the deployment environment
-    SELECT value INTO deployment_env
-    FROM system_config
-    WHERE key = 'deployment_environment';
-
-    -- For Supabase remote, the URL will be set via environment variable
-    -- For local development, use localhost
-    IF deployment_env = 'supabase' THEN
-        -- On Supabase remote, SUPABASE_URL env var contains the project URL
-        base_url := current_setting('app.supabase_url', true);
-        IF base_url IS NULL OR base_url = '' THEN
-            -- Fallback: construct from project reference if available
-            base_url := 'https://' || current_setting('app.project_ref', true) || '.supabase.co';
-        END IF;
-    ELSE
-        -- Local development
-        base_url := 'http://127.0.0.1:54321';
-    END IF;
-
-    RETURN base_url || '/functions/v1/' || function_name;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to create epoch processing cron job (environment-aware)
-CREATE OR REPLACE FUNCTION create_epoch_cron_job(
-    job_name TEXT,
-    job_schedule TEXT,
-    function_name TEXT DEFAULT 'protocol-epochs-process-cron'
-) RETURNS TEXT AS $$
-DECLARE
-    service_role_key TEXT;
-    job_id BIGINT;
-    function_url TEXT;
-BEGIN
-    -- Get the proper function URL for current environment
-    SELECT get_function_url(function_name) INTO function_url;
-
-    -- Get service role key from environment or use local development default
-    SELECT COALESCE(
-        current_setting('app.service_role_key', true),
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU'
-    ) INTO service_role_key;
-
-    -- Create the cron job using pg_net for HTTP requests
-    BEGIN
-        SELECT cron.schedule(
-            job_name,
-            job_schedule,
-            format('
-                SELECT net.http_post(
-                    url := %L,
-                    headers := %L::jsonb,
-                    body := %L::jsonb
-                );',
-                function_url,
-                jsonb_build_object(
-                    'Authorization', 'Bearer ' || service_role_key,
-                    'Content-Type', 'application/json',
-                    'User-Agent', 'Supabase-Cron/1.0'
-                ),
-                '{}'::jsonb
-            )
-        ) INTO job_id;
-
-        RAISE NOTICE 'Created cron job: % (ID: %) calling %', job_name, job_id, function_url;
-        RETURN format('Job created successfully: %s (ID: %s) -> %s', job_name, job_id, function_url);
-
-    EXCEPTION
-        WHEN OTHERS THEN
-            RAISE NOTICE 'Failed to create cron job %: %', job_name, SQLERRM;
-            RETURN format('Failed to create job %s: %s', job_name, SQLERRM);
-    END;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to remove epoch processing cron job
-CREATE OR REPLACE FUNCTION remove_epoch_cron_job(
-    job_name TEXT
-) RETURNS void AS $$
-BEGIN
-    BEGIN
-        PERFORM cron.unschedule(job_name);
-        RAISE NOTICE 'Removed cron job: %', job_name;
-    EXCEPTION
-        WHEN OTHERS THEN
-            -- Log error but don't fail - job might not exist or pg_cron might not be available
-            RAISE NOTICE 'Failed to remove cron job % (might not exist or pg_cron not available): %', job_name, SQLERRM;
-    END;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to create fallback polling job (runs every minute to check for overdue epochs)
-CREATE OR REPLACE FUNCTION create_fallback_polling_job() RETURNS TEXT AS $$
-DECLARE
-    service_role_key TEXT;
-    supabase_url TEXT;
-BEGIN
-    -- Get service role key and URL
-    SELECT COALESCE(
-        current_setting('app.service_role_key', true),
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU'
-    ) INTO service_role_key;
-
-    SELECT COALESCE(
-        current_setting('app.supabase_url', true),
-        'http://kong:8000'
-    ) INTO supabase_url;
-
-    BEGIN
-        PERFORM cron.schedule(
-            'epoch-fallback-poller',
-            '*/1 * * * *', -- Every minute
-            format('
-                SELECT net.http_post(
-                    url := %L,
-                    headers := %L::jsonb,
-                    body := %L::jsonb
-                );',
-                supabase_url || '/functions/v1/protocol-epochs-check-overdue',
-                jsonb_build_object(
-                    'Authorization', 'Bearer ' || service_role_key,
-                    'Content-Type', 'application/json'
-                ),
-                '{}'::jsonb
-            )
-        );
-
-        RAISE NOTICE 'Created fallback polling job for epoch processing';
-        RETURN 'Fallback polling job created successfully';
-
-    EXCEPTION
-        WHEN OTHERS THEN
-            RAISE NOTICE 'Failed to create fallback polling job: %', SQLERRM;
-            RETURN format('Failed to create fallback polling job: %s', SQLERRM);
-    END;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to validate cron environment
-CREATE OR REPLACE FUNCTION validate_cron_environment()
-RETURNS TABLE (
-    extension_name TEXT,
-    is_available BOOLEAN,
-    version TEXT
-) AS $$
-BEGIN
-    -- Check pg_cron
-    RETURN QUERY
-    SELECT
-        'pg_cron'::TEXT,
-        EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pg_cron'),
-        COALESCE((SELECT extversion FROM pg_extension WHERE extname = 'pg_cron'), 'not installed')::TEXT;
-
-    -- Check pg_net
-    RETURN QUERY
-    SELECT
-        'pg_net'::TEXT,
-        EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pg_net'),
-        COALESCE((SELECT extversion FROM pg_extension WHERE extname = 'pg_net'), 'not installed')::TEXT;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Cron-related functions removed - epoch processing is now manual/event-driven only
 
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS)

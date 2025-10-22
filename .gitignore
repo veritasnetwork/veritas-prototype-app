@@ -46,3 +46,4 @@ supabase/functions/.env.*
 next-env.d.ts
 solana/keys/
 test-ledger/
+.mock-wallet.json

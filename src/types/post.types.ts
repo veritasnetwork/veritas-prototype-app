@@ -80,9 +80,43 @@ export interface Post {
   discussionCount: number;
   belief: BeliefData | null;
   poolAddress?: string; // Solana pool address for this post
-  poolTokenSupply?: number; // Current token supply in the pool
-  poolReserveBalance?: number; // Current USDC reserve balance
-  poolKQuadratic?: number; // Quadratic bonding curve parameter
+  // ICBS parameters
+  poolF?: number; // Growth exponent (default: 3)
+  poolBetaNum?: number; // Beta numerator (default: 1)
+  poolBetaDen?: number; // Beta denominator (default: 2)
+  // ICBS pool state (cached from on-chain)
+  poolSupplyLong?: number; // LONG token supply (atomic units)
+  poolSupplyShort?: number; // SHORT token supply (atomic units)
+  poolPriceLong?: number; // LONG token price in USDC
+  poolPriceShort?: number; // SHORT token price in USDC
+  poolSqrtPriceLongX96?: string; // LONG sqrt price in X96 format
+  poolSqrtPriceShortX96?: string; // SHORT sqrt price in X96 format
+  poolVaultBalance?: number; // USDC vault balance (micro-USDC)
+  // Decayed pool state (enriched from on-chain)
+  decayedPoolState?: DecayedPoolState | null;
+}
+
+/**
+ * Decayed pool state from on-chain view function
+ * Includes time-based decay calculations
+ */
+export interface DecayedPoolState {
+  /** Relevance score (0.0 to 1.0) with decay applied */
+  q: number;
+  /** LONG price with decay applied (USDC per token) */
+  priceLong: number;
+  /** SHORT price with decay applied (USDC per token) */
+  priceShort: number;
+  /** Days since pool expiration (0 if not expired) */
+  daysExpired: number;
+  /** Days since last on-chain decay update */
+  daysSinceLastUpdate: number;
+  /** True if decay will be applied on next trade */
+  decayPending: boolean;
+  /** Unix timestamp when decay starts */
+  expirationTimestamp: number;
+  /** Unix timestamp of last on-chain decay execution */
+  lastDecayUpdate: number;
 }
 
 /**

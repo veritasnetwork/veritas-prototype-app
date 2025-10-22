@@ -10,6 +10,7 @@
 import { useRouter } from 'next/navigation';
 import { formatRelativeTime } from '@/utils/formatters';
 import { getPostTitle, getPostPreview, type Post } from '@/types/post.types';
+import { calculateICBSPrice, TokenSide } from '@/lib/solana/icbs-pricing';
 
 export interface CompactPostCardProps {
   post: Post & {
@@ -29,20 +30,25 @@ export interface CompactPostCardProps {
 }
 
 /**
- * Calculate current token price from bonding curve
+ * Get current LONG token price using ICBS formula
  */
-function getCurrentPrice(pool: {
-  poolTokenSupply?: number;
-  poolReserveBalance?: number;
-  poolKQuadratic?: number;
+function getCurrentLongPrice(pool: {
+  poolLongTokenSupply?: number;
+  poolShortTokenSupply?: number;
 }): number {
-  const supply = pool.poolTokenSupply || 0;
-  const reserve = (pool.poolReserveBalance || 0) / 1_000_000; // micro-USDC to USDC
-  const k = pool.poolKQuadratic || 1;
+  if (!pool.poolLongTokenSupply || !pool.poolShortTokenSupply) {
+    return 0;
+  }
 
-  if (supply === 0) return 0;
-
-  return reserve / (k * Math.pow(supply, 2));
+  try {
+    return calculateICBSPrice(
+      pool.poolLongTokenSupply,
+      pool.poolShortTokenSupply,
+      TokenSide.Long
+    );
+  } catch {
+    return 0;
+  }
 }
 
 export function CompactPostCard({ post, holdings, onClick }: CompactPostCardProps) {
@@ -52,11 +58,10 @@ export function CompactPostCard({ post, holdings, onClick }: CompactPostCardProp
   const title = getPostTitle(post);
   const preview = getPostPreview(post, 60);
 
-  // Calculate current price
-  const currentPrice = getCurrentPrice({
-    poolTokenSupply: post.poolTokenSupply,
-    poolReserveBalance: post.poolReserveBalance,
-    poolKQuadratic: post.poolKQuadratic,
+  // Calculate current LONG price
+  const currentPrice = getCurrentLongPrice({
+    poolLongTokenSupply: post.poolLongTokenSupply,
+    poolShortTokenSupply: post.poolShortTokenSupply,
   });
 
   const handleClick = () => {
