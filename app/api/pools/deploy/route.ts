@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   console.log('[/api/pools/deploy] Validation request received');
@@ -26,6 +27,26 @@ export async function POST(req: NextRequest) {
     if (!privyUserId) {
       console.log('[/api/pools/deploy] Authentication failed');
       return NextResponse.json({ error: 'Invalid or missing authentication' }, { status: 401 });
+    }
+
+    // Check rate limit (3 deployments per hour)
+    try {
+      const { success, headers } = await checkRateLimit(privyUserId, rateLimiters.poolDeploy);
+
+      if (!success) {
+        console.log('[/api/pools/deploy] Rate limit exceeded for user:', privyUserId);
+        return NextResponse.json(
+          {
+            error: 'Rate limit exceeded. You can deploy up to 3 pools per hour.',
+            rateLimitExceeded: true
+          },
+          { status: 429, headers }
+        );
+      }
+    } catch (rateLimitError) {
+      // Log error but don't block the request if rate limiting fails
+      console.error('[/api/pools/deploy] Rate limit check failed:', rateLimitError);
+      // Continue with request - fail open for availability
     }
 
     const body = await req.json();

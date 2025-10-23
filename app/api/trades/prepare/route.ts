@@ -16,6 +16,7 @@ import { PDAHelper } from '@/lib/solana/sdk/transaction-builders';
 import { getUsdcMint, getRpcEndpoint, getProgramId } from '@/lib/solana/network-config';
 import { calculateStakeSkim } from '@/lib/stake/calculate-skim';
 import { loadProtocolAuthority } from '@/lib/solana/load-authority';
+import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 import idl from '@/lib/solana/target/idl/veritas_curation.json';
 
 interface PrepareTradeRequest {
@@ -46,6 +47,26 @@ export async function POST(req: NextRequest) {
         { error: 'Missing required fields' },
         { status: 400 }
       );
+    }
+
+    // Check rate limit (10 trades per minute)
+    try {
+      const { success, headers } = await checkRateLimit(body.walletAddress, rateLimiters.trade);
+
+      if (!success) {
+        console.log('[/api/trades/prepare] Rate limit exceeded for wallet:', body.walletAddress);
+        return NextResponse.json(
+          {
+            error: 'Rate limit exceeded. You can make up to 10 trades per minute.',
+            rateLimitExceeded: true
+          },
+          { status: 429, headers }
+        );
+      }
+    } catch (rateLimitError) {
+      // Log error but don't block the request if rate limiting fails
+      console.error('[/api/trades/prepare] Rate limit check failed:', rateLimitError);
+      // Continue with request - fail open for availability
     }
 
     // Get user from Privy token (if you're using auth)

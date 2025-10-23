@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { PoolSyncService } from '@/services/pool-sync.service';
+import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 
 interface RecordTradeRequest {
   user_id: string;
@@ -55,6 +56,26 @@ export async function POST(req: NextRequest) {
         { error: 'Missing required fields' },
         { status: 400 }
       );
+    }
+
+    // Check rate limit (10 trades per minute)
+    try {
+      const { success, headers } = await checkRateLimit(body.wallet_address, rateLimiters.trade);
+
+      if (!success) {
+        console.log('[/api/trades/record] Rate limit exceeded for wallet:', body.wallet_address);
+        return NextResponse.json(
+          {
+            error: 'Rate limit exceeded. You can record up to 10 trades per minute.',
+            rateLimitExceeded: true
+          },
+          { status: 429, headers }
+        );
+      }
+    } catch (rateLimitError) {
+      // Log error but don't block the request if rate limiting fails
+      console.error('[/api/trades/record] Rate limit check failed:', rateLimitError);
+      // Continue with request - fail open for availability
     }
 
     // Create Supabase client
