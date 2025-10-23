@@ -73,6 +73,30 @@ export const rateLimiters = {
     prefix: 'ratelimit:post-create',
     analytics: true,
   }),
+
+  /**
+   * Media Upload Rate Limiter
+   * Limit: 20 uploads per hour per user
+   * Prevents storage exhaustion and bandwidth abuse
+   */
+  mediaUpload: new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(20, '1h'),
+    prefix: 'ratelimit:media-upload',
+    analytics: true,
+  }),
+
+  /**
+   * Profile Update Rate Limiter
+   * Limit: 50 updates per hour per user
+   * Prevents excessive profile update spam
+   */
+  profileUpdate: new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(50, '1h'),
+    prefix: 'ratelimit:profile-update',
+    analytics: true,
+  }),
 };
 
 /**

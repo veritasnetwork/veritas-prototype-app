@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
+import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 
 // File validation constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB for images
@@ -30,6 +31,25 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid or missing authentication' },
         { status: 401 }
       );
+    }
+
+    // Check rate limit (20 uploads per hour)
+    try {
+      const { success, headers } = await checkRateLimit(privyUserId, rateLimiters.mediaUpload);
+
+      if (!success) {
+        console.log('[/api/media/upload-image] Rate limit exceeded for user:', privyUserId);
+        return NextResponse.json(
+          {
+            error: 'Rate limit exceeded. You can upload up to 20 files per hour.',
+            rateLimitExceeded: true
+          },
+          { status: 429, headers }
+        );
+      }
+    } catch (rateLimitError) {
+      console.error('[/api/media/upload-image] Rate limit check failed:', rateLimitError);
+      // Continue with request - fail open for availability
     }
 
     const supabase = getSupabaseServiceRole();

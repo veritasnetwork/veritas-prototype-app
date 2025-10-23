@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
+import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 
 // Helper function to extract plain text from Tiptap JSON
 function extractPlainTextFromTiptap(doc: any): string {
@@ -37,6 +38,25 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid or missing authentication' },
         { status: 401 }
       );
+    }
+
+    // Check rate limit (10 posts per hour)
+    try {
+      const { success, headers } = await checkRateLimit(privyUserId, rateLimiters.postCreate);
+
+      if (!success) {
+        console.log('[/api/posts/create] Rate limit exceeded for user:', privyUserId);
+        return NextResponse.json(
+          {
+            error: 'Rate limit exceeded. You can create up to 10 posts per hour.',
+            rateLimitExceeded: true
+          },
+          { status: 429, headers }
+        );
+      }
+    } catch (rateLimitError) {
+      console.error('[/api/posts/create] Rate limit check failed:', rateLimitError);
+      // Continue with request - fail open for availability
     }
 
     const body = await request.json();

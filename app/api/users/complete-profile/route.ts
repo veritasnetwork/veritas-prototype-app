@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
+import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   console.log('[complete-profile] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -20,6 +21,25 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid or missing authentication' },
         { status: 401 }
       );
+    }
+
+    // Check rate limit (50 updates per hour)
+    try {
+      const { success, headers } = await checkRateLimit(privyUserId, rateLimiters.profileUpdate);
+
+      if (!success) {
+        console.log('[complete-profile] Rate limit exceeded for user:', privyUserId);
+        return NextResponse.json(
+          {
+            error: 'Rate limit exceeded. You can update your profile up to 50 times per hour.',
+            rateLimitExceeded: true
+          },
+          { status: 429, headers }
+        );
+      }
+    } catch (rateLimitError) {
+      console.error('[complete-profile] Rate limit check failed:', rateLimitError);
+      // Continue with request - fail open for availability
     }
 
     // Parse request body

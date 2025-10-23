@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
+import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 
 // File validation constants
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB for videos (bucket limit)
@@ -21,8 +22,6 @@ const ALLOWED_VIDEO_TYPES = [
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseServiceRole();
-
     // Verify authentication
     const authHeader = request.headers.get('Authorization');
     const privyUserId = await verifyAuthHeader(authHeader);
@@ -33,6 +32,27 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Check rate limit (20 uploads per hour)
+    try {
+      const { success, headers } = await checkRateLimit(privyUserId, rateLimiters.mediaUpload);
+
+      if (!success) {
+        console.log('[/api/media/upload-video] Rate limit exceeded for user:', privyUserId);
+        return NextResponse.json(
+          {
+            error: 'Rate limit exceeded. You can upload up to 20 files per hour.',
+            rateLimitExceeded: true
+          },
+          { status: 429, headers }
+        );
+      }
+    } catch (rateLimitError) {
+      console.error('[/api/media/upload-video] Rate limit check failed:', rateLimitError);
+      // Continue with request - fail open for availability
+    }
+
+    const supabase = getSupabaseServiceRole();
 
     // Get user_id from Privy user (auth_provider = 'privy' and auth_id = privyUserId)
     const { data: userData, error: userError } = await supabase
