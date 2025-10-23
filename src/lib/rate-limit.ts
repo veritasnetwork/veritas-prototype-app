@@ -40,24 +40,24 @@ function getRedis(): Redis {
 export const rateLimiters = {
   /**
    * Pool Deployment Rate Limiter
-   * Limit: 3 deployments per hour per user
-   * Prevents spam pool creation
+   * Limit: 30 deployments per hour per user
+   * Prevents spam pool creation while allowing active development
    */
   poolDeploy: new Ratelimit({
     redis: getRedis(),
-    limiter: Ratelimit.slidingWindow(3, '1h'),
+    limiter: Ratelimit.slidingWindow(30, '1h'),
     prefix: 'ratelimit:pool-deploy',
     analytics: true, // Track analytics in Upstash dashboard
   }),
 
   /**
    * Trade Rate Limiter
-   * Limit: 10 trades per minute per user
+   * Limit: 50 trades per hour per user
    * Prevents trade spam while allowing active trading
    */
   trade: new Ratelimit({
     redis: getRedis(),
-    limiter: Ratelimit.slidingWindow(10, '1m'),
+    limiter: Ratelimit.slidingWindow(50, '1h'),
     prefix: 'ratelimit:trade',
     analytics: true,
   }),

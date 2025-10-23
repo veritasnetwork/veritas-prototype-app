@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         console.log('[/api/pools/deploy] Rate limit exceeded for user:', privyUserId);
         return NextResponse.json(
           {
-            error: 'Rate limit exceeded. You can deploy up to 3 pools per hour.',
+            error: 'Rate limit exceeded. You can deploy up to 30 pools per hour.',
             rateLimitExceeded: true
           },
           { status: 429, headers }

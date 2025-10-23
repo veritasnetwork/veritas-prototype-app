@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check rate limit (10 trades per minute)
+    // Check rate limit (50 trades per hour)
     try {
       const { success, headers } = await checkRateLimit(body.walletAddress, rateLimiters.trade);
 
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         console.log('[/api/trades/prepare] Rate limit exceeded for wallet:', body.walletAddress);
         return NextResponse.json(
           {
-            error: 'Rate limit exceeded. You can make up to 10 trades per minute.',
+            error: 'Rate limit exceeded. You can make up to 50 trades per hour.',
             rateLimitExceeded: true
           },
           { status: 429, headers }
