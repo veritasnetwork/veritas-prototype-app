@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { PoolSyncService } from '@/services/pool-sync.service';
 
 interface RecordTradeRequest {
@@ -58,17 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Supabase client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getSupabaseServiceRole();
 
     // Optimistically record trade with complete ICBS data
     // Event indexer will mark as confirmed when it sees the on-chain event
@@ -296,6 +286,49 @@ export async function POST(req: NextRequest) {
     } catch (balanceError) {
       console.error('[USER BALANCES] Error updating user_pool_balances:', balanceError);
       // Don't fail the trade recording if balance tracking fails
+    }
+
+    // Record implied relevance from virtual reserves after trade
+    if (body.r_long_after !== undefined && body.r_short_after !== undefined && body.post_id) {
+      try {
+        const totalReserve = body.r_long_after + body.r_short_after;
+        const impliedRelevance = totalReserve > 0 ? body.r_long_after / totalReserve : 0.5;
+
+        // Get belief_id for the post
+        const { data: poolDeployment } = await supabase
+          .from('pool_deployments')
+          .select('belief_id')
+          .eq('post_id', body.post_id)
+          .single();
+
+        if (poolDeployment?.belief_id) {
+          const { error: impliedError } = await supabase
+            .from('implied_relevance_history')
+            .insert({
+              post_id: body.post_id,
+              belief_id: poolDeployment.belief_id,
+              implied_relevance: impliedRelevance,
+              reserve_long: body.r_long_after,
+              reserve_short: body.r_short_after,
+              event_type: 'trade',
+              event_reference: body.tx_signature,
+              confirmed: false,
+              recorded_by: 'server',
+            });
+
+          if (impliedError) {
+            // Ignore unique constraint violations (event indexer already recorded)
+            if (impliedError.code !== '23505') {
+              console.error('[IMPLIED RELEVANCE] Failed to record:', impliedError);
+            }
+          } else {
+            console.log('[IMPLIED RELEVANCE] Recorded after trade:', impliedRelevance.toFixed(4));
+          }
+        }
+      } catch (impliedRelevanceError) {
+        console.error('[IMPLIED RELEVANCE] Error:', impliedRelevanceError);
+        // Don't fail the trade recording if implied relevance tracking fails
+      }
     }
 
     // Sync pool state after recording trade (non-blocking)

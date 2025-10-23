@@ -8,10 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   console.log('[/api/pools/record] Record request received');
@@ -57,7 +54,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getSupabaseServiceRole();
 
     // Get user_id from Privy ID or mock ID
     // Check if this is mock auth (auth_id starts with 'mock-user-')
@@ -145,6 +142,36 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('[/api/pools/record] Pool deployment recorded:', deployment.id);
+
+    // Record initial implied relevance (50/50 split at deployment)
+    const initialReserveLong = (initialDeposit * 1_000_000) / 2;
+    const initialReserveShort = (initialDeposit * 1_000_000) / 2;
+    const initialImpliedRelevance = 0.5; // 50/50 = neutral
+
+    const { error: impliedError } = await supabase
+      .from('implied_relevance_history')
+      .insert({
+        post_id: postId,
+        belief_id: post.belief_id,
+        implied_relevance: initialImpliedRelevance,
+        reserve_long: initialReserveLong,
+        reserve_short: initialReserveShort,
+        event_type: 'deployment',
+        event_reference: signature, // Use tx signature for idempotency
+        confirmed: false,
+        recorded_by: 'server',
+      });
+
+    if (impliedError) {
+      // Ignore unique constraint violations (event indexer already recorded)
+      if (impliedError.code !== '23505') {
+        console.error('[/api/pools/record] Failed to record implied relevance:', impliedError);
+      }
+      // Don't fail the request - implied relevance is supplementary data
+    } else {
+      console.log('[/api/pools/record] Initial implied relevance recorded: 0.5');
+    }
+
     return NextResponse.json({ success: true, recordId: deployment.id });
 
   } catch (error) {

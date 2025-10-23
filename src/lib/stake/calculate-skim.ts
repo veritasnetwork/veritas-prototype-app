@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 
 export interface StakeSkimParams {
   userId: string;
@@ -12,10 +12,7 @@ export interface StakeSkimParams {
 export async function calculateStakeSkim(params: StakeSkimParams): Promise<number> {
   if (params.tradeType === 'sell') return 0;
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabase = getSupabaseServiceRole();
 
   const { data, error } = await supabase.rpc('calculate_skim_with_lock', {
     p_user_id: params.userId,

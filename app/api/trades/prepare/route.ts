@@ -10,7 +10,7 @@ import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import * as anchor from '@coral-xyz/anchor';
 import { AnchorProvider, Program } from '@coral-xyz/anchor';
 import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { VeritasCuration } from '@/lib/solana/target/types/veritas_curation';
 import { PDAHelper } from '@/lib/solana/sdk/transaction-builders';
 import { getUsdcMint, getRpcEndpoint, getProgramId } from '@/lib/solana/network-config';
@@ -50,17 +50,7 @@ export async function POST(req: NextRequest) {
 
     // Get user from Privy token (if you're using auth)
     // For now, we'll use wallet address to lookup user
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getSupabaseServiceRole();
 
     // Get pool address if not provided
     let poolAddress = body.poolAddress;
@@ -80,11 +70,25 @@ export async function POST(req: NextRequest) {
       poolAddress = poolDeployment.pool_address;
     }
 
-    // Get user ID from wallet address
+    // Get user ID from wallet address (via agents table)
+    const { data: agent } = await supabase
+      .from('agents')
+      .select('id')
+      .eq('solana_address', body.walletAddress)
+      .single();
+
+    if (!agent) {
+      return NextResponse.json(
+        { error: 'User not found. Please ensure you have a Veritas account.' },
+        { status: 404 }
+      );
+    }
+
+    // Get user record from agent
     const { data: user } = await supabase
       .from('users')
       .select('id')
-      .eq('wallet_address', body.walletAddress)
+      .eq('agent_id', agent.id)
       .single();
 
     if (!user) {
@@ -133,7 +137,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Build transaction
+    // Build transaction (already signed by protocol authority inside buildTradeTransaction)
     const transaction = await buildTradeTransaction({
       connection,
       walletAddress: body.walletAddress,
@@ -144,10 +148,6 @@ export async function POST(req: NextRequest) {
       amount: amount,
       stakeSkim,
     });
-
-    // Sign with protocol authority
-    const authorityKeypair = loadProtocolAuthority();
-    transaction.partialSign(authorityKeypair);
 
     // Serialize and return
     const serialized = transaction.serialize({
@@ -289,27 +289,20 @@ async function buildTradeTransaction(params: {
 
   // Get pool authority from factory
   const factory = await program.account.poolFactory.fetch(factoryPda);
-  const protocolAuthority = factory.poolAuthority;
+  const expectedAuthority = factory.poolAuthority;
 
-  // Build transaction
-  const tx = new Transaction();
+  // Load protocol authority keypair
+  const authorityKeypair = loadProtocolAuthority();
 
-  // Create token ATA if it doesn't exist (needed for receiving tokens on buy)
-  if (params.tradeType === 'buy') {
-    const tokenAccountInfo = await params.connection.getAccountInfo(traderTokenAccount);
-    if (!tokenAccountInfo) {
-      const createAtaIx = createAssociatedTokenAccountInstruction(
-        walletPubkey, // payer
-        traderTokenAccount, // ata
-        walletPubkey, // owner
-        tokenMintPda // mint
-      );
-      tx.add(createAtaIx);
-    }
+  // Verify the loaded keypair matches the factory's expected authority
+  if (!authorityKeypair.publicKey.equals(expectedAuthority)) {
+    throw new Error(
+      `Protocol authority mismatch. Expected: ${expectedAuthority.toBase58()}, Got: ${authorityKeypair.publicKey.toBase58()}`
+    );
   }
 
-  // Add trade instruction
-  const tradeIx = await program.methods
+  // Build transaction using Anchor's transaction builder (includes signers)
+  const tx = await program.methods
     .trade(
       params.side === 'long' ? { long: {} } : { short: {} },
       params.tradeType === 'buy' ? { buy: {} } : { sell: {} },
@@ -328,17 +321,38 @@ async function buildTradeTransaction(params: {
       tokenMint: tokenMintPda,
       usdcMint: usdcMint,
       trader: walletPubkey,
-      protocolAuthority: protocolAuthority,
+      protocolAuthority: authorityKeypair.publicKey,
       payer: walletPubkey,
+      tokenProgram: TOKEN_PROGRAM_ID,
     })
-    .instruction();
+    .preInstructions([
+      // Add compute budget
+      (await import('@solana/web3.js')).ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 })
+    ])
+    .transaction();
 
-  tx.add(tradeIx);
+  // Create token ATA if it doesn't exist (needed for receiving tokens on buy)
+  if (params.tradeType === 'buy') {
+    const tokenAccountInfo = await params.connection.getAccountInfo(traderTokenAccount);
+    if (!tokenAccountInfo) {
+      const createAtaIx = createAssociatedTokenAccountInstruction(
+        walletPubkey, // payer
+        traderTokenAccount, // ata
+        walletPubkey, // owner
+        tokenMintPda // mint
+      );
+      // Insert ATA creation before trade instruction but after compute budget
+      tx.instructions.splice(1, 0, createAtaIx);
+    }
+  }
 
   // Set recent blockhash and fee payer
   const { blockhash } = await params.connection.getLatestBlockhash('confirmed');
   tx.recentBlockhash = blockhash;
   tx.feePayer = walletPubkey;
+
+  // Sign with protocol authority
+  tx.partialSign(authorityKeypair);
 
   return tx;
 }

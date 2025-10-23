@@ -11,10 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   console.log('[/api/pools/deploy] Validation request received');
@@ -39,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getSupabaseServiceRole();
 
     // Get user_id from Privy ID or mock ID
     // Check if this is mock auth (auth_id starts with 'mock-user-')
@@ -69,7 +66,8 @@ export async function POST(req: NextRequest) {
       console.log('[/api/pools/deploy] Similar users found:', similarUsers);
 
       return NextResponse.json({
-        error: 'User not found',
+        error: 'You need to complete onboarding first. Please refresh the page to set up your profile.',
+        userFriendlyError: true,
         debug: {
           privyUserId,
           userError: userError?.message,
@@ -142,14 +140,43 @@ export async function POST(req: NextRequest) {
 
     const poolAccountInfo = await connection.getAccountInfo(poolPda);
     if (poolAccountInfo) {
-      console.log('[/api/pools/deploy] Pool already exists on-chain but not in DB:', poolPda.toBase58());
-      return NextResponse.json(
-        {
-          error: 'Pool already exists on-chain for this post. Please contact support to sync the database.',
-          existingPoolAddress: poolPda.toBase58()
-        },
-        { status: 409 }
-      );
+      console.log('[/api/pools/deploy] Pool account exists on-chain:', poolPda.toBase58());
+
+      // Check if this is an orphaned pool (created but never deployed with liquidity)
+      // An orphaned pool will have minimal data (just the created account with default values)
+      // A properly deployed pool will have vault, mints, and other data initialized
+      try {
+        const { Program, AnchorProvider, Wallet } = await import('@coral-xyz/anchor');
+        const { Keypair } = await import('@solana/web3.js');
+
+        // Create a dummy wallet for the provider
+        const dummyKeypair = Keypair.generate();
+        const wallet = new Wallet(dummyKeypair);
+        const provider = new AnchorProvider(connection, wallet, {});
+
+        const idl = await import('@/lib/solana/target/idl/veritas_curation.json');
+        const program = new Program(idl.default as any, provider);
+
+        const poolData = await program.account.contentPool.fetch(poolPda);
+
+        // Check if pool is properly deployed (has vault initialized)
+        if (poolData.vault && poolData.vault.toBase58() !== '11111111111111111111111111111111') {
+          console.log('[/api/pools/deploy] Pool fully deployed with vault:', poolData.vault.toBase58());
+          return NextResponse.json(
+            {
+              error: 'Pool already exists and is fully deployed for this post.',
+              existingPoolAddress: poolPda.toBase58()
+            },
+            { status: 409 }
+          );
+        }
+
+        console.log('[/api/pools/deploy] Pool exists but is orphaned (no vault). Allowing redeployment with init_if_needed.');
+        // Fall through to allow deployment - smart contract now handles orphaned pools with init_if_needed
+      } catch (fetchError) {
+        console.log('[/api/pools/deploy] Could not fetch pool data, treating as orphaned:', fetchError);
+        // Fall through to allow deployment
+      }
     }
 
     // Validation passed - client can proceed with transaction

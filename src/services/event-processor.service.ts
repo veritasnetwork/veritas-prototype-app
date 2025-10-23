@@ -8,7 +8,8 @@
  * Implements idempotent deduplication with server-side trade recording.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { PublicKey } from '@solana/web3.js';
 import { fetchPoolData } from '@/lib/solana/fetch-pool-data';
 
@@ -101,14 +102,7 @@ export class EventProcessor {
   private supabase: SupabaseClient;
 
   constructor() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase credentials for EventProcessor');
-    }
-
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.supabase = getSupabaseServiceRole();
   }
 
   /**
@@ -158,10 +152,10 @@ export class EventProcessor {
     const priceLong = this.sqrtPriceX96ToPrice(event.sqrtPriceLongX96After);
     const priceShort = this.sqrtPriceX96ToPrice(event.sqrtPriceShortX96After);
 
-    // Virtual reserves
-    const rLongAfter = Number(event.rLongAfter);
-    const rShortAfter = Number(event.rShortAfter);
-    const vaultBalance = Number(event.vaultBalanceAfter);
+    // Virtual reserves (convert from lamports to USDC)
+    const rLongAfter = Number(event.rLongAfter) / 1_000_000;
+    const rShortAfter = Number(event.rShortAfter) / 1_000_000;
+    const vaultBalance = Number(event.vaultBalanceAfter) / 1_000_000;
 
     // Check if server already recorded this
     const { data: existing } = await this.supabase
@@ -316,6 +310,110 @@ export class EventProcessor {
       .eq('pool_address', poolAddress);
 
     console.log(`📊 Updated pool state: s_long=${sLongAfter}, s_short=${sShortAfter}, vault=${vaultBalance}`);
+
+    // Update total volume cache on posts table
+    const { data: totalVolumeData } = await this.supabase
+      .from('trades')
+      .select('usdc_amount')
+      .eq('pool_address', poolAddress);
+
+    if (totalVolumeData) {
+      const totalVolume = totalVolumeData.reduce((sum, trade) => sum + Number(trade.usdc_amount || 0), 0);
+
+      // Get pool to find post_id
+      const { data: poolData } = await this.supabase
+        .from('pool_deployments')
+        .select('post_id')
+        .eq('pool_address', poolAddress)
+        .single();
+
+      if (poolData?.post_id) {
+        await this.supabase
+          .from('posts')
+          .update({ total_volume_usdc: totalVolume })
+          .eq('id', poolData.post_id);
+
+        console.log(`💰 Updated total volume for post ${poolData.post_id}: $${totalVolume.toFixed(2)}`);
+      }
+    }
+
+    // Record implied relevance from reserves after trade
+    await this.recordImpliedRelevance({
+      poolAddress,
+      eventType: 'trade',
+      eventReference: signature,
+      reserveLong: rLongAfter,
+      reserveShort: rShortAfter,
+      blockTime,
+    });
+  }
+
+  /**
+   * Record implied relevance from reserve ratios
+   * Called after trades, deployments, and settlements
+   */
+  private async recordImpliedRelevance({
+    poolAddress,
+    eventType,
+    eventReference,
+    reserveLong,
+    reserveShort,
+    blockTime,
+  }: {
+    poolAddress: string;
+    eventType: 'trade' | 'deployment' | 'rebase';
+    eventReference: string;
+    reserveLong: number;
+    reserveShort: number;
+    blockTime?: number;
+  }): Promise<void> {
+    try {
+      // Calculate implied relevance
+      const totalReserve = reserveLong + reserveShort;
+      const impliedRelevance = totalReserve > 0 ? reserveLong / totalReserve : 0.5;
+
+      // Get post_id and belief_id from pool
+      const { data: pool } = await this.supabase
+        .from('pool_deployments')
+        .select('post_id, belief_id')
+        .eq('pool_address', poolAddress)
+        .single();
+
+      if (!pool || !pool.belief_id) {
+        console.warn(`⚠️  No pool/belief found for ${poolAddress}, skipping implied relevance`);
+        return;
+      }
+
+      // Upsert implied relevance (indexer can correct server data)
+      const { error } = await this.supabase
+        .from('implied_relevance_history')
+        .upsert(
+          {
+            post_id: pool.post_id,
+            belief_id: pool.belief_id,
+            implied_relevance: impliedRelevance,
+            reserve_long: reserveLong,
+            reserve_short: reserveShort,
+            event_type: eventType,
+            event_reference: eventReference,
+            confirmed: true,
+            recorded_by: 'indexer',
+            recorded_at: blockTime ? new Date(blockTime * 1000).toISOString() : new Date().toISOString(),
+          },
+          {
+            onConflict: 'event_reference',
+            ignoreDuplicates: false, // Update if server already recorded
+          }
+        );
+
+      if (error) {
+        console.error(`❌ Failed to record implied relevance:`, error);
+      } else {
+        console.log(`📈 Implied relevance recorded: ${impliedRelevance.toFixed(4)} (${eventType})`);
+      }
+    } catch (error) {
+      console.error(`❌ Error in recordImpliedRelevance:`, error);
+    }
   }
 
   /**
@@ -503,6 +601,20 @@ export class EventProcessor {
         onConflict: 'tx_signature'
       });
 
+    // 4. Record implied relevance after settlement
+    // After settlement, reserves are scaled by BD score
+    const rLongAfter = Number(event.rLongAfter) / 1_000_000;  // Convert from lamports to USDC
+    const rShortAfter = Number(event.rShortAfter) / 1_000_000;
+
+    await this.recordImpliedRelevance({
+      poolAddress,
+      eventType: 'rebase',
+      eventReference: signature,
+      reserveLong: rLongAfter,
+      reserveShort: rShortAfter,
+      blockTime,
+    });
+
     console.log(`✅ Settlement event processed completely for pool ${poolAddress}`);
   }
 
@@ -540,6 +652,20 @@ export class EventProcessor {
     } else {
       console.log(`✅ Updated pool ${poolAddress} with initial market state`);
     }
+
+    // Record initial implied relevance (50/50 deployment)
+    const totalDeposit = Number(event.initialDeposit) / 1_000_000;  // Convert from lamports to USDC
+    const reserveLong = totalDeposit / 2;
+    const reserveShort = totalDeposit / 2;
+
+    await this.recordImpliedRelevance({
+      poolAddress,
+      eventType: 'deployment',
+      eventReference: signature,
+      reserveLong,
+      reserveShort,
+      blockTime,
+    });
   }
 
   /**
