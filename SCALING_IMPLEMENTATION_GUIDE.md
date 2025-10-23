@@ -19,24 +19,29 @@
 
 ## Implementation Progress
 
-**✅ Completed (Phases 0-2.2):**
-- Phase 0: Environment verified, branch created
-- Phase 1: RPC functions created and tested
-  - `record_trade_atomic` ✅
-  - `deploy_pool_with_lock` ✅
-- Phase 2.1: Singleton module created (`src/lib/supabase-server.ts`)
-- Phase 2.2: Critical routes migrated (6 files)
-  - `app/api/trades/prepare/route.ts` ✅
-  - `app/api/trades/record/route.ts` ✅
-  - `app/api/pools/deploy/route.ts` ✅
-  - `app/api/pools/record/route.ts` ✅
-  - `src/services/event-processor.service.ts` ✅
-  - `src/lib/stake/calculate-skim.ts` ✅
+**✅ COMPLETED - All Critical Phases (0-3):**
 
-**⏳ Remaining (Manual Migration):**
-- Phase 2.3-2.5: 18 lower-priority routes (post, media, user, admin, config)
-- Phase 3: Apply RPC functions to migrated routes
-- Phase 4: (Optional) Rate limiting
+- **Phase 0**: Environment verified, branch created ✅
+- **Phase 1**: RPC functions created and tested ✅
+  - `record_trade_atomic` (atomic trade recording with balance updates and skim calculation) ✅
+  - `deploy_pool_with_lock` (atomic pool deployment with advisory locks) ✅
+
+- **Phase 2**: ALL API routes migrated to singleton pattern (24 total) ✅
+  - **Phase 2.1**: Singleton module created (`src/lib/supabase-server.ts`) ✅
+  - **Phase 2.2**: Critical routes (6 files) ✅
+  - **Phase 2.3-2.5**: All remaining routes (18 files) ✅
+    - Post routes (5): create, [id], trades, history, rebase
+    - Media routes (4): upload-image, upload-video, upload-profile-photo, delete
+    - User routes (4): complete-profile, update-profile, [username]/profile, [username]/holdings
+    - Admin/config routes (5): auth/status, config/pool, settle, deploy-market, settlements/retry
+
+- **Phase 3**: RPC functions integrated into critical routes ✅
+  - `app/api/trades/record/route.ts` → uses `record_trade_atomic` ✅
+  - `app/api/pools/record/route.ts` → uses `deploy_pool_with_lock` ✅
+  - `app/api/trades/prepare/route.ts` → uses `calculate_skim_with_lock` via module ✅
+
+**⏳ Optional (Phase 4):**
+- Rate limiting with Upstash (can be added later if needed)
 
 ## Phase 0: Environment Verification
 
