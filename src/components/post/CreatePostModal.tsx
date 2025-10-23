@@ -1,11 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
-import { useSolanaWallet } from '@/hooks/useSolanaWallet';
-import { Connection } from '@solana/web3.js';
-import { buildCreatePoolTransaction } from '@/lib/solana/pool-deployment-transaction';
 import type { PostType, TiptapDocument } from '@/types/post.types';
 import { FileText, Image as ImageIcon, Video } from 'lucide-react';
 import { TiptapEditor } from './TiptapEditor';
@@ -21,7 +18,6 @@ interface CreatePostModalProps {
 export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostModalProps) {
   const { getAccessToken } = usePrivy();
   const { user } = useAuth();
-  const { wallet, address: solanaAddress } = useSolanaWallet();
 
   // NEW SCHEMA STATE
   const [postType, setPostType] = useState<PostType>('text');
@@ -34,20 +30,8 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null); // Optional cover for articles (requires title)
   const [showTitleCover, setShowTitleCover] = useState(false); // Toggle for title/cover section
 
-  const [duration, setDuration] = useState(48);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [poolConfig, setPoolConfig] = useState<{
-    k_quadratic: number;
-  } | null>(null);
-
-  // Fetch pool config on mount
-  useEffect(() => {
-    fetch('/api/config/pool')
-      .then(res => res.json())
-      .then(config => setPoolConfig(config))
-      .catch(err => console.error('Failed to fetch pool config:', err));
-  }, []);
 
 
   // Trap focus and handle ESC key
@@ -123,7 +107,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     setUploadedMediaUrl(null);
     setArticleTitle('');
     setCoverImageUrl(null);
-    setDuration(48);
     setError(null);
     onClose();
   };
@@ -161,10 +144,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       setError('Please log in to create a post');
       return;
     }
-    if (!solanaAddress || !wallet) {
-      setError('Please connect your Solana wallet');
-      return;
-    }
     setIsSubmitting(true);
     setError(null);
 
@@ -178,63 +157,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         throw new Error('Please log in to create a post');
       }
 
-      // Step 2: Build Solana transaction FIRST (before creating post)
-      const programId = process.env.NEXT_PUBLIC_VERITAS_PROGRAM_ID;
-      const rpcEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || 'http://127.0.0.1:8899';
-
-      if (!programId) {
-        throw new Error('Solana program not configured');
-      }
-
-      // Generate a temporary post ID for PDA derivation
-      // We'll use this to derive the pool address before creating the post
-      const tempPostId = window.crypto.randomUUID();
-
-      const connection = new Connection(rpcEndpoint, 'confirmed');
-
-      const transaction = await buildCreatePoolTransaction({
-        connection,
-        creator: solanaAddress,
-        postId: tempPostId,
-        kQuadratic: poolConfig?.k_quadratic ?? 1,
-        programId,
-      });
-
-      // Step 3: Sign and send transaction via Privy (user can cancel here)
-      if (!wallet || !('signTransaction' in wallet)) {
-        throw new Error('Wallet does not support signing transactions');
-      }
-
-      // @ts-expect-error - Privy wallet has signTransaction method
-      const signedTx = await wallet.signTransaction(transaction);
-
-      const signature = await connection.sendRawTransaction(signedTx.serialize());
-
-      await connection.confirmTransaction(signature, 'confirmed');
-
-      // Derive pool addresses for database storage
-      const { PublicKey } = await import('@solana/web3.js');
-      const programPubkey = new PublicKey(programId);
-
-      // Convert UUID to 32-byte buffer (same as SDK)
-      const postIdBytes16 = Buffer.from(tempPostId.replace(/-/g, ''), 'hex');
-      const postIdBytes32 = Buffer.alloc(32);
-      postIdBytes16.copy(postIdBytes32, 0);
-
-      const [poolPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('pool'), postIdBytes32],
-        programPubkey
-      );
-      const [tokenMintPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('mint'), postIdBytes32],
-        programPubkey
-      );
-      const [poolVaultPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('vault'), postIdBytes32],
-        programPubkey
-      );
-
-      // Step 4: NOW create post and belief (only after successful transaction)
+      // Step 2: Create post (no pool deployment required)
       const response = await fetch('/api/posts/create', {
         method: 'POST',
         headers: {
@@ -249,17 +172,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
           caption: (postType === 'image' || postType === 'video') ? caption || undefined : undefined,
           article_title: postType === 'text' && articleTitle ? articleTitle : undefined,
           cover_image_url: postType === 'text' && coverImageUrl ? coverImageUrl : undefined,
-          // initial_belief and meta_belief are now optional - not sent
-          belief_duration_hours: duration,
-          post_id: tempPostId, // Use the same ID we used for the pool
-          tx_signature: signature, // Include the transaction signature
-          pool_deployment: {
-            pool_address: poolPda.toBase58(),
-            token_mint_address: tokenMintPda.toBase58(),
-            usdc_vault_address: poolVaultPda.toBase58(),
-            deployment_tx_signature: signature,
-            k_quadratic: poolConfig?.k_quadratic ?? 1,
-          },
         }),
       });
 
@@ -279,7 +191,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       setUploadedMediaUrl(null);
       setArticleTitle('');
       setCoverImageUrl(null);
-      setDuration(48);
       setError(null);
       onClose();
 
@@ -294,16 +205,11 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       if (createdPostId || createdBeliefId) {
         try {
           const jwt = await getAccessToken();
-          await fetch('/api/supabase/functions/v1/app-post-deletion', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${jwt}`,
-            },
-            body: JSON.stringify({
-              post_id: createdPostId,
-              belief_id: createdBeliefId,
-            }),
+          // Note: Edge function for cleanup is disabled for now
+          // The database has cascading deletes that should handle this
+          console.warn('Post/belief cleanup skipped:', {
+            post_id: createdPostId,
+            belief_id: createdBeliefId,
           });
         } catch (cleanupErr) {
           console.error('Failed to clean up after error:', cleanupErr);
@@ -528,25 +434,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
               </div>
             </div>
           )}
-
-          {/* Duration Dropdown */}
-          <div>
-            <label htmlFor="post-duration" className="block text-sm font-medium text-gray-300 mb-2">
-              Belief Duration
-            </label>
-            <select
-              id="post-duration"
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              disabled={isSubmitting}
-              className="input w-full"
-            >
-              <option value={24}>24 hours</option>
-              <option value={48}>48 hours</option>
-              <option value={72}>72 hours</option>
-              <option value={168}>1 week</option>
-            </select>
-          </div>
 
           {/* Error Message */}
           {error && (

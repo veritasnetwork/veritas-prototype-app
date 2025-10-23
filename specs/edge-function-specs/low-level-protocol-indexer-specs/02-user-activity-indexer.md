@@ -68,7 +68,7 @@ interface AgentActivity {
    - Call `/protocol/weights/calculate` with:
      - belief_id = submission.belief_id
      - participant_agents = [agent_id]
-   - Extract effective_stakes[agent_id] for stake_allocated
+   - Extract belief_weights[agent_id] for stake_allocated
    - Handle calculation failures gracefully (default to 0)
 
 5. **For each submission, get belief info:**

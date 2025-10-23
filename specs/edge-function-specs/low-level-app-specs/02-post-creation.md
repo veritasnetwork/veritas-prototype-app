@@ -7,63 +7,101 @@
 
 ### Input
 - `user_id`: string (required)
-- `title`: string (optional, max MAX_TITLE_LENGTH)
-- `content`: string (optional, max MAX_CONTENT_LENGTH)
-- `media_url`: string (optional, Supabase Storage URL)
-- `media_type`: string (optional, must be in SUPPORTED_IMAGE_TYPES or SUPPORTED_VIDEO_TYPES)
-
-**Note**: At least one of `title` or `content` must be provided
+- `post_type`: string (required) - 'text', 'image', or 'video'
+- `content_json`: TiptapDocument (required for text posts)
+- `media_urls`: string[] (required for image/video posts)
+- `caption`: string (optional, max 280 chars)
+- `article_title`: string (optional, max 200 chars, for text posts)
+- `cover_image_url`: string (optional, requires article_title)
+- `initial_belief`: number ∈ [0,1] (optional - defaults to 0.5 neutral)
+- `meta_belief`: number ∈ [0,1] (optional, only used if initial_belief provided)
+- `belief_duration_hours`: number (required)
+- `post_id`: UUID (required)
+- `tx_signature`: string (required)
+- `pool_deployment`: object (required)
 
 ### Output
 - `post_id`: string
-- `post`: object
+- `belief_id`: string
+- `post`: object with belief data
 
 ## Algorithm
 
 1. **Validate required fields:**
-   - Verify `user_id` is non-empty
-   - Verify at least one of `title` or `content` is non-empty after trimming
-   - Return error 422 if missing
+   - Verify `user_id`, `post_type`, `post_id`, and `tx_signature` are provided
+   - Verify `post_type` is one of: 'text', 'image', 'video'
+   - Verify `initial_belief` ∈ [0,1] if provided (optional)
+   - Return error 422 if missing or invalid
 
 2. **Validate content constraints:**
-   - Verify title length ≤ MAX_TITLE_LENGTH if provided
-   - Verify content length ≤ MAX_CONTENT_LENGTH if provided
-   - If media_type provided, verify it's in SUPPORTED_IMAGE_TYPES or SUPPORTED_VIDEO_TYPES
-   - Return error 400 if exceeded or invalid
+   - Verify title length ≤ 200 chars
+   - Verify content length ≤ 2000 chars if provided
+   - Verify meta_prediction ∈ [0,1] if provided
+   - Return error 400 if invalid
 
 3. **Verify user exists:**
    - Query `users` table by `user_id`
+   - Retrieve `agent_id` for protocol calls
    - Return error 404 if not found
 
 4. **BEGIN TRANSACTION**
 
-5. **Create post record:**
+5. **Create belief record (inline):**
+   - Insert into `beliefs` table:
+     - `id` = post_id (same ID for linkage)
+     - `creator_agent_id` = agent_id
+     - `created_epoch` = current epoch
+     - `expiration_epoch` = calculated from duration
+     - `previous_aggregate` = initial_belief ?? 0.5 (default to neutral)
+     - `previous_disagreement_entropy` = 0.0
+
+6. **Create post record:**
    - Generate `post_id` (UUID v4)
    - Insert record:
      - `user_id` = provided
-     - `title` = trimmed value or null
-     - `content` = trimmed value
-     - `is_opinion` = false
-     - `opinion_belief_id` = null
-     - `view_count` = 0
+     - `title` = trimmed value
+     - `content` = trimmed value or empty string
+     - `belief_id` = belief_id from step 5
      - `created_at` = current timestamp
 
-6. **COMMIT TRANSACTION**
+7. **Submit initial belief (if provided):**
+   - If `initial_belief` was provided:
+     - Insert into `belief_submissions` table
+     - Link to belief and agent
+   - If not provided, skip this step (no initial submission)
 
-7. **Return:** Post identifier with full record
+8. **Store pool deployment info:**
+   - Insert pool deployment record
+   - Link to post and belief
+
+9. **COMMIT TRANSACTION**
+
+9. **Return:** Post and belief identifiers with enriched post data
 
 ## Error Handling
 
 ### Input Validation
-- Missing user_id or content → 422
-- Content exceeds limits → 400
+- Missing required fields (user_id, post_type, post_id, tx_signature) → 422
+- Invalid post_type → 400
+- Caption exceeds 280 chars → 400
+- Article title exceeds 200 chars → 400
+- Cover image without title → 400
+- Invalid belief values (if provided) → 400
 - User not found → 404
 
+### Belief Creation
+- Creates belief inline (not via protocol endpoint)
+- Defaults `previous_aggregate` to 0.5 if no initial belief provided
+- Initial belief submission is optional
+- Users can submit beliefs later via separate endpoint
+
 ### Transaction Management
-- Single atomic insert
-- Rollback on constraint violation
+- Atomic creation of post + belief market
+- Rollback both on any failure
 - Return error 503 on database failure
 
 ## Database Operations
 - **SELECT**: Verify user exists
-- **INSERT**: Create post record
+- **CALL**: Protocol belief creation
+- **INSERT**: Create post with belief
+- **UPDATE**: Increment user statistics

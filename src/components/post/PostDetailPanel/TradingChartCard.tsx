@@ -7,11 +7,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Activity, TrendingUp } from 'lucide-react';
+import { Activity, TrendingUp, RefreshCw } from 'lucide-react';
 import { TradingHistoryChart } from '@/components/charts/TradingHistoryChart';
 import { RelevanceHistoryChart } from '@/components/charts/RelevanceHistoryChart';
 import { useTradeHistory, TimeRange } from '@/hooks/api/useTradeHistory';
 import { useRelevanceHistory } from '@/hooks/api/useRelevanceHistory';
+import { useRebasePool } from '@/hooks/useRebasePool';
+import { usePoolData } from '@/hooks/usePoolData';
 
 type ChartType = 'price' | 'relevance';
 
@@ -26,29 +28,58 @@ export function TradingChartCard({ postId }: TradingChartCardProps) {
   const { data: tradeHistory, isLoading: historyLoading } = useTradeHistory(postId, timeRange);
 
   // ✅ OPTIMIZATION: Only fetch relevance when chart type is 'relevance'
-  const { data: relevanceData, isLoading: relevanceLoading } = useRelevanceHistory(
+  const { data: relevanceData, isLoading: relevanceLoading, refetch: refetchRelevance } = useRelevanceHistory(
     chartType === 'relevance' ? postId : undefined
   );
 
+  const { poolData, refetch: refetchPoolData } = usePoolData(postId);
+  const { rebasePool, isRebasing, error: rebaseError } = useRebasePool();
+
+  const handleRebase = async () => {
+    const result = await rebasePool(postId);
+
+    if (result.success) {
+      // Refresh data after successful rebase
+      await refetchPoolData();
+      await refetchRelevance();
+      alert(`Pool rebased successfully!\nNew BD Score: ${(result.bdScore! * 100).toFixed(1)}%\nRewards: $${result.stakeChanges!.totalRewards.toFixed(2)}\nSlashes: $${result.stakeChanges!.totalSlashes.toFixed(2)}`);
+    } else {
+      alert(`Rebase failed: ${result.error}`);
+    }
+  };
+
   return (
     <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-2xl overflow-hidden">
-      {/* Header with Chart Type Toggle and Time Range Selector */}
+      {/* Header with Chart Type Toggle, Rebase Button, and Time Range Selector */}
       <div className="flex justify-between items-center p-4 pb-0">
-        {/* Chart Type Toggle */}
-        <div className="flex gap-0.5 bg-black/50 rounded-md p-0.5">
-          {(['price', 'relevance'] as ChartType[]).map((type) => (
-            <button
-              key={type}
-              onClick={() => setChartType(type)}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors capitalize ${
-                chartType === type
-                  ? 'bg-[#B9D9EB] text-black'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              {type}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          {/* Chart Type Toggle */}
+          <div className="flex gap-0.5 bg-black/50 rounded-md p-0.5">
+            {(['price', 'relevance'] as ChartType[]).map((type) => (
+              <button
+                key={type}
+                onClick={() => setChartType(type)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors capitalize ${
+                  chartType === type
+                    ? 'bg-[#B9D9EB] text-black'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+
+          {/* Rebase Button */}
+          <button
+            onClick={handleRebase}
+            disabled={isRebasing}
+            className="flex items-center gap-1.5 px-3 py-1 bg-[#22c55e]/10 hover:bg-[#22c55e]/20 border border-[#22c55e]/30 rounded-md text-xs font-medium text-[#22c55e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Run epoch processing and settle pool"
+          >
+            <RefreshCw className={`w-3 h-3 ${isRebasing ? 'animate-spin' : ''}`} />
+            {isRebasing ? 'Rebasing...' : 'Rebase'}
+          </button>
         </div>
 
         {/* Time Range Selector (only for price chart) */}

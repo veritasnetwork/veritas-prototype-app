@@ -15,7 +15,7 @@ interface BeliefsAggregateRequest {
 }
 
 interface BeliefsAggregateResponse {
-  pre_mirror_descent_aggregate: number
+  aggregate: number
   jensen_shannon_disagreement_entropy: number
   normalized_disagreement_entropy: number
   certainty: number
@@ -98,7 +98,7 @@ serve(async (req) => {
     const currentEpoch = parseInt(currentEpochData?.value || '0')
 
     // Load latest submission from each agent (not just current epoch)
-    // This is crucial for mirror descent to work - we need all agent beliefs, not just current epoch
+    // We need all agent beliefs to compute the aggregate, not just current epoch
     const { data: submissions, error: submissionsError } = await supabaseClient
       .from('belief_submissions')
       .select('agent_id, belief, meta_prediction, is_active, epoch')
@@ -129,7 +129,7 @@ serve(async (req) => {
       console.log(`No submissions found for belief ${belief_id} - returning neutral defaults`)
       return new Response(
         JSON.stringify({
-          pre_mirror_descent_aggregate: 0.5, // Neutral
+          aggregate: 0.5, // Neutral
           jensen_shannon_disagreement_entropy: 0.0,
           normalized_disagreement_entropy: 0.0,
           certainty: 0.0, // No certainty without submissions
@@ -257,7 +257,7 @@ serve(async (req) => {
 
     // 6. Return aggregation results
     const response: BeliefsAggregateResponse = {
-      pre_mirror_descent_aggregate: aggregate,
+      aggregate: aggregate,
       jensen_shannon_disagreement_entropy: jensenShannonDisagreement,
       normalized_disagreement_entropy: normalizedDisagreementEntropy,
       certainty: certainty,

@@ -17,14 +17,19 @@ Simple Privy-based authentication with automatic user registration. No invite co
 - Displays auth popup modal for unauthenticated users
 - Authenticated users can create posts and trade on pools
 
-**Post-Authentication:**
-- **First Time**: Auto-creates protocol agent with $10k starting stake
-- **Returning**: Direct access to all features
+**Authentication & Onboarding Flow:**
+1. **Unauthenticated**: Shows auth popup → user connects wallet via Privy
+2. **Authenticated, First Time**: `/api/auth/status` returns `needsOnboarding: true` → shows onboarding modal
+3. **Onboarding**: User enters username → creates agent ($10k stake) + user record via edge function
+4. **Authenticated, Returning**: Direct access to all features
+
+**Critical Requirement**: Onboarding modal ONLY appears if `authenticated === true AND needsOnboarding === true`
 
 ## User-Agent Relationship
 - **One-to-One**: Each authenticated user gets exactly one protocol agent
-- **Automatic Creation**: Agent created on first login via `/api/auth/status`
+- **Automatic Creation**: Agent created during onboarding via edge function `app-user-creation`
 - **Stake Initialization**: $10,000 starting stake for all new users
+- **Timing**: Agent + user created atomically when user completes onboarding (NOT on first auth check)
 
 ## Database Schema
 

@@ -1,0 +1,17 @@
+{
+  "custodian": {
+    "address": "7cEMRiTkMfhzbWy7o11WZXJCuk3ah5zNJiNr3WEnv6qr",
+    "usdcVault": "5RtPoADgamNRmBN2Mqost35EALzazAYsaC8RBDpFWjis",
+    "owner": "5Kp53XUxEUeBAGjbwgR8byf5SGhW82L6S1NWtzYrzwqe",
+    "protocolAuthority": "5Kp53XUxEUeBAGjbwgR8byf5SGhW82L6S1NWtzYrzwqe"
+  },
+  "factory": {
+    "address": "5vUJuWmBgeDjouPNadyUGMjT9XqVLBN6bj6YmB9r35Wg",
+    "factoryAuthority": "5Kp53XUxEUeBAGjbwgR8byf5SGhW82L6S1NWtzYrzwqe",
+    "poolAuthority": "5Kp53XUxEUeBAGjbwgR8byf5SGhW82L6S1NWtzYrzwqe",
+    "custodian": "7cEMRiTkMfhzbWy7o11WZXJCuk3ah5zNJiNr3WEnv6qr",
+    "defaultF": 1,
+    "defaultBetaNum": 1,
+    "defaultBetaDen": 2
+  }
+}

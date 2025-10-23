@@ -1,8 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 
-use crate::pool_factory::state::{PoolFactory, FACTORY_SEED};
-use crate::errors::ErrorCode;
+use crate::pool_factory::{
+    state::{PoolFactory, FACTORY_SEED},
+    events::PoolAuthorityUpdatedEvent,
+    errors::FactoryError,
+};
 
 /// Updates authority used by all pools for operations
 pub fn update_pool_authority(
@@ -10,16 +13,27 @@ pub fn update_pool_authority(
     new_pool_authority: Pubkey,
 ) -> Result<()> {
     let factory = &mut ctx.accounts.factory;
+    let clock = Clock::get()?;
 
-    // Validate authority
-    require!(ctx.accounts.authority.key() == factory.factory_authority, ErrorCode::Unauthorized);
-    require!(new_pool_authority != Pubkey::default(), ErrorCode::InvalidAuthority);
-    require!(new_pool_authority != system_program::ID, ErrorCode::InvalidAuthority);
+    require!(
+        new_pool_authority != Pubkey::default(),
+        FactoryError::InvalidAuthority
+    );
+    require!(
+        new_pool_authority != system_program::ID,
+        FactoryError::InvalidAuthority
+    );
 
     let old_authority = factory.pool_authority;
     factory.pool_authority = new_pool_authority;
 
-    msg!("Pool authority updated: old={}, new={}", old_authority, new_pool_authority);
+    emit!(PoolAuthorityUpdatedEvent {
+        factory: factory.key(),
+        old_authority,
+        new_authority: new_pool_authority,
+        timestamp: clock.unix_timestamp,
+    });
+
     Ok(())
 }
 
@@ -28,7 +42,8 @@ pub struct UpdatePoolAuthority<'info> {
     #[account(
         mut,
         seeds = [FACTORY_SEED],
-        bump = factory.bump
+        bump = factory.bump,
+        constraint = authority.key() == factory.factory_authority @ FactoryError::Unauthorized
     )]
     pub factory: Account<'info, PoolFactory>,
 

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("6njQqMDxSdMqXFpR25s6uZ4mQLEk6PDcBucsst5rAWNz");
+declare_id!("EXJvhoCsYc4tntxffGJhCyTzv6e2EDp9gqiFK17qhC4v");
 
 // Module declarations
 pub mod constants;
@@ -8,14 +8,14 @@ pub mod errors;
 pub mod utils;
 pub mod content_pool;
 pub mod pool_factory;
-pub mod protocol_treasury;
 pub mod veritas_custodian;
 
 // Re-exports
 pub use errors::*;
-pub use content_pool::*;
+// Re-export content_pool instruction contexts for Anchor's #[program] macro
+pub use content_pool::instructions::*;
+pub use content_pool::state::{TokenSide, TradeType};
 pub use pool_factory::*;
-pub use protocol_treasury::*;
 pub use veritas_custodian::*;
 
 #[program]
@@ -23,85 +23,69 @@ pub mod veritas_curation {
     use super::*;
 
     // ============================================================================
-    // Protocol Configuration Instructions
+    // ContentPool Instructions (ICBS)
     // ============================================================================
 
-    pub fn initialize_config(ctx: Context<InitializeConfig>) -> Result<()> {
-        content_pool::instructions::initialize_config(ctx)
-    }
-
-    // Disabled - references removed reserve_cap fields
-    // pub fn update_config(
-    //     ctx: Context<UpdateConfig>,
-    //     default_k_quadratic: Option<u128>,
-    //     default_reserve_cap: Option<u128>,
-    //     min_k_quadratic: Option<u128>,
-    //     max_k_quadratic: Option<u128>,
-    //     min_reserve_cap: Option<u128>,
-    //     max_reserve_cap: Option<u128>,
-    //     min_trade_amount: Option<u64>,
-    // ) -> Result<()> {
-    //     content_pool::instructions::update_config(
-    //         ctx,
-    //         default_k_quadratic,
-    //         default_reserve_cap,
-    //         min_k_quadratic,
-    //         max_k_quadratic,
-    //         min_reserve_cap,
-    //         max_reserve_cap,
-    //         min_trade_amount,
-    //     )
-    // }
-
-    // ============================================================================
-    // ContentPool Instructions
-    // ============================================================================
-
-    pub fn initialize_pool(
-        ctx: Context<InitializePool>,
-        post_id: [u8; 32],
-        initial_k_quadratic: u128,
-        token_name: [u8; 32],
-        token_symbol: [u8; 10],
+    /// Deploy market with initial liquidity (first trader)
+    pub fn deploy_market(
+        ctx: Context<DeployMarket>,
+        initial_deposit: u64,
+        long_allocation: u64,
     ) -> Result<()> {
-        content_pool::instructions::initialize_pool(
+        content_pool::instructions::deploy_market::handler(
             ctx,
-            post_id,
-            initial_k_quadratic,
-            token_name,
-            token_symbol
+            initial_deposit,
+            long_allocation,
         )
     }
 
-    pub fn buy(ctx: Context<Buy>, usdc_amount: u64) -> Result<()> {
-        content_pool::instructions::buy(ctx, usdc_amount)
-    }
-
-    pub fn sell(ctx: Context<Sell>, token_amount: u64) -> Result<()> {
-        content_pool::instructions::sell(ctx, token_amount)
-    }
-
-    pub fn apply_pool_penalty(
-        ctx: Context<ApplyPoolPenalty>,
-        penalty_amount: u64,
+    /// Trade on the ICBS market (buy or sell LONG/SHORT tokens)
+    pub fn trade(
+        ctx: Context<Trade>,
+        side: TokenSide,
+        trade_type: TradeType,
+        amount: u64,
+        stake_skim: u64,
+        min_tokens_out: u64,
+        min_usdc_out: u64,
     ) -> Result<()> {
-        content_pool::instructions::apply_pool_penalty(ctx, penalty_amount)
+        content_pool::instructions::trade::handler(
+            ctx,
+            side,
+            trade_type,
+            amount,
+            stake_skim,
+            min_tokens_out,
+            min_usdc_out,
+        )
     }
 
-    pub fn apply_pool_reward(
-        ctx: Context<ApplyPoolReward>,
-        reward_amount: u64,
+    /// Add bilateral liquidity to both sides of the market
+    pub fn add_liquidity(
+        ctx: Context<AddLiquidity>,
+        usdc_amount: u64,
     ) -> Result<()> {
-        content_pool::instructions::apply_pool_reward(ctx, reward_amount)
+        content_pool::instructions::add_liquidity::handler(ctx, usdc_amount)
     }
 
-    // Disabled - references removed reserve_cap fields
-    // pub fn set_reserve_cap(
-    //     ctx: Context<SetReserveCap>,
-    //     new_reserve_cap: u128,
-    // ) -> Result<()> {
-    //     content_pool::instructions::set_reserve_cap(ctx, new_reserve_cap)
-    // }
+    /// Settle epoch with BD score
+    pub fn settle_epoch(
+        ctx: Context<SettleEpoch>,
+        bd_score: u32,
+    ) -> Result<()> {
+        content_pool::instructions::settle_epoch::handler(ctx, bd_score)
+    }
+
+    /// Close an empty pool
+    pub fn close_pool(ctx: Context<ClosePool>) -> Result<()> {
+        content_pool::instructions::close_pool::handler(ctx)
+    }
+
+    /// View-only instruction: Get current pool state with decay applied
+    /// Does not mutate on-chain state
+    pub fn get_current_state(ctx: Context<GetCurrentState>) -> Result<CurrentPoolState> {
+        content_pool::instructions::get_current_state::handler(ctx)
+    }
 
     // ============================================================================
     // PoolFactory Instructions
@@ -111,23 +95,18 @@ pub mod veritas_curation {
         ctx: Context<InitializeFactory>,
         factory_authority: Pubkey,
         pool_authority: Pubkey,
+        custodian: Pubkey,
     ) -> Result<()> {
-        pool_factory::instructions::initialize_factory(ctx, factory_authority, pool_authority)
+        pool_factory::instructions::initialize_factory(ctx, factory_authority, pool_authority, custodian)
     }
 
     pub fn create_pool(
         ctx: Context<CreatePool>,
-        post_id: [u8; 32],
-        initial_k_quadratic: u128,
-        token_name: [u8; 32],
-        token_symbol: [u8; 10],
+        content_id: Pubkey,
     ) -> Result<()> {
         pool_factory::instructions::create_pool(
             ctx,
-            post_id,
-            initial_k_quadratic,
-            token_name,
-            token_symbol
+            content_id,
         )
     }
 
@@ -145,19 +124,24 @@ pub mod veritas_curation {
         pool_factory::instructions::update_factory_authority(ctx, new_authority)
     }
 
-    // ============================================================================
-    // ProtocolTreasury Instructions
-    // ============================================================================
-
-    pub fn initialize_treasury(ctx: Context<InitializeTreasury>) -> Result<()> {
-        protocol_treasury::instructions::initialize_treasury(ctx)
-    }
-
-    pub fn update_treasury_authority(
-        ctx: Context<UpdateTreasuryAuthority>,
-        new_authority: Pubkey,
+    pub fn update_defaults(
+        ctx: Context<UpdateDefaults>,
+        default_f: Option<u16>,
+        default_beta_num: Option<u16>,
+        default_beta_den: Option<u16>,
+        default_p0: Option<u64>,
+        min_initial_deposit: Option<u64>,
+        min_settle_interval: Option<i64>,
     ) -> Result<()> {
-        protocol_treasury::instructions::update_treasury_authority(ctx, new_authority)
+        pool_factory::instructions::update_defaults(
+            ctx,
+            default_f,
+            default_beta_num,
+            default_beta_den,
+            default_p0,
+            min_initial_deposit,
+            min_settle_interval,
+        )
     }
 
     // ============================================================================

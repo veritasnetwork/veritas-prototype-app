@@ -8,7 +8,7 @@ import Dropcursor from '@tiptap/extension-dropcursor';
 import { CustomImage } from './CustomImageExtension';
 import { useEffect, useState, useRef } from 'react';
 import { Bold, Italic, List, ListOrdered, Quote, Undo, Redo, Heading1, Heading2, Heading3, Type, Image as ImageIcon } from 'lucide-react';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy } from '@/hooks/usePrivyHooks';
 import type { TiptapDocument } from '@/types/post.types';
 
 interface TiptapEditorProps {

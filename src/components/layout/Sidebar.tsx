@@ -1,8 +1,9 @@
 'use client';
 
 import { useAuth } from '@/providers/AuthProvider';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
+import { useUSDCBalance } from '@/hooks/useUSDCBalance';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -12,12 +13,21 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onCreatePost, isCompact = false }: SidebarProps) {
-  const { user } = useAuth();
-  const { linkWallet } = usePrivy();
+  const { user, logout } = useAuth();
+  const { user: privyUser } = usePrivy();
   const { address: solanaAddress } = useSolanaWallet();
+  const { balance: usdcBalance, loading: balanceLoading } = useUSDCBalance(solanaAddress);
   const pathname = usePathname();
 
   const isActive = (path: string) => pathname === path;
+
+  // Get wallet type from Privy
+  const walletType = privyUser?.linkedAccounts?.find(
+    (account: any) => account.type === 'wallet' && account.chainType === 'solana'
+  )?.walletClientType || 'embedded';
+
+  // Detect network from RPC URL
+  const isMainnet = process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.includes('mainnet');
 
   return (
     <aside className={`hidden lg:fixed lg:left-0 lg:top-0 lg:h-screen lg:flex lg:flex-col lg:p-4 bg-[#0f0f0f] transition-all duration-300 ease-in-out ${isCompact ? 'lg:w-28' : 'lg:w-64'}`}>
@@ -136,41 +146,47 @@ export function Sidebar({ onCreatePost, isCompact = false }: SidebarProps) {
           </button>
         </nav>
 
-        {/* Wallet Status - Bottom */}
-        <div className="mt-auto pt-6 border-t border-gray-700/50">
-          {user && !solanaAddress && !isCompact && (
-            <button
-              onClick={linkWallet}
-              className="w-full px-4 py-3 text-sm font-medium text-[#B9D9EB] hover:text-[#D0E7F4] border border-[#B9D9EB]/50 hover:border-[#D0E7F4] rounded-xl transition-all hover:bg-[#B9D9EB]/5"
-            >
-              Connect Wallet
-            </button>
+        {/* Wallet & Logout - Bottom */}
+        <div className="mt-auto pt-6 border-t border-gray-700/50 space-y-3">
+          {user && !isCompact && (
+            <>
+              {/* Logout Button with Avatar */}
+              <button
+                onClick={logout}
+                className="w-full px-4 py-2 text-sm font-medium text-gray-400 hover:text-white border border-gray-700 hover:border-gray-600 rounded-xl transition-colors flex items-center justify-center gap-3"
+              >
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt="Profile" className="w-6 h-6 rounded-full" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-[#B9D9EB]/10 flex items-center justify-center flex-shrink-0">
+                    <span className="text-[#B9D9EB] font-bold text-xs">
+                      {user.username?.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <span>Logout</span>
+              </button>
+            </>
           )}
-          {user && !solanaAddress && isCompact && (
-            <button
-              onClick={linkWallet}
-              className="w-full py-3 text-sm font-medium text-[#B9D9EB] hover:text-[#D0E7F4] border border-[#B9D9EB]/50 hover:border-[#D0E7F4] rounded-xl transition-all hover:bg-[#B9D9EB]/5 flex items-center justify-center"
-              title="Connect Wallet"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-              </svg>
-            </button>
-          )}
-          {user && solanaAddress && !isCompact && (
-            <div className="px-4 py-3 bg-[#242424] rounded-xl border border-gray-800">
-              <div className="text-xs text-gray-500 mb-1">Wallet Connected</div>
-              <div className="text-sm font-mono text-gray-300 truncate">
-                {solanaAddress.slice(0, 6)}...{solanaAddress.slice(-6)}
-              </div>
-            </div>
-          )}
-          {user && solanaAddress && isCompact && (
-            <div className="py-3 bg-[#242424] rounded-xl border border-gray-800 flex items-center justify-center" title={`Wallet: ${solanaAddress}`}>
-              <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+          {user && isCompact && (
+            <>
+              {/* Logout Button with Avatar */}
+              <button
+                onClick={logout}
+                className="w-full py-3 flex items-center justify-center gap-2 text-gray-400 hover:text-white border border-gray-700 hover:border-gray-600 rounded-xl transition-colors"
+                title="Logout"
+              >
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt="Profile" className="w-5 h-5 rounded-full" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-[#B9D9EB]/10 flex items-center justify-center">
+                    <span className="text-[#B9D9EB] font-bold text-[10px]">
+                      {user.username?.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+              </button>
+            </>
           )}
         </div>
       </div>

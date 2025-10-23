@@ -1,0 +1,484 @@
+Starting fresh test validator...
+Waiting for validator to be ready...
+Waiting for fees to stabilize 1...
+Waiting for fees to stabilize 2...
+Waiting for fees to stabilize 3...
+Running tests with fresh validator...
+Deploying cluster: http://127.0.0.1:8899
+Upgrade authority: /Users/josh/.config/solana/id.json
+Deploying program "veritas_curation"...
+Program path: /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/target/deploy/veritas_curation.so...
+Program Id: EXJvhoCsYc4tntxffGJhCyTzv6e2EDp9gqiFK17qhC4v
+
+Signature: 3s7h6HYhvHm5Mqn39MPmVZhi74L5MDPs7RgCos47VJNTxSCXcpcScfH2FPPRDFFETajPJUPGL3JAyotnf8wHRmW6
+
+Deploy success
+
+Found a 'test' script in the Anchor.toml. Running it as a test suite!
+
+Running test suite: "/Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/Anchor.toml"
+
+yarn run v1.22.19
+$ /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/node_modules/.bin/ts-mocha -p ./tsconfig.json -t 1000000 tests/content-pool-icbs.test.ts tests/pool-factory-icbs.test.ts
+
+
+  ContentPool ICBS Tests
+    1. Pool Initialization
+      1.1 Empty Pool Creation
+        ✔ creates empty pool with factory reference (467ms)
+      1.2 Parameter Validation
+        ✔ validates F parameter bounds (1-10)
+        ✔ validates beta coefficient bounds (0.1-0.9) (460ms)
+    2. Market Deployment
+      2.1 First Trader Deployment
+On-manifold deployment results:
+  LONG allocation: 60000000
+  SHORT allocation: 40000000
+  Actual LONG tokens: 60
+  Actual SHORT tokens: 49
+  Pool s_long: 60
+  Pool s_short: 49
+  λ (Q96): 102893717550992645956393222590657600
+  ||s||: 77
+  C(s) = λ·||s||: 99999999
+  Initial deposit: 100000000
+  Difference: 1
+  r_long: 59504133
+  r_short: 40495867
+  r_long + r_short: 100000000
+  Vault balance: 100000000
+  Reserve sum - vault: 0
+  sqrt_price_long (Q96): 79701130900872863597863301545984
+  Price LONG: 1011975
+  Factory p0: 1000000
+  Price difference: 11975
+        ✔ allows first trader to deploy market with initial liquidity (472ms)
+        ✔ enforces minimum initial deposit ($100) (480ms)
+        1) prevents duplicate market deployment
+    3. ICBS Mathematics
+      3.1 Cost Function Calculation
+        2) calculates cost function C(s_L, s_S) correctly
+        ✔ calculates marginal prices correctly
+      3.2 Virtual Reserves
+        3) maintains virtual reserves as R = s × p
+        4) calculates market prediction q correctly
+      3.3 Inverse Coupling
+        ✔ demonstrates inverse coupling on LONG buy (447ms)
+        ✔ demonstrates inverse coupling on SHORT buy (466ms)
+        ✔ maintains price × supply = reserve invariant
+    4. Trading Operations
+      4.1 Buy Operations
+        ✔ executes LONG buy with correct token output (930ms)
+        ✔ applies stake skim on buys (926ms)
+        ✔ enforces slippage protection on buys
+      4.2 Sell Operations
+        ✔ executes LONG sell with correct USDC output (911ms)
+        5) executes SHORT sell with correct USDC output
+        6) enforces slippage protection on sells
+        7) applies zero skim on sells
+        8) prevents selling more tokens than owned
+        ✔ handles partial position exit (1326ms)
+        ✔ auto-creates ATA on buy and uses it on sell (2801ms)
+      4.3 Trade Size Limits
+        9) enforces minimum trade size
+      4.4 SPL Token Operations
+        10) allows token transfers between wallets
+        ✔ allows users to burn tokens directly (472ms)
+    5. Settlement Mechanics
+      5.1 BD Score Settlement
+        ✔ settles with BD score updating reserves (473ms)
+        ✔ enforces settlement cooldown
+        ✔ validates BD score bounds (458ms)
+      5.3 Authority Validation
+        11) requires protocol authority for settlement
+    7. State Invariants
+      7.1 Supply and Reserve Consistency
+        12) maintains token supply consistency across operations
+        13) maintains R = C(s) relationship
+      7.2 Settlement Invariants
+        14) maintains zero-sum property in settlement
+        15) clamps q to prevent division issues
+    close_pool
+      16) should close pool after all positions are burned
+      17) should fail to close pool with open positions
+      18) should fail to close pool without protocol authority
+    9. Edge Cases
+      9.1 Numerical Stability
+        19) handles very small trades correctly
+        20) handles settlement with extreme BD scores
+        21) preserves reserve invariants through multiple settlements
+        22) maintains precision in X96 sqrt price calculations
+        ✔ handles buy-then-sell round-trip correctly (843ms)
+    9.2 Time-Based Decay
+      23) applies decay after expiration for tier 1 (1% per day)
+
+=== Decay Calculation - Tier 2 ===
+Initial q: 0.6
+Days expired: 10
+Decay rate: 200 bps per day
+Total decay: 2000 bps
+Expected q after decay: 0.4
+      ✔ calculates correct decay for tier 2 (2% per day)
+
+=== Decay Clamping Test ===
+Initial q: 0.3
+Days expired: 100
+Total decay would be: 30000 bps (300%)
+Clamped q after decay: 0.1
+      ✔ clamps decay to minimum q (10%)
+
+=== Decay Tier 3 Test ===
+Initial q: 0.8
+Days expired: 35 (tier 3)
+Decay rate: 300 bps per day
+Expected q after decay: 0.1 (clamped)
+      ✔ uses tier 3 decay rate (3% per day) after 30 days
+
+=== Decay Before Expiration ===
+Current time: 1000000
+Expiration time: 2000000
+Should apply decay: false
+      ✔ does not apply decay before expiration
+
+=== Reserve Invariants After Decay ===
+R_total before: 100000000
+R_total after: 100000000
+q before: 0.6000
+q after: 0.5900
+      ✔ preserves reserve invariants after decay
+    10. Event Emission
+      ✔ emits TradeExecuted event on buy (461ms)
+      24) emits TradeExecuted event on sell
+      25) emits PoolSettled event on settlement
+
+  PoolFactory ICBS Tests
+    1. Factory Initialization
+      1.1 Singleton Creation
+        ✔ initializes factory with correct authorities
+        ✔ prevents duplicate factory initialization
+      1.2 Default Parameters
+        ✔ sets correct default ICBS parameters
+    2. Pool Creation
+      2.1 Permissionless Creation
+        ✔ allows any user to create a pool with protocol validation (460ms)
+        ✔ allows permissionless pool creation (434ms)
+      2.2 Registry Management
+        ✔ creates registry entry for each pool (463ms)
+        ✔ prevents duplicate pools for same content_id (473ms)
+      2.3 Parameter Inheritance
+        ✔ creates pool with factory default parameters (456ms)
+        ✔ inherits factory defaults (no custom parameters) (469ms)
+    3. Authority Management
+      3.1 Pool Authority Updates
+        ✔ allows factory_authority to update pool_authority (858ms)
+        ✔ rejects pool_authority update from unauthorized signer
+        ✔ rejects pool_authority update from pool_authority itself
+        ✔ validates new pool_authority is not default pubkey
+      3.2 Factory Authority Transfer
+        ✔ allows factory_authority to transfer ownership (904ms)
+    4. Default Parameter Updates
+      4.1 Update Default ICBS Parameters
+        ✔ allows factory_authority to update default_f (1406ms)
+        ✔ allows factory_authority to update default_beta (927ms)
+        26) validates parameter bounds on update
+        ✔ allows update of min_initial_deposit (915ms)
+        ✔ allows update of min_settle_interval (932ms)
+        ✔ rejects updates from non-factory-authority
+        ✔ existing pools retain original parameters after default update (1857ms)
+    5. State Consistency
+      5.1 Pool Counter
+        ✔ increments total_pools atomically (476ms)
+      5.2 PDA Derivation
+        ✔ derives consistent PDAs for factory
+        ✔ derives consistent PDAs for registries (448ms)
+    7. Error Handling
+      7.1 Input Validation
+        ✔ rejects invalid content_id (default pubkey) (463ms)
+    8. Event Emission
+      ✔ emits PoolCreated event on pool creation (466ms)
+      ✔ emits DefaultsUpdated event on parameter change (925ms)
+
+
+  52 passing (46s)
+  26 failing
+
+  1) ContentPool ICBS Tests
+       2. Market Deployment
+         2.1 First Trader Deployment
+           prevents duplicate market deployment:
+     ReferenceError: longMint is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:612:73
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  2) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.1 Cost Function Calculation
+           calculates cost function C(s_L, s_S) correctly:
+     AssertionError: R_total should equal total funds (vault + stake): expected 120000000, got 117116590, diff 2883410 micro-USDC: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:738:16
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  3) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.2 Virtual Reserves
+           maintains virtual reserves as R = s × p:
+     AssertionError: R_total = total funds: 135670154 vs 145000000: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:849:16
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  4) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.2 Virtual Reserves
+           calculates market prediction q correctly:
+     Error: AnchorError caused by account: protocol_authority. Error Code: UnauthorizedProtocol. Error Number: 6026. Error Message: Unauthorized protocol authority.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:168:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  5) ContentPool ICBS Tests
+       4. Trading Operations
+         4.2 Sell Operations
+           executes SHORT sell with correct USDC output:
+     Error: AnchorError caused by account: protocol_authority. Error Code: UnauthorizedProtocol. Error Number: 6026. Error Message: Unauthorized protocol authority.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:168:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  6) ContentPool ICBS Tests
+       4. Trading Operations
+         4.2 Sell Operations
+           enforces slippage protection on sells:
+     AssertionError: Should fail with slippage error: expected 'AnchorError caused by account: protoc…' to include '6012'
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:1616:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/content-pool-icbs.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  7) ContentPool ICBS Tests
+       4. Trading Operations
+         4.2 Sell Operations
+           applies zero skim on sells:
+     Error: AnchorError caused by account: protocol_authority. Error Code: UnauthorizedProtocol. Error Number: 6026. Error Message: Unauthorized protocol authority.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:168:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  8) ContentPool ICBS Tests
+       4. Trading Operations
+         4.2 Sell Operations
+           prevents selling more tokens than owned:
+     AssertionError: Should fail with SPL token error: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:1753:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/content-pool-icbs.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  9) ContentPool ICBS Tests
+       4. Trading Operations
+         4.3 Trade Size Limits
+           enforces minimum trade size:
+     AssertionError: expected 'AnchorError caused by account: protoc…' to include '6007'
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:2012:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/content-pool-icbs.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  10) ContentPool ICBS Tests
+       4. Trading Operations
+         4.4 SPL Token Operations
+           allows token transfers between wallets:
+     AssertionError: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:2067:16
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  11) ContentPool ICBS Tests
+       5. Settlement Mechanics
+         5.3 Authority Validation
+           requires protocol authority for settlement:
+     AssertionError: Expected constraint error, got: AnchorError caused by account: protocol_authority. Error Code: UnauthorizedProtocol. Error Number: 6026. Error Message: Unauthorized protocol authority.: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:2351:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/content-pool-icbs.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  12) ContentPool ICBS Tests
+       7. State Invariants
+         7.1 Supply and Reserve Consistency
+           maintains token supply consistency across operations:
+     Error: AnchorError caused by account: protocol_authority. Error Code: UnauthorizedProtocol. Error Number: 6026. Error Message: Unauthorized protocol authority.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:168:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  13) ContentPool ICBS Tests
+       7. State Invariants
+         7.1 Supply and Reserve Consistency
+           maintains R = C(s) relationship:
+     AssertionError: R_total should equal vault balance before trades: 284885419 vs 296120567: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:2552:16
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  14) ContentPool ICBS Tests
+       7. State Invariants
+         7.2 Settlement Invariants
+           maintains zero-sum property in settlement:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  15) ContentPool ICBS Tests
+       7. State Invariants
+         7.2 Settlement Invariants
+           clamps q to prevent division issues:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  16) ContentPool ICBS Tests
+       close_pool
+         should close pool after all positions are burned:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  17) ContentPool ICBS Tests
+       close_pool
+         should fail to close pool with open positions:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  18) ContentPool ICBS Tests
+       close_pool
+         should fail to close pool without protocol authority:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  19) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           handles very small trades correctly:
+     Error: AnchorError occurred. Error Code: NumericalOverflow. Error Number: 6020. Error Message: Numerical overflow.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:136:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  20) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           handles settlement with extreme BD scores:
+     AssertionError: q should be clamped to safe range after extreme low BD score: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:3309:16
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  21) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           preserves reserve invariants through multiple settlements:
+     Error: AnchorError thrown in programs/veritas-curation/src/content_pool/instructions/settle_epoch.rs:42. Error Code: SettlementCooldown. Error Number: 6015. Error Message: Settlement cooldown not elapsed.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:152:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  22) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           maintains precision in X96 sqrt price calculations:
+     Error: AnchorError caused by account: protocol_authority. Error Code: UnauthorizedProtocol. Error Number: 6026. Error Message: Unauthorized protocol authority.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:168:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  23) ContentPool ICBS Tests
+       9.2 Time-Based Decay
+         applies decay after expiration for tier 1 (1% per day):
+     
+  TokenAccountNotFoundError: 
+      at unpackAccount (node_modules/@solana/spl-token/src/state/account.ts:170:22)
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/node_modules/@solana/spl-token/src/state/account.ts:103:12
+      at Generator.next (<anonymous>)
+      at fulfilled (node_modules/@solana/spl-token/lib/cjs/state/account.js:5:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  24) ContentPool ICBS Tests
+       10. Event Emission
+         emits TradeExecuted event on sell:
+     AssertionError: Transaction should exist: expected null to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:3904:14
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  25) ContentPool ICBS Tests
+       10. Event Emission
+         emits PoolSettled event on settlement:
+     Error: AnchorError thrown in programs/veritas-curation/src/content_pool/instructions/settle_epoch.rs:42. Error Code: SettlementCooldown. Error Number: 6015. Error Message: Settlement cooldown not elapsed.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:152:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  26) PoolFactory ICBS Tests
+       4. Default Parameter Updates
+         4.1 Update Default ICBS Parameters
+           validates parameter bounds on update:
+     AssertionError: Should fail with InvalidParameter error, got: AnchorError thrown in programs/veritas-curation/src/pool_factory/instructions/update_defaults.rs:42. Error Code: InvalidBeta. Error Number: 13031. Error Message: Invalid coupling coefficient β.: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/pool-factory-icbs.test.ts:677:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/pool-factory-icbs.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+
+
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.
+Cleaning up validator...

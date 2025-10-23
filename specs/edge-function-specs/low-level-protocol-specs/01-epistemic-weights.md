@@ -1,4 +1,6 @@
-# Epistemic Weights & Stake Scaling Implementation
+# Epistemic Weights & Belief Weight Calculation
+
+**Status:** ✅ UPDATED (2025-01-22) - Refactored to use belief_lock
 
 ## Calculate Epistemic Weights
 
@@ -13,7 +15,7 @@
 
 #### Output
 - `weights`: object {agent_id: normalized_weight} where sum = 1.0
-- `effective_stakes`: object {agent_id: effective_stake}
+- `belief_weights`: object {agent_id: w_i} where w_i = 2% of last trade
 
 ### Algorithm
 
@@ -22,28 +24,50 @@
    - Verify `participant_agents` array is non-empty
    - Return error 422 if invalid
 
-2. **Calculate effective stakes for each agent:**
+2. **Get pool address for belief:**
+   - Query `pool_deployments` table: `pool_address` WHERE `belief_id` = belief_id
+   - Return error 404 if no pool found
+   - Store pool_address
+
+3. **Get belief weights (w_i) for each agent:**
    - For each agent_id in participant_agents:
-     - Query `agents` table by agent_id
-     - Return error 404 if agent not found
-     - Verify agent.active_belief_count > 0
-     - Return error 501 if zero (division by zero)
-     - Calculate: effective_stake = total_stake / active_belief_count
-     - Apply minimum: max(effective_stake, EPSILON_STAKES)
-     - Store in effective_stakes map
+     - Query `users` table to get user_id from agent_id
+     - Return error 404 if user not found
+     - Query `user_pool_balances` for this user_id + pool_address:
+       - SELECT belief_lock, token_balance, last_buy_amount
+       - WHERE user_id = user_id AND pool_address = pool_address
+     - If no balance record OR token_balance = 0:
+       - Set belief_weights[agent_id] = 0
+       - Continue to next agent
+     - Else:
+       - w_i = belief_lock (already 2% of last_buy_amount)
+       - Apply minimum: max(w_i, EPSILON_STAKES)
+       - Store in belief_weights map
 
-3. **Normalize stakes to weights:**
-   - Sum all effective_stakes values
+4. **Normalize weights for aggregation:**
+   - Sum all belief_weights values
    - If sum > EPSILON_STAKES:
-     - For each agent: weight = effective_stake / sum
-   - Else (no meaningful stakes):
+     - For each agent: weight = w_i / Σw_j
+   - Else (all agents have zero weights):
+     - Log warning: all agents have zero belief weights
      - Assign equal weights: 1.0 / number_of_agents
+     - Set belief_weights[agent_id] = EPSILON_STAKES for all
 
-4. **Verify normalization:**
+5. **Verify normalization:**
    - Assert sum(weights) ≈ 1.0 within EPSILON_PROBABILITY
    - Return error 500 if violated
 
-5. **Return:** Weights and effective stakes maps
+6. **Return:** Weights (normalized) and belief_weights (raw w_i values)
+
+### Key Changes from Previous Version
+
+**OLD:** Used `effective_stake = total_stake / active_belief_count` (dynamic calculation)
+**NEW:** Uses `belief_weights = belief_lock` from `user_pool_balances` (fixed at trade time)
+
+**Why:**
+- Eliminates race conditions when processing multiple beliefs
+- Voice = Risk: w_i determines both influence and stake at risk
+- Simpler: No dynamic division, just read from database
 
 ## Update Agent Belief Count
 

@@ -1,16 +1,12 @@
 pub mod state;
 pub mod instructions;
+pub mod events;
+pub mod errors;
+pub mod math;
 pub mod curve;
-
-#[cfg(test)]
-mod curve_tests;
+pub mod decay;
 
 pub use state::*;
 pub use instructions::*;
-pub use instructions::{
-    initialize_pool as initialize_pool_handler,
-    buy as buy_handler,
-    sell as sell_handler,
-    apply_pool_penalty as apply_pool_penalty_handler,
-    apply_pool_reward as apply_pool_reward_handler,
-};
+pub use events::*;
+pub use errors::*;

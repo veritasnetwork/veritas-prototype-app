@@ -125,9 +125,9 @@ Deno.test("Aggregate Update Verification - Aggregates Should Change After Epoch 
   assertExists(processedBelief, `Belief ${beliefId} should be in processed beliefs`)
 
   console.log("Processing results:", {
-    pre_aggregate: processedBelief.pre_mirror_descent_aggregate,
-    post_aggregate: processedBelief.post_mirror_descent_aggregate,
-    learning_occurred: processedBelief.learning_occurred
+    pre_aggregate: processedBelief.aggregate,
+    post_aggregate: processedBelief.aggregate,
+    redistribution_occurred: processedBelief.redistribution_occurred
   })
 
   // Get final aggregate after processing
@@ -135,10 +135,10 @@ Deno.test("Aggregate Update Verification - Aggregates Should Change After Epoch 
   console.log("Final aggregate:", finalAggregate)
 
   // Verify that the aggregate was updated
-  // The final aggregate should match the post-mirror descent aggregate
-  const expectedAggregate = processedBelief.post_mirror_descent_aggregate
+  // The final aggregate should match the aggregate
+  const expectedAggregate = processedBelief.aggregate
   assertEquals(Math.abs(finalAggregate - expectedAggregate) < 1e-10, true,
-    `Final aggregate ${finalAggregate} should match post-mirror descent aggregate ${expectedAggregate}`)
+    `Final aggregate ${finalAggregate} should match aggregate ${expectedAggregate}`)
 
   // Verify that the aggregate actually changed from initial
   // With beliefs of 0.8, 0.3, 0.7, the weighted average should be different from 0.5
@@ -193,7 +193,7 @@ Deno.test("Aggregate Update Verification - Multi-Epoch Consistency", async () =>
   assertExists(processedBelief, `Belief ${beliefId} should be in processed beliefs`)
 
   // The database aggregate should match the processing result
-  assertEquals(Math.abs(secondAggregate - processedBelief.post_mirror_descent_aggregate) < 1e-10, true,
+  assertEquals(Math.abs(secondAggregate - processedBelief.aggregate) < 1e-10, true,
     "Database aggregate should match processing result")
 
   // With convergent beliefs (both 0.6), aggregate should move toward 0.6

@@ -1,206 +1,171 @@
 /**
  * UnifiedSwapComponent
  * Compact trading interface with buy/sell toggle
+ * Refactored to use ICBS (Inversely Coupled Bonding Surface) pricing
  */
 
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { ArrowDownUp, AlertCircle, ChevronDown } from 'lucide-react';
+import { ArrowDownUp, AlertCircle, ChevronDown, Wallet } from 'lucide-react';
 import { useBuyTokens } from '@/hooks/useBuyTokens';
 import { useSellTokens } from '@/hooks/useSellTokens';
 import { useSwapBalances } from '@/hooks/useSwapBalances';
-import { calculateBuyAmount, calculateSellAmount } from '@/lib/solana/bonding-curve';
+import { useFundWallet } from '@privy-io/react-auth/solana';
+import { useSolanaWallet } from '@/hooks/useSolanaWallet';
+import {
+  estimateTokensOut,
+  estimateUsdcOut,
+  TokenSide as ICBSTokenSide,
+  calculateICBSPrice
+} from '@/lib/solana/icbs-pricing';
 import { cn } from '@/lib/utils';
-
-/**
- * Calculate required USDC input to get desired token output (reverse of calculateBuyAmount)
- * Given desired tokens, calculate how much USDC is needed
- */
-function calculateBuyAmountReverse(
-  desiredTokens: number,
-  currentSupplyAtomic: number,
-  currentReserveMicroUsdc: number,
-  kQuadratic: number
-): number {
-  const TOKEN_PRECISION = 1_000_000;
-
-  // Convert reserves to USDC dollars for formula
-  const currentReserveUsdc = currentReserveMicroUsdc / TOKEN_PRECISION;
-
-  // Current supply in shares
-  const currentShares = currentSupplyAtomic / TOKEN_PRECISION;
-
-  // Desired new supply
-  const newShares = currentShares + desiredTokens;
-
-  // Calculate required reserve using inverse formula: R = k * (s/100)^3 / 3
-  const newReserveUsdc = kQuadratic * Math.pow(newShares / 100, 3) / 3;
-
-  // USDC needed
-  const usdcNeeded = newReserveUsdc - currentReserveUsdc;
-
-  return Math.max(0, usdcNeeded);
-}
-
-/**
- * Calculate required token input to get desired USDC output (reverse of calculateSellAmount)
- * Given desired USDC, calculate how many tokens need to be sold
- */
-function calculateSellAmountReverse(
-  desiredUsdc: number,
-  currentSupplyAtomic: number,
-  currentReserveMicroUsdc: number,
-  kQuadratic: number
-): number {
-  const TOKEN_PRECISION = 1_000_000;
-
-  // Convert atomic to shares
-  const currentShares = currentSupplyAtomic / TOKEN_PRECISION;
-
-  // Convert reserves to USDC
-  const currentReserveUsdc = currentReserveMicroUsdc / TOKEN_PRECISION;
-
-  // Calculate new reserve after payout
-  const newReserveUsdc = currentReserveUsdc - desiredUsdc;
-
-  // Calculate new supply using formula: s = (3R/k)^(1/3) * 100
-  const newShares = Math.cbrt((3 * newReserveUsdc) / kQuadratic) * 100;
-
-  // Tokens to sell
-  const tokensToSell = currentShares - newShares;
-
-  return Math.max(0, tokensToSell);
-}
 
 interface UnifiedSwapComponentProps {
   poolAddress: string;
   postId: string;
-  currentPrice: number;
-  totalSupply: number;
-  reserveBalance: number;
-  reserveBalanceRaw: number | string;  // Raw value from database (with 12 decimals)
-  kQuadratic: number;
+  priceLong: number;        // Current LONG price from on-chain
+  priceShort: number;       // Current SHORT price from on-chain
+  supplyLong: number;       // LONG supply (atomic units)
+  supplyShort: number;      // SHORT supply (atomic units)
+  f: number;                // ICBS parameter (default 2)
+  betaNum: number;          // ICBS parameter (default 1)
+  betaDen: number;          // ICBS parameter (default 2)
   onTradeSuccess?: () => void; // Callback to refresh data after successful trade
 }
 
 type SwapMode = 'buy' | 'sell';
+type TokenSide = 'LONG' | 'SHORT';
 
 export function UnifiedSwapComponent({
   poolAddress,
   postId,
-  currentPrice,
-  totalSupply,
-  reserveBalance,
-  reserveBalanceRaw,
-  kQuadratic,
+  priceLong,
+  priceShort,
+  supplyLong,
+  supplyShort,
+  f,
+  betaNum,
+  betaDen,
   onTradeSuccess
 }: UnifiedSwapComponentProps) {
   // State
   const [mode, setMode] = useState<SwapMode>('buy');
+  const [side, setSide] = useState<TokenSide>('LONG');
   const [inputAmount, setInputAmount] = useState('');
   const [outputAmount, setOutputAmount] = useState('');
   const [outputAmountRaw, setOutputAmountRaw] = useState<number>(0); // Store raw value for rotation
-  const [lastEdited, setLastEdited] = useState<'input' | 'output'>('input');
   const [slippage, setSlippage] = useState('0.5'); // 0.5% default
   const [showPreview, setShowPreview] = useState(false);
+  const [tradeError, setTradeError] = useState<string | null>(null);
+
+  // Belief submission state
+  const [initialBelief, setInitialBelief] = useState<number>(0.5);
+  const [metaBelief, setMetaBelief] = useState<number>(0.5);
 
   // Hooks
   const { usdcBalance, shareBalance, loading: balancesLoading, refresh: refreshBalances } = useSwapBalances(poolAddress, postId);
+  const { fundWallet } = useFundWallet();
+  const { address } = useSolanaWallet();
 
   // Create wrapped callback that refreshes balances after trade
   const handleTradeSuccess = () => {
+    setTradeError(null); // Clear any previous errors
     refreshBalances();
     if (onTradeSuccess) {
       onTradeSuccess();
     }
   };
 
-  const { buyTokens, loading: buyLoading } = useBuyTokens(handleTradeSuccess);
-  const { sellTokens, loading: sellLoading } = useSellTokens(handleTradeSuccess);
+  const { buyTokens, isLoading: buyLoading, error: buyError } = useBuyTokens(handleTradeSuccess);
+  const { sellTokens, isLoading: sellLoading, error: sellError } = useSellTokens(handleTradeSuccess);
 
   // Get the relevant balance based on mode
   const currentBalance = mode === 'buy' ? usdcBalance : shareBalance;
 
-  // Calculate values based on which field was last edited
+  // Calculate values based on input amount
   useEffect(() => {
-    if (!inputAmount && !outputAmount) return;
+    if (!inputAmount) {
+      setOutputAmount('');
+      return;
+    }
 
-    const totalSupplyAtomic = totalSupply * 1_000_000;
-    const reserveMicroUsdc = Number(reserveBalanceRaw);
+    const input = parseFloat(inputAmount);
+    if (input <= 0) {
+      setOutputAmount('');
+      return;
+    }
 
     console.log('[SWAP] useEffect triggered:', {
       mode,
-      inputAmount,
-      outputAmount,
-      lastEdited,
-      totalSupply,
-      reserveMicroUsdc
+      side,
+      inputAmount: input,
+      supplyLong,
+      supplyShort,
+      f,
+      betaNum,
+      betaDen
     });
 
     try {
-      if (lastEdited === 'input' && inputAmount) {
-        const input = parseFloat(inputAmount);
-        if (input <= 0) {
-          setOutputAmount('');
-          return;
-        }
+      // Map UI side to ICBS TokenSide
+      const icbsSide = side === 'LONG' ? ICBSTokenSide.Long : ICBSTokenSide.Short;
 
-        if (mode === 'buy') {
-          const tokensAtomic = calculateBuyAmount(input, totalSupplyAtomic, reserveMicroUsdc, kQuadratic);
-          const tokensDisplay = tokensAtomic / 1_000_000;
-          console.log('[SWAP] Buy calculation:', {
-            input,
-            tokensAtomic,
-            tokensDisplay,
-            tokensDisplayFixed: tokensDisplay.toFixed(2)
-          });
-          setOutputAmountRaw(tokensDisplay); // Store raw value
-          setOutputAmount(tokensDisplay.toFixed(2));
-        } else {
-          const tokensToSellAtomic = input * 1_000_000;
-          const usdc = calculateSellAmount(tokensToSellAtomic, totalSupplyAtomic, reserveMicroUsdc, kQuadratic);
-          console.log('[SWAP] Sell calculation:', {
-            input,
-            tokensToSellAtomic,
-            usdc,
-            usdcFixed: usdc.toFixed(2)
-          });
-          setOutputAmountRaw(usdc); // Store raw value
-          setOutputAmount(usdc.toFixed(2));
-        }
-      } else if (lastEdited === 'output' && outputAmount) {
-        const output = parseFloat(outputAmount);
-        if (output <= 0) {
-          setInputAmount('');
-          return;
-        }
+      // Determine current and other supply based on selected side
+      const currentSupply = side === 'LONG' ? supplyLong : supplyShort;
+      const otherSupply = side === 'LONG' ? supplyShort : supplyLong;
 
-        if (mode === 'buy') {
-          // User wants to receive `output` tokens, calculate required USDC
-          const usdcNeeded = calculateBuyAmountReverse(output, totalSupplyAtomic, reserveMicroUsdc, kQuadratic);
-          setInputAmount(usdcNeeded.toFixed(2));
-        } else {
-          // User wants to receive `output` USDC, calculate required tokens
-          const tokensNeeded = calculateSellAmountReverse(output, totalSupplyAtomic, reserveMicroUsdc, kQuadratic);
-          setInputAmount(tokensNeeded.toFixed(2));
-        }
+      if (mode === 'buy') {
+        // Calculate tokens received for USDC input
+        const tokensOut = estimateTokensOut(
+          currentSupply,
+          otherSupply,
+          input,
+          icbsSide,
+          1.0, // lambdaScale
+          f,
+          betaNum,
+          betaDen
+        );
+
+        console.log('[SWAP] Buy calculation:', {
+          input,
+          tokensOut,
+          tokensOutFixed: tokensOut.toFixed(2)
+        });
+
+        setOutputAmountRaw(tokensOut);
+        setOutputAmount(tokensOut.toFixed(2));
+      } else {
+        // Calculate USDC received for token input
+        const usdcOut = estimateUsdcOut(
+          currentSupply,
+          otherSupply,
+          input,
+          icbsSide,
+          1.0, // lambdaScale
+          f,
+          betaNum,
+          betaDen
+        );
+
+        console.log('[SWAP] Sell calculation:', {
+          input,
+          usdcOut,
+          usdcOutFixed: usdcOut.toFixed(2)
+        });
+
+        setOutputAmountRaw(usdcOut);
+        setOutputAmount(usdcOut.toFixed(2));
       }
     } catch (error) {
       console.error('Error calculating amounts:', error);
     }
-  }, [inputAmount, outputAmount, lastEdited, mode, totalSupply, reserveBalanceRaw, kQuadratic]);
+  }, [inputAmount, mode, side, supplyLong, supplyShort, f, betaNum, betaDen]);
 
   // Handle input field change
   const handleInputChange = (value: string) => {
     setInputAmount(value);
-    setLastEdited('input');
-  };
-
-  // Handle output field change
-  const handleOutputChange = (value: string) => {
-    setOutputAmount(value);
-    setLastEdited('output');
   };
 
   // Calculate price impact
@@ -210,16 +175,54 @@ export function UnifiedSwapComponent({
 
     if (!input || !output || input <= 0 || output <= 0) return 0;
 
-    if (mode === 'buy' && output > 0) {
+    // Get current price based on side
+    const currentPrice = side === 'LONG' ? priceLong : priceShort;
+
+    // Map UI side to ICBS TokenSide
+    const icbsSide = side === 'LONG' ? ICBSTokenSide.Long : ICBSTokenSide.Short;
+
+    // Determine current and other supply
+    const currentSupply = side === 'LONG' ? supplyLong : supplyShort;
+    const otherSupply = side === 'LONG' ? supplyShort : supplyLong;
+
+    if (mode === 'buy') {
+      // Calculate the price after buying
+      const newSupply = currentSupply + output * 1_000_000; // Convert to atomic units
+
+      const priceAfter = calculateICBSPrice(
+        side === 'LONG' ? newSupply : otherSupply,
+        side === 'LONG' ? otherSupply : newSupply,
+        icbsSide,
+        1.0, // lambdaScale
+        f,
+        betaNum,
+        betaDen
+      );
+
+      // Average price paid
       const avgPrice = input / output;
+
       return ((avgPrice - currentPrice) / currentPrice * 100);
-    } else if (mode === 'sell' && input > 0) {
+    } else {
+      // Calculate the price after selling
+      const newSupply = Math.max(0, currentSupply - input * 1_000_000);
+
+      const priceAfter = calculateICBSPrice(
+        side === 'LONG' ? newSupply : otherSupply,
+        side === 'LONG' ? otherSupply : newSupply,
+        icbsSide,
+        1.0, // lambdaScale
+        f,
+        betaNum,
+        betaDen
+      );
+
+      // Average price received
       const avgPrice = output / input;
+
       return ((currentPrice - avgPrice) / currentPrice * 100);
     }
-
-    return 0;
-  }, [inputAmount, outputAmount, mode, currentPrice]);
+  }, [inputAmount, outputAmount, mode, side, priceLong, priceShort, supplyLong, supplyShort, f, betaNum, betaDen]);
 
   // Toggle between buy and sell - swap the input/output amounts
   const toggleMode = () => {
@@ -245,7 +248,6 @@ export function UnifiedSwapComponent({
     setInputAmount(newInput);
     setOutputAmount(''); // Clear output, it will be recalculated
     setOutputAmountRaw(0); // Clear raw value
-    setLastEdited('input'); // Trigger recalculation from new input
     setShowPreview(false);
   };
 
@@ -253,7 +255,18 @@ export function UnifiedSwapComponent({
   const handleMaxClick = () => {
     if (currentBalance > 0) {
       setInputAmount(currentBalance.toFixed(mode === 'buy' ? 2 : 0));
-      setLastEdited('input');
+    }
+  };
+
+  // Handle funding wallet
+  const handleFundWallet = async () => {
+    if (!address) return;
+    try {
+      await fundWallet(address, {
+        cluster: { name: 'mainnet-beta' },
+      });
+    } catch (error) {
+      console.error('Funding error:', error);
     }
   };
 
@@ -262,15 +275,17 @@ export function UnifiedSwapComponent({
     const amount = parseFloat(inputAmount);
     if (!amount || amount <= 0) return;
 
+    setTradeError(null); // Clear previous errors
+
     try {
       if (mode === 'buy') {
         // Convert USDC to micro-USDC (6 decimals)
         const microUsdc = Math.floor(amount * 1_000_000);
-        await buyTokens(postId, poolAddress, microUsdc);
+        await buyTokens(postId, poolAddress, microUsdc, side, initialBelief, metaBelief);
       } else {
         // Convert display tokens to atomic units for selling
         const tokensAtomic = Math.floor(amount * 1_000_000);
-        await sellTokens(postId, poolAddress, tokensAtomic);
+        await sellTokens(postId, poolAddress, tokensAtomic, side, initialBelief, metaBelief);
       }
 
       // Reset after successful transaction
@@ -278,16 +293,56 @@ export function UnifiedSwapComponent({
       setOutputAmount('');
       setOutputAmountRaw(0);
       setShowPreview(false);
+      setInitialBelief(0.5);
+      setMetaBelief(0.5);
     } catch (error) {
       console.error('Swap error:', error);
+      if (error instanceof Error) {
+        setTradeError(error.message);
+      }
     }
   };
+
+  // Detect if error is insufficient funds
+  const currentError = buyError || sellError || tradeError;
+  const errorMessage = currentError
+    ? currentError instanceof Error
+      ? currentError.message
+      : currentError
+    : null;
+  const isInsufficientFunds = errorMessage?.toLowerCase().includes('insufficient') ?? false;
 
   const isLoading = buyLoading || sellLoading;
   const canSwap = inputAmount && parseFloat(inputAmount) > 0 && !isLoading;
 
   return (
     <div className="space-y-2">
+      {/* Side Toggle - LONG/SHORT */}
+      <div className="flex gap-2 p-1 bg-[#0f0f0f] rounded-lg border border-[#2a2a2a]">
+        <button
+          onClick={() => setSide('LONG')}
+          className={cn(
+            "flex-1 py-2 px-4 rounded font-medium transition-all text-sm",
+            side === 'LONG'
+              ? "bg-green-500 text-white"
+              : "text-gray-400 hover:text-white"
+          )}
+        >
+          LONG
+        </button>
+        <button
+          onClick={() => setSide('SHORT')}
+          className={cn(
+            "flex-1 py-2 px-4 rounded font-medium transition-all text-sm",
+            side === 'SHORT'
+              ? "bg-red-500 text-white"
+              : "text-gray-400 hover:text-white"
+          )}
+        >
+          SHORT
+        </button>
+      </div>
+
       {/* Input */}
       <div className="bg-[#0f0f0f] rounded-lg p-4 md:p-3 border border-[#2a2a2a]">
         <div className="flex items-center gap-2 mb-2 md:mb-1.5">
@@ -300,8 +355,15 @@ export function UnifiedSwapComponent({
             min="0"
             step={mode === 'buy' ? '0.01' : '1'}
           />
-          <div className="px-3 py-2 md:px-2 md:py-1 bg-[#2a2a2a] rounded text-sm md:text-xs font-medium text-white">
-            {mode === 'buy' ? 'USDC' : 'SHARES'}
+          <div className={cn(
+            "px-3 py-2 md:px-2 md:py-1 rounded text-sm md:text-xs font-medium text-white",
+            mode === 'buy'
+              ? "bg-[#2a2a2a]"
+              : side === 'LONG'
+              ? "bg-green-500/20 text-green-400"
+              : "bg-red-500/20 text-red-400"
+          )}>
+            {mode === 'buy' ? 'USDC' : `${side}`}
           </div>
         </div>
         <div className="flex items-center justify-between">
@@ -313,7 +375,7 @@ export function UnifiedSwapComponent({
             MAX
           </button>
           <span className="text-sm md:text-xs text-gray-300">
-            {balancesLoading ? '...' : currentBalance.toFixed(mode === 'buy' ? 2 : 0)} <span className="text-gray-400">{mode === 'buy' ? 'USDC' : 'SHARES'}</span>
+            {balancesLoading ? '...' : currentBalance.toFixed(mode === 'buy' ? 2 : 0)} <span className="text-gray-400">{mode === 'buy' ? 'USDC' : side}</span>
           </span>
         </div>
       </div>
@@ -335,14 +397,19 @@ export function UnifiedSwapComponent({
           <input
             type="number"
             value={outputAmount}
-            onChange={(e) => handleOutputChange(e.target.value)}
-            className="flex-1 bg-transparent text-xl md:text-xl font-medium outline-none text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none min-h-[44px] md:min-h-0"
+            readOnly
+            className="flex-1 bg-transparent text-xl md:text-xl font-medium outline-none text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none min-h-[44px] md:min-h-0 cursor-default"
             placeholder="0"
-            min="0"
-            step={mode === 'buy' ? '1' : '0.01'}
           />
-          <div className="px-3 py-2 md:px-2 md:py-1 bg-[#2a2a2a] rounded text-sm md:text-xs font-medium text-white">
-            {mode === 'buy' ? 'SHARES' : 'USDC'}
+          <div className={cn(
+            "px-3 py-2 md:px-2 md:py-1 rounded text-sm md:text-xs font-medium text-white",
+            mode === 'buy'
+              ? side === 'LONG'
+                ? "bg-green-500/20 text-green-400"
+                : "bg-red-500/20 text-red-400"
+              : "bg-[#2a2a2a]"
+          )}>
+            {mode === 'buy' ? side : 'USDC'}
           </div>
         </div>
       </div>
@@ -350,27 +417,53 @@ export function UnifiedSwapComponent({
       {/* Swap Button */}
       <button
         onClick={() => canSwap && setShowPreview(true)}
+        disabled={!canSwap}
         className={cn(
-          "w-full py-3 md:py-2.5 font-medium rounded-lg transition-all text-base md:text-sm text-white min-h-[44px] md:min-h-0",
+          "w-full py-3 md:py-2.5 font-medium rounded-lg transition-all text-base md:text-sm text-white min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed",
           mode === 'buy'
-            ? "bg-green-500 hover:bg-green-600"
-            : "bg-red-500 hover:bg-red-600"
+            ? side === 'LONG'
+              ? "bg-green-500 hover:bg-green-600"
+              : "bg-red-500 hover:bg-red-600"
+            : "bg-orange-500 hover:bg-orange-600"
         )}
       >
-        {isLoading ? 'Processing...' : mode === 'buy' ? 'Buy' : 'Sell'}
+        {isLoading ? 'Processing...' : `${mode === 'buy' ? 'Buy' : 'Sell'} ${side}`}
       </button>
 
-      {/* Compact Preview Modal */}
+      {/* Error Message with Deposit Funds Button */}
+      {errorMessage && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+          <div className="flex items-start gap-2 mb-2">
+            <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-400">
+              {errorMessage}
+            </p>
+          </div>
+          {isInsufficientFunds && (
+            <button
+              onClick={handleFundWallet}
+              className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <Wallet className="w-4 h-4" />
+              Deposit Funds
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Compact Preview Modal with Belief Submission */}
       {showPreview && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1a1a1a] rounded-xl p-4 max-w-sm w-full border border-[#2a2a2a]">
-            <h3 className="text-base font-semibold mb-3 text-white">Confirm {mode === 'buy' ? 'Buy' : 'Sell'}</h3>
+          <div className="bg-[#1a1a1a] rounded-xl p-4 max-w-sm w-full border border-[#2a2a2a] max-h-[90vh] overflow-y-auto">
+            <h3 className="text-base font-semibold mb-3 text-white">
+              Confirm {mode === 'buy' ? 'Buy' : 'Sell'} {side}
+            </h3>
 
             <div className="space-y-2 mb-3">
               <div className="bg-[#0f0f0f] rounded p-2 border border-[#2a2a2a]">
                 <p className="text-xs text-gray-400 mb-0.5">You {mode === 'buy' ? 'pay' : 'sell'}</p>
                 <p className="text-lg font-medium text-white">
-                  {inputAmount} {mode === 'buy' ? 'USDC' : 'SHARES'}
+                  {inputAmount} {mode === 'buy' ? 'USDC' : side}
                 </p>
               </div>
 
@@ -381,14 +474,61 @@ export function UnifiedSwapComponent({
               <div className="bg-[#0f0f0f] rounded p-2 border border-[#2a2a2a]">
                 <p className="text-xs text-gray-400 mb-0.5">You receive</p>
                 <p className="text-lg font-medium text-white">
-                  ~{outputAmount} {mode === 'buy' ? 'SHARES' : 'USDC'}
+                  ~{outputAmount} {mode === 'buy' ? side : 'USDC'}
                 </p>
               </div>
             </div>
 
-            <p className="text-xs text-gray-400 mb-3">
-              Min. received: {(parseFloat(outputAmount) * (1 - parseFloat(slippage) / 100)).toFixed(2)} {mode === 'buy' ? 'SHARES' : 'USDC'}
+            <p className="text-xs text-gray-400 mb-4">
+              Min. received: {(parseFloat(outputAmount) * (1 - parseFloat(slippage) / 100)).toFixed(2)} {mode === 'buy' ? side : 'USDC'}
             </p>
+
+            {/* Belief Submission */}
+            <div className="space-y-3 mb-4 border-t border-gray-800 pt-4">
+              <p className="text-sm font-medium text-gray-300">Record your belief</p>
+
+              <div>
+                <label htmlFor="initial-belief-trade" className="block text-xs text-gray-400 mb-1.5">
+                  Initial Belief (0 = False, 1 = True)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="initial-belief-trade"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={initialBelief}
+                    onChange={(e) => setInitialBelief(Number(e.target.value))}
+                    className="flex-1 accent-[#B9D9EB] h-1"
+                  />
+                  <span className="text-xs font-mono text-gray-300 w-10 text-right">
+                    {initialBelief.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="meta-belief-trade" className="block text-xs text-gray-400 mb-1.5">
+                  Meta Belief (What % of others will agree?)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="meta-belief-trade"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={metaBelief}
+                    onChange={(e) => setMetaBelief(Number(e.target.value))}
+                    className="flex-1 accent-[#B9D9EB] h-1"
+                  />
+                  <span className="text-xs font-mono text-gray-300 w-10 text-right">
+                    {metaBelief.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
 
             <div className="flex gap-2">
               <button
@@ -404,10 +544,12 @@ export function UnifiedSwapComponent({
                 }}
                 disabled={isLoading}
                 className={cn(
-                  "flex-1 py-3 md:py-2 font-medium rounded-lg transition-colors text-base md:text-sm min-h-[44px] md:min-h-0",
+                  "flex-1 py-3 md:py-2 font-medium rounded-lg transition-colors text-base md:text-sm min-h-[44px] md:min-h-0 text-white",
                   mode === 'buy'
-                    ? "bg-green-500 hover:bg-green-600 text-white"
-                    : "bg-red-500 hover:bg-red-600 text-white"
+                    ? side === 'LONG'
+                      ? "bg-green-500 hover:bg-green-600"
+                      : "bg-red-500 hover:bg-red-600"
+                    : "bg-orange-500 hover:bg-orange-600"
                 )}
               >
                 {isLoading ? 'Processing...' : 'Confirm'}

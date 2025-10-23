@@ -2,7 +2,7 @@
 
 import { NodeViewWrapper } from '@tiptap/react';
 import { X } from 'lucide-react';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useState } from 'react';
 
 interface TiptapImageNodeProps {

@@ -1,0 +1,1008 @@
+import * as anchor from "@coral-xyz/anchor";
+import { Program, BN } from "@coral-xyz/anchor";
+import { VeritasCuration } from "../target/types/veritas_curation";
+import {
+  PublicKey,
+  Keypair,
+  SystemProgram,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
+import {
+  TOKEN_PROGRAM_ID,
+  createMint,
+} from "@solana/spl-token";
+import { assert } from "chai";
+import { TEST_POOL_AUTHORITY } from "./utils/test-keypairs";
+
+describe("PoolFactory ICBS Tests", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.VeritasCuration as Program<VeritasCuration>;
+  const payer = provider.wallet as anchor.Wallet;
+
+  let usdcMint: PublicKey;
+  let factoryPda: PublicKey;
+  let custodianPda: PublicKey;
+  let factoryAuthority: PublicKey;
+  let poolAuthority: Keypair;
+  let testUser: Keypair;
+
+  // Default ICBS parameters
+  const DEFAULT_F = 1;  // Reduced from 3 to avoid numerical overflow
+  const DEFAULT_BETA_NUM = 1;
+  const DEFAULT_BETA_DEN = 2;
+  const DEFAULT_MIN_INITIAL_DEPOSIT = new BN(100_000_000); // 100 USDC
+  const DEFAULT_MIN_SETTLE_INTERVAL = new BN(300); // 5 minutes
+
+  before(async () => {
+    // Create mock USDC mint
+    usdcMint = await createMint(
+      provider.connection,
+      payer.payer,
+      payer.publicKey,
+      null,
+      6
+    );
+
+    // Setup test user
+    testUser = Keypair.generate();
+    const airdropSig = await provider.connection.requestAirdrop(testUser.publicKey, 10 * LAMPORTS_PER_SOL);
+    await provider.connection.confirmTransaction(airdropSig);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Setup authorities
+    factoryAuthority = payer.publicKey; // Use provider wallet as factory authority
+    poolAuthority = TEST_POOL_AUTHORITY;
+    const airdropSig2 = await provider.connection.requestAirdrop(poolAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
+    await provider.connection.confirmTransaction(airdropSig2);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Derive PDAs
+    [factoryPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("factory")],
+      program.programId
+    );
+
+    // Initialize custodian
+    [custodianPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("custodian")],
+      program.programId
+    );
+
+    const [usdcVaultPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("custodian_vault")],
+      program.programId
+    );
+
+    try {
+      await program.methods
+        .initializeCustodian(
+          payer.publicKey,  // owner
+          poolAuthority.publicKey  // protocolAuthority
+        )
+        .accounts({
+          custodian: custodianPda,
+          usdcVault: usdcVaultPda,
+          usdcMint: usdcMint,
+          payer: payer.publicKey,
+        })
+        .rpc();
+    } catch (e: any) {
+      if (!e.toString().includes("already in use")) {
+        throw e;
+      }
+    }
+  });
+
+  describe("1. Factory Initialization", () => {
+    describe("1.1 Singleton Creation", () => {
+      it("initializes factory with correct authorities", async () => {
+        try {
+          await program.methods
+            .initializeFactory(
+              factoryAuthority,
+              poolAuthority.publicKey,
+              custodianPda
+            )
+            .accounts({
+              factory: factoryPda,
+              payer: payer.publicKey,
+              systemProgram: SystemProgram.programId,
+            })
+            .rpc();
+        } catch (e: any) {
+          if (!e.toString().includes("already in use")) {
+            throw e;
+          }
+        }
+
+        // Verify factory state
+        const factory = await program.account.poolFactory.fetch(factoryPda);
+        assert.equal(factory.factoryAuthority.toBase58(), factoryAuthority.toBase58());
+        assert.equal(factory.poolAuthority.toBase58(), poolAuthority.publicKey.toBase58());
+        assert.equal(factory.custodian.toBase58(), custodianPda.toBase58());
+        // Note: totalPools may be > 0 if other tests have already created pools
+        assert.ok(factory.totalPools >= 0);
+
+        // Verify PDA derivation
+        const [expectedPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("factory")],
+          program.programId
+        );
+        assert.equal(factoryPda.toBase58(), expectedPda.toBase58());
+      });
+
+      it("prevents duplicate factory initialization", async () => {
+        try {
+          await program.methods
+            .initializeFactory(
+              factoryAuthority,
+              poolAuthority.publicKey,
+              custodianPda
+            )
+            .accounts({
+              factory: factoryPda,
+              payer: payer.publicKey,
+              systemProgram: SystemProgram.programId,
+            })
+            .rpc();
+          assert.fail("Should have failed with AlreadyInitialized");
+        } catch (e: any) {
+          // Error code 7000 - AlreadyInitialized
+          assert.ok(e.toString().includes("already in use") || e.toString().includes("7000"));
+        }
+      });
+    });
+
+    describe("1.2 Default Parameters", () => {
+      it("sets correct default ICBS parameters", async () => {
+        const factory = await program.account.poolFactory.fetch(factoryPda);
+
+        assert.equal(factory.defaultF, DEFAULT_F);
+        assert.equal(factory.defaultBetaNum, DEFAULT_BETA_NUM);
+        assert.equal(factory.defaultBetaDen, DEFAULT_BETA_DEN);
+        assert.equal(factory.minInitialDeposit.toString(), DEFAULT_MIN_INITIAL_DEPOSIT.toString());
+        assert.equal(factory.minSettleInterval.toString(), DEFAULT_MIN_SETTLE_INTERVAL.toString());
+      });
+    });
+  });
+
+  describe("2. Pool Creation", () => {
+    describe("2.1 Permissionless Creation", () => {
+      it("allows any user to create a pool with protocol validation", async () => {
+        const contentId = Keypair.generate().publicKey;
+
+        const [poolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("content_pool"), contentId.toBuffer()],
+          program.programId
+        );
+
+        const [registryPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("registry"), contentId.toBuffer()],
+          program.programId
+        );
+
+        const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
+        const poolsBefore = factoryBefore.totalPools;
+
+        // Random user creates pool (not authority)
+        await program.methods
+          .createPool(contentId)
+          .accounts({
+            factory: factoryPda,
+            pool: poolPda,
+            registry: registryPda,
+            custodian: custodianPda,
+            creator: testUser.publicKey,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser])
+          .rpc();
+
+        // Verify pool created
+        const pool = await program.account.contentPool.fetch(poolPda);
+        assert.equal(pool.contentId.toBase58(), contentId.toBase58());
+        assert.equal(pool.factory.toBase58(), factoryPda.toBase58());
+
+        // Verify registry created
+        const registry = await program.account.poolRegistry.fetch(registryPda);
+        assert.equal(registry.contentId.toBase58(), contentId.toBase58());
+        assert.equal(registry.poolAddress.toBase58(), poolPda.toBase58());
+        assert.equal(registry.creator.toBase58(), testUser.publicKey.toBase58());
+
+        // Verify factory counter incremented
+        const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
+        assert.equal(factoryAfter.totalPools.toString(), poolsBefore.add(new BN(1)).toString());
+      });
+
+      it("requires protocol authority co-signature", async () => {
+        const contentId = Keypair.generate().publicKey;
+
+        const [poolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("content_pool"), contentId.toBuffer()],
+          program.programId
+        );
+
+        const [registryPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("registry"), contentId.toBuffer()],
+          program.programId
+        );
+
+        // Try without protocol authority signature
+        try {
+          await program.methods
+            .createPool(contentId)
+            .accounts({
+              factory: factoryPda,
+              pool: poolPda,
+              registry: registryPda,
+              custodian: custodianPda,
+              creator: testUser.publicKey,
+              payer: payer.publicKey,
+              systemProgram: SystemProgram.programId,
+            })
+            .signers([testUser])
+            .rpc();
+          assert.fail("Should have failed with UnauthorizedProtocol");
+        } catch (e: any) {
+          // Should fail with signature verification or unauthorized (6001)
+          assert.ok(e.toString().includes("signature") || e.toString().includes("6001"));
+        }
+      });
+    });
+
+    describe("2.2 Registry Management", () => {
+      it("creates registry entry for each pool", async () => {
+        const contentId = Keypair.generate().publicKey;
+
+        const [poolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("content_pool"), contentId.toBuffer()],
+          program.programId
+        );
+
+        const [registryPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("registry"), contentId.toBuffer()],
+          program.programId
+        );
+
+        await program.methods
+          .createPool(contentId)
+          .accounts({
+            factory: factoryPda,
+            pool: poolPda,
+            registry: registryPda,
+            custodian: custodianPda,
+            creator: testUser.publicKey,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser])
+          .rpc();
+
+        // Verify registry
+        const registry = await program.account.poolRegistry.fetch(registryPda);
+        assert.equal(registry.contentId.toBase58(), contentId.toBase58());
+        assert.equal(registry.poolAddress.toBase58(), poolPda.toBase58());
+        assert.equal(registry.creator.toBase58(), testUser.publicKey.toBase58());
+        assert.ok(registry.createdAt.toNumber() > 0);
+      });
+
+      it("prevents duplicate pools for same content_id", async () => {
+        const contentId = Keypair.generate().publicKey;
+
+        const [poolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("content_pool"), contentId.toBuffer()],
+          program.programId
+        );
+
+        const [registryPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("registry"), contentId.toBuffer()],
+          program.programId
+        );
+
+        // Create first pool
+        await program.methods
+          .createPool(contentId)
+          .accounts({
+            factory: factoryPda,
+            pool: poolPda,
+            registry: registryPda,
+            custodian: custodianPda,
+            creator: testUser.publicKey,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser])
+          .rpc();
+
+        // Try to create duplicate
+        try {
+          await program.methods
+            .createPool(contentId)
+            .accounts({
+              factory: factoryPda,
+              pool: poolPda,
+              registry: registryPda,
+              custodian: custodianPda,
+              creator: testUser.publicKey,
+              payer: payer.publicKey,
+              systemProgram: SystemProgram.programId,
+            })
+            .signers([testUser])
+            .rpc();
+          assert.fail("Should have failed with duplicate pool");
+        } catch (e: any) {
+          // Registry init should fail (account already exists)
+          assert.ok(e.toString().includes("already in use"));
+        }
+      });
+    });
+
+    describe("2.3 Parameter Inheritance", () => {
+      it("creates pool with factory default parameters", async () => {
+        const contentId = Keypair.generate().publicKey;
+
+        const [poolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("content_pool"), contentId.toBuffer()],
+          program.programId
+        );
+
+        const [registryPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("registry"), contentId.toBuffer()],
+          program.programId
+        );
+
+        // Create pool without specifying custom params (use defaults)
+        await program.methods
+          .createPool(contentId) // Always uses factory defaults
+          .accounts({
+            factory: factoryPda,
+            pool: poolPda,
+            registry: registryPda,
+            custodian: custodianPda,
+            creator: testUser.publicKey,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser])
+          .rpc();
+
+        const factory = await program.account.poolFactory.fetch(factoryPda);
+        const pool = await program.account.contentPool.fetch(poolPda);
+
+        // Verify pool inherited factory defaults
+        assert.equal(pool.f, factory.defaultF);
+        assert.equal(pool.betaNum, factory.defaultBetaNum);
+        assert.equal(pool.betaDen, factory.defaultBetaDen);
+        assert.equal(pool.minSettleInterval.toString(), factory.minSettleInterval.toString());
+      });
+
+      it("inherits factory defaults (no custom parameters)", async () => {
+        const contentId = Keypair.generate().publicKey;
+
+        const [poolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("content_pool"), contentId.toBuffer()],
+          program.programId
+        );
+
+        const [registryPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("registry"), contentId.toBuffer()],
+          program.programId
+        );
+
+        // Create pool - always uses factory defaults
+        await program.methods
+          .createPool(contentId)
+          .accounts({
+            factory: factoryPda,
+            pool: poolPda,
+            registry: registryPda,
+            custodian: custodianPda,
+            creator: testUser.publicKey,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser])
+          .rpc();
+
+        const pool = await program.account.contentPool.fetch(poolPda);
+        const factory = await program.account.poolFactory.fetch(factoryPda);
+
+        // Verify pool inherited factory defaults
+        assert.equal(pool.f, factory.defaultF);
+        assert.equal(pool.betaNum, factory.defaultBetaNum);
+        assert.equal(pool.betaDen, factory.defaultBetaDen);
+        assert.equal(pool.minSettleInterval.toString(), factory.minSettleInterval.toString());
+      });
+    });
+  });
+
+  describe("3. Authority Management", () => {
+    let newPoolAuthority: Keypair;
+    let newFactoryAuthority: Keypair;
+
+    before(async () => {
+      newPoolAuthority = Keypair.generate();
+      newFactoryAuthority = Keypair.generate();
+
+      // Fund new authorities
+      const airdropSig3 = await provider.connection.requestAirdrop(newPoolAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
+      await provider.connection.confirmTransaction(airdropSig3);
+      const airdropSig4 = await provider.connection.requestAirdrop(newFactoryAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
+      await provider.connection.confirmTransaction(airdropSig4);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    });
+
+    describe("3.1 Pool Authority Updates", () => {
+      it("allows factory_authority to update pool_authority", async () => {
+        const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
+
+        await program.methods
+          .updatePoolAuthority(newPoolAuthority.publicKey)
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc(); // Provider wallet signs by default
+
+        const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
+        assert.equal(factoryAfter.poolAuthority.toBase58(), newPoolAuthority.publicKey.toBase58());
+
+        // Restore original for other tests
+        await program.methods
+          .updatePoolAuthority(poolAuthority.publicKey)
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+      });
+
+      it("rejects pool_authority update from unauthorized signer", async () => {
+        try {
+          await program.methods
+            .updatePoolAuthority(newPoolAuthority.publicKey)
+            .accounts({
+              factory: factoryPda,
+            })
+            .signers([testUser])
+            .rpc();
+          assert.fail("Should have failed with Unauthorized");
+        } catch (e: any) {
+          // Error code 7020 - Unauthorized
+          assert.ok(e.toString().includes("7020") || e.toString().includes("Unauthorized"));
+        }
+      });
+
+      it("rejects pool_authority update from pool_authority itself", async () => {
+        try {
+          await program.methods
+            .updatePoolAuthority(newPoolAuthority.publicKey)
+            .accounts({
+              factory: factoryPda,
+              authority: poolAuthority.publicKey,
+            })
+            .signers([testUser])
+            .rpc();
+          assert.fail("Should have failed with Unauthorized");
+        } catch (e: any) {
+          // Error code 7020 - Unauthorized (only factory_authority can)
+          assert.ok(e.toString().includes("7020") || e.toString().includes("Unauthorized"));
+        }
+      });
+
+      it("validates new pool_authority is not default pubkey", async () => {
+        try {
+          await program.methods
+            .updatePoolAuthority(PublicKey.default)
+            .accounts({
+              factory: factoryPda,
+            })
+            .rpc();
+          assert.fail("Should have failed with InvalidAuthority");
+        } catch (e: any) {
+          // Error code for invalid authority (expect Anchor constraint error)
+          assert.ok(e);
+        }
+      });
+    });
+
+    describe("3.2 Factory Authority Transfer", () => {
+      it("allows factory_authority to transfer ownership", async () => {
+        // This test permanently changes factory authority
+        // Only run if we can restore it
+        const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
+
+        await program.methods
+          .updateFactoryAuthority(newFactoryAuthority.publicKey)
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+
+        const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
+        assert.equal(factoryAfter.factoryAuthority.toBase58(), newFactoryAuthority.publicKey.toBase58());
+
+        // Try to use old authority (should fail)
+        try {
+          await program.methods
+            .updatePoolAuthority(Keypair.generate().publicKey)
+            .accounts({
+              factory: factoryPda,
+            })
+            .rpc();
+          assert.fail("Old authority should not work");
+        } catch (e: any) {
+          assert.ok(e.toString().includes("Unauthorized"));
+        }
+
+        // Note: Cannot restore original authority without new authority's signature
+        // This is intentional - ownership transfer is permanent
+      });
+    });
+  });
+
+  describe("4. Default Parameter Updates", () => {
+    describe("4.1 Update Default ICBS Parameters", () => {
+      it("allows factory_authority to update default_f", async () => {
+        const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
+        const oldF = factoryBefore.defaultF;
+
+        // Update default_f to 3
+        await program.methods
+          .updateDefaults(3, null, null, null, null, null)
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+
+        const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
+        assert.equal(factoryAfter.defaultF, 3, "default_f should be updated to 3");
+
+        // Create a new pool and verify it inherits the new default
+        const newContentId = Keypair.generate().publicKey;
+        const [newPoolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("content_pool"), newContentId.toBuffer()],
+          program.programId
+        );
+        const [newRegistryPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("registry"), newContentId.toBuffer()],
+          program.programId
+        );
+
+        await program.methods
+          .createPool(newContentId)
+          .accounts({
+            factory: factoryPda,
+            pool: newPoolPda,
+            registry: newRegistryPda,
+            custodian: custodianPda,
+            creator: testUser.publicKey,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser])
+          .rpc();
+
+        const newPool = await program.account.contentPool.fetch(newPoolPda);
+        assert.equal(newPool.f, 3, "New pool should inherit default_f = 3");
+
+        // Restore original value
+        await program.methods
+          .updateDefaults(oldF, null, null, null, null, null)
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+      });
+
+      it("allows factory_authority to update default_beta", async () => {
+        const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
+        const oldBetaNum = factoryBefore.defaultBetaNum;
+        const oldBetaDen = factoryBefore.defaultBetaDen;
+
+        // Update beta to 2/3 (0.667)
+        await program.methods
+          .updateDefaults(null, 2, 3, null, null, null)
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+
+        const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
+        assert.equal(factoryAfter.defaultBetaNum, 2, "default_beta_num should be 2");
+        assert.equal(factoryAfter.defaultBetaDen, 3, "default_beta_den should be 3");
+
+        // Restore original values
+        await program.methods
+          .updateDefaults(null, oldBetaNum, oldBetaDen, null, null, null)
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+      });
+
+      it("validates parameter bounds on update", async () => {
+        // Try to set f = 11 (above max of 10)
+        try {
+          await program.methods
+            .updateDefaults(11, null, null, null, null, null)
+            .accounts({
+              factory: factoryPda,
+            })
+            .rpc();
+          assert.fail("Should have failed with f = 11");
+        } catch (e: any) {
+          assert.include(e.toString(), "6501", "Should fail with InvalidParameter error");
+        }
+
+        // Try to set beta > 0.9 (beta_num/beta_den = 9/10 = 0.9 is max)
+        try {
+          await program.methods
+            .updateDefaults(null, 95, 100, null, null, null) // 0.95 > 0.9
+            .accounts({
+              factory: factoryPda,
+            })
+            .rpc();
+          assert.fail("Should have failed with beta = 0.95");
+        } catch (e: any) {
+          assert.include(e.toString(), "6501", "Should fail with InvalidParameter error");
+        }
+      });
+
+      it("allows update of min_initial_deposit", async () => {
+        const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
+        const oldMinDeposit = factoryBefore.minInitialDeposit;
+
+        // Update to 200 USDC
+        await program.methods
+          .updateDefaults(null, null, null, null, new BN(200_000_000), null)
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+
+        const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
+        assert.ok(
+          factoryAfter.minInitialDeposit.eq(new BN(200_000_000)),
+          "min_initial_deposit should be 200 USDC"
+        );
+
+        // Restore original value
+        await program.methods
+          .updateDefaults(null, null, null, null, oldMinDeposit, null)
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+      });
+
+      it("allows update of min_settle_interval", async () => {
+        const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
+        const oldMinInterval = factoryBefore.minSettleInterval;
+
+        // Update to 600 seconds (10 minutes)
+        await program.methods
+          .updateDefaults(null, null, null, null, null, new BN(600))
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+
+        const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
+        assert.ok(
+          factoryAfter.minSettleInterval.eq(new BN(600)),
+          "min_settle_interval should be 600 seconds"
+        );
+
+        // Restore original value
+        await program.methods
+          .updateDefaults(null, null, null, null, null, oldMinInterval)
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+      });
+
+      it("rejects updates from non-factory-authority", async () => {
+        // Try to update as testUser (not factory authority)
+        try {
+          await program.methods
+            .updateDefaults(5, null, null, null, null, null)
+            .accounts({
+              factory: factoryPda,
+            })
+            .signers([testUser])
+            .rpc();
+          assert.fail("Should have failed from non-factory-authority");
+        } catch (e: any) {
+          // Should fail with constraint error
+          assert.ok(
+            e.toString().includes("6009") || e.toString().includes("ConstraintHasOne"),
+            "Should fail with unauthorized error"
+          );
+        }
+      });
+
+      it("existing pools retain original parameters after default update", async () => {
+        // Create pool1 with current defaults
+        const pool1ContentId = Keypair.generate().publicKey;
+        const [pool1Pda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("content_pool"), pool1ContentId.toBuffer()],
+          program.programId
+        );
+        const [pool1RegistryPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("registry"), pool1ContentId.toBuffer()],
+          program.programId
+        );
+
+        await program.methods
+          .createPool(pool1ContentId)
+          .accounts({
+            factory: factoryPda,
+            pool: pool1Pda,
+            registry: pool1RegistryPda,
+            custodian: custodianPda,
+            creator: testUser.publicKey,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser])
+          .rpc();
+
+        const pool1Before = await program.account.contentPool.fetch(pool1Pda);
+        const pool1F = pool1Before.f;
+        const pool1BetaNum = pool1Before.betaNum;
+        const pool1BetaDen = pool1Before.betaDen;
+
+        // Update factory defaults
+        await program.methods
+          .updateDefaults(2, 3, 5, null, null, null) // f=2, beta=3/5=0.6
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+
+        // Create pool2 with new defaults
+        const pool2ContentId = Keypair.generate().publicKey;
+        const [pool2Pda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("content_pool"), pool2ContentId.toBuffer()],
+          program.programId
+        );
+        const [pool2RegistryPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("registry"), pool2ContentId.toBuffer()],
+          program.programId
+        );
+
+        await program.methods
+          .createPool(pool2ContentId)
+          .accounts({
+            factory: factoryPda,
+            pool: pool2Pda,
+            registry: pool2RegistryPda,
+            custodian: custodianPda,
+            creator: testUser.publicKey,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser])
+          .rpc();
+
+        // Verify pool1 retained original parameters
+        const pool1After = await program.account.contentPool.fetch(pool1Pda);
+        assert.equal(pool1After.f, pool1F, "pool1.f should be unchanged");
+        assert.equal(pool1After.betaNum, pool1BetaNum, "pool1.beta_num should be unchanged");
+        assert.equal(pool1After.betaDen, pool1BetaDen, "pool1.beta_den should be unchanged");
+
+        // Verify pool2 has new defaults
+        const pool2 = await program.account.contentPool.fetch(pool2Pda);
+        assert.equal(pool2.f, 2, "pool2.f should be 2");
+        assert.equal(pool2.betaNum, 3, "pool2.beta_num should be 3");
+        assert.equal(pool2.betaDen, 5, "pool2.beta_den should be 5");
+
+        // Restore factory defaults
+        await program.methods
+          .updateDefaults(DEFAULT_F, DEFAULT_BETA_NUM, DEFAULT_BETA_DEN, null, null, null)
+          .accounts({
+            factory: factoryPda,
+          })
+          .rpc();
+      });
+    });
+  });
+
+  describe("5. State Consistency", () => {
+    describe("5.1 Pool Counter", () => {
+      it("increments total_pools atomically", async () => {
+        const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
+        const poolsBefore = factoryBefore.totalPools;
+
+        // Create 3 pools rapidly
+        const poolPromises = [];
+        for (let i = 0; i < 3; i++) {
+          const contentId = Keypair.generate().publicKey;
+          const [poolPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("content_pool"), contentId.toBuffer()],
+            program.programId
+          );
+          const [registryPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("registry"), contentId.toBuffer()],
+            program.programId
+          );
+
+          poolPromises.push(
+            program.methods
+              .createPool(contentId)
+              .accounts({
+                factory: factoryPda,
+                pool: poolPda,
+                registry: registryPda,
+                custodian: custodianPda,
+                creator: testUser.publicKey,
+                payer: payer.publicKey,
+                systemProgram: SystemProgram.programId,
+              })
+              .signers([testUser])
+              .rpc()
+          );
+        }
+
+        await Promise.all(poolPromises);
+
+        const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
+        assert.equal(
+          factoryAfter.totalPools.toString(),
+          poolsBefore.add(new BN(3)).toString()
+        );
+      });
+    });
+
+    describe("5.2 PDA Derivation", () => {
+      it("derives consistent PDAs for factory", () => {
+        const [expectedFactory] = PublicKey.findProgramAddressSync(
+          [Buffer.from("factory")],
+          program.programId
+        );
+        assert.equal(factoryPda.toBase58(), expectedFactory.toBase58());
+      });
+
+      it("derives consistent PDAs for registries", async () => {
+        const contentId = Keypair.generate().publicKey;
+        const [expectedRegistry] = PublicKey.findProgramAddressSync(
+          [Buffer.from("registry"), contentId.toBuffer()],
+          program.programId
+        );
+
+        const [poolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("content_pool"), contentId.toBuffer()],
+          program.programId
+        );
+
+        await program.methods
+          .createPool(contentId)
+          .accounts({
+            factory: factoryPda,
+            pool: poolPda,
+            registry: expectedRegistry,
+            custodian: custodianPda,
+            creator: testUser.publicKey,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser])
+          .rpc();
+
+        const registry = await program.account.poolRegistry.fetch(expectedRegistry);
+        assert.ok(registry); // Exists at expected address
+      });
+    });
+  });
+
+  describe("7. Error Handling", () => {
+    describe("7.1 Input Validation", () => {
+      it("rejects invalid content_id (default pubkey)", async () => {
+        const contentId = PublicKey.default;
+
+        try {
+          await program.methods
+            .createPool(contentId)
+            .accounts({
+              factory: factoryPda,
+              pool: PublicKey.findProgramAddressSync(
+                [Buffer.from("content_pool"), contentId.toBuffer()],
+                program.programId
+              )[0],
+              registry: PublicKey.findProgramAddressSync(
+                [Buffer.from("registry"), contentId.toBuffer()],
+                program.programId
+              )[0],
+              custodian: custodianPda,
+              creator: testUser.publicKey,
+              payer: payer.publicKey,
+              systemProgram: SystemProgram.programId,
+            })
+            .signers([testUser])
+            .rpc();
+          assert.fail("Should have failed with InvalidContentId");
+        } catch (e: any) {
+          // Error code for invalid contentId (expect constraint or account error)
+          assert.ok(e);
+        }
+      });
+    });
+  });
+
+  describe("8. Event Emission", () => {
+    it("emits PoolCreated event on pool creation", async () => {
+      const eventContentId = Keypair.generate().publicKey;
+      const [eventPoolPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("content_pool"), eventContentId.toBuffer()],
+        program.programId
+      );
+      const [eventRegistryPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("registry"), eventContentId.toBuffer()],
+        program.programId
+      );
+
+      // Create pool (should emit event)
+      const tx = await program.methods
+        .createPool(eventContentId)
+        .accounts({
+          factory: factoryPda,
+          pool: eventPoolPda,
+          registry: eventRegistryPda,
+          custodian: custodianPda,
+          creator: testUser.publicKey,
+          payer: payer.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([testUser])
+        .rpc();
+
+      // Verify transaction succeeded (implies event emitted)
+      const txDetails = await provider.connection.getTransaction(tx, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+
+      assert.ok(txDetails, "Transaction should exist");
+
+      // Verify pool was created
+      const pool = await program.account.contentPool.fetch(eventPoolPda);
+      assert.ok(pool.contentId.equals(eventContentId), "Pool should have correct content_id");
+    });
+
+    it("emits DefaultsUpdated event on parameter change", async () => {
+      const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
+      const oldF = factoryBefore.defaultF;
+
+      // Update default_f (should emit event)
+      const tx = await program.methods
+        .updateDefaults(5, null, null, null, null, null)
+        .accounts({
+          factory: factoryPda,
+        })
+        .rpc();
+
+      // Verify transaction succeeded (implies event emitted)
+      const txDetails = await provider.connection.getTransaction(tx, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+
+      assert.ok(txDetails, "Transaction should exist");
+
+      // Verify factory was updated
+      const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
+      assert.equal(factoryAfter.defaultF, 5, "default_f should be updated to 5");
+
+      // Restore original value
+      await program.methods
+        .updateDefaults(oldF, null, null, null, null, null)
+        .accounts({
+          factory: factoryPda,
+        })
+        .rpc();
+    });
+  });
+});

@@ -15,10 +15,8 @@ interface BeliefSubmissionsResponse {
   belief_info: {
     creator_agent_id: string
     created_epoch: number
-    expiration_epoch: number
     previous_aggregate: number
     previous_disagreement_entropy: number
-    status: string
   }
   submissions: Array<{
     submission_id: string
@@ -151,7 +149,7 @@ serve(async (req) => {
 
         if (stakeResponse.ok) {
           const stakeData = await stakeResponse.json()
-          stakeAllocated = stakeData.effective_stakes[submission.agent_id] || 0
+          stakeAllocated = stakeData.belief_weights[submission.agent_id] || 0
         } else {
           console.warn(`Failed to calculate stake for agent ${submission.agent_id}`)
         }
@@ -184,10 +182,8 @@ serve(async (req) => {
       belief_info: {
         creator_agent_id: beliefData.creator_agent_id,
         created_epoch: beliefData.created_epoch,
-        expiration_epoch: beliefData.expiration_epoch,
         previous_aggregate: beliefData.previous_aggregate,
-        previous_disagreement_entropy: beliefData.previous_disagreement_entropy,
-        status: beliefData.status
+        previous_disagreement_entropy: beliefData.previous_disagreement_entropy
       },
       submissions: enrichedSubmissions
     }

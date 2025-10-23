@@ -12,7 +12,7 @@
 - `weights`: object {agent_id: weight} where sum = 1.0
 
 #### Output
-- `pre_mirror_descent_aggregate`: number ∈ [0,1]
+- `aggregate`: number ∈ [0,1]
 - `jensen_shannon_disagreement_entropy`: number ∈ [0,1]
 - `normalized_disagreement_entropy`: number ∈ [0,1]
 - `certainty`: number ∈ [0,1]

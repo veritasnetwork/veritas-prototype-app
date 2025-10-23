@@ -1,31 +1,55 @@
-# Pool Deployment Flow Specification
+# Pool Deployment Flow Specification (ICBS Architecture)
 
 ## Overview
 
-This document specifies the complete end-to-end flow for deploying a ContentPool on Solana when a user creates a post. The flow is split between backend (edge functions) and frontend (Next.js + Privy), with transaction signing happening client-side.
+This document specifies the complete end-to-end flow for deploying an ICBS ContentPool on Solana when a user creates a post. The deployment happens in **two phases**:
+
+1. **Pool Creation** - Creates the pool account and registry
+2. **Market Deployment** - Creates LONG/SHORT token mints, vault, and adds initial liquidity
+
+All transaction signing happens client-side via Privy.
 
 ## Architecture
 
 ```
 User creates post → Edge function (app-post-creation)
-                  → Derives pool PDAs
-                  → Records deployment in DB (tx_signature: null)
-                  → Returns pool addresses to client
+                  → Creates belief in protocol layer
+                  → Creates post record
+                  → Returns post_id to client
 
-Client receives pool addresses → Builds pool creation transaction
-                               → Prompts user to sign (Privy)
-                               → Submits transaction to Solana
-                               → Calls update-pool-deployment
-
-Edge function (update-pool-deployment) → Updates DB record with tx_signature
-                                      → Marks deployment as confirmed
+Client receives post_id → Calls app-pool-deployment edge function
+                        → Receives pool PDA addresses
+                        → Builds create_pool transaction
+                        → User signs via Privy
+                        → Submits to Solana
+                        → Polls for confirmation
+                        → Calls app-deploy-market edge function
+                        → Receives market PDA addresses
+                        → Builds deploy_market transaction
+                        → User signs via Privy
+                        → Submits to Solana
+                        → Pool is now fully deployed and tradeable
 ```
+
+## ICBS Two-Sided Market
+
+Unlike traditional bonding curves, ICBS uses:
+- **Two separate tokens**: LONG (bullish) and SHORT (bearish)
+- **Inversely coupled pricing**: As one side increases, the other decreases
+- **Cost function**: C(s_L, s_S) = λ × (s_L^(F/β) + s_S^(F/β))^β
+- **Settlement mechanism**: Reserves scale based on BD relevance score vs market prediction
+
+### Key Parameters
+
+- **F** (growth exponent): Controls price sensitivity to supply changes (typically 2)
+- **β** (coupling coefficient): Controls coupling between LONG/SHORT (typically 0.5)
+- **λ** (lambda): Price scaling factor, set at deployment for initial p=1
 
 ## Components
 
-### 1. `app-post-creation` (Existing, Extended)
+### 1. `app-post-creation` (Existing)
 
-**Purpose**: Create post, belief, and prepare Solana pool deployment
+**Purpose**: Create post and belief in app/protocol layers
 
 **Inputs**:
 ```typescript
@@ -35,23 +59,14 @@ Edge function (update-pool-deployment) → Updates DB record with tx_signature
   content: string
   initial_belief: number  // 0-1
   meta_prediction?: number  // 0-1
-  duration_epochs?: number  // default 10
+  duration_epochs?: number
 }
 ```
 
 **Process**:
-1. Create belief (via `protocol-belief-creation`)
-2. Create post record
-3. **If `SOLANA_PROGRAM_ID` configured**:
-   - Derive pool PDAs:
-     - Pool address: `["pool", post_id_bytes]`
-     - Token mint: `["mint", post_id_bytes]`
-     - USDC vault: `["vault", post_id_bytes]`
-   - Call `record_pool_deployment()` database function:
-     - Stores pool addresses
-     - Stores curve parameters (k_quadratic, reserve_cap, etc.)
-     - Sets `deployment_tx_signature: null`
-     - Sets `deployed_at: NOW()`
+1. Create belief via `protocol-belief-creation`
+2. Create post record with `belief_id`
+3. Return post data to client
 
 **Output**:
 ```typescript
@@ -60,175 +75,203 @@ Edge function (update-pool-deployment) → Updates DB record with tx_signature
   belief_id: string
   post: { ... }
   belief: { ... }
-  pool?: {
-    pool_address: string           // Base58 Solana address
-    token_mint_address: string     // Base58 Solana address
-    usdc_vault_address: string     // Base58 Solana address
-    deployment_recorded: boolean   // true
-  }
 }
 ```
 
-**Key Point**: Edge function does NOT submit on-chain transaction. It only prepares database records and returns addresses.
+**Note**: This edge function does NOT create pool records or derive Solana addresses. Pool deployment is a separate client-side flow.
 
 ---
 
-### 2. Client-Side Transaction Flow (Next.js + Privy)
+### 2. `app-pool-deployment` (Edge Function)
 
-**Location**: `app/components/CreatePostForm.tsx` (or similar)
+**Purpose**: Return pool PDA addresses for client-side transaction building
 
-**Dependencies**:
-- `@privy-io/react-auth` - Wallet connection
-- `@solana/web3.js` - Transaction building
-- `app/lib/solana/transaction-builders.ts` - Transaction helpers
-
-**Flow**:
-
-```typescript
-import { usePrivy, useSolanaWallets } from '@privy-io/react-auth'
-import { Connection, Transaction } from '@solana/web3.js'
-import { buildCreatePoolTx } from '@/lib/solana/transaction-builders'
-
-async function handleCreatePost(formData) {
-  // 1. Call edge function to create post + prepare pool
-  const response = await fetch('/functions/v1/app-post-creation', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${session.access_token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      user_id: user.id,
-      title: formData.title,
-      content: formData.content,
-      initial_belief: formData.initial_belief,
-      meta_prediction: formData.meta_prediction
-    })
-  })
-
-  const data = await response.json()
-
-  if (!response.ok) {
-    throw new Error(data.error)
-  }
-
-  // 2. If pool deployment was recorded, prompt user to sign transaction
-  if (data.pool) {
-    const { solanaWallets } = useSolanaWallets()
-    const wallet = solanaWallets[0]
-
-    if (!wallet) {
-      // Show error: "Solana wallet not connected"
-      return
-    }
-
-    try {
-      // 3. Build the pool creation transaction
-      const connection = new Connection(
-        process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT!,
-        'confirmed'
-      )
-
-      const tx = await buildCreatePoolTx({
-        connection,
-        creator: wallet.address,
-        postId: data.post_id,
-        kQuadratic: 1_000_000,      // Default from config
-        reserveCap: 5_000_000_000,  // Default from config
-        linearSlope: 1_000_000_000, // Default from config
-        virtualLiquidity: 1_000_000_000, // Default from config
-        programId: process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID!
-      })
-
-      // 4. Request signature from user via Privy
-      const signature = await wallet.signAndSendTransaction(tx)
-
-      console.log('Pool created on-chain:', signature)
-
-      // 5. Update database with transaction signature
-      await fetch('/functions/v1/update-pool-deployment', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          pool_address: data.pool.pool_address,
-          tx_signature: signature
-        })
-      })
-
-      // 6. Show success message
-      toast.success('Post and pool created successfully!')
-      router.push(`/posts/${data.post_id}`)
-
-    } catch (error) {
-      console.error('Pool deployment failed:', error)
-
-      // Pool deployment failed, but post was still created
-      // Show partial success message
-      toast.warning('Post created, but pool deployment failed. You can retry later.')
-      router.push(`/posts/${data.post_id}`)
-    }
-  } else {
-    // No Solana integration configured, just show post created
-    toast.success('Post created!')
-    router.push(`/posts/${data.post_id}`)
-  }
-}
-```
-
-**Key Points**:
-- User MUST sign transaction (their wallet is the pool creator)
-- Transaction is built client-side using pool addresses from edge function
-- Failure to deploy pool doesn't prevent post creation (graceful degradation)
-- Post exists in database even if on-chain deployment fails
-
----
-
-### 3. `update-pool-deployment` (New Edge Function)
-
-**Purpose**: Record successful on-chain pool deployment
-
-**Endpoint**: `POST /functions/v1/update-pool-deployment`
+**Endpoint**: `POST /functions/v1/app-pool-deployment`
 
 **Inputs**:
 ```typescript
 {
-  pool_address: string      // Base58 Solana address
-  tx_signature: string      // Base58 transaction signature
+  post_id: string  // UUID
 }
 ```
 
 **Process**:
-1. Validate `pool_address` exists in `pool_deployments` table
-2. Verify `tx_signature` is valid (optional: check on-chain confirmation)
-3. Update record:
-   ```sql
-   UPDATE pool_deployments
-   SET
-     deployment_tx_signature = $tx_signature,
-     last_synced_at = NOW()
-   WHERE pool_address = $pool_address
-   ```
+1. Validate post exists and user has permission
+2. Check if pool already deployed (avoid duplicates)
+3. Derive content ID pubkey from `post_id`
+4. Derive all pool PDAs using PoolFactory seeds:
+   - Pool: `["content_pool", content_id_pubkey]`
+   - Registry: `["pool_registry", content_id_pubkey]`
+5. Return addresses (mints/vault will be created in phase 2)
 
 **Output**:
 ```typescript
 {
-  success: true
-  pool_address: string
-  tx_signature: string
-  confirmed_at: string
+  pool_address: string           // Base58
+  registry_address: string       // Base58
+  content_id_pubkey: string      // Base58 (derived from post_id)
+  factory_address: string        // Base58
+  custodian_address: string      // Base58
 }
 ```
 
-**Error Cases**:
-- `404`: Pool address not found
-- `409`: Deployment already confirmed (tx_signature already set)
-- `422`: Invalid transaction signature format
-- `500`: Database error
+**Key Point**: This edge function does NOT build transactions. It only returns addresses needed by the client.
 
-**Implementation**: See edge function below
+---
+
+### 3. Client-Side Pool Creation (Phase 1)
+
+**Location**: `src/lib/solana/create-pool-transaction.ts`
+
+**Flow**:
+```typescript
+import { buildCreatePoolTransaction } from '@/lib/solana/create-pool-transaction'
+import { useSolanaWallet } from '@/hooks/useSolanaWallet'
+
+async function deployPool(postId: string) {
+  // 1. Get pool addresses from edge function
+  const response = await fetch('/api/pools/prepare', {
+    method: 'POST',
+    body: JSON.stringify({ post_id: postId })
+  })
+  const addresses = await response.json()
+
+  // 2. Build create_pool transaction
+  const { wallet } = useSolanaWallet()
+  const tx = await buildCreatePoolTransaction({
+    contentIdPubkey: new PublicKey(addresses.content_id_pubkey),
+    walletPubkey: wallet.publicKey
+  })
+
+  // 3. User signs and sends
+  const signedTx = await wallet.signTransaction(tx)
+  const signature = await connection.sendRawTransaction(signedTx.serialize())
+  await connection.confirmTransaction(signature, 'confirmed')
+
+  // 4. Pool created! Now proceed to phase 2 (deploy market)
+  return { signature, addresses }
+}
+```
+
+**What happens on-chain**:
+- `PoolFactory::create_pool` instruction executed
+- Creates `ContentPool` account
+- Creates `PoolRegistry` account
+- Sets initial parameters (F, β, creator)
+- Does NOT create mints or vault yet
+
+---
+
+### 4. `app-deploy-market` (Edge Function)
+
+**Purpose**: Return market PDA addresses for deploying LONG/SHORT tokens
+
+**Endpoint**: `POST /functions/v1/app-deploy-market`
+
+**Inputs**:
+```typescript
+{
+  pool_address: string        // From phase 1
+  initial_usdc_amount: number // USDC to deposit (in lamports)
+  long_ratio: number          // 0-1, fraction for LONG side
+}
+```
+
+**Process**:
+1. Validate pool exists on-chain (fetch pool account)
+2. Validate pool not already deployed (check `deployed` flag)
+3. Derive market PDAs:
+   - Long mint: `["long_mint", content_id_pubkey]`
+   - Short mint: `["short_mint", content_id_pubkey]`
+   - Vault: `["vault", content_id_pubkey]`
+   - Creator long ATA
+   - Creator short ATA
+4. Return addresses for transaction building
+
+**Output**:
+```typescript
+{
+  long_mint: string           // Base58
+  short_mint: string          // Base58
+  vault_address: string       // Base58
+  creator_long_ata: string    // Base58
+  creator_short_ata: string   // Base58
+}
+```
+
+---
+
+### 5. Client-Side Market Deployment (Phase 2)
+
+**Location**: `src/lib/solana/pool-deployment-transaction.ts`
+
+**Flow**:
+```typescript
+import { buildDeployMarketTransaction } from '@/lib/solana/pool-deployment-transaction'
+
+async function deployMarket(poolAddress: string, usdcAmount: number, longRatio: number) {
+  // 1. Get market addresses
+  const response = await fetch('/api/pools/deploy-market', {
+    method: 'POST',
+    body: JSON.stringify({
+      pool_address: poolAddress,
+      initial_usdc_amount: usdcAmount,
+      long_ratio: longRatio
+    })
+  })
+  const addresses = await response.json()
+
+  // 2. Build deploy_market transaction
+  const tx = await buildDeployMarketTransaction({
+    poolPubkey: new PublicKey(poolAddress),
+    creatorPubkey: wallet.publicKey,
+    usdcAmount,
+    longRatio,
+    ...addresses
+  })
+
+  // 3. User signs and sends
+  const signedTx = await wallet.signTransaction(tx)
+  const signature = await connection.sendRawTransaction(signedTx.serialize())
+  await connection.confirmTransaction(signature, 'confirmed')
+
+  // 4. Market deployed! Pool is now tradeable
+  return signature
+}
+```
+
+**What happens on-chain**:
+- `ContentPool::deploy_market` instruction executed
+- Creates LONG and SHORT token mints
+- Creates USDC vault
+- Calculates lambda for initial price p=1
+- Adds initial liquidity according to `long_ratio`
+- Mints initial LONG and SHORT tokens to creator
+- Sets pool `deployed = true`
+
+---
+
+### 6. Recording Deployment in Database
+
+After successful on-chain deployment, record in `pool_deployments` table:
+
+```typescript
+// After both transactions confirm
+await fetch('/api/pools/record-deployment', {
+  method: 'POST',
+  body: JSON.stringify({
+    post_id: postId,
+    pool_address: poolAddress,
+    long_mint: addresses.long_mint,
+    short_mint: addresses.short_mint,
+    vault_address: addresses.vault_address,
+    create_tx_signature: createSignature,
+    deploy_tx_signature: deploySignature,
+    initial_usdc: usdcAmount,
+    long_ratio: longRatio
+  })
+})
+```
 
 ---
 
@@ -244,63 +287,88 @@ CREATE TABLE pool_deployments (
 
     -- Solana addresses
     pool_address TEXT NOT NULL UNIQUE,
+    long_mint TEXT NOT NULL,
+    short_mint TEXT NOT NULL,
     usdc_vault_address TEXT NOT NULL,
-    token_mint_address TEXT NOT NULL,
 
     -- Deployment info
     deployed_at TIMESTAMPTZ DEFAULT NOW(),
     deployed_by_agent_id UUID REFERENCES agents(id),
-    deployment_tx_signature TEXT UNIQUE,  -- NULL until client confirms
+    create_tx_signature TEXT,   -- Phase 1 transaction
+    deploy_tx_signature TEXT,   -- Phase 2 transaction
 
-    -- Curve parameters (cached from chain)
-    k_quadratic NUMERIC NOT NULL,
-    reserve_cap NUMERIC NOT NULL,
-    linear_slope NUMERIC NOT NULL,
-    virtual_liquidity NUMERIC NOT NULL,
+    -- ICBS parameters (cached from chain)
+    f SMALLINT NOT NULL,              -- Growth exponent
+    beta_num SMALLINT NOT NULL,       -- Coupling coefficient numerator
+    beta_den SMALLINT NOT NULL,       -- Coupling coefficient denominator
+    sqrt_lambda_x96 NUMERIC NOT NULL, -- Price scaling factor (X96 format)
+
+    -- Initial deployment state
+    initial_s_long NUMERIC NOT NULL,  -- Initial LONG supply
+    initial_s_short NUMERIC NOT NULL, -- Initial SHORT supply
+    initial_usdc NUMERIC NOT NULL,    -- Initial USDC deposited
 
     -- Current state (synced from chain)
-    token_supply NUMERIC DEFAULT 0,
-    reserve NUMERIC DEFAULT 0,
-    last_synced_at TIMESTAMPTZ
+    s_long NUMERIC,                   -- Current LONG supply
+    s_short NUMERIC,                  -- Current SHORT supply
+    sqrt_price_long_x96 NUMERIC,      -- Current LONG sqrt price
+    sqrt_price_short_x96 NUMERIC,     -- Current SHORT sqrt price
+    last_synced_at TIMESTAMPTZ,
+
+    -- Settlement tracking
+    last_settlement_epoch INTEGER,
+    last_settlement_tx TEXT,
+
+    CONSTRAINT valid_beta CHECK (beta_den > 0),
+    CONSTRAINT valid_f CHECK (f > 0)
 );
 ```
 
-**Key Field**: `deployment_tx_signature`
-- **NULL**: Pool addresses derived, but on-chain transaction not yet submitted
-- **String**: On-chain transaction confirmed, pool exists on Solana
+**Key Differences from Old Schema**:
+- ✅ Added `long_mint` and `short_mint` (two-sided market)
+- ✅ Removed `token_mint_address` (single-sided, deprecated)
+- ✅ Added ICBS parameters: `f`, `beta_num`, `beta_den`, `sqrt_lambda_x96`
+- ✅ Removed quadratic curve parameters: `k_quadratic`, `reserve_cap`, `linear_slope`, `virtual_liquidity`
+- ✅ Added `s_long`, `s_short`, `sqrt_price_long_x96`, `sqrt_price_short_x96`
+- ✅ Removed `token_supply` and `reserve` (replaced by ICBS state)
 
 ---
 
-## Privy Configuration
+## ICBS Pricing and Settlement
 
-### Enable Solana Wallet Support
+### Initial Deployment Pricing
 
-**In Privy Dashboard**:
-1. Go to app settings
-2. Enable "Solana" under wallet providers
-3. Configure network:
-   - Development: Solana Devnet
-   - Production: Solana Mainnet
+When deploying a market with `initial_usdc` and `long_ratio`:
 
-**In Next.js** (`app/layout.tsx`):
-```typescript
-import { PrivyProvider } from '@privy-io/react-auth'
-import { solanaDevnet } from '@privy-io/react-auth/solana'
+1. Calculate initial supplies:
+   ```
+   s_long = initial_usdc * long_ratio
+   s_short = initial_usdc * (1 - long_ratio)
+   ```
 
-<PrivyProvider
-  appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
-  config={{
-    loginMethods: ['email', 'wallet', 'apple'],
-    embeddedWallets: {
-      createOnLogin: 'users-without-wallets',
-      requireUserPasswordOnCreate: false,
-    },
-    supportedChains: [solanaDevnet], // Enable Solana
-  }}
->
-  {children}
-</PrivyProvider>
-```
+2. Calculate lambda for p=1:
+   ```
+   λ = 1 / (F × s^(F/β - 1) × sum^(β-1))
+   ```
+   This ensures marginal price = 1.0 for both tokens at deployment.
+
+3. Store `sqrt_lambda_x96 = sqrt(λ) × 2^96` in pool account
+
+### Settlement Mechanism
+
+Every epoch, pools settle based on BD relevance score:
+
+1. Calculate market prediction: `q = s_long / (s_long + s_short)`
+2. Get BD relevance score: `x` from protocol layer
+3. Scale reserves:
+   ```
+   s_long_new = s_long × (x / q)
+   s_short_new = s_short × ((1-x) / (1-q))
+   ```
+4. Prices adjust automatically (homogeneity property)
+5. No USDC balance changes (pure virtual reserve scaling)
+
+**Key insight**: Settlement rewards/punishes traders by changing token backing, not by transferring USDC.
 
 ---
 
@@ -309,101 +377,84 @@ import { solanaDevnet } from '@privy-io/react-auth/solana'
 ### Backend (Supabase Edge Functions)
 
 ```bash
-SOLANA_PROGRAM_ID=<your_program_id>
-SOLANA_RPC_ENDPOINT=http://127.0.0.1:8899  # localnet
-# SOLANA_RPC_ENDPOINT=https://api.devnet.solana.com  # devnet
+SOLANA_PROGRAM_ID=<veritas_curation_program_id>
+SOLANA_POOL_FACTORY_ADDRESS=<factory_pda>
+SOLANA_CUSTODIAN_ADDRESS=<custodian_pda>
+USDC_MINT_ADDRESS=<usdc_mint>
+SOLANA_RPC_ENDPOINT=http://127.0.0.1:8899  # or devnet/mainnet
 ```
 
 ### Frontend (Next.js)
 
 ```bash
-NEXT_PUBLIC_SOLANA_PROGRAM_ID=<your_program_id>
+NEXT_PUBLIC_SOLANA_PROGRAM_ID=<veritas_curation_program_id>
 NEXT_PUBLIC_SOLANA_RPC_ENDPOINT=http://127.0.0.1:8899
-NEXT_PUBLIC_PRIVY_APP_ID=<your_privy_app_id>
+NEXT_PUBLIC_PRIVY_APP_ID=<privy_app_id>
+NEXT_PUBLIC_USDC_MINT=<usdc_mint>
 ```
-
----
-
-## Security Considerations
-
-### 1. Transaction Validation
-- **Client-side**: User must explicitly approve transaction via Privy
-- **Backend**: Edge function trusts client-provided signature (low risk since pool creation is permissionless)
-- **Future improvement**: Verify transaction signature on-chain before updating DB
-
-### 2. Rate Limiting
-- Implement rate limiting on `update-pool-deployment` endpoint
-- Prevent spam updates with invalid signatures
-
-### 3. Error Handling
-- Post creation succeeds even if pool deployment fails
-- User can retry pool deployment later (future feature)
-- Database maintains referential integrity (posts → beliefs → pools)
-
----
-
-## Future Enhancements
-
-### 1. Transaction Confirmation Verification
-Currently, `update-pool-deployment` trusts client-provided signature. Could add:
-```typescript
-// Verify transaction on-chain
-const connection = new Connection(SOLANA_RPC_ENDPOINT)
-const txInfo = await connection.getTransaction(tx_signature, {
-  commitment: 'confirmed'
-})
-
-if (!txInfo || txInfo.meta?.err) {
-  throw new Error('Transaction not found or failed')
-}
-```
-
-### 2. Pool State Syncing
-Add edge function to periodically sync pool state from chain:
-```typescript
-// supabase/functions/sync-pool-state/index.ts
-async function syncPoolState(pool_address: string) {
-  const poolAccount = await program.account.contentPool.fetch(pool_address)
-
-  await db.pool_deployments
-    .update({
-      token_supply: poolAccount.tokenSupply,
-      reserve: poolAccount.reserve,
-      last_synced_at: new Date()
-    })
-    .eq('pool_address', pool_address)
-}
-```
-
-### 3. Retry Pool Deployment
-Allow users to retry pool deployment if initial attempt failed:
-- Add "Deploy Pool" button on posts without confirmed pools
-- Reuse existing pool addresses from `pool_deployments` table
-- Don't create duplicate pool records
 
 ---
 
 ## Testing Checklist
 
-- [ ] User creates post with Solana disabled → success (no pool)
-- [ ] User creates post with Solana enabled → pool addresses returned
-- [ ] User signs pool creation transaction → tx submitted on-chain
-- [ ] `update-pool-deployment` called with valid signature → DB updated
-- [ ] User rejects signature → post still exists, pool unconfirmed
-- [ ] Network error during transaction → graceful error handling
-- [ ] Duplicate `update-pool-deployment` call → idempotent or 409 error
-- [ ] Invalid pool address → 404 error
-- [ ] Invalid tx signature format → 422 error
+### Phase 1 - Pool Creation
+- [ ] User creates pool → `create_pool` transaction succeeds
+- [ ] Pool account created with correct F, β parameters
+- [ ] Registry account created and linked to pool
+- [ ] Cannot create duplicate pool for same content_id
+
+### Phase 2 - Market Deployment
+- [ ] User deploys market with 50/50 ratio → equal LONG/SHORT supplies
+- [ ] User deploys market with 70/30 ratio → correct supply distribution
+- [ ] LONG and SHORT mints created with correct metadata
+- [ ] Vault created and owns USDC
+- [ ] Initial prices calculated correctly (p ≈ 1.0)
+- [ ] Cannot deploy market twice on same pool
+
+### Trading
+- [ ] Buy LONG tokens → price increases, receive correct amount
+- [ ] Sell LONG tokens → price decreases, receive correct USDC
+- [ ] Buy SHORT tokens → independent from LONG side
+- [ ] Sell SHORT tokens → correct USDC payout
+
+### Settlement
+- [ ] Settle with x > q → LONG holders gain, SHORT holders lose
+- [ ] Settle with x < q → SHORT holders gain, LONG holders lose
+- [ ] Settle with x = q → no change (neutral)
+- [ ] Virtual reserves scale correctly
+- [ ] Prices adjust post-settlement
 
 ---
 
-## Implementation Order
+## Implementation Status
 
-1. ✅ Extend `app-post-creation` to derive pool PDAs and record deployment
-2. **Next**: Create `update-pool-deployment` edge function
-3. Copy `transaction-builders.ts` to Next.js `app/lib/solana/`
-4. Update Privy configuration to enable Solana
-5. Update post creation UI to handle transaction signing
-6. Add environment variables to both backend and frontend
-7. Test end-to-end flow on localnet
-8. Deploy to devnet for pre-production testing
+- ✅ Smart contracts deployed (ContentPool, PoolFactory, VeritasCustodian)
+- ✅ Client-side transaction builders implemented
+- ✅ ICBS math implemented with fractional power support
+- ✅ Settlement logic implemented
+- ⚠️ Edge functions need update for ICBS parameters
+- ⚠️ Database schema needs migration for ICBS fields
+- ⚠️ Frontend UI needs two-phase deployment flow
+- ⚠️ Event indexer for real-time pool state sync (in progress)
+
+---
+
+## Migration from Quadratic Curve
+
+If migrating from old quadratic curve system:
+
+1. Add new columns to `pool_deployments` table
+2. Mark old pools as `deprecated = true`
+3. New posts use ICBS architecture
+4. Old pools continue to function (no breaking changes)
+5. Gradual migration: allow users to upgrade pools to ICBS
+
+---
+
+## Future Enhancements
+
+1. **Automated Market Making**: Protocol-owned liquidity provision
+2. **Pool Analytics**: Track volume, price history, settlement impact
+3. **Batch Deployment**: Deploy multiple pools in one transaction
+4. **Pool Upgrades**: Allow parameter adjustments (with governance)
+5. **Cross-pool Arbitrage**: Detect and alert on arbitrage opportunities

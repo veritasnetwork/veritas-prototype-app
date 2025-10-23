@@ -10,7 +10,7 @@ const EPSILON_PROBABILITY = 1e-10
 
 interface BTSScoringRequest {
   belief_id: string
-  post_mirror_descent_beliefs: Record<string, number>
+  agent_beliefs: Record<string, number>
   leave_one_out_aggregates: Record<string, number>
   leave_one_out_meta_aggregates: Record<string, number>
   normalized_weights: Record<string, number>
@@ -48,7 +48,7 @@ serve(async (req) => {
     // Parse request body
     const {
       belief_id,
-      post_mirror_descent_beliefs,
+      agent_beliefs,
       leave_one_out_aggregates,
       leave_one_out_meta_aggregates,
       normalized_weights,
@@ -66,9 +66,9 @@ serve(async (req) => {
       )
     }
 
-    if (!post_mirror_descent_beliefs || Object.keys(post_mirror_descent_beliefs).length === 0) {
+    if (!agent_beliefs || Object.keys(agent_beliefs).length === 0) {
       return new Response(
-        JSON.stringify({ error: 'post_mirror_descent_beliefs is required and must be non-empty', code: 422 }),
+        JSON.stringify({ error: 'agent_beliefs is required and must be non-empty', code: 422 }),
         {
           status: 422,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -77,7 +77,7 @@ serve(async (req) => {
     }
 
     // Validate all required objects have matching agent sets
-    const agentIds = Object.keys(post_mirror_descent_beliefs)
+    const agentIds = Object.keys(agent_beliefs)
 
     for (const agentId of agentIds) {
       if (!(agentId in leave_one_out_aggregates)) {
@@ -123,7 +123,7 @@ serve(async (req) => {
     const informationScores: Record<string, number> = {}
 
     for (const agentId of agentIds) {
-      const pi = post_mirror_descent_beliefs[agentId]
+      const pi = agent_beliefs[agentId]
       const pBarMinusI = leave_one_out_aggregates[agentId]
       const mBarMinusI = leave_one_out_meta_aggregates[agentId]
       const mi = agent_meta_predictions[agentId]

@@ -42,14 +42,13 @@ Tracks belief metrics **after every epoch processing**.
 |-------|------|-------------|
 | id | UUID | Unique snapshot ID |
 | belief_id | UUID | References beliefs(id) |
-| post_id | UUID | References posts(id) for easier querying |
 | epoch | INTEGER | Epoch number when recorded |
-| aggregate | NUMERIC | Aggregate belief value (0-1) |
-| delta_relevance | NUMERIC | Change in relevance (-1 to 1) |
+| aggregate | NUMERIC | Absolute BD relevance score (0-1) used for pool settlement |
 | certainty | NUMERIC | Certainty score (0-1) |
-| disagreement_entropy | NUMERIC | Entropy metric from BTS |
+| disagreement_entropy | NUMERIC | Entropy metric from BD/aggregation |
+| participant_count | INTEGER | Number of active participants this epoch |
+| total_stake | NUMERIC | Sum of effective stakes allocated to this belief |
 | recorded_at | TIMESTAMPTZ | Timestamp of epoch completion |
-| created_at | TIMESTAMPTZ | Row creation timestamp |
 
 **Indexes:**
 - `(belief_id, epoch DESC)` - Primary query pattern
@@ -60,15 +59,17 @@ Tracks belief metrics **after every epoch processing**.
 - `UNIQUE(belief_id, epoch)` - One record per belief per epoch
 
 **Notes:**
-- Inserted by epoch processing function after belief aggregation
+- Inserted by epoch processing function after belief decomposition/aggregation
 - `recorded_at` = timestamp when epoch processing completed
-- Enables delta relevance chart in PostDetailView
+- `aggregate` is absolute BD relevance score used for pool settlement
+- No longer tracks `delta_relevance` (deprecated concept)
+- Enables relevance history chart in PostDetailView
 
 ---
 
 ## trades
 
-Tracks every individual buy/sell transaction for audit trail and user history.
+Tracks every individual trade (buy/sell LONG/SHORT tokens or liquidity provision) for audit trail and user history. Updated for ICBS two-sided markets.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -77,17 +78,31 @@ Tracks every individual buy/sell transaction for audit trail and user history.
 | post_id | UUID | References posts(id) |
 | user_id | UUID | References users(id) who executed trade |
 | wallet_address | TEXT | Solana wallet address of trader |
-| trade_type | TEXT | 'buy' or 'sell' |
+| trade_type | TEXT | 'buy', 'sell', or 'liquidity_provision' |
+| side | TEXT | 'LONG' or 'SHORT' - which token was traded |
 | token_amount | NUMERIC | Number of tokens bought/sold |
 | usdc_amount | NUMERIC | USDC spent (buy) or received (sell) in atomic units |
 | price_per_token | NUMERIC | Effective price per token in this trade |
-| token_supply_before | NUMERIC | Pool token supply before trade |
-| token_supply_after | NUMERIC | Pool token supply after trade |
-| reserve_before | NUMERIC | Pool reserve before trade (micro-USDC) |
-| reserve_after | NUMERIC | Pool reserve after trade (micro-USDC) |
 | tx_signature | TEXT | Solana transaction signature (unique) |
 | recorded_at | TIMESTAMPTZ | Timestamp of transaction |
 | created_at | TIMESTAMPTZ | Row creation timestamp |
+| **ICBS Fields** | | **Added for two-sided markets** |
+| f | INTEGER | ICBS growth exponent at time of trade |
+| beta_num | INTEGER | ICBS β numerator at time of trade |
+| beta_den | INTEGER | ICBS β denominator at time of trade |
+| sqrt_price_long_x96 | TEXT | LONG token sqrt price in X96 format (from on-chain event) |
+| sqrt_price_short_x96 | TEXT | SHORT token sqrt price in X96 format (from on-chain event) |
+| price_long | NUMERIC | LONG token price in USDC (human-readable) |
+| price_short | NUMERIC | SHORT token price in USDC (human-readable) |
+| **Event Indexer Fields** | | **For dual-source tracking** |
+| recorded_by | TEXT | 'server' (API) or 'indexer' (event processor) |
+| confirmed | BOOLEAN | Whether on-chain event has verified this transaction |
+| indexer_corrected | BOOLEAN | Did indexer overwrite incorrect server data |
+| server_amount | NUMERIC | Original server amount if indexer corrected it |
+| confirmed_at | TIMESTAMPTZ | When indexer confirmed this trade |
+| indexed_at | TIMESTAMPTZ | When event was indexed from blockchain |
+| block_time | TIMESTAMPTZ | Blockchain timestamp of transaction |
+| slot | BIGINT | Solana slot number |
 
 **Indexes:**
 - `(user_id, recorded_at DESC)` - User's trade history
@@ -95,19 +110,80 @@ Tracks every individual buy/sell transaction for audit trail and user history.
 - `(post_id, recorded_at DESC)` - Post's trade history
 - `(tx_signature)` - Unique lookup by transaction
 - `(recorded_at DESC)` - Global trade feed
+- `(confirmed)` WHERE NOT confirmed - Unconfirmed trades monitoring
+- `(block_time)` WHERE block_time IS NOT NULL - Blockchain metadata
 
 **Unique Constraint:**
 - `UNIQUE(tx_signature)` - Prevent duplicate trades
 
+**ICBS Trade Types:**
+- `buy` + `side='LONG'` - Buying LONG tokens (bullish on post relevance)
+- `buy` + `side='SHORT'` - Buying SHORT tokens (bearish on post relevance)
+- `sell` + `side='LONG'` - Selling LONG tokens
+- `sell` + `side='SHORT'` - Selling SHORT tokens
+- `liquidity_provision` - Initial market deployment (creates both LONG + SHORT)
+
+**Dual-Source Event Tracking:**
+- Trades can be recorded by server-side API first (`recorded_by='server'`)
+- Event indexer later confirms and updates `confirmed=true`
+- If amounts differ, indexer corrects and sets `indexer_corrected=true`
+- Original server amount preserved in `server_amount` for reconciliation
+
 **Notes:**
 - `price_per_token` = `usdc_amount / token_amount` (effective average price)
 - `usdc_amount` stored in micro-USDC (6 decimals), display as USDC in UI
-- Inserted immediately after successful on-chain transaction
+- ICBS prices stored both as sqrt_price (on-chain format) and decimal (UI format)
+- Liquidity provision trades don't affect user position summary (neutral/hedged)
 - Used for:
   - User portfolio tracking
   - Pool volume calculations
   - Trade history display
   - Cost basis calculations
+  - Event reconciliation between server and blockchain
+
+---
+
+## settlements
+
+Tracks epoch settlement events for pools (when BD scores adjust reserves).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | UUID | Unique settlement ID |
+| pool_address | TEXT | References pool_deployments(pool_address) |
+| post_id | UUID | References posts(id) |
+| belief_id | UUID | References beliefs(id) |
+| epoch | INTEGER | Epoch number when settled |
+| bd_score | NUMERIC | Belief decomposition relevance score (0-1) |
+| market_prediction | NUMERIC | Market's prediction (q_long from pool state) |
+| settlement_factor_long | NUMERIC | Adjustment factor for LONG reserves (f_L) |
+| settlement_factor_short | NUMERIC | Adjustment factor for SHORT reserves (f_S) |
+| s_long_before | NUMERIC | LONG reserve before settlement (micro-USDC) |
+| s_short_before | NUMERIC | SHORT reserve before settlement (micro-USDC) |
+| s_long_after | NUMERIC | LONG reserve after settlement (micro-USDC) |
+| s_short_after | NUMERIC | SHORT reserve after settlement (micro-USDC) |
+| tx_signature | TEXT | Solana transaction signature |
+| settled_at | TIMESTAMPTZ | Timestamp of settlement transaction |
+| created_at | TIMESTAMPTZ | Row creation timestamp |
+| **Event Indexer Fields** | | |
+| event_slot | BIGINT | Solana slot number |
+| event_signature | TEXT | On-chain event signature (for verification) |
+
+**Indexes:**
+- `(pool_address, epoch DESC)` - Pool settlement history
+- `(epoch, settled_at)` - Global epoch settlements
+- `(tx_signature)` - Unique transaction lookup
+
+**Unique Constraint:**
+- `UNIQUE(pool_address, epoch)` - One settlement per pool per epoch
+
+**Notes:**
+- Settlement factors calculated as: `f_L = bd_score / market_prediction`, `f_S = (1 - bd_score) / (1 - market_prediction)`
+- Reserves scale by factors: `s_long_after = s_long_before * f_L`
+- Total USDC in pool conserved: `s_long_after + s_short_after = s_long_before + s_short_before`
+- Accurate market predictions → factors close to 1.0 (minimal change)
+- Inaccurate predictions → reserves shift dramatically (traders lose value)
+- Used for settlement history charts and pool performance analytics
 
 ---
 
@@ -194,12 +270,13 @@ Tracks user's current holdings and cost basis per pool (aggregated from trades).
 1. Epoch processing completes
 2. For each belief market:
    - Insert into `belief_relevance_history`:
-     - epoch, aggregate, delta_relevance, certainty
+     - epoch, aggregate (absolute BD relevance), certainty, disagreement_entropy
+     - participant_count, total_stake
      - recorded_at = NOW()
-3. For each pool (if penalty/reward applied):
-   - Insert into `pool_price_history`:
-     - New price after reserve adjustment
-     - triggered_by = 'penalty' or 'reward'
+3. Pool settlement (separate step):
+   - For each pool, execute settle_epoch with BD score
+   - Settlement events indexed to `settlements` table
+   - No direct price history update (pools settle independently)
 ```
 
 ---

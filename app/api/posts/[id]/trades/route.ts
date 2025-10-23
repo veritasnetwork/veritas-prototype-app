@@ -4,9 +4,8 @@ import { TradeHistoryResponseSchema } from '@/types/api';
 
 interface Trade {
   recorded_at: string;
-  reserve_after: number;
-  token_supply_after: number;
-  k_quadratic: number;
+  price_long: number | null;
+  price_short: number | null;
   usdc_amount: string;
   token_amount: string;
   trade_type: 'buy' | 'sell';
@@ -57,10 +56,10 @@ export async function GET(
         timeFilter = null;
     }
 
-    // Fetch trades and calculate prices
+    // Fetch trades with sqrt prices from database
     let query = supabase
       .from('trades')
-      .select('recorded_at, reserve_after, token_supply_after, k_quadratic, usdc_amount, token_amount, trade_type')
+      .select('recorded_at, price_long, price_short, usdc_amount, token_amount, trade_type')
       .eq('pool_address', poolData.pool_address)
       .order('recorded_at', { ascending: true });
 
@@ -95,73 +94,49 @@ export async function GET(
       });
     }
 
-    // Import the correct calculation function
-    const { calculateTokenPrice } = await import('@/lib/solana/bonding-curve');
-
-    // Transform trades to chart format
-    // IMPORTANT: The trades table stores token_supply_after in atomic units (6 decimals)
-    // and k_quadratic in display units (e.g., 1 = 1)
-    const RATIO_PRECISION = 1_000_000;
-    const MAX_REASONABLE_TOKEN_SUPPLY_ATOMIC = 1_000_000_000_000_000; // 1 billion tokens * 10^6
-    const MAX_REASONABLE_K = 1_000_000; // k in display units
-
-    const priceData = trades.map((trade, index) => {
-      const tokenSupply = Number(trade.token_supply_after); // Atomic units
-      const kQuadratic = Number(trade.k_quadratic); // Display units
-
-      // Validate data - check atomic units for supply
-      const isValidData = tokenSupply < MAX_REASONABLE_TOKEN_SUPPLY_ATOMIC &&
-                          kQuadratic < MAX_REASONABLE_K &&
-                          tokenSupply > 0 &&
-                          kQuadratic > 0;
-
-      let price: number;
-      if (isValidData) {
-        // Use the same calculation as the Pool Metrics card
-        price = calculateTokenPrice(tokenSupply, kQuadratic);
-      } else {
-        // Bad data - use a placeholder or skip (log only in development)
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('[TRADES API] Skipping invalid trade data:', {
-            token_supply: tokenSupply,
-            k_quadratic: kQuadratic,
-            recorded_at: trade.recorded_at
+    // Transform trades to chart format using stored sqrt prices
+    // Use average of long/short prices for the chart
+    const priceData = trades
+      .filter((trade) => {
+        // Only include trades that have valid price data
+        const hasValidPrice = trade.price_long !== null && trade.price_short !== null &&
+                             trade.price_long > 0 && trade.price_short > 0;
+        if (!hasValidPrice && process.env.NODE_ENV === 'development') {
+          console.warn('[TRADES API] Skipping trade without sqrt prices:', {
+            recorded_at: trade.recorded_at,
+            price_long: trade.price_long,
+            price_short: trade.price_short
           });
         }
-        price = 0; // Will filter out later
-      }
+        return hasValidPrice;
+      })
+      .map((trade, index) => {
+        // Average of long and short prices for display
+        const avgPrice = ((trade.price_long! + trade.price_short!) / 2);
 
-      // Handle duplicate timestamps by adding milliseconds
-      const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
-      const uniqueTime = baseTime + index * 0.001; // Add small offset for duplicates
+        // Handle duplicate timestamps by adding milliseconds
+        const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
+        const uniqueTime = baseTime + index * 0.001; // Add small offset for duplicates
 
-      return {
-        time: uniqueTime,
-        value: price,
-        isValid: isValidData
-      };
-    }).filter(d => d.isValid && d.value > 0) // Filter out invalid data
-    .map(({ time, value }) => ({ time, value })); // Remove isValid field
+        return {
+          time: uniqueTime,
+          value: avgPrice,
+        };
+      });
 
-    const volumeData = trades.filter((trade) => {
-      // Check if this trade has valid data
-      const tokenSupply = Number(trade.token_supply_after); // Atomic units
-      const kQuadratic = Number(trade.k_quadratic); // Display units
-      return tokenSupply < MAX_REASONABLE_TOKEN_SUPPLY_ATOMIC &&
-             kQuadratic < MAX_REASONABLE_K &&
-             tokenSupply > 0 &&
-             kQuadratic > 0;
-    }).map((trade, index) => {
-      // Handle duplicate timestamps
-      const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
-      const uniqueTime = baseTime + index * 0.001;
+    const volumeData = trades
+      .filter((trade) => trade.price_long !== null && trade.price_short !== null)
+      .map((trade, index) => {
+        // Handle duplicate timestamps
+        const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
+        const uniqueTime = baseTime + index * 0.001;
 
-      return {
-        time: uniqueTime,
-        value: parseFloat(trade.usdc_amount),
-        color: trade.trade_type === 'buy' ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)' // green for buy, red for sell
-      };
-    });
+        return {
+          time: uniqueTime,
+          value: parseFloat(trade.usdc_amount),
+          color: trade.trade_type === 'buy' ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)' // green for buy, red for sell
+        };
+      });
 
     // Calculate stats
     const prices = priceData.map((d: { value: number }) => d.value);

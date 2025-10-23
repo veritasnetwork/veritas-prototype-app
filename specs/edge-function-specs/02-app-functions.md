@@ -48,6 +48,101 @@ Creates a post with associated belief market. **All posts require beliefs** (no 
 - No multimedia support (media_url/media_type removed)
 - Default belief duration: 10 epochs (48 hours at 1 hour/epoch)
 - Posts and beliefs CASCADE delete together
+- **Pool deployment is separate** - see `/app/pool-deployment` below
+
+---
+
+## /app/pool-deployment
+
+**Current Implementation:** `/supabase/functions/app-pool-deployment`
+
+Deploys an ICBS (Inversely Coupled Bonding Surface) market for a post. Creates a two-sided prediction market where users can trade LONG/SHORT tokens based on content relevance.
+
+**Request Parameters:**
+- `post_id`: Post to deploy pool for (UUID, required)
+- `user_id`: User deploying the pool (UUID, required)
+- `wallet_address`: User's Solana wallet for signing (base58, required)
+
+**Response:**
+- `pool_address`: ContentPool PDA address (base58)
+- `long_mint`: LONG token mint address (base58)
+- `short_mint`: SHORT token mint address (base58)
+- `vault_address`: USDC vault address (base58)
+- `custodian_address`: Global custodian address (base58)
+- `transaction`: Unsigned transaction for user to sign (base64)
+- `deployment_id`: UUID of deployment record
+
+**Process:**
+1. Validate post exists and user owns it
+2. Check no pool already deployed for this post
+3. Derive ContentPool PDAs (pool, long_mint, short_mint, vault)
+4. Fetch PoolFactory configuration from chain
+5. Build `create_pool` transaction via PoolFactory
+6. Record deployment in `pool_deployments` table (status: 'pending')
+7. Return unsigned transaction for user to sign
+
+**Post-Deployment Flow:**
+1. Frontend prompts user to sign transaction
+2. User signs via Privy/Phantom wallet
+3. Frontend submits signed transaction to Solana RPC
+4. Frontend calls `/solana/update-pool-deployment` with tx signature
+5. Pool status updated to 'deployed'
+
+**Notes:**
+- Creates **empty pool** (no USDC, no tokens minted)
+- Uses factory defaults for ICBS parameters (f=2, β=0.5)
+- Before trading can begin, someone must call `deploy_market` instruction
+- See: [Pool Deployment Spec](./low-level-app-specs/05-pool-deployment.md)
+
+---
+
+## /app-deploy-market
+
+**Current Implementation:** `/supabase/functions/app-deploy-market`
+
+Deploys initial liquidity to an ICBS ContentPool, enabling trading. This is the **second step** after pool creation - it deposits USDC, mints initial LONG/SHORT tokens, and sets the initial market prediction.
+
+**Request Parameters:**
+- `pool_address`: ContentPool address (base58, required)
+- `user_id`: User deploying market (UUID, required)
+- `wallet_address`: User's Solana wallet (base58, required)
+- `initial_deposit`: Total USDC to deposit (in USDC, not micro-USDC)
+- `long_allocation_percent`: % allocated to LONG side (0-100)
+
+**Response:**
+- `pool_address`: ContentPool address (base58)
+- `initial_deposit`: Total USDC deposited
+- `long_allocation`: USDC allocated to LONG (micro-USDC)
+- `short_allocation`: USDC allocated to SHORT (micro-USDC)
+- `initial_q`: Initial market prediction (0-1)
+- `long_tokens`: LONG tokens minted (micro-tokens)
+- `short_tokens`: SHORT tokens minted (micro-tokens)
+- `transaction`: Unsigned transaction for user to sign (base64)
+
+**Process:**
+1. Validate pool exists and market not already deployed
+2. Calculate LONG/SHORT allocations from percentage
+3. Build `deploy_market` transaction for ContentPool
+4. Return unsigned transaction for user to sign
+
+**Two-Step Pool Creation Flow:**
+```
+Step 1: Pool Creation
+User → /app/pool-deployment → PoolFactory::create_pool → Empty pool created
+
+Step 2: Market Deployment (THIS FUNCTION)
+User → /app-deploy-market → ContentPool::deploy_market → Initial liquidity added, trading enabled
+```
+
+**Notes:**
+- Minimum initial deposit: $100 USDC
+- Allocation must be >0% and <100% for both sides
+- First-come-first-served (any user can deploy, not just pool creator)
+- Tokens initially priced at 1 USDC per token (flat rate)
+- After deployment, ICBS curve pricing takes over
+- See: [Market Deployment Spec](./low-level-app-specs/06-market-deployment.md)
+
+---
 
 ## /app/posts/submit-opinion
 

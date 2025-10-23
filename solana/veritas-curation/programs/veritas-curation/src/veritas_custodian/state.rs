@@ -33,7 +33,6 @@ pub const CUSTODIAN_SEED: &[u8] = b"custodian";
 
 // Minimums (in USDC with 6 decimals)
 pub const MIN_DEPOSIT: u64 = 1_000_000;     // 1 USDC
-pub const MIN_WITHDRAWAL: u64 = 1_000_000;  // 1 USDC
 
 // USDC has 6 decimals
 pub const USDC_DECIMALS: u8 = 6;

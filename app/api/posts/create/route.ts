@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { PrivyClient } from '@privy-io/server-auth';
-
-const privy = new PrivyClient(
-  process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
-  process.env.PRIVY_APP_SECRET!
-);
+import { verifyAuthHeader } from '@/lib/auth/privy-server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,45 +35,13 @@ function extractPlainTextFromTiptap(doc: any): string {
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
+    const privyUserId = await verifyAuthHeader(authHeader);
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!privyUserId) {
       return NextResponse.json(
-        { error: 'Missing or invalid authorization header' },
+        { error: 'Invalid or missing authentication' },
         { status: 401 }
       );
-    }
-
-    // Extract JWT token
-    const token = authHeader.replace('Bearer ', '');
-
-    // Verify Privy JWT token
-    let privyUser;
-    try {
-      const verifiedClaims = await privy.verifyAuthToken(token);
-      privyUser = verifiedClaims.userId;
-    } catch (error) {
-      console.error('Privy token verification failed:', error);
-
-      // In development, allow bypass if network issues
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('⚠️ DEV MODE: Bypassing Privy verification due to network error');
-        // Extract userId from token payload without verification (DEV ONLY!)
-        try {
-          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-          privyUser = payload.sub || payload.userId;
-          if (!privyUser) throw new Error('No user ID in token');
-        } catch (parseError) {
-          return NextResponse.json(
-            { error: 'Invalid authentication token' },
-            { status: 401 }
-          );
-        }
-      } else {
-        return NextResponse.json(
-          { error: 'Invalid authentication token' },
-          { status: 401 }
-        );
-      }
     }
 
     const body = await request.json();
@@ -92,19 +55,20 @@ export async function POST(request: NextRequest) {
       cover_image_url,
       initial_belief,
       meta_belief,
-      belief_duration_hours,
-      post_id,
       tx_signature,
       pool_deployment,
     } = body;
 
-    // Validate required fields (initial_belief is now optional)
-    if (!user_id || !post_type || !post_id || !tx_signature) {
+    // Validate required fields (initial_belief, tx_signature, and post_id are now optional)
+    if (!user_id || !post_type) {
       return NextResponse.json(
-        { error: 'Missing required fields: user_id, post_type, post_id, tx_signature' },
+        { error: 'Missing required fields: user_id, post_type' },
         { status: 400 }
       );
     }
+
+    // Generate post_id server-side
+    const post_id = crypto.randomUUID();
 
     // Validate post_type
     const validPostTypes = ['text', 'image', 'video'];
@@ -183,8 +147,6 @@ export async function POST(request: NextRequest) {
 
     const agent_id = userData.agent_id;
     const currentEpoch = parseInt(configData?.value || '0');
-    const durationInEpochs = Math.ceil(belief_duration_hours / 1); // Assuming 1 hour per epoch
-    const expirationEpoch = currentEpoch + durationInEpochs;
 
     const { data: belief, error: beliefError } = await supabase
       .from('beliefs')
@@ -192,7 +154,6 @@ export async function POST(request: NextRequest) {
         id: post_id, // Same ID as post
         creator_agent_id: agent_id,
         created_epoch: currentEpoch,
-        expiration_epoch: expirationEpoch,
         previous_aggregate: initial_belief ?? 0.5, // Default to 0.5 (neutral) if not provided
         previous_disagreement_entropy: 0.0,
       })
@@ -243,15 +204,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Submit initial belief ONLY if provided
-    if (initial_belief !== undefined) {
+    // Submit initial belief ONLY if both initial_belief and meta_belief are provided
+    if (initial_belief !== undefined && meta_belief !== undefined) {
       const { error: submissionError } = await supabase
         .from('belief_submissions')
         .insert({
           belief_id: post_id,
           agent_id: agent_id,
           belief: initial_belief,
-          meta_prediction: meta_belief || initial_belief,
+          meta_prediction: meta_belief,
           epoch: currentEpoch,
         });
 
@@ -269,11 +230,14 @@ export async function POST(request: NextRequest) {
           post_id: post_id,
           belief_id: post_id,
           pool_address: pool_deployment.pool_address,
-          token_mint_address: pool_deployment.token_mint_address,
-          usdc_vault_address: pool_deployment.usdc_vault_address,
+          long_mint_address: pool_deployment.long_mint_address || null,
+          short_mint_address: pool_deployment.short_mint_address || null,
+          market_address: pool_deployment.market_address || null,
           deployed_by_agent_id: agent_id,
           deployment_tx_signature: pool_deployment.deployment_tx_signature || tx_signature,
-          k_quadratic: pool_deployment.k_quadratic,
+          f: pool_deployment.f ?? 3,
+          beta_num: pool_deployment.beta_num ?? 1,
+          beta_den: pool_deployment.beta_den ?? 2,
         });
 
       if (poolError) {

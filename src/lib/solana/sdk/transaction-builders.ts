@@ -28,6 +28,60 @@ export interface ProtocolAddresses {
   factoryPda: PublicKey;
   treasuryPda: PublicKey;
   usdcMint: PublicKey;
+  protocolAuthority?: PublicKey; // NEW - pool authority from factory (optional for backward compat)
+}
+
+// =========================================================================
+// ICBS Trade Types and Interfaces
+// =========================================================================
+
+/**
+ * Token side for ICBS two-sided market
+ */
+export enum TokenSide {
+  Long = 'Long',
+  Short = 'Short',
+}
+
+/**
+ * Trade type (buy or sell)
+ */
+export enum TradeType {
+  Buy = 'Buy',
+  Sell = 'Sell',
+}
+
+/**
+ * Parameters for building a trade transaction
+ */
+export interface TradeParams {
+  trader: PublicKey;
+  contentId: PublicKey;
+  side: TokenSide;
+  tradeType: TradeType;
+  amount: anchor.BN; // USDC for buy (micro-USDC), tokens for sell
+  stakeSkim: anchor.BN; // Calculated server-side
+  minTokensOut: anchor.BN; // Slippage protection (buys)
+  minUsdcOut: anchor.BN; // Slippage protection (sells)
+  protocolAuthority: PublicKey; // Pool authority from factory
+  usdcMint: PublicKey;
+  factoryAddress: PublicKey;
+}
+
+// =========================================================================
+// Utility Functions
+// =========================================================================
+
+/**
+ * Converts a UUID (post_id) to a 32-byte content_id PublicKey
+ * Used for deriving pool PDAs from post IDs
+ */
+export function uuidToContentId(postId: string): PublicKey {
+  const postIdHex = postId.replace(/-/g, '');
+  const postIdBytes = Buffer.from(postIdHex, 'hex'); // 16 bytes
+  const contentIdBuffer = Buffer.alloc(32);
+  postIdBytes.copy(contentIdBuffer, 0);
+  return new PublicKey(contentIdBuffer);
 }
 
 /**
@@ -64,355 +118,361 @@ export class PDAHelper {
     );
   }
 
-  getPoolPda(postId: Buffer): [PublicKey, number] {
+  /**
+   * Get PoolRegistry PDA (ICBS architecture)
+   * Seeds: [b"registry", content_id]
+   */
+  getPoolRegistryPda(contentId: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
-      [Buffer.from("pool"), postId],
+      [Buffer.from("registry"), contentId.toBuffer()],
       this.programId
     );
   }
 
-  getRegistryPda(postId: Buffer): [PublicKey, number] {
+  // =========================================================================
+  // ICBS (Inversely Coupled Bonding Surface) PDA Methods
+  // =========================================================================
+
+  /**
+   * Get ContentPool PDA (ICBS architecture)
+   * Seeds: [b"content_pool", content_id]
+   */
+  getContentPoolPda(contentId: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
-      [Buffer.from("registry"), postId],
+      [Buffer.from("content_pool"), contentId.toBuffer()],
       this.programId
     );
   }
 
-  getTokenMintPda(postId: Buffer): [PublicKey, number] {
+  /**
+   * Get LONG token mint PDA
+   * Seeds: [b"long_mint", content_id]
+   */
+  getLongMintPda(contentId: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
-      [Buffer.from("mint"), postId],
+      [Buffer.from("long_mint"), contentId.toBuffer()],
       this.programId
     );
   }
 
-  getPoolVaultPda(postId: Buffer): [PublicKey, number] {
+  /**
+   * Get SHORT token mint PDA
+   * Seeds: [b"short_mint", content_id]
+   */
+  getShortMintPda(contentId: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
-      [Buffer.from("vault"), postId],
+      [Buffer.from("short_mint"), contentId.toBuffer()],
       this.programId
     );
   }
 
-  getCustodianPda(owner: PublicKey): [PublicKey, number] {
+  /**
+   * Get pool vault PDA (ICBS)
+   * Seeds: [b"vault", content_id]
+   */
+  getContentPoolVaultPda(contentId: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
-      [Buffer.from("custodian"), owner.toBuffer()],
+      [Buffer.from("vault"), contentId.toBuffer()],
       this.programId
     );
   }
 
-  getCustodianVaultPda(owner: PublicKey): [PublicKey, number] {
+  /**
+   * Get global custodian PDA (singleton)
+   * Seeds: [b"custodian"]
+   */
+  getGlobalCustodianPda(): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
-      [Buffer.from("custodian-vault"), owner.toBuffer()],
+      [Buffer.from("custodian")],
       this.programId
     );
   }
 }
 
 /**
- * Initialize a user's custodian account
+ * Client-side helper to derive all pool-related addresses from a post ID
+ * Use this in React components to display addresses without API calls
  */
-export async function buildInitializeCustodianTx(
-  program: Program<VeritasCuration>,
-  owner: PublicKey,
-  protocolAuthority: PublicKey,
-  usdcMint: PublicKey
-): Promise<Transaction> {
-  const pdaHelper = new PDAHelper(program.programId);
-  const [custodianPda] = pdaHelper.getCustodianPda(owner);
-  const [custodianVault] = pdaHelper.getCustodianVaultPda(owner);
+export function derivePoolAddresses(postId: string, programId: PublicKey) {
+  const pdaHelper = new PDAHelper(programId);
+  const contentId = uuidToContentId(postId);
 
-  const tx = await program.methods
-    .initializeCustodian(owner, protocolAuthority)
-    .accounts({
-      custodian: custodianPda,
-      custodianVault: custodianVault,
-      usdcMint: usdcMint,
-      owner: owner,
-      payer: owner,
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      rent: SYSVAR_RENT_PUBKEY,
-    })
-    .transaction();
-
-  return tx;
+  return {
+    contentId: contentId.toBase58(),
+    pool: pdaHelper.getContentPoolPda(contentId)[0].toBase58(),
+    registry: pdaHelper.getPoolRegistryPda(contentId)[0].toBase58(),
+    factory: pdaHelper.getFactoryPda()[0].toBase58(),
+    custodian: pdaHelper.getGlobalCustodianPda()[0].toBase58(),
+    longMint: pdaHelper.getLongMintPda(contentId)[0].toBase58(),
+    shortMint: pdaHelper.getShortMintPda(contentId)[0].toBase58(),
+    vault: pdaHelper.getContentPoolVaultPda(contentId)[0].toBase58(),
+  };
 }
 
+// =========================================================================
+// Transaction Builders
+// =========================================================================
+
 /**
- * Create a content pool (permissionless)
+ * Build a create_pool transaction for PoolFactory
+ *
+ * Creates a ContentPool via the PoolFactory. All ICBS parameters (f, beta_num, beta_den)
+ * and limits (min_initial_deposit, min_settle_interval) are set by the factory defaults.
+ * Users cannot override these parameters.
+ *
+ * @param program - Anchor program instance
+ * @param creator - Pool creator (also pays for account creation)
+ * @param contentId - Content ID as PublicKey (derived from post UUID)
+ * @param addresses - Protocol addresses (factory, custodian, etc.)
+ * @returns Unsigned transaction (ready for signing)
  */
 export async function buildCreatePoolTx(
   program: Program<VeritasCuration>,
   creator: PublicKey,
-  postId: Buffer,
-  params: {
-    initialKQuadratic: anchor.BN;
-    tokenName: string;
-    tokenSymbol: string;
-  },
+  contentId: PublicKey,
   addresses: ProtocolAddresses
 ): Promise<Transaction> {
   const pdaHelper = new PDAHelper(program.programId);
 
-  const [poolPda] = pdaHelper.getPoolPda(postId);
-  const [registryPda] = pdaHelper.getRegistryPda(postId);
-  const [tokenMintPda] = pdaHelper.getTokenMintPda(postId);
-  const [poolVaultPda] = pdaHelper.getPoolVaultPda(postId);
+  // Derive all required PDAs
+  const [poolPda] = pdaHelper.getContentPoolPda(contentId);
+  const [registryPda] = pdaHelper.getPoolRegistryPda(contentId);
+  const [custodianPda] = pdaHelper.getGlobalCustodianPda();
 
-  const postIdArray = Array.from(postId);
-  if (postIdArray.length !== 32) {
-    throw new Error("Post ID must be exactly 32 bytes");
-  }
-
-  // Convert token name/symbol to fixed-size byte arrays
-  const tokenNameBytes = Buffer.alloc(32);
-  Buffer.from(params.tokenName).copy(tokenNameBytes, 0);
-  const tokenSymbolBytes = Buffer.alloc(10);
-  Buffer.from(params.tokenSymbol).copy(tokenSymbolBytes, 0);
-
+  // create_pool only takes content_id as argument
+  // Factory defaults (f, beta_num, beta_den, min_settle_interval) are applied automatically
   const tx = await program.methods
-    .createPool(
-      postIdArray as number[] & { length: 32 },
-      params.initialKQuadratic,
-      Array.from(tokenNameBytes) as number[] & { length: 32 },
-      Array.from(tokenSymbolBytes) as number[] & { length: 10 }
-    )
+    .createPool(contentId)
     .accounts({
       factory: addresses.factoryPda,
       pool: poolPda,
-      tokenMint: tokenMintPda,
-      poolUsdcVault: poolVaultPda,
       registry: registryPda,
-      config: null,  // Optional - set to null since not initialized
-      usdcMint: addresses.usdcMint,
+      custodian: custodianPda,
       creator: creator,
       payer: creator,
       systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-      rent: SYSVAR_RENT_PUBKEY,
     })
     .transaction();
 
   return tx;
 }
 
-/**
- * Deposit USDC into user's custodian
- */
-export async function buildDepositTx(
-  program: Program<VeritasCuration>,
-  owner: PublicKey,
-  amount: anchor.BN,
-  usdcMint: PublicKey
-): Promise<Transaction> {
-  const pdaHelper = new PDAHelper(program.programId);
-  const [custodianPda] = pdaHelper.getCustodianPda(owner);
-  const [custodianVault] = pdaHelper.getCustodianVaultPda(owner);
-
-  const userUsdcAccount = await getAssociatedTokenAddress(usdcMint, owner);
-
-  const tx = await program.methods
-    .deposit(amount)
-    .accounts({
-      custodian: custodianPda,
-      custodianVault: custodianVault,
-      userUsdcAccount: userUsdcAccount,
-      owner: owner,
-      tokenProgram: TOKEN_PROGRAM_ID,
-    })
-    .transaction();
-
-  return tx;
-}
+// =========================================================================
+// ICBS Trade Transaction Builder
+// =========================================================================
 
 /**
- * Withdraw USDC from user's custodian
+ * Build a trade transaction for ICBS ContentPool
+ *
+ * This is the NEW unified trade function that replaces buildBuyTx and buildSellTx.
+ * It supports both LONG and SHORT sides, and includes stake skim functionality.
+ *
+ * @param program - Anchor program instance
+ * @param params - Trade parameters
+ * @returns Unsigned transaction (ready for signing)
  */
-export async function buildWithdrawTx(
+export async function buildTradeTx(
   program: Program<VeritasCuration>,
-  owner: PublicKey,
-  amount: anchor.BN,
-  recipient: PublicKey,
-  usdcMint: PublicKey
-): Promise<Transaction> {
-  const pdaHelper = new PDAHelper(program.programId);
-  const [custodianPda] = pdaHelper.getCustodianPda(owner);
-  const [custodianVault] = pdaHelper.getCustodianVaultPda(owner);
-
-  const recipientUsdcAccount = await getAssociatedTokenAddress(usdcMint, recipient);
-
-  const tx = await program.methods
-    .withdraw(amount, recipient)
-    .accounts({
-      custodian: custodianPda,
-      custodianVault: custodianVault,
-      recipientUsdcAccount: recipientUsdcAccount,
-      owner: owner,
-      tokenProgram: TOKEN_PROGRAM_ID,
-    })
-    .transaction();
-
-  return tx;
-}
-
-/**
- * Buy tokens from a pool
- */
-export async function buildBuyTx(
-  program: Program<VeritasCuration>,
-  buyer: PublicKey,
-  postId: Buffer,
-  usdcAmount: anchor.BN,
-  addresses: ProtocolAddresses
+  params: TradeParams
 ): Promise<Transaction> {
   const pdaHelper = new PDAHelper(program.programId);
 
-  const [poolPda] = pdaHelper.getPoolPda(postId);
-  const [tokenMintPda] = pdaHelper.getTokenMintPda(postId);
-  const [poolVaultPda] = pdaHelper.getPoolVaultPda(postId);
+  // Derive PDAs
+  const [poolPda] = pdaHelper.getContentPoolPda(params.contentId);
+  const [poolVaultPda] = pdaHelper.getContentPoolVaultPda(params.contentId);
+  const [custodianPda] = pdaHelper.getGlobalCustodianPda();
 
-  const buyerUsdcAccount = await getAssociatedTokenAddress(
-    addresses.usdcMint,
-    buyer,
-    false, // allowOwnerOffCurve
-    TOKEN_PROGRAM_ID // tokenProgramId
+  // Determine which token mint to use based on side
+  const tokenMintPda = params.side === TokenSide.Long
+    ? pdaHelper.getLongMintPda(params.contentId)[0]
+    : pdaHelper.getShortMintPda(params.contentId)[0];
+
+  // Get trader's USDC and token accounts
+  const traderUsdcAccount = await getAssociatedTokenAddress(
+    params.usdcMint,
+    params.trader
   );
-  const buyerTokenAccount = await getAssociatedTokenAddress(
+
+  const traderTokenAccount = await getAssociatedTokenAddress(
     tokenMintPda,
-    buyer,
-    false, // allowOwnerOffCurve
-    TOKEN_PROGRAM_ID // tokenProgramId
+    params.trader
   );
 
-  // Check if USDC account exists
-  const connection = program.provider.connection;
-  const usdcAccountInfo = await connection.getAccountInfo(buyerUsdcAccount);
+  // Fetch custodian to get stake vault address
+  const custodian = await program.account.veritasCustodian.fetch(custodianPda);
+  const stakeVault = custodian.usdcVault;
 
+  // Build transaction
   const tx = new Transaction();
 
-  // Create USDC ATA if it doesn't exist
-  if (!usdcAccountInfo) {
-    tx.add(
-      createAssociatedTokenAccountInstruction(
-        buyer, // payer
-        buyerUsdcAccount, // ata
-        buyer, // owner
-        addresses.usdcMint, // mint
-        TOKEN_PROGRAM_ID // token program - must match mint's program
-      )
-    );
-  }
-
-  // Add buy instruction
-  // Note: user_token_account uses init_if_needed in the program, so Anchor creates it automatically
-  const buyIx = await program.methods
-    .buy(usdcAmount)
+  // Add trade instruction
+  const tradeIx = await program.methods
+    .trade(
+      params.side === TokenSide.Long ? { long: {} } : { short: {} },
+      params.tradeType === TradeType.Buy ? { buy: {} } : { sell: {} },
+      params.amount,
+      params.stakeSkim,
+      params.minTokensOut,
+      params.minUsdcOut
+    )
     .accounts({
       pool: poolPda,
+      factory: params.factoryAddress,
+      traderUsdc: traderUsdcAccount,
+      vault: poolVaultPda,
+      stakeVault: stakeVault,
+      traderTokens: traderTokenAccount,
       tokenMint: tokenMintPda,
-      poolUsdcVault: poolVaultPda,
-      userUsdcAccount: buyerUsdcAccount,
-      userTokenAccount: buyerTokenAccount,
-      user: buyer,
-      config: addresses.configPda,
+      usdcMint: params.usdcMint,
+      trader: params.trader,
+      protocolAuthority: params.protocolAuthority,
+      payer: params.trader,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
     .instruction();
 
-  tx.add(buyIx);
+  tx.add(tradeIx);
 
   return tx;
 }
 
+// =========================================================================
+// Deploy Market Transaction Builder
+// =========================================================================
+
 /**
- * Sell tokens back to a pool
+ * Parameters for deploying market (initial liquidity)
  */
-export async function buildSellTx(
+export interface DeployMarketParams {
+  deployer: PublicKey;
+  contentId: PublicKey;
+  initialDeposit: anchor.BN; // Total USDC to deposit (micro-USDC, min 100 USDC)
+  longAllocation: anchor.BN; // USDC allocated to LONG side (micro-USDC)
+  usdcMint: PublicKey;
+}
+
+/**
+ * Build a deploy_market transaction for ContentPool
+ *
+ * This is the second step after creating a pool via PoolFactory.
+ * It deposits initial USDC and mints initial LONG/SHORT tokens.
+ *
+ * @param program - Anchor program instance
+ * @param params - Deploy market parameters
+ * @returns Unsigned transaction (ready for signing)
+ */
+export async function buildDeployMarketTx(
   program: Program<VeritasCuration>,
-  seller: PublicKey,
-  postId: Buffer,
-  tokenAmount: anchor.BN,
-  addresses: ProtocolAddresses
+  params: DeployMarketParams
 ): Promise<Transaction> {
   const pdaHelper = new PDAHelper(program.programId);
 
-  const [poolPda] = pdaHelper.getPoolPda(postId);
-  const [tokenMintPda] = pdaHelper.getTokenMintPda(postId);
-  const [poolVaultPda] = pdaHelper.getPoolVaultPda(postId);
+  // Derive PDAs
+  const [poolPda] = pdaHelper.getContentPoolPda(params.contentId);
+  const [factoryPda] = pdaHelper.getFactoryPda();
+  const [longMintPda] = pdaHelper.getLongMintPda(params.contentId);
+  const [shortMintPda] = pdaHelper.getShortMintPda(params.contentId);
+  const [vaultPda] = pdaHelper.getContentPoolVaultPda(params.contentId);
 
-  const userUsdcAccount = await getAssociatedTokenAddress(addresses.usdcMint, seller);
-  const userTokenAccount = await getAssociatedTokenAddress(tokenMintPda, seller);
+  // Get deployer's USDC account
+  const deployerUsdcAccount = await getAssociatedTokenAddress(
+    params.usdcMint,
+    params.deployer
+  );
 
+  // Get deployer's LONG and SHORT token accounts
+  const deployerLongAccount = await getAssociatedTokenAddress(
+    longMintPda,
+    params.deployer
+  );
+
+  const deployerShortAccount = await getAssociatedTokenAddress(
+    shortMintPda,
+    params.deployer
+  );
+
+  // Build transaction
+  // Note: deploy_market instruction uses init_if_needed for deployer ATAs
+  // so we don't need to manually create them
   const tx = await program.methods
-    .sell(tokenAmount)
+    .deployMarket(params.initialDeposit, params.longAllocation)
     .accounts({
       pool: poolPda,
-      tokenMint: tokenMintPda,
-      poolUsdcVault: poolVaultPda,
-      userUsdcAccount: userUsdcAccount,
-      userTokenAccount: userTokenAccount,
-      user: seller,
+      factory: factoryPda,
+      longMint: longMintPda,
+      shortMint: shortMintPda,
+      vault: vaultPda,
+      deployerUsdc: deployerUsdcAccount,
+      deployerLong: deployerLongAccount,
+      deployerShort: deployerShortAccount,
+      usdcMint: params.usdcMint,
+      deployer: params.deployer,
+      payer: params.deployer,
       tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
     })
     .transaction();
 
   return tx;
 }
 
-/**
- * Helper to get pool data
- */
-export async function getPoolData(
-  program: Program<VeritasCuration>,
-  postId: Buffer
-) {
-  const pdaHelper = new PDAHelper(program.programId);
-  const [poolPda] = pdaHelper.getPoolPda(postId);
-
-  return await program.account.contentPool.fetch(poolPda);
-}
 
 /**
- * Helper to get custodian data
+ * Build a transaction to settle a ContentPool epoch
+ *
+ * Settlement scales virtual reserves based on prediction accuracy using ICBS proper scoring rules.
+ * The BD score represents the actual relevance (x), and the market prediction (q) is derived from
+ * current reserve ratios. Settlement factors f_L = x/q and f_S = (1-x)/(1-q) are applied to reserves.
+ *
+ * @param program - The Anchor program instance
+ * @param settler - The user who will pay for the transaction
+ * @param contentId - The content ID (post ID as PublicKey)
+ * @param bdScore - The belief decomposition score (0-1 range, will be converted to micro-units)
+ * @param protocolAuthority - The protocol authority that must sign
+ * @param factoryAddress - The PoolFactory address
+ * @returns Transaction ready to be signed by settler (protocol authority must pre-sign)
  */
-export async function getCustodianData(
+export async function buildSettleEpochTx(
   program: Program<VeritasCuration>,
-  owner: PublicKey
-) {
-  const pdaHelper = new PDAHelper(program.programId);
-  const [custodianPda] = pdaHelper.getCustodianPda(owner);
-
-  return await program.account.veritasCustodian.fetch(custodianPda);
-}
-
-/**
- * Helper to check if custodian exists
- */
-export async function custodianExists(
-  program: Program<VeritasCuration>,
-  owner: PublicKey
-): Promise<boolean> {
-  try {
-    await getCustodianData(program, owner);
-    return true;
-  } catch {
-    return false;
+  settler: PublicKey,
+  contentId: PublicKey,
+  bdScore: number,
+  protocolAuthority: PublicKey,
+  factoryAddress: PublicKey
+): Promise<Transaction> {
+  // Validate BD score is in valid range
+  if (bdScore < 0 || bdScore > 1) {
+    throw new Error(`BD score must be in range [0, 1], got ${bdScore}`);
   }
-}
 
-/**
- * Helper to check if pool exists
- */
-export async function poolExists(
-  program: Program<VeritasCuration>,
-  postId: Buffer
-): Promise<boolean> {
-  try {
-    await getPoolData(program, postId);
-    return true;
-  } catch {
-    return false;
-  }
+  // Convert BD score to micro-units (0-1 range to 0-1,000,000 integer)
+  // This format matches the smart contract's expectation for u32 BD scores
+  const bdScoreMicro = Math.floor(bdScore * 1_000_000);
+
+  // Derive ContentPool PDA
+  const [poolPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("content_pool"), contentId.toBuffer()],
+    program.programId
+  );
+
+  // Build settle_epoch instruction
+  // Note: Only requires pool, factory, protocol_authority, and settler accounts
+  const settleEpochIx = await program.methods
+    .settleEpoch(bdScoreMicro)
+    .accounts({
+      pool: poolPda,
+      factory: factoryAddress,
+      protocolAuthority,
+      settler,
+    })
+    .instruction();
+
+  // Create transaction
+  const transaction = new Transaction();
+  transaction.add(settleEpochIx);
+
+  return transaction;
 }

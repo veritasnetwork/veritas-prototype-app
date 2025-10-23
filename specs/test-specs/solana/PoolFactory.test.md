@@ -1,343 +1,417 @@
 # PoolFactory Test Specification
 
 ## Test Environment
-- **Framework:** Anchor Test Suite v0.31.1
-- **Runtime:** Solana Test Validator (localnet with --reset flag)
+- **Framework:** Anchor Test Suite
+- **Runtime:** Solana Test Validator (localnet)
 - **Language:** TypeScript
-- **Test File:** `tests/pool-factory.test.ts`
-- **Test Isolation:** `test-isolated.sh` script ensures fresh validator state
+- **Location:** `/solana/veritas-curation/tests/`
 
-## Test Setup
+## Overview
+PoolFactory is a singleton contract that manages ContentPool creation with:
+- Dual authority model (factory authority + pool authority)
+- Permissionless pool creation with backend validation
+- On-chain registry for pool discovery
+- Default ICBS parameters for new pools
+- Global custodian reference
 
-### Authority Configuration
-```typescript
-// Use provider's wallet as factory authority (enables signing)
-factoryAuthority = payer; // Provider wallet
-poolAuthority = TEST_POOL_AUTHORITY; // Deterministic test keypair
-
-// Factory initialization happens in before() hook
-// If factory exists, validates it has expected authorities
-```
-
-### Constants
-```typescript
-const TEST_K_QUADRATIC = new anchor.BN(1_000);
-const TEST_SUPPLY_CAP = new anchor.BN("100000000000");
-```
-
-### Mock USDC
-- Created in before() hook with 6 decimals
-- Mint authority: payer.publicKey
-
-## Implemented Tests (9 tests, all passing)
+## Test Categories
 
 ### 1. Factory Initialization
 
-#### 1.1 Singleton Factory Creation
+#### 1.1 Singleton Creation
+**Purpose:** Verify one-time factory setup
 ```typescript
-describe("1.1 Singleton Factory Creation")
-
-it("initializes factory with dual authorities")
-// Action: Call initializeFactory with factoryAuthority and poolAuthority
-// Handles case where factory already exists from previous run
-// Assert: factory.factoryAuthority matches expected value
-// Assert: factory.poolAuthority matches expected value
-// Assert: factory.totalPools equals 0
-// Status: ✅ PASSING
+it("initializes factory with correct authorities")
+// Action: Initialize factory with factory_authority, pool_authority, custodian
+// Assert:
+//   - factory.factory_authority = expected
+//   - factory.pool_authority = expected
+//   - factory.custodian = expected
+//   - factory.total_pools = 0
+//   - Default parameters set correctly (F=2, β=0.5)
+//   - PDA derived correctly from seeds ["factory"]
 
 it("prevents duplicate factory initialization")
-// Action: Try to initialize factory again
-// Assert: Error thrown (account already initialized)
-// Status: ✅ PASSING
+// Try to initialize factory again
+// Assert: Error code 7000 (AlreadyInitialized)
 ```
 
-**Key Implementation Detail:** Tests handle idempotent initialization - if factory exists, they verify state rather than fail.
-
-### 2. Pool Creation Through Factory
-
-#### 2.1 Permissionless Pool Creation
+#### 1.2 Default Parameters
+**Purpose:** Verify default ICBS parameters
 ```typescript
-describe("2.1 Permissionless Pool Creation")
+it("sets correct default ICBS parameters")
+// After initialization
+// Assert: default_f = 3
+// Assert: default_beta_num = 1
+// Assert: default_beta_den = 2 (β = 0.5)
+// Assert: min_initial_deposit = 100 USDC
+// Assert: min_settle_interval = 300 seconds
+```
 
+### 2. Pool Creation
+
+#### 2.1 Permissionless Creation
+**Purpose:** Test that any user can create pools
+```typescript
 it("allows any user to create a pool")
-// Setup: Create random user, airdrop SOL
-// Create unique post_id via crypto.createHash('sha256')
-// Derive PDAs: pool, tokenMint, registry, poolUsdcVault
-// Action: Random user calls createPool (not authority)
-// Assert: Pool created with correct post_id
-// Assert: pool.factory references factory PDA
-// Assert: factory.totalPools incremented by 1
-// Status: ✅ PASSING
+// Setup: Random user (not authority)
+// Action: User calls create_pool (no protocol_authority needed)
+// Assert:
+//   - Pool created at expected PDA
+//   - Registry entry created
+//   - factory.total_pools incremented
+//   - Pool contains factory reference
+//   - Pool uses factory default parameters
+
+it("does not require protocol authority signature")
+// User creates pool without protocol_authority signing
+// Assert: Pool created successfully
+// Note: Backend validation happens before transaction reaches chain
 ```
 
-**PDAs Derived:**
-- Pool: `["pool", post_id]`
-- Token Mint: `["mint", post_id]`
-- Registry: `["registry", post_id]`
-- Vault: `["vault", post_id]`
-
-#### 2.2 Registry Creation
+#### 2.2 Registry Management
+**Purpose:** Verify registry entries
 ```typescript
-describe("2.2 Registry Creation")
+it("creates registry entry for each pool")
+// Create pool for content_id
+// Assert:
+//   - Registry PDA exists at ["registry", content_id]
+//   - registry.content_id matches
+//   - registry.pool_address correct
+//   - registry.creator set
+//   - registry.created_at > 0
 
-it("creates registry entry for new pool")
-// Action: Create pool via factory
-// Assert: Registry PDA exists
-// Assert: registry.postId matches pool.postId
-// Assert: registry.poolAddress equals pool PDA
-// Assert: registry.createdAt > 0 (unix timestamp)
-// Status: ✅ PASSING
+it("prevents duplicate pools for same content_id")
+// Create pool for content_id
+// Try to create another pool for same content_id
+// Assert: Registry init fails (account exists)
 ```
 
-#### 2.3 Pool-Factory Linkage
+#### 2.3 Parameter Inheritance
+**Purpose:** Test pool inherits factory defaults
 ```typescript
-describe("2.3 Pool-Factory Linkage")
+it("creates pool with factory default parameters")
+// Create pool (no parameters can be specified)
+// Fetch created pool account
+// Assert: Pool F = factory.default_f
+// Assert: Pool beta matches factory defaults
+// Assert: Pool min_settle_interval = factory default
 
-it("created pool contains factory reference")
-// Action: Create pool through factory
-// Assert: pool.factory equals factory PDA address
-// Assert: Token mint decimals = 6
-// Assert: Token mint authority = pool PDA (for minting)
-// Status: ✅ PASSING
+it("enforces factory defaults for all pools")
+// Try to create pool with custom parameters (not possible in new architecture)
+// Assert: Pool always uses factory defaults
+// Note: Only factory authority can change defaults via update_defaults
+// Validate: F in [1, 10], β in [0.1, 0.9]
+
+it("rejects invalid custom parameters")
+// Try F=0 or F=11 - should fail
+// Try β=0.05 or β=0.95 - should fail
+// Assert: Error code 7030 (InvalidF) or 7031 (InvalidBeta)
+```
+
+#### 2.4 CPI to ContentPool
+**Purpose:** Verify cross-program invocation
+```typescript
+it("successfully calls ContentPool::initialize_pool via CPI")
+// Create pool through factory
+// Assert: ContentPool account exists
+// Assert: ContentPool initialized correctly
+// Assert: Pool.factory references this factory
 ```
 
 ### 3. Authority Management
 
-#### 3.1 Update Pool Authority
+#### 3.1 Pool Authority Updates
+**Purpose:** Test operational authority changes
 ```typescript
-describe("3.1 Update Pool Authority")
-
 it("allows factory_authority to update pool_authority")
-// Setup: Generate new pool authority keypair, fund it
-// Action: Call updatePoolAuthority with provider wallet (factory authority)
-// Assert: factory.poolAuthority equals new authority
-// Action: Restore original pool_authority for subsequent tests
-// Note: No .signers() needed - provider wallet signs by default
-// Status: ✅ PASSING
+// Setup: New pool authority keypair
+// Action: factory_authority calls update_pool_authority
+// Assert: factory.pool_authority = new_authority
+// Assert: Event emitted with old and new authorities
 
-it("rejects pool_authority update from wrong signer")
-// Setup: Generate random user keypair
-// Action: Random user tries to call updatePoolAuthority
-// Assert: Error thrown (unauthorized)
-// Status: ✅ PASSING
+it("rejects pool_authority update from unauthorized signer")
+// Random user tries to update pool_authority
+// Assert: Unauthorized error
 
 it("rejects pool_authority update from pool_authority itself")
-// Action: pool_authority tries to update itself
-// Assert: Error thrown (only factory_authority can update)
-// Status: ✅ PASSING
+// pool_authority tries to update itself
+// Assert: Unauthorized error (only factory_authority can)
+
+it("validates new pool_authority is not default pubkey")
+// Try to set pool_authority to Pubkey::default()
+// Assert: InvalidAuthority error
 ```
 
-**Critical Implementation Note:** Factory authority uses provider wallet, which can sign transactions without explicit `.signers()` array.
-
-#### 3.2 Update Factory Authority
+#### 3.2 Factory Authority Transfer
+**Purpose:** Test ownership transfer
 ```typescript
-describe("3.2 Update Factory Authority")
-
 it("allows factory_authority to transfer ownership")
-// Setup: Generate new factory authority, fund it
-// Action: Call updateFactoryAuthority with current authority
-// Assert: factory.factoryAuthority equals new authority
-// Test: Old authority can no longer update pool_authority
-// Assert: Transaction fails with old authority
-// Note: Cannot restore original authority (can't sign with new one)
-// Status: ✅ PASSING
+// Setup: New factory authority
+// Action: Current factory_authority transfers ownership
+// Assert: factory.factory_authority = new_authority
+// Test: Old authority can no longer make changes
+
+it("rejects factory_authority update from unauthorized")
+// Random user tries to update factory_authority
+// Assert: Unauthorized error
+
+it("validates new factory_authority is not default pubkey")
+// Try to set factory_authority to Pubkey::default()
+// Assert: InvalidAuthority error
 ```
 
-**Implementation Caveat:** Test transfers authority permanently. Subsequent tests must handle changed authority or rely on test isolation via validator reset.
-
-### 5. Edge Cases and Security
-
-#### 5.1 Post ID Uniqueness
+#### 3.3 Authority Propagation
+**Purpose:** Verify pools use current factory authorities
 ```typescript
-describe("5.1 Post ID Uniqueness")
-
-it("prevents duplicate pools for same post_id")
-// Action: Create pool with specific post_id
-// Action: Try to create another pool with same post_id
-// Assert: Error thrown (account already exists)
-// Status: ✅ PASSING
+it("existing pools use updated pool_authority")
+// Create pool1
+// Update factory.pool_authority
+// Create pool2
+// Pool1 operations should use new pool_authority
+// Pool2 operations should use new pool_authority
+// Note: Pools reference factory, check factory.pool_authority dynamically
 ```
 
-**Implementation:** PDAs derived from post_id ensure uniqueness at Solana level.
+### 4. Default Parameter Updates
 
-### 6. State Consistency
-
-#### 6.1 Total Pools Counter
+#### 4.1 Update Default ICBS Parameters
+**Purpose:** Test default parameter changes
 ```typescript
-describe("6.1 Total Pools Counter")
+it("allows factory_authority to update default_f")
+// Update default_f from 3 to 5
+// Assert: factory.default_f = 5
+// Create new pool
+// Assert: New pool has F = 5
 
+it("allows factory_authority to update default_beta")
+// Update beta_num=2, beta_den=5 (β=0.4)
+// Assert: Factory defaults updated
+// Create new pool
+// Assert: New pool has β = 0.4
+
+it("validates parameter bounds on update")
+// Try to set F = 15 (above max)
+// Assert: InvalidF error
+// Try to set β = 0.05 (below min)
+// Assert: InvalidBeta error
+```
+
+#### 4.2 Update Operational Limits
+**Purpose:** Test limit modifications
+```typescript
+it("allows update of min_initial_deposit")
+// Update from 100 USDC to 200 USDC
+// Assert: factory.min_initial_deposit = 200 USDC
+// New pools require 200 USDC minimum
+
+it("allows update of min_settle_interval")
+// Update from 300 to 600 seconds
+// Assert: factory.min_settle_interval = 600
+// New pools have 10-minute cooldown
+```
+
+#### 4.3 Defaults Only Affect New Pools
+**Purpose:** Verify existing pools unchanged
+```typescript
+it("existing pools retain original parameters after default update")
+// Create pool1 with default F=2
+// Update factory default_f to 5
+// Create pool2
+// Assert: pool1 still has F=2
+// Assert: pool2 has F=5
+```
+
+### 5. State Consistency
+
+#### 5.1 Pool Counter
+**Purpose:** Verify accurate pool counting
+```typescript
 it("increments total_pools atomically")
-// Setup: Read factory.totalPools before
-// Action: Create 3 pools in rapid succession (for loop)
-// Assert: factory.totalPools equals before + 3
-// Validates: No lost increments despite rapid creates
-// Status: ✅ PASSING
+// Initial: factory.total_pools = 0
+// Create 5 pools rapidly
+// Assert: factory.total_pools = 5
+// No lost increments
+
+it("handles concurrent pool creation")
+// Submit multiple create_pool transactions
+// All should succeed with unique content_ids
+// Counter should match total created
 ```
 
-## Important Tests Still Missing
-
-### High Priority (Should Implement)
-1. **Specific Error Code Assertions** - Replace generic `assert.ok(err)` with specific Anchor error checks
-   - Currently: Tests just check that errors occur
-   - Should: Verify exact error codes (e.g., `ErrorCode::Unauthorized`)
-   - Impact: Catches wrong error types
-
-### Medium Priority (Nice to Have)
-2. **Config Integration** - Test pool parameter validation when ProtocolConfig exists
-   - Validates k_quadratic and supply_cap are within configured bounds
-   - Only relevant when config system is used
-
-### Low Priority (Skip Unless Needed)
-3. **Registry PDA Derivation** - Explicit verification tests (already implicitly tested)
-4. **Multiple Pool Creation** - 100 pools scalability test (slow, marginal value)
-5. **Account Size Verification** - Byte size checks (fragile, low value)
-
-### Not Recommended (Remove from Scope)
-- **Authority Propagation** - Would require pool operations that check factory authority (not designed)
-- **Authority Recovery** - Governance choreography scenario (better as integration test)
-- **Split Authority Benefits** - Demonstration test (not verification)
-- **Attack Vector Tests** - Complex reentrancy/spoofing (better as security audit)
-- **Performance Tests** - Compute units (use profiling tools instead)
-- **Migration Tests** - Upgrade scenarios (deployment concern, not unit test)
-
-## Test Data Patterns
-
-### Post ID Generation
+#### 5.2 PDA Derivation
+**Purpose:** Verify deterministic addresses
 ```typescript
-const postId = crypto.createHash('sha256')
-  .update('unique-test-identifier')
-  .digest();
+it("derives consistent PDAs for factory")
+// Factory PDA = ["factory"]
+// Verify matches on-chain address
+
+it("derives consistent PDAs for registries")
+// Registry PDA = ["registry", content_id]
+// Create pool and verify registry address
+
+it("derives consistent PDAs for pools")
+// Pool PDA = ["content_pool", content_id]
+// Verify pool created at expected address
 ```
 
-### Token Metadata
+### 6. Custodian Integration
+
+#### 6.1 Custodian Reference
+**Purpose:** Verify custodian linkage
 ```typescript
-const tokenName = "Pool Name";
-const tokenSymbol = "SYM";
+it("stores custodian reference in factory")
+// Initialize with custodian address
+// Assert: factory.custodian = expected
+
+it("passes custodian to created pools")
+// Create pool through factory
+// Assert: Pool references same custodian
+// Pool will use custodian.stake_vault for skims
 ```
 
-### Airdrop Pattern
+### 7. Error Handling
+
+#### 7.1 Input Validation
+**Purpose:** Test error conditions
 ```typescript
-await provider.connection.requestAirdrop(
-  publicKey,
-  10 * anchor.web3.LAMPORTS_PER_SOL
-);
-await provider.connection.confirmTransaction(sig, 'confirmed');
-await new Promise(resolve => setTimeout(resolve, 1000)); // Settlement delay
+it("rejects invalid content_id (default pubkey)")
+// Try to create pool with Pubkey::default()
+// Assert: InvalidContentId error
+
+it("rejects pool creation without required signatures")
+// Missing user signature
+// Assert: Signature verification failed
+// Missing protocol signature
+// Assert: UnauthorizedProtocol error
 ```
 
-## Critical Implementation Learnings
+#### 7.2 Account Validation
+**Purpose:** Verify account checks
+```typescript
+it("validates content_pool_program in create_pool")
+// Pass wrong program ID
+// Assert: Constraint violation or CPI error
 
-### 1. Authority Signing Strategy
-- **Problem:** Cannot use external deterministic keypairs as signers
-- **Solution:** Use provider wallet (payer) as factory authority
-- **Reason:** Anchor requires signer instances it can recognize
-
-### 2. Test Isolation
-- **Problem:** Factory singleton persists across test runs
-- **Solution:** `test-isolated.sh` script with `--reset` flag
-- **Implementation:** Kills validator, starts fresh, runs tests
-
-### 3. Idempotent Initialization
-- **Pattern:** Tests check if factory exists before initializing
-- **Benefit:** Tests can run in any order without hard failures
-- **Implementation:** Catch "already in use" errors, validate state
-
-### 4. Authority Transfer Irreversibility
-- **Issue:** Transferring factory authority cannot be undone in test
-- **Impact:** Test mutates shared state permanently
-- **Mitigation:** Rely on validator reset between full test runs
-
-## Account Structure Verification
-
-### PoolFactory
-```rust
-pub struct PoolFactory {
-    pub factory_authority: Pubkey,    // 32 bytes
-    pub pool_authority: Pubkey,       // 32 bytes
-    pub total_pools: u64,             // 8 bytes
-    pub bump: u8,                     // 1 byte
-}
-// Total: 73 bytes + 8 bytes discriminator = 81 bytes
+it("validates custodian account exists")
+// Pass invalid custodian
+// Assert: Account validation fails
 ```
 
-### PoolRegistry
-```rust
-pub struct PoolRegistry {
-    pub post_id: [u8; 32],           // 32 bytes
-    pub pool_address: Pubkey,        // 32 bytes
-    pub created_at: i64,             // 8 bytes
-    pub bump: u8,                    // 1 byte
-}
-// Total: 73 bytes + 8 bytes discriminator = 81 bytes
+### 8. Events
+
+#### 8.1 Event Emission
+**Purpose:** Verify events for indexing
+```typescript
+it("emits FactoryInitializedEvent on init")
+// Initialize factory
+// Assert: Event contains authorities, custodian, timestamp
+
+it("emits PoolCreatedEvent on pool creation")
+// Create pool
+// Assert: Event contains pool, content_id, creator, params
+
+it("emits authority update events")
+// Update authorities
+// Assert: Events contain old and new values
 ```
 
-## Test Execution
+## Test Data Configuration
 
-### Run All Tests
-```bash
-cd solana/veritas-curation
-./test-isolated.sh
+### Constants
+```typescript
+// Seeds
+const FACTORY_SEED = "factory";
+const REGISTRY_SEED = "registry";
+const CONTENT_POOL_SEED = "content_pool";
+
+// Default parameters
+const DEFAULT_F = 2;
+const DEFAULT_BETA_NUM = 1;
+const DEFAULT_BETA_DEN = 2;
+
+// Limits
+const DEFAULT_MIN_INITIAL_DEPOSIT = 100_000_000; // 100 USDC
+const DEFAULT_MIN_SETTLE_INTERVAL = 300; // 5 minutes
+
+// Bounds
+const MIN_F = 1;
+const MAX_F = 10;
 ```
 
-### Expected Output
-```
-PoolFactory Tests
-  1. Factory Initialization
-    1.1 Singleton Factory Creation
-      ✔ initializes factory with dual authorities
-      ✔ prevents duplicate factory initialization
-  2. Pool Creation Through Factory
-    2.1 Permissionless Pool Creation
-      ✔ allows any user to create a pool
-    2.2 Registry Creation
-      ✔ creates registry entry for new pool
-    2.3 Pool-Factory Linkage
-      ✔ created pool contains factory reference
-  3. Authority Management
-    3.1 Update Pool Authority
-      ✔ allows factory_authority to update pool_authority
-      ✔ rejects pool_authority update from wrong signer
-      ✔ rejects pool_authority update from pool_authority itself
-    3.2 Update Factory Authority
-      ✔ allows factory_authority to transfer ownership
-  5. Edge Cases and Security
-    5.1 Post ID Uniqueness
-      ✔ prevents duplicate pools for same post_id
-  6. State Consistency
-    6.1 Total Pools Counter
-      ✔ increments total_pools atomically
-
-  11 passing
+### Mock Setup
+```typescript
+// Factory authority: Provider wallet or test keypair
+// Pool authority: Deterministic test keypair
+// Custodian: Mock VeritasCustodian PDA
+// Content IDs: SHA-256 hashes for uniqueness
+// Random users: Generated keypairs with SOL airdrops
 ```
 
-## Recommended Next Steps
+## Implementation Priority
 
-1. **Improve Error Assertions** (Quick Win)
-   - Replace `assert.ok(err)` with error code checks
-   - Example: `assert.ok(err.toString().includes("Unauthorized"))`
-   - Effort: 1-2 hours
-   - Value: High - catches error handling bugs
+### Phase 1: Core Functionality (Must Have)
+1. Factory initialization
+2. Pool creation with registry
+3. Authority management (both types)
+4. Duplicate prevention
+5. Parameter validation
 
-2. **Add Authority Validation Tests** (Added ✅)
-   - Invalid authority checks (default pubkey, system program)
-   - Already added in latest version
-   - 2 new tests passing
+### Phase 2: Advanced Features (Should Have)
+1. Default parameter updates
+2. Custodian integration
+3. Event emission
+4. Authority propagation testing
+5. Concurrent operation handling
 
-3. **Add Invalid Post ID Test** (Added ✅)
-   - Zero post_id rejection
-   - Already added in latest version
-   - 1 new test passing
+### Phase 3: Edge Cases (Nice to Have)
+1. Invalid input handling
+2. Account validation errors
+3. CPI failure scenarios
+4. Extreme parameter testing
 
-## Coverage Status
-- **Tests Implemented:** 14 tests (was 11)
-- **Tests Passing:** 14/14 (100%)
-- **Critical Paths:** ✅ Fully covered
-  - Factory initialization (singleton + validation)
-  - Pool creation (permissionless + registry)
-  - Authority management (update + rejection)
-  - Duplicate prevention
-  - State consistency
-- **Security Properties:** ✅ Validated
-  - Authority checks
-  - Invalid input rejection
-  - State invariants
+## Integration Points
+
+### With ContentPool
+- Factory creates pools via CPI
+- Pools store factory reference
+- Pools check factory.pool_authority for operations
+
+### With VeritasCustodian
+- Factory stores custodian address
+- Passes to pools during creation
+- Pools use custodian.stake_vault
+
+### With Backend
+- Backend validates content_id exists
+- Backend signs with pool_authority
+- User signs as fee payer
+
+## Test Count Summary
+
+### Total Tests: 35
+- **Factory Initialization:** 3 tests
+- **Pool Creation:** 8 tests
+- **Authority Management:** 7 tests
+- **Default Parameters:** 6 tests
+- **State Consistency:** 3 tests
+- **Custodian Integration:** 2 tests
+- **Error Handling:** 3 tests
+- **Events:** 3 tests
+
+### Critical Tests (MUST PASS)
+1. ✅ Factory singleton initialization
+2. ✅ Pool creation with registry
+3. ✅ Duplicate prevention via registry
+4. ✅ Authority updates (both types)
+5. ✅ CPI to ContentPool
+6. ✅ Parameter validation
+7. ✅ Protocol authority validation
+
+## Success Criteria
+- All 7 critical tests passing
+- 90%+ of all tests passing (32/35)
+- Factory singleton properly initialized
+- Authority model working as designed
+- Registry prevents duplicates
+- Events properly emitted for indexing
