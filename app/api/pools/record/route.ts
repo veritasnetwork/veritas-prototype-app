@@ -86,62 +86,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Post or belief not found' }, { status: 404 });
     }
 
-    // Check if already exists (idempotency)
-    const { data: existing } = await supabase
-      .from('pool_deployments')
-      .select('id')
-      .eq('pool_address', poolAddress)
-      .single();
+    // Call atomic RPC function with advisory lock
+    // This prevents race conditions when multiple requests try to deploy the same pool
+    const { data: result, error: rpcError } = await supabase.rpc('deploy_pool_with_lock', {
+      p_post_id: postId,
+      p_pool_address: poolAddress,
+      p_belief_id: post.belief_id,
+      p_long_mint_address: longMintAddress,
+      p_short_mint_address: shortMintAddress,
+      p_deployment_tx_signature: signature,
+    });
 
-    if (existing) {
-      console.log('[/api/pools/record] Pool already recorded');
-      return NextResponse.json({ success: true, recordId: existing.id });
+    if (rpcError) {
+      console.error('[/api/pools/record] RPC error:', rpcError);
+      return NextResponse.json(
+        { error: 'Failed to record deployment', details: rpcError.message },
+        { status: 500 }
+      );
     }
 
-    // Calculate short allocation
+    if (!result?.success) {
+      if (result?.error === 'LOCKED') {
+        return NextResponse.json(
+          { error: 'Pool deployment already in progress for this post' },
+          { status: 409 }
+        );
+      }
+      if (result?.error === 'EXISTS') {
+        console.log('[/api/pools/record] Pool already recorded:', result.pool_address);
+        return NextResponse.json({
+          success: true,
+          poolAddress: result.pool_address,
+          note: 'Pool already recorded'
+        });
+      }
+      return NextResponse.json(
+        { error: result?.message || 'Deployment recording failed' },
+        { status: 500 }
+      );
+    }
+
+    console.log('[/api/pools/record] Pool deployment recorded via RPC:', result.pool_address);
+
+    // Calculate short allocation for implied relevance tracking
     const shortAllocation = initialDeposit * 1_000_000 - longAllocation;
-
-    // Insert pool_deployment record with full state
-    // NOTE: With on-manifold deployment, token supplies (s_long_supply, s_short_supply)
-    // are no longer equal to USDC allocations. They are calculated via the bonding curve.
-    const { data: deployment, error: insertError } = await supabase
-      .from('pool_deployments')
-      .insert({
-        post_id: postId,
-        belief_id: post.belief_id,
-        pool_address: poolAddress,
-        deployed_by_agent_id: user.agent_id,
-        deployment_tx_signature: signature,
-        market_deployment_tx_signature: signature, // Same signature for combined tx
-        deployed_at: new Date().toISOString(),
-        market_deployed_at: new Date().toISOString(),
-        initial_usdc: initialDeposit * 1_000_000,
-        initial_long_allocation: longAllocation,
-        initial_short_allocation: shortAllocation,
-        s_long_supply: sLongSupply, // Actual minted tokens (from on-chain event)
-        s_short_supply: sShortSupply, // Actual minted tokens (from on-chain event)
-        long_mint_address: longMintAddress,
-        short_mint_address: shortMintAddress,
-        vault_balance: initialDeposit * 1_000_000, // Total vault balance
-        f: f ?? 1, // Default ICBS growth exponent (changed from 2 to 1)
-        beta_num: betaNum ?? 1, // Default β numerator
-        beta_den: betaDen ?? 2, // Default β denominator (β = 0.5)
-        sqrt_lambda_long_x96: sqrtLambdaX96,
-        sqrt_lambda_short_x96: sqrtLambdaX96, // Same for both sides (global λ)
-        sqrt_price_long_x96: sqrtPriceLongX96,
-        sqrt_price_short_x96: sqrtPriceShortX96,
-        status: 'market_deployed', // Pool is fully deployed after combined tx
-        last_synced_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
-
-    if (insertError) {
-      console.error('[/api/pools/record] Insert error:', insertError);
-      return NextResponse.json({ error: 'Failed to record deployment' }, { status: 500 });
-    }
-
-    console.log('[/api/pools/record] Pool deployment recorded:', deployment.id);
 
     // Record initial implied relevance (50/50 split at deployment)
     const initialReserveLong = (initialDeposit * 1_000_000) / 2;
@@ -172,7 +160,7 @@ export async function POST(req: NextRequest) {
       console.log('[/api/pools/record] Initial implied relevance recorded: 0.5');
     }
 
-    return NextResponse.json({ success: true, recordId: deployment.id });
+    return NextResponse.json({ success: true, poolAddress: result.pool_address });
 
   } catch (error) {
     console.error('[/api/pools/record] Error:', error);
