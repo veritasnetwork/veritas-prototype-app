@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 
 export async function GET() {
   try {
+    const supabase = getSupabaseServiceRole();
+
     // Fetch ICBS pool config from system_config table
     const { data, error } = await supabase
       .from('system_config')

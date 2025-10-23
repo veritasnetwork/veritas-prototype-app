@@ -11,10 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   console.log('[/api/pools/deploy-market] Validation request received');
@@ -35,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getSupabaseServiceRole();
 
     // Get user_id from Privy ID
     const { data: user, error: userError } = await supabase

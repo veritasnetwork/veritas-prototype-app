@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getRpcEndpoint } from '@/lib/solana/network-config';
 import { PostAPIResponseSchema } from '@/types/api';
@@ -36,10 +36,7 @@ export async function GET(
     const { id } = await params;
     console.log('[Post API] Fetching post with id:', id);
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = getSupabaseServiceRole();
 
     // Fetch post with all related data - using simpler syntax
     const { data: post, error } = await supabase
@@ -51,6 +48,10 @@ export async function GET(
           username,
           display_name,
           avatar_url
+        ),
+        beliefs!posts_belief_id_fkey (
+          id,
+          previous_aggregate
         ),
         pool_deployments (
           pool_address,
@@ -91,6 +92,7 @@ export async function GET(
 
     // Extract nested relations
     const userData = Array.isArray(post.users) ? post.users[0] : post.users;
+    const beliefData = Array.isArray(post.beliefs) ? post.beliefs[0] : post.beliefs;
     let poolData = post.pool_deployments?.[0] || null;
 
     console.log('[Post API] Extracted data:', {
@@ -99,12 +101,12 @@ export async function GET(
       postType: post.post_type
     });
 
-    // Sync pool data from chain if pool exists and is stale (older than 10 seconds)
+    // Sync pool data from chain if pool exists and is stale (older than 60 seconds)
     // This ensures fresh data when viewing post details
     if (poolData?.pool_address) {
       const lastSynced = poolData.last_synced_at ? new Date(poolData.last_synced_at).getTime() : 0;
       const now = Date.now();
-      const SYNC_THRESHOLD_MS = 10000; // 10 seconds for individual post (more aggressive than feed)
+      const SYNC_THRESHOLD_MS = 60000; // 60 seconds for individual post
 
       if ((now - lastSynced) > SYNC_THRESHOLD_MS) {
         try {
@@ -199,8 +201,8 @@ export async function GET(
         avatar_url: userData.avatar_url
       } : null,
 
-      // Belief info (TODO: Implement belief aggregation from belief_submissions)
-      belief: null,
+      // Belief info
+      belief: null, // TODO: Add belief schema when protocol integration complete
 
       // Pool info (ICBS - synced from chain if stale)
       poolAddress: poolData?.pool_address || null,
@@ -211,6 +213,7 @@ export async function GET(
       poolSqrtPriceLongX96: poolData?.sqrt_price_long_x96 || null,
       poolSqrtPriceShortX96: poolData?.sqrt_price_short_x96 || null,
       poolVaultBalance: poolData?.vault_balance ? Number(poolData.vault_balance) / USDC_PRECISION : null,
+      poolLastSyncedAt: poolData?.last_synced_at || null,
       // ICBS parameters (F is FIXED at 1 for all pools)
       poolF: poolData?.f || 1,
       poolBetaNum: poolData?.beta_num || 1,

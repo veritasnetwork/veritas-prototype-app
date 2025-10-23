@@ -8,10 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getSupabaseServiceRole();
 
     // Get pool deployment info
     const { data: pool, error: poolError } = await supabase

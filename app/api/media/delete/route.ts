@@ -4,17 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
-
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Use service role for storage access
-);
 
 export async function DELETE(request: NextRequest) {
   try {
+    const supabase = getSupabaseServiceRole();
+
     // Verify authentication
     const authHeader = request.headers.get('Authorization');
     const privyUserId = await verifyAuthHeader(authHeader);

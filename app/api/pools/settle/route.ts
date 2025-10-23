@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import { VeritasCuration } from '@/lib/solana/target/types/veritas_curation';
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getSupabaseServiceRole();
 
     // Get pool deployment and belief data
     const { data: poolDeployment, error: poolError } = await supabase

@@ -7,14 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
-
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Use service role for storage access
-);
 
 // File validation constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB for images
@@ -37,6 +31,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const supabase = getSupabaseServiceRole();
 
     // Get user_id from Privy user (auth_provider = 'privy' and auth_id = privyUserId)
     const { data: userData, error: userError } = await supabase

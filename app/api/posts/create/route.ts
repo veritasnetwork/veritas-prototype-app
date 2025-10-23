@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Use service role to bypass RLS
-);
 
 // Helper function to extract plain text from Tiptap JSON
 function extractPlainTextFromTiptap(doc: any): string {
@@ -119,6 +114,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Get Supabase singleton client
+    const supabase = getSupabaseServiceRole();
 
     // Fetch user and config in parallel
     const [

@@ -13,16 +13,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { VeritasCuration } from '@/lib/solana/target/types/veritas_curation';
 import { loadProtocolAuthority } from '@/lib/solana/load-authority';
 import idl from '@/lib/solana/target/idl/veritas_curation.json';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const programId = process.env.NEXT_PUBLIC_VERITAS_PROGRAM_ID!;
 const rpcEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || 'http://127.0.0.1:8899';
 
@@ -96,8 +93,8 @@ export async function POST(
       return NextResponse.json({ error: 'walletAddress is required' }, { status: 400 });
     }
 
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Get Supabase singleton client
+    const supabase = getSupabaseServiceRole();
 
     // Get pool deployment
     const { data: poolDeployment, error: poolError } = await supabase

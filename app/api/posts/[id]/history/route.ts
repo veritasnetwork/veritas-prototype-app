@@ -1,39 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAnon } from '@/lib/supabase-server';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Supabase configuration missing' },
-        { status: 500 }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { id: postId } = await params;
+    const supabase = getSupabaseAnon();
 
     // Fetch belief history (absolute BD relevance scores)
     const { data: beliefHistory, error: beliefError } = await supabase
       .from('belief_relevance_history')
       .select('epoch, aggregate, certainty, disagreement_entropy, recorded_at')
-      .eq('post_id', params.id)
+      .eq('post_id', postId)
       .order('epoch', { ascending: true });
 
     if (beliefError) {
       console.error('Error fetching belief history:', beliefError);
     }
 
+    // Fetch implied relevance history (market-predicted relevance from reserves)
+    const { data: impliedHistory, error: impliedError } = await supabase
+      .from('implied_relevance_history')
+      .select('implied_relevance, reserve_long, reserve_short, event_type, recorded_at')
+      .eq('post_id', postId)
+      .order('recorded_at', { ascending: true });
+
+    if (impliedError) {
+      console.error('Error fetching implied relevance history:', impliedError);
+    }
+
     // Fetch price history from trades (ICBS: track LONG and SHORT prices separately)
     const { data: priceHistory, error: priceError } = await supabase
       .from('trades')
       .select('side, sqrt_price_long_x96, sqrt_price_short_x96, price_long, price_short, s_long_after, s_short_after, recorded_at, trade_type, tx_signature')
-      .eq('post_id', params.id)
+      .eq('post_id', postId)
       .order('recorded_at', { ascending: true });
 
     if (priceError) {
@@ -69,7 +71,7 @@ export async function GET(
           display_name
         )
       `)
-      .eq('post_id', params.id)
+      .eq('post_id', postId)
       .order('recorded_at', { ascending: true });
 
     if (tradeError) {
@@ -78,6 +80,7 @@ export async function GET(
 
     return NextResponse.json({
       belief_history: beliefHistory || [],
+      implied_relevance_history: impliedHistory || [],
       price_history: transformedPriceHistory || [],
       trade_history: tradeHistory || []
     });

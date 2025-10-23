@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { TradeHistoryResponseSchema } from '@/types/api';
 
 interface Trade {
@@ -9,6 +9,7 @@ interface Trade {
   usdc_amount: string;
   token_amount: string;
   trade_type: 'buy' | 'sell';
+  side: 'LONG' | 'SHORT';
 }
 
 export async function GET(
@@ -16,9 +17,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getSupabaseServiceRole();
     const { id: postId } = await params;
     const { searchParams } = new URL(request.url);
     const timeRange = searchParams.get('range') || 'ALL';
@@ -59,7 +58,7 @@ export async function GET(
     // Fetch trades with sqrt prices from database
     let query = supabase
       .from('trades')
-      .select('recorded_at, price_long, price_short, usdc_amount, token_amount, trade_type')
+      .select('recorded_at, price_long, price_short, usdc_amount, token_amount, trade_type, side')
       .eq('pool_address', poolData.pool_address)
       .order('recorded_at', { ascending: true });
 
@@ -95,37 +94,43 @@ export async function GET(
     }
 
     // Transform trades to chart format using stored sqrt prices
-    // Use average of long/short prices for the chart
-    const priceData = trades
-      .filter((trade) => {
-        // Only include trades that have valid price data
-        const hasValidPrice = trade.price_long !== null && trade.price_short !== null &&
-                             trade.price_long > 0 && trade.price_short > 0;
-        if (!hasValidPrice && process.env.NODE_ENV === 'development') {
-          console.warn('[TRADES API] Skipping trade without sqrt prices:', {
-            recorded_at: trade.recorded_at,
-            price_long: trade.price_long,
-            price_short: trade.price_short
-          });
-        }
-        return hasValidPrice;
-      })
-      .map((trade, index) => {
-        // Average of long and short prices for display
-        const avgPrice = ((trade.price_long! + trade.price_short!) / 2);
+    // Split LONG and SHORT prices into separate series for ICBS two-sided markets
+    const validTrades = trades.filter((trade) => {
+      // Only include trades that have valid price data
+      const hasValidPrice = trade.price_long !== null && trade.price_short !== null &&
+                           trade.price_long > 0 && trade.price_short > 0;
+      if (!hasValidPrice && process.env.NODE_ENV === 'development') {
+        console.warn('[TRADES API] Skipping trade without sqrt prices:', {
+          recorded_at: trade.recorded_at,
+          price_long: trade.price_long,
+          price_short: trade.price_short
+        });
+      }
+      return hasValidPrice;
+    });
 
-        // Handle duplicate timestamps by adding milliseconds
-        const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
-        const uniqueTime = baseTime + index * 0.001; // Add small offset for duplicates
+    // Separate price series for LONG and SHORT tokens
+    const priceLongData = validTrades.map((trade, index) => {
+      const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
+      const uniqueTime = baseTime + index * 0.001; // Add small offset for duplicates
+      return {
+        time: uniqueTime,
+        value: trade.price_long!,
+      };
+    });
 
-        return {
-          time: uniqueTime,
-          value: avgPrice,
-        };
-      });
+    const priceShortData = validTrades.map((trade, index) => {
+      const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
+      const uniqueTime = baseTime + index * 0.001;
+      return {
+        time: uniqueTime,
+        value: trade.price_short!,
+      };
+    });
 
+    // Volume data split by side (LONG vs SHORT)
     const volumeData = trades
-      .filter((trade) => trade.price_long !== null && trade.price_short !== null)
+      .filter((trade) => trade.price_long !== null && trade.price_short !== null && trade.side)
       .map((trade, index) => {
         // Handle duplicate timestamps
         const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
@@ -134,37 +139,73 @@ export async function GET(
         return {
           time: uniqueTime,
           value: parseFloat(trade.usdc_amount),
-          color: trade.trade_type === 'buy' ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)' // green for buy, red for sell
+          // Light blue for LONG, Orange for SHORT
+          color: trade.side === 'LONG' ? 'rgba(185, 217, 235, 0.8)' : 'rgba(249, 115, 22, 0.8)'
         };
       });
 
-    // Calculate stats
-    const prices = priceData.map((d: { value: number }) => d.value);
-    const totalVolume = trades.reduce((sum: number, trade: Trade) => sum + parseFloat(trade.usdc_amount), 0);
-    const highestPrice = Math.max(...prices);
-    const lowestPrice = Math.min(...prices);
+    // Calculate stats for LONG and SHORT separately
+    const priceLongValues = priceLongData.map((d: { value: number }) => d.value);
+    const priceShortValues = priceShortData.map((d: { value: number }) => d.value);
 
-    // Calculate 24h price change
+    // Calculate volumes by side
+    const totalVolume = trades.reduce((sum: number, trade: Trade) => sum + parseFloat(trade.usdc_amount), 0);
+    const volumeLong = trades
+      .filter((t: Trade) => t.side === 'LONG')
+      .reduce((sum: number, trade: Trade) => sum + parseFloat(trade.usdc_amount), 0);
+    const volumeShort = trades
+      .filter((t: Trade) => t.side === 'SHORT')
+      .reduce((sum: number, trade: Trade) => sum + parseFloat(trade.usdc_amount), 0);
+
+    // LONG stats
+    const highestPriceLong = priceLongValues.length > 0 ? Math.max(...priceLongValues) : 0;
+    const lowestPriceLong = priceLongValues.length > 0 ? Math.min(...priceLongValues) : 0;
+    const currentPriceLong = priceLongValues.length > 0 ? priceLongValues[priceLongValues.length - 1] : 0;
+
+    // SHORT stats
+    const highestPriceShort = priceShortValues.length > 0 ? Math.max(...priceShortValues) : 0;
+    const lowestPriceShort = priceShortValues.length > 0 ? Math.min(...priceShortValues) : 0;
+    const currentPriceShort = priceShortValues.length > 0 ? priceShortValues[priceShortValues.length - 1] : 0;
+
+    // Calculate 24h price change for LONG
     const now24hAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const trades24h = trades.filter((t: Trade) => new Date(t.recorded_at) >= now24hAgo);
-    const priceChange24h = trades24h.length > 0
-      ? prices[prices.length - 1] - prices[Math.max(0, prices.length - trades24h.length)]
+    const trades24h = validTrades.filter((t: Trade) => new Date(t.recorded_at) >= now24hAgo);
+    const priceChangeLong24h = trades24h.length > 0 && priceLongValues.length > 0
+      ? priceLongValues[priceLongValues.length - 1] - priceLongValues[Math.max(0, priceLongValues.length - trades24h.length)]
       : 0;
-    const priceChangePercent24h = trades24h.length > 0 && prices[Math.max(0, prices.length - trades24h.length)] > 0
-      ? (priceChange24h / prices[Math.max(0, prices.length - trades24h.length)]) * 100
+    const priceChangePercentLong24h = trades24h.length > 0 && priceLongValues.length > 1 && priceLongValues[Math.max(0, priceLongValues.length - trades24h.length)] > 0
+      ? (priceChangeLong24h / priceLongValues[Math.max(0, priceLongValues.length - trades24h.length)]) * 100
+      : 0;
+
+    // Calculate 24h price change for SHORT
+    const priceChangeShort24h = trades24h.length > 0 && priceShortValues.length > 0
+      ? priceShortValues[priceShortValues.length - 1] - priceShortValues[Math.max(0, priceShortValues.length - trades24h.length)]
+      : 0;
+    const priceChangePercentShort24h = trades24h.length > 0 && priceShortValues.length > 1 && priceShortValues[Math.max(0, priceShortValues.length - trades24h.length)] > 0
+      ? (priceChangeShort24h / priceShortValues[Math.max(0, priceShortValues.length - trades24h.length)]) * 100
       : 0;
 
     const response = {
-      priceData,
+      priceLongData,
+      priceShortData,
       volumeData,
       stats: {
         totalVolume,
         totalTrades: trades.length,
-        highestPrice,
-        lowestPrice,
-        currentPrice: prices[prices.length - 1] || 0,
-        priceChange24h,
-        priceChangePercent24h
+        volumeLong,
+        volumeShort,
+        // LONG stats
+        currentPriceLong,
+        highestPriceLong,
+        lowestPriceLong,
+        priceChangeLong24h,
+        priceChangePercentLong24h,
+        // SHORT stats
+        currentPriceShort,
+        highestPriceShort,
+        lowestPriceShort,
+        priceChangeShort24h,
+        priceChangePercentShort24h,
       }
     };
 
