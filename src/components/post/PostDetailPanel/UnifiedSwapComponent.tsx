@@ -31,6 +31,8 @@ interface UnifiedSwapComponentProps {
   f: number;                // ICBS parameter (default 2)
   betaNum: number;          // ICBS parameter (default 1)
   betaDen: number;          // ICBS parameter (default 2)
+  selectedSide?: TokenSide; // Controlled side state (optional)
+  onSideChange?: (side: TokenSide) => void; // Callback when side changes
   onTradeSuccess?: () => void; // Callback to refresh data after successful trade
 }
 
@@ -47,11 +49,23 @@ export function UnifiedSwapComponent({
   f,
   betaNum,
   betaDen,
+  selectedSide,
+  onSideChange,
   onTradeSuccess
 }: UnifiedSwapComponentProps) {
-  // State
+  // State - use controlled side if provided, otherwise use internal state
   const [mode, setMode] = useState<SwapMode>('buy');
-  const [side, setSide] = useState<TokenSide>('LONG');
+  const [internalSide, setInternalSide] = useState<TokenSide>('LONG');
+
+  // Determine which side state to use
+  const side = selectedSide !== undefined ? selectedSide : internalSide;
+  const setSide = (newSide: TokenSide) => {
+    if (onSideChange) {
+      onSideChange(newSide); // Use controlled state
+    } else {
+      setInternalSide(newSide); // Use internal state
+    }
+  };
   const [inputAmount, setInputAmount] = useState('');
   const [outputAmount, setOutputAmount] = useState('');
   const [outputAmountRaw, setOutputAmountRaw] = useState<number>(0); // Store raw value for rotation
@@ -115,6 +129,22 @@ export function UnifiedSwapComponent({
       const currentSupply = side === 'LONG' ? supplyLong : supplyShort;
       const otherSupply = side === 'LONG' ? supplyShort : supplyLong;
 
+      // Calculate lambda from current price and supply
+      // For ICBS F=1, β=0.5: p = λ × s / ||s||, so λ = p × ||s|| / s
+      const norm = Math.sqrt(supplyLong * supplyLong + supplyShort * supplyShort);
+      const currentPrice = side === 'LONG' ? priceLong : priceShort;
+      const currentSupplyForLambda = side === 'LONG' ? supplyLong : supplyShort;
+      const lambdaScale = currentSupplyForLambda > 0
+        ? (currentPrice * norm) / currentSupplyForLambda
+        : 1.0;
+
+      console.log('[SWAP] Lambda calculation:', {
+        norm,
+        currentPrice,
+        currentSupply: currentSupplyForLambda,
+        lambdaScale
+      });
+
       if (mode === 'buy') {
         // Calculate tokens received for USDC input
         const tokensOut = estimateTokensOut(
@@ -122,7 +152,7 @@ export function UnifiedSwapComponent({
           otherSupply,
           input,
           icbsSide,
-          1.0, // lambdaScale
+          lambdaScale,
           f,
           betaNum,
           betaDen
@@ -143,7 +173,7 @@ export function UnifiedSwapComponent({
           otherSupply,
           input,
           icbsSide,
-          1.0, // lambdaScale
+          lambdaScale,
           f,
           betaNum,
           betaDen
@@ -161,7 +191,7 @@ export function UnifiedSwapComponent({
     } catch (error) {
       console.error('Error calculating amounts:', error);
     }
-  }, [inputAmount, mode, side, supplyLong, supplyShort, f, betaNum, betaDen]);
+  }, [inputAmount, mode, side, supplyLong, supplyShort, priceLong, priceShort, f, betaNum, betaDen]);
 
   // Handle input field change
   const handleInputChange = (value: string) => {
@@ -318,13 +348,20 @@ export function UnifiedSwapComponent({
   return (
     <div className="space-y-2">
       {/* Side Toggle - LONG/SHORT */}
-      <div className="flex gap-2 p-1 bg-[#0f0f0f] rounded-lg border border-[#2a2a2a]">
+      <div className="relative flex gap-2 p-1 bg-[#0f0f0f] rounded-lg border border-[#2a2a2a]">
+        {/* Animated background slider */}
+        <div
+          className={cn(
+            "absolute top-1 bottom-1 rounded-md transition-all duration-300 ease-in-out",
+            side === 'LONG' ? "left-1 right-[calc(50%+4px)] bg-[#B9D9EB]" : "left-[calc(50%+4px)] right-1 bg-orange-500"
+          )}
+        />
         <button
           onClick={() => setSide('LONG')}
           className={cn(
-            "flex-1 py-2 px-4 rounded font-medium transition-all text-sm",
+            "flex-1 py-2 px-4 rounded-md font-medium transition-colors duration-300 text-sm relative z-10",
             side === 'LONG'
-              ? "bg-green-500 text-white"
+              ? "text-black"
               : "text-gray-400 hover:text-white"
           )}
         >
@@ -333,9 +370,9 @@ export function UnifiedSwapComponent({
         <button
           onClick={() => setSide('SHORT')}
           className={cn(
-            "flex-1 py-2 px-4 rounded font-medium transition-all text-sm",
+            "flex-1 py-2 px-4 rounded-md font-medium transition-colors duration-300 text-sm relative z-10",
             side === 'SHORT'
-              ? "bg-red-500 text-white"
+              ? "text-white"
               : "text-gray-400 hover:text-white"
           )}
         >
@@ -356,12 +393,12 @@ export function UnifiedSwapComponent({
             step={mode === 'buy' ? '0.01' : '1'}
           />
           <div className={cn(
-            "px-3 py-2 md:px-2 md:py-1 rounded text-sm md:text-xs font-medium text-white",
+            "px-3 py-2 md:px-2 md:py-1 rounded text-sm md:text-xs font-medium",
             mode === 'buy'
-              ? "bg-[#2a2a2a]"
+              ? "bg-[#2a2a2a] text-white"
               : side === 'LONG'
-              ? "bg-green-500/20 text-green-400"
-              : "bg-red-500/20 text-red-400"
+              ? "bg-[#B9D9EB]/20 text-[#B9D9EB]"
+              : "bg-orange-500/20 text-orange-400"
           )}>
             {mode === 'buy' ? 'USDC' : `${side}`}
           </div>
@@ -402,12 +439,12 @@ export function UnifiedSwapComponent({
             placeholder="0"
           />
           <div className={cn(
-            "px-3 py-2 md:px-2 md:py-1 rounded text-sm md:text-xs font-medium text-white",
+            "px-3 py-2 md:px-2 md:py-1 rounded text-sm md:text-xs font-medium",
             mode === 'buy'
               ? side === 'LONG'
-                ? "bg-green-500/20 text-green-400"
-                : "bg-red-500/20 text-red-400"
-              : "bg-[#2a2a2a]"
+                ? "bg-[#B9D9EB]/20 text-[#B9D9EB]"
+                : "bg-orange-500/20 text-orange-400"
+              : "bg-[#2a2a2a] text-white"
           )}>
             {mode === 'buy' ? side : 'USDC'}
           </div>
@@ -419,12 +456,12 @@ export function UnifiedSwapComponent({
         onClick={() => canSwap && setShowPreview(true)}
         disabled={!canSwap}
         className={cn(
-          "w-full py-3 md:py-2.5 font-medium rounded-lg transition-all text-base md:text-sm text-white min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed",
+          "w-full py-3 md:py-2.5 font-medium rounded-lg transition-all text-base md:text-sm min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed",
           mode === 'buy'
             ? side === 'LONG'
-              ? "bg-green-500 hover:bg-green-600"
-              : "bg-red-500 hover:bg-red-600"
-            : "bg-orange-500 hover:bg-orange-600"
+              ? "bg-[#B9D9EB] hover:bg-[#a3cfe3] text-black"
+              : "bg-orange-500 hover:bg-orange-600 text-white"
+            : "bg-orange-500 hover:bg-orange-600 text-white"
         )}
       >
         {isLoading ? 'Processing...' : `${mode === 'buy' ? 'Buy' : 'Sell'} ${side}`}
@@ -479,17 +516,13 @@ export function UnifiedSwapComponent({
               </div>
             </div>
 
-            <p className="text-xs text-gray-400 mb-4">
-              Min. received: {(parseFloat(outputAmount) * (1 - parseFloat(slippage) / 100)).toFixed(2)} {mode === 'buy' ? side : 'USDC'}
-            </p>
-
             {/* Belief Submission */}
             <div className="space-y-3 mb-4 border-t border-gray-800 pt-4">
               <p className="text-sm font-medium text-gray-300">Record your belief</p>
 
               <div>
                 <label htmlFor="initial-belief-trade" className="block text-xs text-gray-400 mb-1.5">
-                  Initial Belief (0 = False, 1 = True)
+                  How relevant is this post?
                 </label>
                 <div className="flex items-center gap-3">
                   <input
@@ -503,14 +536,14 @@ export function UnifiedSwapComponent({
                     className="flex-1 accent-[#B9D9EB] h-1"
                   />
                   <span className="text-xs font-mono text-gray-300 w-10 text-right">
-                    {initialBelief.toFixed(2)}
+                    {Math.round(initialBelief * 100)}%
                   </span>
                 </div>
               </div>
 
               <div>
                 <label htmlFor="meta-belief-trade" className="block text-xs text-gray-400 mb-1.5">
-                  Meta Belief (What % of others will agree?)
+                  How relevant will others think it is?
                 </label>
                 <div className="flex items-center gap-3">
                   <input
@@ -524,7 +557,7 @@ export function UnifiedSwapComponent({
                     className="flex-1 accent-[#B9D9EB] h-1"
                   />
                   <span className="text-xs font-mono text-gray-300 w-10 text-right">
-                    {metaBelief.toFixed(2)}
+                    {Math.round(metaBelief * 100)}%
                   </span>
                 </div>
               </div>
@@ -544,12 +577,12 @@ export function UnifiedSwapComponent({
                 }}
                 disabled={isLoading}
                 className={cn(
-                  "flex-1 py-3 md:py-2 font-medium rounded-lg transition-colors text-base md:text-sm min-h-[44px] md:min-h-0 text-white",
+                  "flex-1 py-3 md:py-2 font-medium rounded-lg transition-colors text-base md:text-sm min-h-[44px] md:min-h-0",
                   mode === 'buy'
                     ? side === 'LONG'
-                      ? "bg-green-500 hover:bg-green-600"
-                      : "bg-red-500 hover:bg-red-600"
-                    : "bg-orange-500 hover:bg-orange-600"
+                      ? "bg-[#B9D9EB] hover:bg-[#a3cfe3] text-black"
+                      : "bg-orange-500 hover:bg-orange-600 text-white"
+                    : "bg-orange-500 hover:bg-orange-600 text-white"
                 )}
               >
                 {isLoading ? 'Processing...' : 'Confirm'}

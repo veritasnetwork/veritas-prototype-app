@@ -219,28 +219,42 @@ async function calculateTradeOutputs(params: {
 }): Promise<{ tokensOut: number; usdcOut: number }> {
   try {
     const { fetchPoolData } = await import('@/lib/solana/fetch-pool-data');
-    const { simulateTrade } = await import('@/lib/solana/icbs-pricing');
+    const { estimateTokensOut, estimateUsdcOut, TokenSide } = await import('@/lib/solana/icbs-pricing');
 
     const poolData = await fetchPoolData(params.poolAddress, params.connection.rpcEndpoint);
 
-    // Simulate the trade
-    const result = simulateTrade({
-      supplyLong: poolData.supplyLong,
-      supplyShort: poolData.supplyShort,
-      sqrtLambdaLong: poolData._raw.sqrtLambdaLongX96,
-      sqrtLambdaShort: poolData._raw.sqrtLambdaShortX96,
-      f: poolData.f,
-      betaNum: poolData.betaNum,
-      betaDen: poolData.betaDen,
-      side: params.side.toUpperCase() as 'LONG' | 'SHORT',
-      isBuy: params.tradeType === 'buy',
-      amount: params.amount,
-    });
+    const side = params.side.toUpperCase() as 'LONG' | 'SHORT';
+    const icbsSide = side === 'LONG' ? TokenSide.Long : TokenSide.Short;
+    const currentSupply = side === 'LONG' ? poolData.supplyLong : poolData.supplyShort;
+    const otherSupply = side === 'LONG' ? poolData.supplyShort : poolData.supplyLong;
+    const lambdaScale = 1.0; // Use default lambda scale
 
-    return {
-      tokensOut: result.tokensOut,
-      usdcOut: result.usdcOut,
-    };
+    // Simulate the trade
+    if (params.tradeType === 'buy') {
+      const tokensOut = estimateTokensOut(
+        currentSupply,
+        otherSupply,
+        params.amount / 1_000_000, // Convert micro-USDC to USDC
+        icbsSide,
+        lambdaScale,
+        poolData.f,
+        poolData.betaNum,
+        poolData.betaDen
+      );
+      return { tokensOut, usdcOut: 0 };
+    } else {
+      const usdcOut = estimateUsdcOut(
+        currentSupply,
+        otherSupply,
+        params.amount / 1_000_000, // Convert atomic tokens to display units
+        icbsSide,
+        lambdaScale,
+        poolData.f,
+        poolData.betaNum,
+        poolData.betaDen
+      );
+      return { tokensOut: 0, usdcOut };
+    }
   } catch (error) {
     console.warn('[TRADE SIMULATION] Could not simulate trade:', error);
     // Return zeros if simulation fails - trade will still work

@@ -47,16 +47,35 @@ interface RecordTradeRequest {
 }
 
 export async function POST(req: NextRequest) {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🔵 [/api/trades/record] Trade recording request received');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
   try {
     const body: RecordTradeRequest = await req.json();
 
+    console.log('[STEP 1/7] Request body:', {
+      tx_signature: body.tx_signature,
+      wallet_address: body.wallet_address,
+      trade_type: body.trade_type,
+      side: body.side,
+      token_amount: body.token_amount,
+      usdc_amount: body.usdc_amount,
+      pool_address: body.pool_address,
+      post_id: body.post_id,
+      user_id: body.user_id,
+    });
+
     // Validate required fields
     if (!body.tx_signature || !body.wallet_address || !body.trade_type || !body.usdc_amount || !body.side) {
+      console.error('[STEP 1/7] ❌ Missing required fields');
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
+
+    console.log('[STEP 1/7] ✅ Validation passed');
 
     // Check rate limit (50 trades per hour)
     try {
@@ -81,6 +100,7 @@ export async function POST(req: NextRequest) {
     // Create Supabase client
     const supabase = getSupabaseServiceRole();
 
+    console.log('[STEP 2/7] Looking up user agent...');
     // Get agent_id and belief_id first (needed for RPC call)
     const { data: user, error: userError } = await supabase
       .from('users')
@@ -89,7 +109,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (userError || !user?.agent_id) {
-      console.error('[AGENT LOOKUP] Could not find agent for user:', body.user_id);
+      console.error('[STEP 2/7] ❌ Could not find agent for user:', body.user_id, userError);
       return NextResponse.json(
         { error: 'User agent not found' },
         { status: 400 }
@@ -97,7 +117,9 @@ export async function POST(req: NextRequest) {
     }
 
     const agentId = user.agent_id;
+    console.log('[STEP 2/7] ✅ Agent found:', agentId);
 
+    console.log('[STEP 3/7] Looking up belief_id from pool deployment...');
     // Get belief_id from pool_deployments
     const { data: poolDeployment, error: poolError } = await supabase
       .from('pool_deployments')
@@ -106,7 +128,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (poolError || !poolDeployment?.belief_id) {
-      console.error('[BELIEF LOOKUP] Could not find pool deployment for post:', body.post_id);
+      console.error('[STEP 3/7] ❌ Could not find pool deployment for post:', body.post_id, poolError);
       return NextResponse.json(
         { error: 'Pool deployment not found' },
         { status: 400 }
@@ -114,10 +136,14 @@ export async function POST(req: NextRequest) {
     }
 
     const beliefId = poolDeployment.belief_id;
+    console.log('[STEP 3/7] ✅ Belief found:', beliefId);
 
+    console.log('[STEP 4/7] Calculating token balance...');
     // Calculate new token balance based on trade type
     const tokenAmount = parseFloat(body.token_amount);
     const usdcAmount = parseFloat(body.usdc_amount);
+
+    console.log('[STEP 4/7] Trade amounts:', { tokenAmount, usdcAmount });
 
     // Get current balance
     const { data: existingBalance } = await supabase
@@ -127,6 +153,8 @@ export async function POST(req: NextRequest) {
       .eq('pool_address', body.pool_address)
       .eq('token_type', body.side)
       .single();
+
+    console.log('[STEP 4/7] Existing balance:', existingBalance);
 
     let newTokenBalance: number;
     let newBeliefLock: number;
@@ -138,6 +166,7 @@ export async function POST(req: NextRequest) {
       // Sell
       newTokenBalance = (existingBalance?.token_balance || 0) - tokenAmount;
       if (newTokenBalance < 0) {
+        console.error('[STEP 4/7] ❌ Insufficient balance. Current:', existingBalance?.token_balance, 'Selling:', tokenAmount);
         return NextResponse.json(
           { error: 'Insufficient token balance for sell' },
           { status: 400 }
@@ -146,12 +175,16 @@ export async function POST(req: NextRequest) {
       newBeliefLock = existingBalance?.belief_lock || 0; // Keep existing lock on sell
     }
 
+    console.log('[STEP 4/7] ✅ New balance calculated:', { newTokenBalance, newBeliefLock });
+
     // Use default belief values if not provided
     const belief = body.initial_belief ?? 0.5;
     const metaPrediction = body.meta_belief ?? 0.5;
+    console.log('[STEP 4/7] Beliefs:', { belief, metaPrediction });
 
+    console.log('[STEP 5/7] Calling record_trade_atomic RPC...');
     // Call atomic RPC function
-    const { data: result, error: rpcError } = await supabase.rpc('record_trade_atomic', {
+    const rpcParams = {
       p_pool_address: body.pool_address,
       p_post_id: body.post_id,
       p_user_id: body.user_id,
@@ -169,10 +202,14 @@ export async function POST(req: NextRequest) {
       p_meta_prediction: metaPrediction,
       p_token_balance: newTokenBalance,
       p_belief_lock: newBeliefLock,
-    });
+    };
+
+    console.log('[STEP 5/7] RPC params:', rpcParams);
+
+    const { data: result, error: rpcError } = await supabase.rpc('record_trade_atomic', rpcParams);
 
     if (rpcError) {
-      console.error('[Trade Record] RPC error:', rpcError);
+      console.error('[STEP 5/7] ❌ RPC error:', rpcError);
       return NextResponse.json(
         { error: 'Failed to record trade', details: rpcError.message },
         { status: 500 }
@@ -181,19 +218,27 @@ export async function POST(req: NextRequest) {
 
     if (!result?.success) {
       if (result?.error === 'LOCKED') {
+        console.error('[STEP 5/7] ❌ Trade locked - another in progress');
         return NextResponse.json(
           { error: 'Another trade in progress for this user. Please retry.' },
           { status: 409 }
         );
       }
+      console.error('[STEP 5/7] ❌ RPC failed:', result);
       return NextResponse.json(
         { error: result?.message || 'Trade recording failed' },
         { status: 500 }
       );
     }
 
-    console.log('[Trade Record] Success:', result.trade_id, 'skim:', result.skim_amount);
+    console.log('[STEP 5/7] ✅ RPC success:', {
+      trade_id: result.trade_id,
+      skim_amount: result.skim_amount,
+      belief_submission_id: result.belief_submission_id,
+      balance_id: result.balance_id
+    });
 
+    console.log('[STEP 6/7] Recording implied relevance...');
     // Record implied relevance from virtual reserves after trade
     if (body.r_long_after !== undefined && body.r_short_after !== undefined && body.post_id) {
       try {
@@ -217,10 +262,16 @@ export async function POST(req: NextRequest) {
         if (impliedError) {
           // Ignore unique constraint violations (event indexer already recorded)
           if (impliedError.code !== '23505') {
-            console.error('[IMPLIED RELEVANCE] Failed to record:', impliedError);
+            console.error('[STEP 6/7] ❌ Failed to record implied relevance:', impliedError);
+          } else {
+            console.log('[STEP 6/7] ⚠️  Implied relevance already recorded (duplicate)');
           }
         } else {
-          console.log('[IMPLIED RELEVANCE] Recorded after trade:', impliedRelevance.toFixed(4));
+          console.log('[STEP 6/7] ✅ Implied relevance recorded:', {
+            impliedRelevance: impliedRelevance.toFixed(4),
+            r_long: body.r_long_after,
+            r_short: body.r_short_after
+          });
         }
       } catch (impliedRelevanceError) {
         console.error('[IMPLIED RELEVANCE] Error:', impliedRelevanceError);
@@ -228,13 +279,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    console.log('[STEP 7/7] Triggering pool sync...');
     // Sync pool state after recording trade (non-blocking)
     // Uses PoolSyncService for clean, reusable sync logic
     PoolSyncService.syncAfterTrade(body.pool_address);
+    console.log('[STEP 7/7] ✅ Pool sync queued (non-blocking)');
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('✅ [/api/trades/record] Trade recorded successfully');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     return NextResponse.json({
       message: 'Trade recorded optimistically',
       recorded: true,
+      trade_id: result.trade_id,
       note: 'Will be confirmed by event indexer'
     });
 

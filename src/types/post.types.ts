@@ -92,6 +92,8 @@ export interface Post {
   poolSqrtPriceLongX96?: string; // LONG sqrt price in X96 format
   poolSqrtPriceShortX96?: string; // SHORT sqrt price in X96 format
   poolVaultBalance?: number; // USDC vault balance (micro-USDC)
+  poolLastSyncedAt?: string; // Last sync timestamp
+  totalVolumeUsdc?: number; // All-time total trading volume in USDC (cached)
   // Decayed pool state (enriched from on-chain)
   decayedPoolState?: DecayedPoolState | null;
 }

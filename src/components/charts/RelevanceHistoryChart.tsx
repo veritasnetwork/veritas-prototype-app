@@ -5,12 +5,14 @@ import { createChart, ColorType } from 'lightweight-charts';
 import { ChartDataPoint } from '@/types/api';
 
 interface RelevanceHistoryChartProps {
-  relevanceData: ChartDataPoint[];
+  actualRelevance: ChartDataPoint[]; // BD relevance scores (ground truth)
+  impliedRelevance: ChartDataPoint[]; // Market-implied relevance (predictions)
   height?: number;
 }
 
 export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
-  relevanceData,
+  actualRelevance,
+  impliedRelevance,
   height = 400,
 }: RelevanceHistoryChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -54,15 +56,6 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
 
     chartRef.current = chart;
 
-    // Add relevance area series (green theme)
-    const relevanceSeries = chart.addAreaSeries({
-      topColor: 'rgba(34, 197, 94, 0.3)',      // Green
-      bottomColor: 'rgba(34, 197, 94, 0.02)',  // Green fade
-      lineColor: '#22c55e',                     // Green-500
-      lineWidth: 2,
-      priceScaleId: 'right',
-    });
-
     // Configure price scale for 0-1 range
     chart.priceScale('right').applyOptions({
       scaleMargins: {
@@ -71,9 +64,35 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
       },
     });
 
+    // Add implied relevance line series (blue, dashed - market predictions)
+    const impliedSeries = chart.addLineSeries({
+      color: '#3b82f6',  // Blue-500
+      lineWidth: 2,
+      lineStyle: 2,      // Dashed line
+      priceScaleId: 'right',
+      title: 'Market Prediction',
+    });
+
+    // Add actual relevance area series (green - ground truth)
+    const actualSeries = chart.addAreaSeries({
+      topColor: 'rgba(34, 197, 94, 0.3)',      // Green
+      bottomColor: 'rgba(34, 197, 94, 0.02)',  // Green fade
+      lineColor: '#22c55e',                     // Green-500
+      lineWidth: 2,
+      priceScaleId: 'right',
+      title: 'Actual Relevance',
+    });
+
     // Update data if available
-    if (relevanceData.length > 0) {
-      relevanceSeries.setData(relevanceData);
+    if (impliedRelevance.length > 0) {
+      impliedSeries.setData(impliedRelevance);
+    }
+    if (actualRelevance.length > 0) {
+      actualSeries.setData(actualRelevance);
+    }
+
+    // Fit content if we have any data
+    if (actualRelevance.length > 0 || impliedRelevance.length > 0) {
       chart.timeScale().fitContent();
     }
 
@@ -96,7 +115,7 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
         chartRef.current = null;
       }
     };
-  }, [height, relevanceData]);
+  }, [height, actualRelevance, impliedRelevance]);
 
   return (
     <div

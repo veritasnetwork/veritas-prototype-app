@@ -631,26 +631,72 @@ export class EventProcessor {
 
     const poolAddress = event.pool.toString();
 
-    // Derive the content_id from pool address to get mint addresses
-    // The pool PDA is derived from [b"content_pool", content_id]
-    // We need to fetch the pool account to get the content_id
-    // For now, we'll store what we have and update mints separately
+    // Fetch pool data from chain to get mint addresses and post_id
+    try {
+      const poolData = await fetchPoolData(poolAddress);
 
-    // Update pool deployment with initial state
-    const { error } = await this.supabase
-      .from('pool_deployments')
-      .update({
-        token_supply: Number(event.longTokens) + Number(event.shortTokens),
-        reserve: Number(event.initialDeposit),
-        last_synced_at: new Date().toISOString(),
-        deployment_tx_signature: signature, // Also store the deployment signature
-      })
-      .eq('pool_address', poolAddress);
+      if (!poolData) {
+        console.error('❌ Could not fetch pool data for', poolAddress);
+        return;
+      }
 
-    if (error) {
-      console.error('Failed to update pool deployment:', error);
-    } else {
-      console.log(`✅ Updated pool ${poolAddress} with initial market state`);
+      const { contentId, longMint, shortMint } = poolData;
+
+      // Convert content_id (32 bytes) to UUID for post_id
+      const postId = `${contentId.slice(0, 8)}-${contentId.slice(8, 12)}-${contentId.slice(12, 16)}-${contentId.slice(16, 20)}-${contentId.slice(20, 32)}`;
+
+      // Get post to get belief_id
+      const { data: post } = await this.supabase
+        .from('posts')
+        .select('belief_id')
+        .eq('id', postId)
+        .single();
+
+      if (!post?.belief_id) {
+        console.error('❌ Post not found for pool', poolAddress);
+        return;
+      }
+
+      // Use the same atomic RPC function as the API for idempotency
+      const { data: result, error: rpcError } = await this.supabase.rpc('deploy_pool_with_lock', {
+        p_post_id: postId,
+        p_pool_address: poolAddress,
+        p_belief_id: post.belief_id,
+        p_long_mint_address: longMint.toString(),
+        p_short_mint_address: shortMint.toString(),
+        p_deployment_tx_signature: signature,
+      });
+
+      if (rpcError) {
+        console.error('❌ RPC error recording pool deployment:', rpcError);
+        return;
+      }
+
+      if (result?.success) {
+        console.log(`✅ Recorded pool deployment via event: ${poolAddress}`);
+      } else if (result?.error === 'EXISTS') {
+        console.log(`ℹ️  Pool ${poolAddress} already recorded, updating state...`);
+
+        // Update pool state since it already exists
+        const { error: updateError } = await this.supabase
+          .from('pool_deployments')
+          .update({
+            token_supply: Number(event.longTokens) + Number(event.shortTokens),
+            reserve: Number(event.initialDeposit),
+            last_synced_at: new Date().toISOString(),
+          })
+          .eq('pool_address', poolAddress);
+
+        if (updateError) {
+          console.error('Failed to update pool state:', updateError);
+        }
+      } else {
+        console.error('❌ Failed to record pool deployment:', result?.message);
+        return;
+      }
+    } catch (fetchError) {
+      console.error('❌ Error fetching pool data:', fetchError);
+      return;
     }
 
     // Record initial implied relevance (50/50 deployment)

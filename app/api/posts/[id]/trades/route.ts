@@ -80,7 +80,8 @@ export async function GET(
 
     if (!trades || trades.length === 0) {
       return NextResponse.json({
-        priceData: [],
+        priceLongData: [],
+        priceShortData: [],
         volumeData: [],
         stats: {
           totalVolume: 0,
@@ -88,7 +89,15 @@ export async function GET(
           highestPrice: 0,
           lowestPrice: 0,
           priceChange24h: 0,
-          priceChangePercent24h: 0
+          priceChangePercent24h: 0,
+          highestPriceLong: 0,
+          lowestPriceLong: 0,
+          priceChangeLong24h: 0,
+          priceChangePercentLong24h: 0,
+          highestPriceShort: 0,
+          lowestPriceShort: 0,
+          priceChangeShort24h: 0,
+          priceChangePercentShort24h: 0
         }
       });
     }

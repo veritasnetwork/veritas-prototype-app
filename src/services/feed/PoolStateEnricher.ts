@@ -41,13 +41,29 @@ export class PoolStateEnricher {
   ): Promise<Post[]> {
     const { rpcEndpoint, skipMissingPools = true, continueOnError = true } = options;
 
-    // Extract pool addresses from posts
-    const poolAddresses = posts
-      .filter(p => p.poolAddress)
-      .map(p => p.poolAddress!);
+    // Cache threshold: 60 seconds
+    const CACHE_THRESHOLD_MS = 60000;
+    const now = Date.now();
+
+    const postsWithPools = posts.filter(p => p.poolAddress);
+    const poolsNeedingSync = postsWithPools.filter(post => {
+      if (!post.poolAddress) return false;
+
+      if (post.poolLastSyncedAt) {
+        const age = now - new Date(post.poolLastSyncedAt).getTime();
+        if (age < CACHE_THRESHOLD_MS) {
+          console.log(`[PoolStateEnricher] Skipping ${post.poolAddress.substring(0, 8)}... (${Math.round(age/1000)}s old)`);
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const poolAddresses = poolsNeedingSync.map(p => p.poolAddress!);
+    console.log(`[PoolStateEnricher] Syncing ${poolAddresses.length}/${postsWithPools.length} pools`);
 
     if (poolAddresses.length === 0) {
-      console.log('[PoolStateEnricher] No pools to enrich');
+      console.log('[PoolStateEnricher] All cached');
       return posts;
     }
 

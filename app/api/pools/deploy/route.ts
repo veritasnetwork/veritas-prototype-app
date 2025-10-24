@@ -13,6 +13,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
+import * as anchor from '@coral-xyz/anchor';
+import { Keypair } from '@solana/web3.js';
 
 export async function POST(req: NextRequest) {
   console.log('[/api/pools/deploy] Validation request received');
@@ -160,6 +162,13 @@ export async function POST(req: NextRequest) {
     );
 
     const poolAccountInfo = await connection.getAccountInfo(poolPda);
+    console.log('[/api/pools/deploy] Pool account check:', {
+      poolPda: poolPda.toBase58(),
+      exists: !!poolAccountInfo,
+      owner: poolAccountInfo?.owner?.toBase58(),
+      dataLength: poolAccountInfo?.data?.length,
+    });
+
     if (poolAccountInfo) {
       console.log('[/api/pools/deploy] Pool account exists on-chain:', poolPda.toBase58());
 
@@ -167,22 +176,41 @@ export async function POST(req: NextRequest) {
       // An orphaned pool will have minimal data (just the created account with default values)
       // A properly deployed pool will have vault, mints, and other data initialized
       try {
-        const { Program, AnchorProvider, Wallet } = await import('@coral-xyz/anchor');
-        const { Keypair } = await import('@solana/web3.js');
+        console.log('[/api/pools/deploy] Attempting to fetch pool data...');
 
-        // Create a dummy wallet for the provider
+        // Create a dummy wallet for the provider (manual implementation to avoid Wallet constructor issues)
         const dummyKeypair = Keypair.generate();
-        const wallet = new Wallet(dummyKeypair);
-        const provider = new AnchorProvider(connection, wallet, {});
+        const wallet = {
+          publicKey: dummyKeypair.publicKey,
+          signTransaction: async (tx: any) => {
+            tx.sign(dummyKeypair);
+            return tx;
+          },
+          signAllTransactions: async (txs: any[]) => {
+            return txs.map(tx => {
+              tx.sign(dummyKeypair);
+              return tx;
+            });
+          },
+        };
+        const provider = new anchor.AnchorProvider(connection, wallet as any, {});
 
         const idl = await import('@/lib/solana/target/idl/veritas_curation.json');
-        const program = new Program(idl.default as any, provider);
+        const program = new anchor.Program(idl.default as any, provider);
 
         const poolData = await program.account.contentPool.fetch(poolPda);
 
+        console.log('[/api/pools/deploy] Pool data fetched successfully:', {
+          vault: poolData.vault?.toBase58(),
+          longMint: poolData.longMint?.toBase58(),
+          shortMint: poolData.shortMint?.toBase58(),
+          sLong: poolData.sLong?.toString(),
+          sShort: poolData.sShort?.toString(),
+        });
+
         // Check if pool is properly deployed (has vault initialized)
         if (poolData.vault && poolData.vault.toBase58() !== '11111111111111111111111111111111') {
-          console.log('[/api/pools/deploy] Pool fully deployed with vault:', poolData.vault.toBase58());
+          console.log('[/api/pools/deploy] ❌ Pool fully deployed with vault:', poolData.vault.toBase58());
           return NextResponse.json(
             {
               error: 'Pool already exists and is fully deployed for this post.',
@@ -192,10 +220,21 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        console.log('[/api/pools/deploy] Pool exists but is orphaned (no vault). Allowing redeployment with init_if_needed.');
-        // Fall through to allow deployment - smart contract now handles orphaned pools with init_if_needed
-      } catch (fetchError) {
-        console.log('[/api/pools/deploy] Could not fetch pool data, treating as orphaned:', fetchError);
+        console.log('[/api/pools/deploy] ⚠️  Pool exists but is orphaned (no vault). Allowing redeployment with deploy_market only.');
+        // Return orphaned status so client knows to skip create_pool instruction
+        return NextResponse.json({
+          success: true,
+          postId,
+          userId: user.id,
+          poolExists: true,
+          isOrphaned: true,
+        });
+      } catch (fetchError: any) {
+        console.error('[/api/pools/deploy] ❌ Could not fetch pool data:', {
+          error: fetchError.message,
+          name: fetchError.name,
+          stack: fetchError.stack?.substring(0, 200),
+        });
         // Fall through to allow deployment
       }
     }
@@ -206,6 +245,8 @@ export async function POST(req: NextRequest) {
       success: true,
       postId,
       userId: user.id,
+      poolExists: false,
+      isOrphaned: false,
     });
   } catch (error) {
     console.error('[/api/pools/deploy] Error:', error);

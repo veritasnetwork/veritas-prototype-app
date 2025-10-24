@@ -7,30 +7,53 @@ interface BeliefHistoryItem {
   recorded_at: string;
 }
 
-const fetcher = async (url: string): Promise<ChartDataPoint[]> => {
+interface ImpliedHistoryItem {
+  implied_relevance: number;
+  recorded_at: string;
+}
+
+interface RelevanceHistoryData {
+  actualRelevance: ChartDataPoint[];
+  impliedRelevance: ChartDataPoint[];
+}
+
+const fetcher = async (url: string): Promise<RelevanceHistoryData> => {
   const res = await fetch(url);
   if (!res.ok) {
-    if (res.status === 404) return [];
+    if (res.status === 404) return { actualRelevance: [], impliedRelevance: [] };
     throw new Error('Failed to fetch relevance history');
   }
 
   const data = await res.json();
   const beliefHistory = (data.belief_history || []) as BeliefHistoryItem[];
+  const impliedHistory = (data.implied_relevance_history || []) as ImpliedHistoryItem[];
 
-  // Transform to TradingView format
-  return beliefHistory.map(item => ({
+  // Transform actual BD relevance to TradingView format
+  const actualRelevance = beliefHistory.map(item => ({
     time: Math.floor(new Date(item.recorded_at).getTime() / 1000),
     value: item.aggregate, // BD relevance score (0-1)
   }));
+
+  // Transform implied relevance to TradingView format
+  const impliedRelevance = impliedHistory.map(item => ({
+    time: Math.floor(new Date(item.recorded_at).getTime() / 1000),
+    value: item.implied_relevance, // Market-implied relevance (0-1)
+  }));
+
+  return {
+    actualRelevance,
+    impliedRelevance,
+  };
 };
 
 /**
  * Fetch relevance history for a post
+ * Returns both actual BD relevance and market-implied relevance
  * OPTIMIZATION: Only fetches when postId is defined
  * Pass undefined to skip fetching (when chart type is "price")
  */
 export function useRelevanceHistory(postId: string | undefined) {
-  const { data, error, isLoading } = useSWR<ChartDataPoint[]>(
+  const { data, error, isLoading, mutate } = useSWR<RelevanceHistoryData>(
     postId ? `/api/posts/${postId}/history` : null, // ✅ Conditional fetch
     fetcher,
     {
@@ -40,8 +63,9 @@ export function useRelevanceHistory(postId: string | undefined) {
   );
 
   return {
-    data: data || [],
+    data: data || { actualRelevance: [], impliedRelevance: [] },
     isLoading,
-    error
+    error,
+    refetch: mutate,
   };
 }

@@ -122,9 +122,9 @@ pub struct CreatePool<'info> {
     #[account(mut)]
     pub factory: Account<'info, PoolFactory>,
 
-    /// The pool to be created
+    /// The pool to be created (init_if_needed allows reinitialization of orphaned pools)
     #[account(
-        init,
+        init_if_needed,
         payer = payer,
         space = 8 + ContentPool::LEN,
         seeds = [b"content_pool", content_id.as_ref()],
@@ -132,9 +132,9 @@ pub struct CreatePool<'info> {
     )]
     pub pool: Account<'info, ContentPool>,
 
-    /// Registry entry for this pool (prevents duplicates)
+    /// Registry entry for this pool (init_if_needed allows reinitialization of orphaned pools)
     #[account(
-        init,
+        init_if_needed,
         payer = payer,
         space = 8 + PoolRegistry::LEN,
         seeds = [REGISTRY_SEED, content_id.as_ref()],

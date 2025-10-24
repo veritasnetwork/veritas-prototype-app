@@ -17,8 +17,8 @@ DECLARE
   v_existing_pool text;
 BEGIN
   -- 1. Generate advisory lock ID from post_id
-  -- Convert first 16 chars of UUID to bigint for lock ID
-  v_lock_id := ('x' || substring(p_post_id::text, 1, 16))::bit(64)::bigint;
+  -- Remove hyphens and convert first 16 hex chars of UUID to bigint for lock ID
+  v_lock_id := ('x' || substring(replace(p_post_id::text, '-', ''), 1, 16))::bit(64)::bigint;
 
   -- 2. Try to acquire advisory lock (released at transaction end)
   IF NOT pg_try_advisory_xact_lock(v_lock_id) THEN
@@ -63,11 +63,11 @@ BEGIN
     p_long_mint_address,
     p_short_mint_address,
     p_deployment_tx_signature,
-    'active',
+    'market_deployed',
     NOW()
   )
   ON CONFLICT (pool_address) DO UPDATE SET
-    status = 'active',
+    status = 'market_deployed',
     deployed_at = COALESCE(pool_deployments.deployed_at, NOW());
 
   -- Return success

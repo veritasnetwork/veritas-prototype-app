@@ -163,8 +163,8 @@ export function ProfilePage({ username }: ProfilePageProps) {
                 @{user.username}
               </p>
 
-              {/* Wallet Address */}
-              {user.solana_address && (
+              {/* Wallet Address - Only show on own profile */}
+              {isOwnProfile && user.solana_address && (
                 <button
                   onClick={handleCopyWallet}
                   className="w-full font-mono text-xs text-gray-500 hover:text-gray-300 transition-colors relative mb-4 py-2 px-3 bg-[#0f0f0f] rounded-lg border border-[#2a2a2a] hover:border-[#3a3a3a]"
@@ -179,36 +179,36 @@ export function ProfilePage({ username }: ProfilePageProps) {
                 </button>
               )}
 
-              {/* Action Buttons */}
-              <div className="space-y-2 mb-4">
-                {isOwnProfile && (
-                  <>
-                    <button
-                      onClick={() => setShowEditModal(true)}
-                      className="w-full px-4 py-2.5 text-sm font-medium text-white bg-[#B9D9EB]/10 hover:bg-[#B9D9EB]/20 border border-[#B9D9EB]/30 rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                      Edit Profile
-                    </button>
-                    <FundWalletButton variant="full" />
-                  </>
-                )}
-              </div>
+              {/* Action Buttons - Only show on own profile */}
+              {isOwnProfile && (
+                <div className="space-y-2 mb-4">
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    className="w-full px-4 py-2.5 text-sm font-medium text-white bg-[#B9D9EB]/10 hover:bg-[#B9D9EB]/20 border border-[#B9D9EB]/30 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Edit Profile
+                  </button>
+                  <FundWalletButton variant="full" />
+                </div>
+              )}
 
               {/* Divider */}
               <div className="border-t border-[#2a2a2a] my-4" />
 
               {/* Stats Cards (Stacked Vertically) */}
               <div className="space-y-3">
-                {/* Total Stake */}
-                <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl p-4">
-                  <p className="text-xs font-medium text-gray-400 mb-1">
-                    Total Stake
-                  </p>
-                  <p className="text-2xl font-bold text-white">
-                    {formatCurrency(stats.total_stake)}
-                  </p>
-                </div>
+                {/* Total Stake - Only show on own profile */}
+                {isOwnProfile && (
+                  <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl p-4">
+                    <p className="text-xs font-medium text-gray-400 mb-1">
+                      Total Stake
+                    </p>
+                    <p className="text-2xl font-bold text-white">
+                      {formatCurrency(stats.total_stake)}
+                    </p>
+                  </div>
+                )}
 
                 {/* Posts */}
                 <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl p-4">

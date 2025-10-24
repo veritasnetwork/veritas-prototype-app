@@ -61,6 +61,7 @@ export const PostAPIResponseSchema = z.object({
   poolSqrtPriceLongX96: z.string().nullable(),
   poolSqrtPriceShortX96: z.string().nullable(),
   poolVaultBalance: z.number().nullable(),
+  poolLastSyncedAt: z.string().nullable(),
   // ICBS parameters
   poolF: z.number().optional(),
   poolBetaNum: z.number().optional(),
@@ -89,15 +90,25 @@ export const VolumeDataPointSchema = z.object({
 export const TradeStatsSchema = z.object({
   totalVolume: z.number(),
   totalTrades: z.number(),
-  highestPrice: z.number(),
-  lowestPrice: z.number(),
-  currentPrice: z.number(),
-  priceChange24h: z.number(),
-  priceChangePercent24h: z.number(),
+  volumeLong: z.number(),
+  volumeShort: z.number(),
+  // LONG token stats
+  currentPriceLong: z.number(),
+  highestPriceLong: z.number(),
+  lowestPriceLong: z.number(),
+  priceChangeLong24h: z.number(),
+  priceChangePercentLong24h: z.number(),
+  // SHORT token stats
+  currentPriceShort: z.number(),
+  highestPriceShort: z.number(),
+  lowestPriceShort: z.number(),
+  priceChangeShort24h: z.number(),
+  priceChangePercentShort24h: z.number(),
 });
 
 export const TradeHistoryResponseSchema = z.object({
-  priceData: z.array(ChartDataPointSchema),
+  priceLongData: z.array(ChartDataPointSchema),
+  priceShortData: z.array(ChartDataPointSchema),
   volumeData: z.array(VolumeDataPointSchema),
   stats: TradeStatsSchema,
 });
@@ -106,9 +117,10 @@ export const TradeHistoryResponseSchema = z.object({
 // RELEVANCE HISTORY API (from /api/posts/[id]/history)
 // ============================================================================
 
-// Reuses ChartDataPointSchema - no new schema needed
+// Reuses ChartDataPointSchema for both actual and implied relevance
 export const RelevanceHistoryResponseSchema = z.object({
-  relevanceData: z.array(ChartDataPointSchema),
+  actualRelevance: z.array(ChartDataPointSchema), // BD relevance scores (ground truth)
+  impliedRelevance: z.array(ChartDataPointSchema), // Market-implied relevance (predictions)
 });
 
 // ============================================================================

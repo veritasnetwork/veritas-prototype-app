@@ -101,59 +101,18 @@ export async function GET(
       postType: post.post_type
     });
 
-    // Sync pool data from chain if pool exists and is stale (older than 60 seconds)
-    // This ensures fresh data when viewing post details
+    // Pool data is kept fresh by the event indexer
+    // Event indexer updates pool_deployments table after every trade event
+    // No need to poll chain here - trust the database
     if (poolData?.pool_address) {
       const lastSynced = poolData.last_synced_at ? new Date(poolData.last_synced_at).getTime() : 0;
       const now = Date.now();
-      const SYNC_THRESHOLD_MS = 60000; // 60 seconds for individual post
+      const staleness = now - lastSynced;
 
-      if ((now - lastSynced) > SYNC_THRESHOLD_MS) {
-        try {
-          console.log('[Post API] Syncing ICBS pool data from chain...');
-
-          // Use the new fetch helper for ICBS pools
-          const { fetchPoolData } = await import('@/lib/solana/fetch-pool-data');
-          const rpcEndpoint = getRpcEndpoint();
-          const poolMetrics = await fetchPoolData(poolData.pool_address, rpcEndpoint);
-
-          // Update database with fresh data
-          const { error: updateError } = await supabase
-            .from('pool_deployments')
-            .update({
-              s_long_supply: poolMetrics.supplyLong,
-              s_short_supply: poolMetrics.supplyShort,
-              vault_balance: poolMetrics.vaultBalance,
-              sqrt_price_long_x96: poolMetrics._raw.sqrtPriceLongX96,
-              sqrt_price_short_x96: poolMetrics._raw.sqrtPriceShortX96,
-              last_synced_at: new Date().toISOString()
-            })
-            .eq('post_id', id);
-
-          if (!updateError) {
-            // Update poolData with fresh values
-            poolData = {
-              ...poolData,
-              s_long_supply: poolMetrics.supplyLong.toString(),
-              s_short_supply: poolMetrics.supplyShort.toString(),
-              vault_balance: poolMetrics.vaultBalance.toString(),
-              sqrt_price_long_x96: poolMetrics._raw.sqrtPriceLongX96,
-              sqrt_price_short_x96: poolMetrics._raw.sqrtPriceShortX96,
-            };
-            console.log('[Post API] ICBS pool data synced:', {
-              supplyLong: poolMetrics.supplyLong,
-              supplyShort: poolMetrics.supplyShort,
-              vaultBalance: poolMetrics.vaultBalance,
-              priceLong: poolMetrics.priceLong,
-              priceShort: poolMetrics.priceShort
-            });
-          }
-        } catch (syncError) {
-          console.warn('[Post API] Failed to sync pool data:', syncError);
-          // Continue with stale data on sync failure
-        }
+      if (staleness > 60000) {
+        console.log(`[Post API] Pool data is ${Math.round(staleness / 1000)}s old - may be stale if event indexer is down`);
       } else {
-        console.log('[Post API] Using cached pool data (recently synced)');
+        console.log('[Post API] Using fresh pool data from event indexer');
       }
     }
 

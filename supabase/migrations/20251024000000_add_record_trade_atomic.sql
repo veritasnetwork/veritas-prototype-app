@@ -30,13 +30,19 @@ DECLARE
   v_remaining_stake numeric;
 BEGIN
   -- 1. Calculate skim with row-level locks
-  SELECT can_proceed, skim_amount, remaining_stake
-  INTO v_can_proceed, v_skim_amount, v_remaining_stake
+  SELECT skim_amount
+  INTO v_skim_amount
   FROM calculate_skim_with_lock(
-    p_wallet_address,
     p_user_id,
-    p_usdc_amount
+    p_wallet_address,
+    p_pool_address,
+    p_token_type,
+    (p_usdc_amount * 1000000)::bigint  -- Convert USDC to lamports
   );
+
+  -- Assume we can proceed (skim calculation doesn't block anymore)
+  v_can_proceed := true;
+  v_remaining_stake := 0;  -- Not used in current implementation
 
   -- If locked by another transaction, return immediately
   IF NOT v_can_proceed THEN
@@ -110,6 +116,7 @@ BEGIN
   INSERT INTO user_pool_balances (
     user_id,
     pool_address,
+    post_id,
     token_balance,
     token_type,
     belief_lock,
@@ -118,6 +125,7 @@ BEGIN
   ) VALUES (
     p_user_id,
     p_pool_address,
+    p_post_id,
     p_token_balance,
     p_token_type,
     p_belief_lock,
@@ -129,24 +137,11 @@ BEGIN
     belief_lock = EXCLUDED.belief_lock,
     updated_at = NOW();
 
-  -- 5. Apply skim if needed (proportional to locked positions)
-  IF v_skim_amount > 0 THEN
-    -- Get total locks for this user
-    DECLARE
-      v_total_locks numeric;
-    BEGIN
-      SELECT COALESCE(SUM(belief_lock), 0) INTO v_total_locks
-      FROM user_pool_balances
-      WHERE user_id = p_user_id AND token_balance > 0;
-
-      -- Only skim if there are locks
-      IF v_total_locks > 0 THEN
-        UPDATE user_pool_balances
-        SET belief_lock = belief_lock * (1 - (v_skim_amount / v_total_locks))
-        WHERE user_id = p_user_id AND token_balance > 0;
-      END IF;
-    END;
-  END IF;
+  -- 5. Skim is already calculated and stored in the trade record
+  -- The skim represents the shortfall between required locks and available stake
+  -- We don't deduct from individual position locks here - those are maintained as-is
+  -- The skim will be handled by the protocol's stake redistribution system
+  -- For now, we just record it for tracking purposes (already stored in trades.belief_lock_skim)
 
   -- Return success with trade ID
   RETURN jsonb_build_object(

@@ -59,7 +59,7 @@ pub const DEFAULT_BETA_DEN: u16 = 2;  // β = 0.5
 pub const DEFAULT_P0: u64 = 1_000_000;  // 1.0 USDC per token (in micro-USDC, 6 decimals)
 
 // Default Limits
-pub const DEFAULT_MIN_INITIAL_DEPOSIT: u64 = 100_000_000;  // 100 USDC
+pub const DEFAULT_MIN_INITIAL_DEPOSIT: u64 = 50_000_000;  // 50 USDC
 pub const DEFAULT_MIN_SETTLE_INTERVAL: i64 = 300;          // 5 minutes
 
 // Validation Bounds

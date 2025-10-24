@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Enable instrumentation for server-side initialization
+  experimental: {
+    instrumentationHook: true,
+  },
+
   // Enable static optimization
   // output: 'standalone',  // Temporarily disabled for debugging
 

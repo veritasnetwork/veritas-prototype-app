@@ -275,6 +275,54 @@ Deno.serve(async (req) => {
 
         if (result.status === "fulfilled") {
           results.push(result.value);
+
+          // Record implied relevance after successful settlement
+          // Note: After settlement, reserves are scaled by BD score
+          // This creates a datapoint showing the "reset" to actual relevance
+          try {
+            const belief = beliefs.find(b => b.id === pool.belief_id);
+            const bdScore = belief?.previous_aggregate;
+
+            if (bdScore !== null && bdScore !== undefined) {
+              // Get post_id for this pool
+              const { data: poolData } = await supabase
+                .from("pool_deployments")
+                .select("post_id, vault_balance")
+                .eq("pool_address", pool.pool_address)
+                .single();
+
+              if (poolData?.post_id) {
+                // After settlement, reserves are rebalanced based on BD score
+                // impliedRelevance should equal bdScore (market "resets" to truth)
+                const totalReserve = poolData.vault_balance || 0;
+                const reserveLong = totalReserve * bdScore;
+                const reserveShort = totalReserve * (1 - bdScore);
+
+                const { error: impliedInsertError } = await supabase
+                  .from("implied_relevance_history")
+                  .insert({
+                    post_id: poolData.post_id,
+                    belief_id: pool.belief_id,
+                    implied_relevance: bdScore, // Post-settlement, market equals truth
+                    reserve_long: reserveLong,
+                    reserve_short: reserveShort,
+                    event_type: "rebase",
+                    event_reference: result.value.tx_signature,
+                    confirmed: false,
+                    recorded_by: "server",
+                  });
+
+                if (impliedInsertError && impliedInsertError.code !== '23505') {
+                  console.error(`[IMPLIED RELEVANCE] Insert error:`, impliedInsertError);
+                } else if (!impliedInsertError) {
+                  console.log(`[IMPLIED RELEVANCE] Recorded after settlement: ${bdScore.toFixed(4)}`);
+                }
+              }
+            }
+          } catch (impliedError) {
+            console.error(`[IMPLIED RELEVANCE] Failed to record for ${pool.pool_address}:`, impliedError);
+            // Don't fail settlement if implied relevance recording fails
+          }
         } else {
           console.error(`[SETTLEMENT] Failed to settle pool ${pool.pool_address}:`, result.reason);
           results.push({

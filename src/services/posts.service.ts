@@ -13,7 +13,7 @@ export class PostsService {
   /**
    * Fetches all posts from Supabase, enriched with on-chain pool state and ranked by relevance
    */
-  static async fetchPosts(): Promise<Post[]> {
+  static async fetchPosts(options?: { limit?: number; offset?: number }): Promise<Post[]> {
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -27,6 +27,7 @@ export class PostsService {
         .from('posts')
         .select(`
           *,
+          total_volume_usdc,
           user:users!posts_user_id_fkey (
             id,
             username,
@@ -53,7 +54,8 @@ export class PostsService {
           )
         `)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(options?.limit ?? 15)
+        .range(options?.offset ?? 0, (options?.offset ?? 0) + (options?.limit ?? 15) - 1);
 
       if (error) {
         throw new Error(error.message || 'Unable to load posts. Please try again.');
@@ -172,6 +174,7 @@ export class PostsService {
       poolSqrtPriceLongX96: poolData?.sqrt_price_long_x96 || null,
       poolSqrtPriceShortX96: poolData?.sqrt_price_short_x96 || null,
       poolVaultBalance: poolData?.vault_balance ? Number(poolData.vault_balance) / USDC_PRECISION : null,
+      totalVolumeUsdc: dbPost.total_volume_usdc ? Number(dbPost.total_volume_usdc) : undefined,
     };
 
     return post;

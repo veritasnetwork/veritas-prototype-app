@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 
 // Inner component that can use the panel context
 function ExploreContent() {
-  const { posts, loading, error, refetch } = usePosts();
+  const { posts, loading, error, refetch, loadMore, hasMore, loadingMore } = usePosts();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { openPost, isOpen } = FEATURES.POST_DETAIL_PANEL ? usePanel() : { openPost: () => {}, isOpen: false };
 
@@ -109,6 +109,21 @@ function ExploreContent() {
                   />
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Load More Button */}
+          {hasMore && !loading && (
+            <div className="flex justify-center mt-12">
+              <button onClick={loadMore} disabled={loadingMore}
+                className="px-8 py-3 bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#2a2a2a] hover:border-[#B9D9EB] text-[#B9D9EB] rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                {loadingMore ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
+                    Loading...
+                  </span>
+                ) : 'Load More Posts'}
+              </button>
             </div>
           )}
         </div>

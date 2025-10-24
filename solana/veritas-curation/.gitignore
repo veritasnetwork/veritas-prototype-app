@@ -14,3 +14,6 @@ keys/*.json
 .deploy/
 deployments/*.json
 !deployments/.gitkeep
+
+# Local scripts (keep out of git)
+scripts/update-min-deposit.ts

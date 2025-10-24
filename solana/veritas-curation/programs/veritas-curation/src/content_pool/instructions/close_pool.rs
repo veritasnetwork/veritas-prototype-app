@@ -11,10 +11,9 @@ use crate::content_pool::{
 pub struct ClosePool<'info> {
     #[account(
         mut,
-        close = creator,
+        close = receiver,
         seeds = [b"content_pool", pool.content_id.as_ref()],
         bump = pool.bump,
-        constraint = pool.creator == creator.key() @ ContentPoolError::Unauthorized
     )]
     pub pool: Account<'info, ContentPool>,
 
@@ -30,16 +29,20 @@ pub struct ClosePool<'info> {
     pub vault: Account<'info, TokenAccount>,
 
     #[account(mut)]
-    pub creator_usdc: Account<'info, TokenAccount>,
+    pub receiver_usdc: Account<'info, TokenAccount>,
 
-    /// CHECK: Creator receiving lamports
+    /// CHECK: Receiver of pool rent and remaining USDC
     #[account(mut)]
-    pub creator: Signer<'info>,
+    pub receiver: UncheckedAccount<'info>,
 
+    /// Either the pool creator OR the protocol authority can close the pool
     #[account(
-        constraint = protocol_authority.key() == factory.pool_authority @ ContentPoolError::UnauthorizedProtocol
+        constraint = (
+            signer.key() == pool.creator ||
+            signer.key() == factory.pool_authority
+        ) @ ContentPoolError::Unauthorized
     )]
-    pub protocol_authority: Signer<'info>,
+    pub signer: Signer<'info>,
 
     pub token_program: Program<'info, Token>,
 }
@@ -61,7 +64,7 @@ pub fn handler(ctx: Context<ClosePool>) -> Result<()> {
         &[pool.bump],
     ];
 
-    // Transfer any remaining USDC to creator
+    // Transfer any remaining USDC to receiver
     let remaining_usdc = ctx.accounts.vault.amount;
     if remaining_usdc > 0 {
         token::transfer(
@@ -69,7 +72,7 @@ pub fn handler(ctx: Context<ClosePool>) -> Result<()> {
                 ctx.accounts.token_program.to_account_info(),
                 Transfer {
                     from: ctx.accounts.vault.to_account_info(),
-                    to: ctx.accounts.creator_usdc.to_account_info(),
+                    to: ctx.accounts.receiver_usdc.to_account_info(),
                     authority: pool.to_account_info(),
                 },
                 &[pool_seeds],
@@ -84,7 +87,7 @@ pub fn handler(ctx: Context<ClosePool>) -> Result<()> {
             ctx.accounts.token_program.to_account_info(),
             CloseAccount {
                 account: ctx.accounts.vault.to_account_info(),
-                destination: ctx.accounts.creator.to_account_info(),
+                destination: ctx.accounts.receiver.to_account_info(),
                 authority: pool.to_account_info(),
             },
             &[pool_seeds],
@@ -94,7 +97,7 @@ pub fn handler(ctx: Context<ClosePool>) -> Result<()> {
     // Emit event
     emit!(PoolClosedEvent {
         pool: pool.key(),
-        creator: ctx.accounts.creator.key(),
+        creator: pool.creator,
         remaining_usdc,
         timestamp: clock.unix_timestamp,
     });

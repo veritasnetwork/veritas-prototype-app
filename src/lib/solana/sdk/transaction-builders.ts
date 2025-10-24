@@ -14,6 +14,7 @@ import {
   TransactionInstruction,
   SystemProgram,
   SYSVAR_RENT_PUBKEY,
+  ComputeBudgetProgram,
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -254,6 +255,11 @@ export async function buildCreatePoolTx(
     })
     .transaction();
 
+  // Add compute budget instruction (300K CU should be sufficient)
+  tx.instructions.unshift(
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 })
+  );
+
   return tx;
 }
 
@@ -304,6 +310,11 @@ export async function buildTradeTx(
 
   // Build transaction
   const tx = new Transaction();
+
+  // Add compute budget instruction (250K CU for trades)
+  tx.add(
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 })
+  );
 
   // Add trade instruction
   const tradeIx = await program.methods
@@ -415,6 +426,11 @@ export async function buildDeployMarketTx(
       systemProgram: SystemProgram.programId,
     })
     .transaction();
+
+  // Add compute budget instruction (600K CU for deploy_market - creates ATAs and mints tokens)
+  tx.instructions.unshift(
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 })
+  );
 
   return tx;
 }

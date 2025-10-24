@@ -273,51 +273,59 @@ pub fn handler(
         let s_l_u64 = s_l_cand as u64;
         let s_s_u64 = s_s_cand as u64;
 
-        // Calculate ||s||
-        let s_norm = integer_sqrt(
-            s_l_cand.checked_mul(s_l_cand)
-                .ok_or(ContentPoolError::NumericalOverflow)?
-                .checked_add(s_s_cand.checked_mul(s_s_cand)
-                    .ok_or(ContentPoolError::NumericalOverflow)?)
-                .ok_or(ContentPoolError::NumericalOverflow)?
-        )?.max(1);
+        // ---------- OPTION A: exact deploy prices from deposit identity ----------
+        // Geometry (F=1, β=0.5):
+        //   p_i = D * s_i / (s_L^2 + s_S^2)
+        // Do it fully in Q96 without any sqrt(||s||) so we avoid floor bias.
 
-        // λ from deposit: λ = D / ||s|| (Q96 format)
-        // lambda_x96 = (deposit * Q96) / norm
-        let lambda_x96 = mul_div_u128(initial_deposit as u128, Q96, s_norm)?;
+        let n2 = s_l_cand
+            .checked_mul(s_l_cand)
+            .ok_or(ContentPoolError::NumericalOverflow)?
+            .checked_add(
+                s_s_cand
+                    .checked_mul(s_s_cand)
+                    .ok_or(ContentPoolError::NumericalOverflow)?,
+            )
+            .ok_or(ContentPoolError::NumericalOverflow)?;
 
-        // sqrt_lambda_x96 = sqrt(lambda) * Q96 = sqrt(lambda_x96) * 2^48
-        // Because sqrt(a * 2^96) = sqrt(a) * 2^48
+        // Q96 scale: d_over_n2_q96 = (D * Q96) / (s_L^2 + s_S^2)
+        let d_over_n2_q96 = mul_div_u128(initial_deposit as u128, Q96, n2)?;
+
+        // p_i in Q96: p_i = d_over_n2_q96 * s_i
+        // Use checked_mul to keep 256-bit intermediate and avoid u128 overflow.
+        let p_long_q96 = d_over_n2_q96
+            .checked_mul(s_l_cand as u128)
+            .ok_or(ContentPoolError::NumericalOverflow)?;
+        let p_short_q96 = d_over_n2_q96
+            .checked_mul(s_s_cand as u128)
+            .ok_or(ContentPoolError::NumericalOverflow)?;
+
+        // sqrt_price_i_x96 = sqrt(p_i_q96) << 48   (so that (sqrt_price >>48)^2 is Q96)
+        let sqrt_price_long_x96 = integer_sqrt(p_long_q96)?
+            .checked_shl(48)
+            .ok_or(ContentPoolError::NumericalOverflow)?;
+        let sqrt_price_short_x96 = integer_sqrt(p_short_q96)?
+            .checked_shl(48)
+            .ok_or(ContentPoolError::NumericalOverflow)?;
+
+        // Make λ consistent with curve: p_i = λ * s_i / ||s|| with *your* integer ||s||.
+        // We compute ||s|| as integer sqrt (same as the runtime curve will do).
+        let s_norm_int = integer_sqrt(n2)?.max(1);
+
+        // λ in Q96 from each side, then take max to cover any ulp asymmetry.
+        let lambda_q96_from_long  = mul_div_u128(p_long_q96,  s_norm_int, s_l_cand)?;
+        let lambda_q96_from_short = mul_div_u128(p_short_q96, s_norm_int, s_s_cand)?;
+        let lambda_x96 = lambda_q96_from_long.max(lambda_q96_from_short);
+
+        // √λ in x96: sqrt_lambda_x96 = sqrt(λ_q96) << 48
         let sqrt_lambda_x96 = integer_sqrt(lambda_x96)?
             .checked_shl(48)
             .ok_or(ContentPoolError::NumericalOverflow)?;
 
-        // Calculate prices from ICBS curve
-        let sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price(
-            s_l_u64,
-            s_s_u64,
-            TokenSide::Long,
-            sqrt_lambda_x96,
-            ctx.accounts.pool.f,
-            ctx.accounts.pool.beta_num,
-            ctx.accounts.pool.beta_den,
-        )?;
-
-        let sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price(
-            s_l_u64,
-            s_s_u64,
-            TokenSide::Short,
-            sqrt_lambda_x96,
-            ctx.accounts.pool.f,
-            ctx.accounts.pool.beta_num,
-            ctx.accounts.pool.beta_den,
-        )?;
-
-        // Calculate reserves
-        let p_long_q96 = mul_shift_right_96(sqrt_price_long_x96, sqrt_price_long_x96)?;
-        let p_short_q96 = mul_shift_right_96(sqrt_price_short_x96, sqrt_price_short_x96)?;
-        let r_long = mul_shift_right_96(p_long_q96, s_l_cand)? as u64;
+        // Reserves: r_i = (p_i_q96 * s_i) >> 96
+        let r_long  = mul_shift_right_96(p_long_q96,  s_l_cand)?  as u64;
         let r_short = mul_shift_right_96(p_short_q96, s_s_cand)? as u64;
+        // ---------- end OPTION A block ----------
 
         // Score by reserve ratio error: minimize |r_long * A_S - r_short * A_L|
         let cross_l = (r_long as u128).checked_mul(a_s)

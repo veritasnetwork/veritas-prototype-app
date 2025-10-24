@@ -34,8 +34,8 @@ export function PostDetailPanel() {
           "fixed inset-y-0 right-0 z-50 bg-gray-950 shadow-xl",
           "w-full lg:w-[700px] xl:w-[800px]",
           "overflow-hidden",
-          FEATURES.PANEL_ANIMATIONS ? "panel-slide" : "",
-          isOpen ? "panel-open" : ""
+          "transition-transform duration-300 ease-out",
+          isOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
         <PostDetailContent postId={selectedPostId} />

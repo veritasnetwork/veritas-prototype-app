@@ -9,13 +9,37 @@ const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 let supabase: SupabaseClient;
 
 function setup() {
-  supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+  supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
+    realtime: {
+      params: {
+        eventsPerSecond: 0,
+      },
+    },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
 }
 
 async function teardown() {
+  // Delete in correct order to handle foreign key constraints
   await supabase.from('user_pool_balances').delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('pool_deployments').delete().neq('pool_address', '');
+  await supabase.from('posts').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('beliefs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await supabase.from('users').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await supabase.from('agents').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+  // Close any realtime connections to prevent resource leaks
+  try {
+    // @ts-ignore - removeAllChannels is internal but needed to clean up
+    if (supabase.realtime) {
+      supabase.realtime.disconnect();
+    }
+  } catch (e) {
+    // Ignore errors - this is best-effort cleanup
+  }
 }
 
 /**
@@ -26,17 +50,21 @@ async function setupNewUser() {
   const agentId = crypto.randomUUID();
   const walletAddress = `Wallet${crypto.randomUUID().slice(0, 8)}`;
 
-  await supabase.from('agents').insert({
+  const { error: agentError } = await supabase.from('agents').insert({
     id: agentId,
     solana_address: walletAddress,
     total_stake: 0
   });
+  if (agentError) throw new Error(`Failed to create agent: ${JSON.stringify(agentError)}`);
 
-  await supabase.from('users').insert({
+  const username = `user${crypto.randomUUID().slice(0, 6)}`;
+  const { error: userError } = await supabase.from('users').insert({
     id: userId,
     agent_id: agentId,
-    username: `user${crypto.randomUUID().slice(0, 6)}`
+    username,
+    display_name: username
   });
+  if (userError) throw new Error(`Failed to create user: ${JSON.stringify(userError)}`);
 
   return {
     userId,
@@ -57,19 +85,71 @@ async function setAgentStake(walletAddress: string, stakeMicro: number) {
 }
 
 /**
+ * Create a pool deployment record
+ */
+async function createPool(poolAddress: string, postId: string, beliefId: string) {
+  return await supabase.from('pool_deployments').insert({
+    pool_address: poolAddress,
+    post_id: postId,
+    belief_id: beliefId,
+    long_mint_address: `LONG_${crypto.randomUUID().slice(0, 8)}`,
+    short_mint_address: `SHORT_${crypto.randomUUID().slice(0, 8)}`,
+    status: 'market_deployed',
+    sqrt_price_long_x96: '1000000000000000',
+    sqrt_price_short_x96: '1000000000000000'
+  });
+}
+
+/**
  * Simulate a buy trade (insert balance record)
  */
 async function simulateBuy(params: {
   userId: string;
+  walletAddress: string;
   poolAddress: string;
   side: 'LONG' | 'SHORT';
   amount: number;
   beliefLock: number;
 }) {
-  await supabase.from('user_pool_balances').insert({
+  const postId = crypto.randomUUID();
+  const beliefId = crypto.randomUUID();
+
+  // Get agent ID
+  const agentId = await getAgentIdByWallet(params.walletAddress);
+
+  // Create belief first
+  const { error: beliefError } = await supabase.from('beliefs').insert({
+    id: beliefId,
+    creator_agent_id: agentId
+  });
+  if (beliefError) throw new Error(`Failed to create belief: ${JSON.stringify(beliefError)}`);
+
+  // Create post
+  const { error: postError } = await supabase.from('posts').insert({
+    id: postId,
+    user_id: params.userId,
+    belief_id: beliefId,
+    article_title: 'Test post',
+    content_text: 'Test content'
+  });
+  if (postError) throw new Error(`Failed to create post: ${JSON.stringify(postError)}`);
+
+  // Create pool first if it doesn't exist
+  const { data: existingPool } = await supabase
+    .from('pool_deployments')
+    .select('pool_address')
+    .eq('pool_address', params.poolAddress)
+    .single();
+
+  if (!existingPool) {
+    const { error: poolError } = await createPool(params.poolAddress, postId, beliefId);
+    if (poolError) throw new Error(`Failed to create pool: ${JSON.stringify(poolError)}`);
+  }
+
+  const { error: balanceError } = await supabase.from('user_pool_balances').insert({
     user_id: params.userId,
     pool_address: params.poolAddress,
-    post_id: crypto.randomUUID(),
+    post_id: postId,
     token_type: params.side,
     token_balance: params.amount / 1000,  // Simplified
     belief_lock: params.beliefLock,
@@ -79,6 +159,7 @@ async function simulateBuy(params: {
     total_usdc_spent: params.amount,
     total_usdc_received: 0
   });
+  if (balanceError) throw new Error(`Failed to create balance: ${JSON.stringify(balanceError)}`);
 }
 
 /**
@@ -105,8 +186,10 @@ function assertNoError(error: any) {
 // ========== TESTS ==========
 
 setup();
+await teardown(); // Clean up any leftover data from previous runs
 
 Deno.test("calculates skim for first buy with no prior stake", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress, poolAddress } = await setupNewUser();
 
@@ -128,6 +211,7 @@ Deno.test("calculates skim for first buy with no prior stake", async () => {
 });
 
 Deno.test("calculates skim for first buy with existing stake", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress, poolAddress } = await setupNewUser();
 
@@ -152,6 +236,7 @@ Deno.test("calculates skim for first buy with existing stake", async () => {
 });
 
 Deno.test("calculates skim for second buy in different pool", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress } = await setupNewUser();
   const poolAddress1 = `Pool1${crypto.randomUUID().slice(0, 6)}`;
@@ -160,6 +245,7 @@ Deno.test("calculates skim for second buy in different pool", async () => {
   // First buy: $100 in pool1 → stake = $2, lock1 = $2
   await simulateBuy({
     userId,
+    walletAddress,
     poolAddress: poolAddress1,
     side: 'LONG',
     amount: 100_000_000,
@@ -190,12 +276,14 @@ Deno.test("calculates skim for second buy in different pool", async () => {
 });
 
 Deno.test("replaces old lock when buying more in same pool/side", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress, poolAddress } = await setupNewUser();
 
   // First buy: $100 LONG → stake = $2, lock = $2
   await simulateBuy({
     userId,
+    walletAddress,
     poolAddress,
     side: 'LONG',
     amount: 100_000_000,
@@ -228,12 +316,14 @@ Deno.test("replaces old lock when buying more in same pool/side", async () => {
 });
 
 Deno.test("replaces old lock when buying less in same pool/side", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress, poolAddress } = await setupNewUser();
 
   // First buy: $500 LONG → stake = $10, lock = $10
   await simulateBuy({
     userId,
+    walletAddress,
     poolAddress,
     side: 'LONG',
     amount: 500_000_000,
@@ -266,12 +356,14 @@ Deno.test("replaces old lock when buying less in same pool/side", async () => {
 });
 
 Deno.test("does not replace LONG lock when buying SHORT", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress, poolAddress } = await setupNewUser();
 
   // First buy: $100 LONG → stake = $2, lockLONG = $2
   await simulateBuy({
     userId,
+    walletAddress,
     poolAddress,
     side: 'LONG',
     amount: 100_000_000,
@@ -304,16 +396,17 @@ Deno.test("does not replace LONG lock when buying SHORT", async () => {
 });
 
 Deno.test("replaces SHORT lock when buying SHORT again", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress, poolAddress } = await setupNewUser();
 
   // First buy: $100 LONG, $100 SHORT → stake = $4, locks = $2 + $2
   await simulateBuy({
-    userId, poolAddress,
+    userId, walletAddress, poolAddress,
     side: 'LONG', amount: 100_000_000, beliefLock: 2_000_000
   });
   await simulateBuy({
-    userId, poolAddress,
+    userId, walletAddress, poolAddress,
     side: 'SHORT', amount: 100_000_000, beliefLock: 2_000_000
   });
 
@@ -341,6 +434,7 @@ Deno.test("replaces SHORT lock when buying SHORT again", async () => {
 });
 
 Deno.test("handles micro-USDC precision correctly", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress, poolAddress } = await setupNewUser();
 
@@ -362,6 +456,7 @@ Deno.test("handles micro-USDC precision correctly", async () => {
 });
 
 Deno.test("applies FLOOR to lock calculation", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress, poolAddress } = await setupNewUser();
 
@@ -381,6 +476,7 @@ Deno.test("applies FLOOR to lock calculation", async () => {
 });
 
 Deno.test("returns zero skim when trade amount is zero", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress, poolAddress } = await setupNewUser();
 
@@ -399,6 +495,7 @@ Deno.test("returns zero skim when trade amount is zero", async () => {
 });
 
 Deno.test("never returns negative skim (GREATEST ensures non-negative)", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress, poolAddress } = await setupNewUser();
 
@@ -424,6 +521,7 @@ Deno.test("never returns negative skim (GREATEST ensures non-negative)", async (
 });
 
 Deno.test("calculates skim when user is underwater", async () => {
+  await teardown();
   setup();
   const { userId, walletAddress } = await setupNewUser();
   const poolAddress = `Pool${crypto.randomUUID().slice(0, 8)}`;
@@ -432,7 +530,7 @@ Deno.test("calculates skim when user is underwater", async () => {
   // Now: stake = $20, lock = $20 (underwater: withdrawable = 0)
   await setAgentStake(walletAddress, 20_000_000);
   await simulateBuy({
-    userId, poolAddress,
+    userId, walletAddress, poolAddress,
     side: 'LONG', amount: 1_000_000_000, beliefLock: 20_000_000
   });
 

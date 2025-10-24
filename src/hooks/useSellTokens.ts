@@ -4,6 +4,7 @@ import { useSolanaWallet } from './useSolanaWallet';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { getRpcEndpoint } from '@/lib/solana/network-config';
+import { invalidatePoolData } from '@/services/PoolDataService';
 
 export function useSellTokens(onSuccess?: () => void) {
   const { wallet, address } = useSolanaWallet();
@@ -20,6 +21,9 @@ export function useSellTokens(onSuccess?: () => void) {
     initialBelief?: number,
     metaBelief?: number
   ) => {
+    console.log('🔴 [useSellTokens] Starting sell transaction');
+    console.log('[useSellTokens] Parameters:', { postId, poolAddress, tokenAmount, side, initialBelief, metaBelief });
+
     if (!wallet || !address) {
       throw new Error('Wallet not connected');
     }
@@ -44,6 +48,7 @@ export function useSellTokens(onSuccess?: () => void) {
         throw new Error('Authentication required');
       }
 
+      console.log('[useSellTokens] Step 1/6: Preparing transaction...');
       // Step 1: Prepare transaction via backend
       const prepareResponse = await fetch('/api/trades/prepare', {
         method: 'POST',
@@ -62,32 +67,50 @@ export function useSellTokens(onSuccess?: () => void) {
 
       if (!prepareResponse.ok) {
         const errorData = await prepareResponse.json();
+        console.error('[useSellTokens] ❌ Step 1 failed:', errorData);
         throw new Error(errorData.error || 'Failed to prepare transaction');
       }
 
       const { transaction: serializedTx, expectedUsdcOut } = await prepareResponse.json();
+      console.log('[useSellTokens] ✅ Step 1 complete:', { expectedUsdcOut });
 
+      console.log('[useSellTokens] Step 2/6: Deserializing transaction...');
       // Step 2: Deserialize transaction
       const txBuffer = Buffer.from(serializedTx, 'base64');
       const transaction = Transaction.from(txBuffer);
+      console.log('[useSellTokens] ✅ Step 2 complete');
 
+      console.log('[useSellTokens] Step 3/6: Signing transaction...');
       // Step 3: Sign the transaction
       // @ts-ignore - Privy wallet has signTransaction method
       const signedTx = await wallet.signTransaction(transaction);
+      console.log('[useSellTokens] ✅ Step 3 complete');
 
+      console.log('[useSellTokens] Step 4/6: Sending transaction...');
       // Step 4: Send and confirm transaction
       const signature = await connection.sendRawTransaction(signedTx.serialize());
+      console.log('[useSellTokens] Transaction sent, signature:', signature);
+      console.log('[useSellTokens] Waiting for confirmation...');
       await connection.confirmTransaction(signature, 'confirmed');
+      console.log('[useSellTokens] ✅ Step 4 complete - transaction confirmed');
 
+      console.log('[useSellTokens] Step 5/6: Fetching updated pool state...');
       // Step 5: Fetch updated pool state for complete ICBS data
       let poolData: any = null;
       try {
         const { fetchPoolData } = await import('@/lib/solana/fetch-pool-data');
         poolData = await fetchPoolData(poolAddress, rpcEndpoint);
+        console.log('[useSellTokens] ✅ Step 5 complete - pool data fetched:', {
+          priceLong: poolData?.priceLong,
+          priceShort: poolData?.priceShort,
+          supplyLong: poolData?.supplyLong,
+          supplyShort: poolData?.supplyShort
+        });
       } catch (fetchError) {
-        console.warn('[TRADE RECORDING] Could not fetch pool data:', fetchError);
+        console.warn('[useSellTokens] ⚠️  Step 5 - Could not fetch pool data:', fetchError);
       }
 
+      console.log('[useSellTokens] Step 6/6: Recording trade...');
       // Step 6: Record trade with complete ICBS data
       try {
         const recordResponse = await fetch('/api/trades/record', {
@@ -124,15 +147,25 @@ export function useSellTokens(onSuccess?: () => void) {
         });
 
         if (!recordResponse.ok) {
-          console.error('[TRADE RECORDING] Failed to record trade:', await recordResponse.text());
+          const errorText = await recordResponse.text();
+          console.error('[useSellTokens] ❌ Step 6 failed - record API error:', errorText);
+        } else {
+          const recordResult = await recordResponse.json();
+          console.log('[useSellTokens] ✅ Step 6 complete - trade recorded:', recordResult);
         }
       } catch (recordError) {
-        console.error('[TRADE RECORDING] Error recording trade:', recordError);
+        console.error('[useSellTokens] ❌ Step 6 exception:', recordError);
         // Don't fail the whole transaction if recording fails
       }
 
+      console.log('✅ [useSellTokens] Sell transaction complete!');
+
+      // Invalidate pool data cache to trigger immediate refresh
+      invalidatePoolData(postId);
+
       // Call success callback to trigger UI refresh
       if (onSuccess) {
+        console.log('[useSellTokens] Calling success callback');
         onSuccess();
       }
 

@@ -21,7 +21,8 @@ const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
     // Return empty data for 404s (pool not deployed yet) instead of throwing
     if (res.status === 404) {
       return {
-        priceData: [],
+        priceLongData: [],
+        priceShortData: [],
         volumeData: [],
         stats: {
           totalVolume: 0,
@@ -30,6 +31,14 @@ const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
           lowestPrice: 0,
           priceChange24h: 0,
           priceChangePercent24h: 0,
+          highestPriceLong: 0,
+          lowestPriceLong: 0,
+          priceChangeLong24h: 0,
+          priceChangePercentLong24h: 0,
+          highestPriceShort: 0,
+          lowestPriceShort: 0,
+          priceChangeShort24h: 0,
+          priceChangePercentShort24h: 0,
         },
       };
     }
@@ -46,9 +55,9 @@ export function useTradeHistory(postId: string | undefined, timeRange: TimeRange
     postId ? `/api/posts/${postId}/trades?range=${timeRange}` : null,
     fetcher,
     {
-      refreshInterval: 30000, // Refresh every 30 seconds
+      refreshInterval: 60000, // Refresh every 60 seconds
       revalidateOnFocus: false, // Disable focus revalidation to reduce unnecessary fetches
-      dedupingInterval: 1000, // Further reduce deduping to 1 second
+      dedupingInterval: 2000, // Reduce deduping to 2 seconds
       revalidateIfStale: true, // Always revalidate stale data
       revalidateOnMount: true, // Always fetch on mount
       keepPreviousData: true, // Show previous chart while loading new timeframe

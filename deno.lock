@@ -86,6 +86,8 @@
         "npm:@types/node@^20.19.1",
         "npm:@types/react-dom@19",
         "npm:@types/react@19",
+        "npm:@upstash/ratelimit@^2.0.6",
+        "npm:@upstash/redis@^1.35.6",
         "npm:autoprefixer@^10.4.21",
         "npm:borsh@0.7",
         "npm:clsx@^2.1.1",

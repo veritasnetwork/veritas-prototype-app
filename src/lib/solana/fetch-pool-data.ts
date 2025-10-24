@@ -59,8 +59,7 @@ export async function fetchPoolData(poolAddress: string, rpcEndpoint: string) {
   });
 
   const program = new Program<VeritasCuration>(
-    IDL as VeritasCuration,
-    new PublicKey((IDL as any).address),
+    IDL as any,
     provider
   );
 
@@ -185,8 +184,7 @@ export async function fetchPoolStateWithDecay(
   });
 
   const program = new Program<VeritasCuration>(
-    IDL as VeritasCuration,
-    new PublicKey((IDL as any).address),
+    IDL as any,
     provider
   );
 

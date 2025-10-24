@@ -1,12 +1,9 @@
 /**
  * useDeployPool Hook
- * Deploys a pool with initial liquidity in TWO sequential transactions
+ * Deploys a pool with initial liquidity in ONE atomic transaction
  *
- * First: create_pool (creates ContentPool via PoolFactory)
- * Second: deploy_market (deposits initial USDC, mints LONG/SHORT tokens)
- *
- * User signs both transactions at once, then they're sent sequentially.
- * This avoids stack overflow issues from combining complex instructions.
+ * Combines create_pool + deploy_market into a single transaction for atomicity.
+ * If either instruction fails, the entire transaction rolls back.
  */
 
 import { useState, useCallback } from 'react';
@@ -34,8 +31,7 @@ interface DeployPoolParams {
 
 interface DeployPoolResult {
   poolAddress: string;
-  signature: string; // deploy_market transaction signature (for backwards compat)
-  createPoolSignature?: string; // create_pool transaction signature
+  signature: string; // combined transaction signature
 }
 
 export function useDeployPool() {
@@ -118,9 +114,24 @@ export function useDeployPool() {
         }
 
         const validationData = await validateRes.json();
-        console.log('[STEP 4/7] ✅ Validation passed:', validationData);
+        console.log('[STEP 4/7] ✅ Validation response:', {
+          success: validationData.success,
+          poolExists: validationData.poolExists,
+          isOrphaned: validationData.isOrphaned,
+          postId: validationData.postId,
+        });
 
-        // Step 2: Build combined transaction (create_pool + deploy_market)
+        // Check if pool is orphaned (created but not deployed)
+        const isOrphaned = validationData.poolExists && validationData.isOrphaned;
+        if (isOrphaned) {
+          console.log('[STEP 4/7] ⚠️  Pool is orphaned - will skip create_pool and only execute deploy_market');
+        } else if (validationData.poolExists) {
+          console.log('[STEP 4/7] Pool exists and is fully deployed');
+        } else {
+          console.log('[STEP 4/7] New pool - will execute both create_pool and deploy_market');
+        }
+
+        // Step 2: Build transaction instructions (create_pool + deploy_market, or just deploy_market if orphaned)
         console.log('[STEP 5/7] 🔨 Building transaction instructions...');
 
         const pdaHelper = new PDAHelper(programId);
@@ -149,13 +160,16 @@ export function useDeployPool() {
           protocolAuthority: poolAuthority,
         };
 
-        // Build create_pool instruction
-        const createPoolTx = await buildCreatePoolTx(
-          program,
-          new PublicKey(walletAddress),
-          contentId,
-          protocolAddresses
-        );
+        // Build create_pool instruction (only if pool doesn't exist)
+        let createPoolTx: Transaction | null = null;
+        if (!isOrphaned) {
+          createPoolTx = await buildCreatePoolTx(
+            program,
+            new PublicKey(walletAddress),
+            contentId,
+            protocolAddresses
+          );
+        }
 
         // Build deploy_market instruction
         const initialDepositLamports = new BN(params.initialDeposit * 1_000_000); // Convert to micro-USDC
@@ -178,68 +192,76 @@ export function useDeployPool() {
         });
 
         console.log('[STEP 5/7] Transaction details:', {
-          createPoolInstructions: createPoolTx.instructions.length,
+          createPoolInstructions: createPoolTx?.instructions.length || 0,
           deployMarketInstructions: deployMarketTx.instructions.length,
+          isOrphaned,
         });
 
-        // Set transaction metadata for create_pool
-        console.log('[STEP 5/7] Preparing create_pool transaction...');
+        // Combine instructions into a single atomic transaction
+        console.log('[STEP 5/7] Combining instructions into one atomic transaction...');
+        const combinedTx = new Transaction();
+
+        // Remove compute budget instructions from individual transactions to avoid duplicates
+        const deployMarketInstructions = deployMarketTx.instructions.filter(
+          ix => !ix.programId.equals(new PublicKey('ComputeBudget111111111111111111111111111111'))
+        );
+
+        // Add a single compute budget instruction for the combined transaction
+        const { ComputeBudgetProgram } = await import('@solana/web3.js');
+        const computeUnits = isOrphaned ? 500_000 : 900_000; // Less CU needed if only deploy_market
+        combinedTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: computeUnits }));
+
+        // Add create_pool instructions if pool doesn't exist
+        if (createPoolTx) {
+          const createPoolInstructions = createPoolTx.instructions.filter(
+            ix => !ix.programId.equals(new PublicKey('ComputeBudget111111111111111111111111111111'))
+          );
+          combinedTx.add(...createPoolInstructions);
+        }
+
+        // Add deploy_market instructions
+        combinedTx.add(...deployMarketInstructions);
+
+        // Set transaction metadata
+        console.log('[STEP 5/7] Preparing combined transaction...');
         let blockhashData = await connection.getLatestBlockhash();
-        createPoolTx.recentBlockhash = blockhashData.blockhash;
-        createPoolTx.lastValidBlockHeight = blockhashData.lastValidBlockHeight;
-        createPoolTx.feePayer = new PublicKey(walletAddress);
+        combinedTx.recentBlockhash = blockhashData.blockhash;
+        combinedTx.lastValidBlockHeight = blockhashData.lastValidBlockHeight;
+        combinedTx.feePayer = new PublicKey(walletAddress);
 
-        // Set transaction metadata for deploy_market
-        console.log('[STEP 5/7] Preparing deploy_market transaction...');
-        deployMarketTx.recentBlockhash = blockhashData.blockhash;
-        deployMarketTx.lastValidBlockHeight = blockhashData.lastValidBlockHeight;
-        deployMarketTx.feePayer = new PublicKey(walletAddress);
+        console.log('[STEP 5/7] ✅ Combined transaction prepared with', combinedTx.instructions.length, 'instructions');
 
-        console.log('[STEP 5/7] ✅ Both transactions prepared');
-
-        // Step 3: Sign and send TWO transactions sequentially
-        console.log('[STEP 6/7] ✍️  Requesting wallet signatures...');
+        // Step 3: Sign and send ONE atomic transaction
+        console.log('[STEP 6/7] ✍️  Requesting wallet signature...');
         console.log('[STEP 6/7] Wallet interface check:', {
           address: wallet.address,
           chainType: wallet.chainType,
           walletClientType: wallet.walletClientType,
           hasSignTransaction: typeof wallet.signTransaction === 'function',
-          hasSignAllTransactions: typeof wallet.signAllTransactions === 'function',
         });
 
-        if (!wallet.signAllTransactions) {
-          console.error('[STEP 6/7] ❌ Wallet missing signAllTransactions method!');
-          throw new Error('Wallet does not support signing multiple transactions. Please reconnect your wallet.');
+        if (!wallet.signTransaction) {
+          console.error('[STEP 6/7] ❌ Wallet missing signTransaction method!');
+          throw new Error('Wallet does not support signing transactions. Please reconnect your wallet.');
         }
 
-        let createPoolSignature: string;
-        let deployMarketSignature: string;
+        let txSignature: string;
 
         try {
-          console.log('[STEP 6/7] 🔐 Signing both transactions...');
-          const [signedCreatePoolTx, signedDeployMarketTx] = await wallet.signAllTransactions([createPoolTx, deployMarketTx]);
+          console.log('[STEP 6/7] 🔐 Signing transaction...');
+          const signedTx = await wallet.signTransaction(combinedTx);
 
-          console.log('[STEP 6/7] ✅ Both transactions signed!');
+          console.log('[STEP 6/7] ✅ Transaction signed!');
 
-          // Send create_pool first
-          console.log('[STEP 6/7] 📤 Sending create_pool transaction...');
-          createPoolSignature = await connection.sendRawTransaction(signedCreatePoolTx.serialize());
-          console.log('[STEP 6/7] ✅ create_pool sent! Signature:', createPoolSignature);
+          // Send the transaction
+          console.log('[STEP 6/7] 📤 Sending transaction...');
+          txSignature = await connection.sendRawTransaction(signedTx.serialize());
+          console.log('[STEP 6/7] ✅ Transaction sent! Signature:', txSignature);
 
-          // Wait for create_pool to confirm
-          console.log('[STEP 6/7] ⏳ Waiting for create_pool confirmation...');
-          await connection.confirmTransaction(createPoolSignature, 'confirmed');
-          console.log('[STEP 6/7] ✅ create_pool confirmed!');
-
-          // Send deploy_market second
-          console.log('[STEP 6/7] 📤 Sending deploy_market transaction...');
-          deployMarketSignature = await connection.sendRawTransaction(signedDeployMarketTx.serialize());
-          console.log('[STEP 6/7] ✅ deploy_market sent! Signature:', deployMarketSignature);
-
-          // Wait for deploy_market to confirm
-          console.log('[STEP 6/7] ⏳ Waiting for deploy_market confirmation...');
-          await connection.confirmTransaction(deployMarketSignature, 'confirmed');
-          console.log('[STEP 6/7] ✅ deploy_market confirmed!');
+          // Wait for confirmation
+          console.log('[STEP 6/7] ⏳ Waiting for confirmation...');
+          await connection.confirmTransaction(txSignature, 'confirmed');
+          console.log('[STEP 6/7] ✅ Transaction confirmed!');
         } catch (signError: any) {
           console.error('[STEP 6/7] ❌ Signing/sending failed!');
           console.error('[STEP 6/7] Error details:', {
@@ -248,10 +270,10 @@ export function useDeployPool() {
             code: signError?.code,
             stack: signError?.stack,
           });
-          throw new Error(`Failed to sign/send transactions: ${signError?.message || 'Unknown error'}. Make sure Phantom is unlocked and try again.`);
+          throw new Error(`Failed to sign/send transaction: ${signError?.message || 'Unknown error'}. Make sure Phantom is unlocked and try again.`);
         }
 
-        console.log('[STEP 7/7] ⏳ Both transactions confirmed!');
+        console.log('[STEP 7/7] ⏳ Transaction confirmed!');
 
         const poolPda = pdaHelper.getContentPoolPda(contentId)[0];
         const poolAddress = poolPda.toBase58();
@@ -307,7 +329,7 @@ export function useDeployPool() {
           body: JSON.stringify({
             postId: params.postId,
             poolAddress,
-            signature: deployMarketSignature,
+            signature: txSignature,
             initialDeposit: params.initialDeposit,
             longAllocation: longAllocationLamports.toNumber(),
             sLongSupply: poolAccount.sLong?.toNumber(), // Actual minted LONG tokens (on-manifold)
@@ -337,15 +359,13 @@ export function useDeployPool() {
         console.log('✅ [DEPLOY POOL] SUCCESS!');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('Pool Address:', poolAddress);
-        console.log('create_pool Transaction:', createPoolSignature);
-        console.log('deploy_market Transaction:', deployMarketSignature);
+        console.log('Transaction Signature:', txSignature);
         console.log('Record ID:', recordData.recordId);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
         return {
           poolAddress,
-          signature: deployMarketSignature,
-          createPoolSignature,
+          signature: txSignature,
         };
       } catch (err) {
         console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

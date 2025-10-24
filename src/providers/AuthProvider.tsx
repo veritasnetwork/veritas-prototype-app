@@ -58,6 +58,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [lastCheckTime, setLastCheckTime] = useState<number>(0);
+  const [hasCheckedOnMount, setHasCheckedOnMount] = useState(false);
 
   const checkUserStatus = async () => {
     if (!ready || !authenticated) {
@@ -78,9 +79,9 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       // Get Solana wallet address from Privy
       const solanaWallet = privyUser?.linkedAccounts?.find(
         (account: any) => account.type === 'wallet' && account.chainType === 'solana'
-      );
+      ) as any;
 
-      const solanaAddress = solanaWallet?.address;
+      const solanaAddress = solanaWallet?.address as string | undefined;
 
       if (!solanaAddress) {
         console.error('No Solana wallet found for user');
@@ -143,11 +144,24 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   useEffect(() => {
     if (ready) {
       if (authenticated) {
-        // Debounce auth checks - only check once per 5 seconds
-        const now = Date.now();
-        if (now - lastCheckTime > 5000) {
-          setLastCheckTime(now);
+        // Always check on first mount, then debounce subsequent checks
+        if (!hasCheckedOnMount) {
+          setHasCheckedOnMount(true);
+          setLastCheckTime(Date.now());
           checkUserStatus();
+        } else {
+          // Debounce auth checks - only check once per 5 seconds after initial mount
+          const now = Date.now();
+          if (now - lastCheckTime > 5000) {
+            setLastCheckTime(now);
+            checkUserStatus();
+          } else {
+            // If we're within the debounce window but loading, stop loading
+            // This prevents hanging on the loading screen when auth was recently checked
+            if (isLoading) {
+              setIsLoading(false);
+            }
+          }
         }
       } else {
         setIsLoading(false);
@@ -213,7 +227,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             walletChainType: 'solana-only',
             showWalletLoginFirst: false,
             // Show wallet as primary option in modals
-            walletList: ['detected', 'privy'],
+            walletList: ['detected_solana_wallets' as any, 'privy'],
           },
           // Use loginMethodsAndOrder instead of loginMethods for better control
           loginMethodsAndOrder: {
@@ -223,7 +237,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           embeddedWallets: {
             createOnLogin: 'all-users', // Always create embedded wallet
             requireUserPasswordOnCreate: false,
-            noPromptOnSignature: true, // Don't prompt for password on every signature
           },
           fundingMethodConfig: {
             moonpay: {

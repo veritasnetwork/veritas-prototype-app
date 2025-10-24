@@ -38,9 +38,10 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [poolDeployment, setPoolDeployment] = useState<PoolDeployment | null>(null);
-  const [bdScore, setBdScore] = useState<number | undefined>(undefined);
-  const [poolLoading, setPoolLoading] = useState(true);
+  const [poolLoading, setPoolLoading] = useState(false);
+
+  // Lifted state: which side is selected in the swap component
+  const [selectedSide, setSelectedSide] = useState<'LONG' | 'SHORT'>('LONG');
 
   // Fetch pool data from chain
   const { poolData } = usePoolData(post?.poolAddress || undefined, postId);
@@ -72,52 +73,6 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
       fetchPost();
     }
   }, [postId]);
-
-  // Fetch pool deployment and BD score
-  useEffect(() => {
-    const fetchPoolData = async () => {
-      if (!post) return;
-
-      try {
-        setPoolLoading(true);
-
-        // Check if pool is deployed for this post (no more pending status)
-        const { data: deployment, error: deployError } = await supabase
-          .from('pool_deployments')
-          .select('pool_address, status, belief_id')
-          .eq('post_id', postId)
-          .single();
-
-        if (deployError && deployError.code !== 'PGRST116') {
-          console.error('[PostDetailContent] Error fetching pool deployment:', deployError);
-          return;
-        }
-
-        if (deployment) {
-          setPoolDeployment(deployment);
-
-          // Fetch BD score from belief
-          const { data: belief, error: beliefError } = await supabase
-            .from('beliefs')
-            .select('previous_aggregate')
-            .eq('id', deployment.belief_id)
-            .single();
-
-          if (beliefError) {
-            console.error('[PostDetailContent] Error fetching belief:', beliefError);
-          } else if (belief?.previous_aggregate !== null && belief?.previous_aggregate !== undefined) {
-            setBdScore(belief.previous_aggregate);
-          }
-        }
-      } catch (err) {
-        console.error('[PostDetailContent] Error fetching pool data:', err);
-      } finally {
-        setPoolLoading(false);
-      }
-    };
-
-    fetchPoolData();
-  }, [post, postId]);
 
   // Loading state
   if (loading) {
@@ -227,12 +182,9 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
             {/* Pool Metrics */}
             {poolData && (
               <PoolMetricsCard
-                currentPrice={poolData.currentPrice}
-                marketCap={poolData.marketCap}
-                totalSupply={poolData.totalSupply}
-                reserveBalance={poolData.reserveBalance}
-                priceChangePercent24h={tradeHistory?.stats?.priceChangePercent24h}
-                totalVolume={tradeHistory?.stats?.totalVolume}
+                poolData={poolData}
+                stats={tradeHistory?.stats}
+                side={selectedSide}
               />
             )}
 
@@ -249,6 +201,8 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
                   f={poolData.f}
                   betaNum={poolData.betaNum}
                   betaDen={poolData.betaDen}
+                  selectedSide={selectedSide}
+                  onSideChange={setSelectedSide}
                   onTradeSuccess={() => {
                     // Could refresh pool data here if needed
                   }}
@@ -257,11 +211,11 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
             )}
 
             {/* Settlement Button - only show if BD score is available */}
-            {bdScore !== undefined && poolDeployment && (
+            {post?.belief?.previous_aggregate !== undefined && post?.poolAddress && (
               <SettlementButton
                 postId={postId}
-                poolAddress={poolDeployment.pool_address}
-                bdScore={bdScore}
+                poolAddress={post.poolAddress}
+                bdScore={post.belief.previous_aggregate}
                 onSettlementSuccess={() => {
                   // Refresh pool data after settlement
                   window.location.reload();
