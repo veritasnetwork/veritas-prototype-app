@@ -29,7 +29,8 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
   const initialDeposit = 50; // Hardcoded to $50
   const [longAllocationPercent, setLongAllocationPercent] = useState<number>(50);
 
-  const handleConnectWallet = async () => {
+  const handleConnectWallet = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsConnectingWallet(true);
     setError(null);
     try {
@@ -49,7 +50,8 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
     }
   };
 
-  const handleDeployPool = async () => {
+  const handleDeployPool = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (needsReconnection || !address || !isConnected) {
       setError('Wallet not connected. Click "Connect Wallet" below.');
       return;

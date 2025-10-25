@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
@@ -20,7 +20,11 @@ import { DeployPoolCard } from '@/components/post/PostDetailPanel/DeployPoolCard
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { usePoolData } from '@/hooks/usePoolData';
 import { useTradeHistory } from '@/hooks/api/useTradeHistory';
+import { PostsService } from '@/services/posts.service';
 import type { Post } from '@/types/post.types';
+import { poolDataService } from '@/services/PoolDataService';
+
+const POLL_INTERVAL = 20000; // 20 seconds
 
 export function Feed() {
   const { authenticated, ready, login, user: privyUser } = usePrivy();
@@ -31,13 +35,59 @@ export function Feed() {
 
   // Initialize wallet hook early to trigger Privy wallet loading
   const { wallet: solanaWallet, isLoading: walletLoading } = useSolanaWallet();
-  const { posts, loading, error, refetch, loadMore, hasMore, loadingMore } = usePosts();
+  const { posts, loading, error, refetch, loadMore, hasMore, loadingMore, updatePost } = usePosts();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
   const [selectedSide, setSelectedSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [isClosing, setIsClosing] = useState(false);
+  const [viewMode, setViewMode] = useState<'read' | 'trade'>('trade');
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSelectedPostIdRef = useRef<string | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
+  const preloadedPostsRef = useRef<Set<string>>(new Set());
+  const preloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const visibilityObserverRef = useRef<IntersectionObserver | null>(null);
+  const poolSubscriptionsRef = useRef<Map<string, () => void>>(new Map());
+
+  // Handle view mode changes
+  const handleViewModeChange = (mode: 'read' | 'trade') => {
+    setViewMode(mode);
+
+    // Close detail panel when switching to read mode
+    if (mode === 'read' && selectedPostId) {
+      // Save the current selection before closing
+      lastSelectedPostIdRef.current = selectedPostId;
+
+      setIsClosing(true);
+      setSelectedPostId(null);
+      setTimeout(() => {
+        setIsClosing(false);
+      }, 1000);
+    }
+
+    // When switching to trade mode
+    if (mode === 'trade') {
+      // Restore the last selected post if available
+      if (lastSelectedPostIdRef.current) {
+        setSelectedPostId(lastSelectedPostIdRef.current);
+        setIsClosing(false);
+      }
+      // Otherwise, auto-select the first post if no post is selected
+      else if (!selectedPostId && posts.length > 0) {
+        setSelectedPostId(posts[0].id);
+        setIsClosing(false);
+      }
+    }
+  };
+
+  // Auto-select first post when in trade mode on initial load
+  useEffect(() => {
+    if (viewMode === 'trade' && !selectedPostId && posts.length > 0 && !loading) {
+      setSelectedPostId(posts[0].id);
+    }
+  }, [posts, loading, viewMode, selectedPostId]);
 
   // Show auth popup if not authenticated OR no Solana wallet connected
   useEffect(() => {
@@ -62,41 +112,202 @@ export function Feed() {
     setShowAuthPopup(needsAuth);
   }, [ready, authenticated, privyUser, solanaWallet, walletLoading]);
 
-  const handlePostClick = (postId: string) => {
-    if (selectedPostId === postId) {
-      // Toggle: if clicking the same post, close it with animation
-      setIsClosing(true);
-      setTimeout(() => {
-        setSelectedPostId(null);
-        setSelectedPost(null);
-        setIsClosing(false);
-      }, 250); // Match animation duration
-    } else {
-      // Open new post: use cached data from feed immediately
-      setIsClosing(false);
-      const cachedPost = posts.find(p => p.id === postId);
-      setSelectedPostId(postId);
-      setSelectedPost(cachedPost || null);
+  // Helper to subscribe/unsubscribe pool data based on visibility
+  const subscribeToPool = useCallback((postId: string) => {
+    // Skip if already subscribed
+    if (poolSubscriptionsRef.current.has(postId)) return;
 
-      // Optionally refresh post data in background (stale-while-revalidate)
-      if (cachedPost) {
-        fetch(`/api/posts/${postId}`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data && selectedPostId === postId) {
-              setSelectedPost(data);
-            }
-          })
-          .catch(err => console.warn('Background post refresh failed:', err));
-      }
+    const unsubscribe = poolDataService.subscribe(postId, () => {
+      // No-op: just keeping cache warm with adaptive polling
+    });
+    poolSubscriptionsRef.current.set(postId, unsubscribe);
+  }, []);
+
+  const unsubscribeFromPool = useCallback((postId: string) => {
+    const unsubscribe = poolSubscriptionsRef.current.get(postId);
+    if (unsubscribe) {
+      unsubscribe();
+      poolSubscriptionsRef.current.delete(postId);
     }
+  }, []);
+
+  // Visibility observer: only poll for posts in viewport (or near it)
+  useEffect(() => {
+    if (loading || posts.length === 0) return;
+
+    // Create visibility observer for efficient polling management
+    visibilityObserverRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const postId = entry.target.getAttribute('data-post-id');
+          const poolAddress = entry.target.getAttribute('data-pool-address');
+
+          if (!postId || !poolAddress) return;
+
+          if (entry.isIntersecting) {
+            // Post is visible - subscribe to pool updates
+            subscribeToPool(postId);
+          } else {
+            // Post left viewport - unsubscribe to save resources
+            unsubscribeFromPool(postId);
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: '400px', // Subscribe when within 400px of viewport (buffer for smooth scrolling)
+        threshold: 0,
+      }
+    );
+
+    return () => {
+      if (visibilityObserverRef.current) {
+        visibilityObserverRef.current.disconnect();
+      }
+      // Cleanup all subscriptions on unmount
+      poolSubscriptionsRef.current.forEach(unsub => unsub());
+      poolSubscriptionsRef.current.clear();
+    };
+  }, [posts, loading, subscribeToPool, unsubscribeFromPool]);
+
+  // Prefetch relevance history for posts with pools (one-time, browser-cached)
+  useEffect(() => {
+    if (loading || posts.length === 0) return;
+
+    // Clear any existing timeout
+    if (preloadTimeoutRef.current) {
+      clearTimeout(preloadTimeoutRef.current);
+    }
+
+    // Wait 500ms after posts load before preloading (avoid blocking main thread)
+    preloadTimeoutRef.current = setTimeout(() => {
+      posts.forEach((post) => {
+        // Skip if already preloaded or no pool
+        if (preloadedPostsRef.current.has(post.id) || !post.poolAddress) return;
+
+        // Mark as preloaded
+        preloadedPostsRef.current.add(post.id);
+
+        // Prefetch relevance history data (one-time fetch, cached by browser/SWR)
+        fetch(`/api/posts/${post.id}/history?include=relevance`)
+          .then(res => res.ok ? res.json() : null)
+          .catch(() => null); // Silent fail, it's just a prefetch
+      });
+    }, 500);
+
+    return () => {
+      if (preloadTimeoutRef.current) {
+        clearTimeout(preloadTimeoutRef.current);
+      }
+    };
+  }, [posts, loading]);
+
+  // Infinite scroll with Intersection Observer
+  useEffect(() => {
+    // Don't set up observer if we're already loading or no more posts
+    if (loading || loadingMore || !hasMore || !loadMoreTriggerRef.current) {
+      return;
+    }
+
+    // Create intersection observer for infinite scroll
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        // Only trigger if visible, not already loading, and has more posts
+        if (entry.isIntersecting && !loadingMore && hasMore && !loading) {
+          loadMore();
+        }
+      },
+      {
+        root: null,
+        rootMargin: '200px', // Start loading 200px before reaching the trigger
+        threshold: 0.1,
+      }
+    );
+
+    // Observe the trigger element
+    observer.observe(loadMoreTriggerRef.current);
+    observerRef.current = observer;
+
+    // Cleanup
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, loadingMore, loading, loadMore, posts.length]); // Re-run when posts length changes
+
+  // Polling for selected post metrics
+  useEffect(() => {
+    // Clear existing interval
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+
+    // Only poll if we have a selected post
+    if (selectedPostId) {
+      const pollSelectedPost = async () => {
+        try {
+          const metrics = await PostsService.fetchSinglePostMetrics(selectedPostId);
+          if (metrics) {
+            // Update in the feed list
+            updatePost(selectedPostId, metrics);
+          }
+        } catch (err) {
+          console.warn('[Feed] Polling error for selected post:', err);
+        }
+      };
+
+      // Start polling
+      pollIntervalRef.current = setInterval(pollSelectedPost, POLL_INTERVAL);
+    }
+
+    // Cleanup on unmount or when selection changes
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [selectedPostId, updatePost]);
+
+  const handlePostClick = (postId: string) => {
+    // In read mode, navigate to the post page in trade mode
+    if (viewMode === 'read') {
+      window.location.href = `/post/${postId}?mode=trade`;
+      return;
+    }
+
+    // In trade mode, show the detail panel (no toggle - always show details)
+    if (selectedPostId === postId) {
+      // Clicking the same post in trade mode does nothing
+      return;
+    }
+
+    // Select the new post
+    setIsClosing(false);
+    setSelectedPostId(postId);
+
+    // Optionally refresh post data in background (stale-while-revalidate)
+    fetch(`/api/posts/${postId}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) {
+          // Update the feed list with fresh data
+          updatePost(postId, data);
+        }
+      })
+      .catch(err => console.warn('Background post refresh failed:', err));
   };
 
+  // Always use the post from the feed list that matches selectedPostId
+  // This ensures we're always showing the correct post data
+  const currentPost = selectedPostId ? posts.find(p => p.id === selectedPostId) : null;
+
   // Fetch pool data from chain
-  const { poolData } = usePoolData(selectedPost?.poolAddress, selectedPostId ?? undefined);
+  const { poolData } = usePoolData(currentPost?.poolAddress, selectedPostId ?? undefined);
 
   // Trade history for price change - only fetch if pool exists
-  const shouldFetchTradeHistory = selectedPost?.poolAddress ? (selectedPostId ?? undefined) : undefined;
+  const shouldFetchTradeHistory = currentPost?.poolAddress ? (selectedPostId ?? undefined) : undefined;
   const { data: tradeHistory, refresh: refreshTradeHistory } = useTradeHistory(shouldFetchTradeHistory, '24H');
 
   // Refresh handler for after successful trades
@@ -112,15 +323,8 @@ export function Feed() {
         const response = await fetch(`/api/posts/${selectedPostId}`);
         if (response.ok) {
           const updatedPost = await response.json();
-          setSelectedPost(updatedPost);
-
-          // Also update the post in the feed list
-          const updatedPosts = posts.map(p => p.id === selectedPostId ? updatedPost : p);
-          if (JSON.stringify(posts) !== JSON.stringify(updatedPosts)) {
-            // Only trigger a full refetch if we need to update the list
-            // This ensures the feed list also has the latest data
-            await refetch();
-          }
+          // Update the post in the feed list
+          updatePost(selectedPostId, updatedPost);
         }
       } catch (error) {
         console.error('[Feed] Error refreshing post after trade:', error);
@@ -272,52 +476,67 @@ export function Feed() {
   }
 
   return (
-    <>
+    <div className="bg-[#0f0f0f] min-h-screen">
       {/* Mobile Header (shown on <1024px) */}
       <div className="lg:hidden">
         <NavigationHeader />
       </div>
 
       {/* Desktop Sidebar (shown on >=1024px) */}
-      <Sidebar onCreatePost={() => setIsCreateModalOpen(true)} isCompact={!!selectedPostId || isClosing} />
+      <Sidebar
+        onCreatePost={() => setIsCreateModalOpen(true)}
+        isCompact={viewMode === 'trade' && !!selectedPostId}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+      />
 
       {/* Main Content Area */}
-      <div className={`min-h-screen bg-[#0f0f0f] pb-20 lg:pb-0 transition-[margin-left] duration-300 ease-in-out ${selectedPostId || isClosing ? 'lg:ml-28' : 'lg:ml-64'}`}>
-        <div className={`mx-auto py-8 ${selectedPostId ? 'lg:max-w-[1400px] lg:px-4' : 'max-w-[680px] px-6'}`}>
-          <div className={`flex flex-col lg:flex-row ${selectedPostId ? 'lg:gap-12' : ''} ${selectedPostId ? 'lg:items-start lg:h-[calc(100vh-4rem)]' : ''}`}>
+      <div className={`min-h-screen bg-[#0f0f0f] pb-20 lg:pb-0 transition-[margin-left] duration-1000 ease-in-out ${viewMode === 'trade' && selectedPostId ? 'lg:ml-28' : 'lg:ml-64'}`}>
+        <div className={`mx-auto py-8 bg-[#0f0f0f] transition-[max-width,padding] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${viewMode === 'trade' && selectedPostId ? 'lg:max-w-[1400px] lg:px-4' : 'max-w-[680px] px-6'}`}>
+          <div className={`flex flex-col lg:flex-row bg-[#0f0f0f] ${viewMode === 'trade' && selectedPostId ? 'lg:gap-12' : ''} ${viewMode === 'trade' && selectedPostId ? 'lg:items-start lg:h-[calc(100vh-4rem)]' : ''}`}>
             {/* Posts Column */}
-            <div className={`flex flex-col gap-8 ${selectedPostId ? (isClosing ? 'w-full lg:w-[680px] lg:flex-shrink-0 lg:h-full lg:overflow-y-auto scrollbar-hide animate-[slideOutRight_250ms_cubic-bezier(0.16,1,0.3,1)]' : 'w-full lg:w-[680px] lg:flex-shrink-0 lg:h-full lg:overflow-y-auto scrollbar-hide animate-[slideInLeft_250ms_cubic-bezier(0.16,1,0.3,1)]') : 'w-full'}`}>
-              {posts.map((post) => (
-                <PostCard
+            <div className={`flex flex-col gap-8 w-full lg:w-[680px] lg:flex-shrink-0 bg-[#0f0f0f] ${viewMode === 'trade' && selectedPostId ? 'lg:h-full lg:overflow-y-auto scrollbar-hide lg:pb-8' : ''}`}>
+              {posts.map((post, index) => (
+                <div
                   key={post.id}
-                  post={post}
-                  onPostClick={handlePostClick}
-                  isSelected={selectedPostId === post.id}
-                />
+                  data-post-id={post.id}
+                  data-pool-address={post.poolAddress || ''}
+                  ref={(el) => {
+                    // Attach to visibility observer for posts with pools
+                    if (el && post.poolAddress && visibilityObserverRef.current) {
+                      visibilityObserverRef.current.observe(el);
+                    }
+                  }}
+                >
+                  <PostCard
+                    post={post}
+                    onPostClick={handlePostClick}
+                    isSelected={selectedPostId === post.id}
+                  />
+                  {/* Trigger loading when scrolling past 3rd-to-last post */}
+                  {hasMore && !loading && index === posts.length - 3 && (
+                    <div ref={loadMoreTriggerRef} className="h-1" />
+                  )}
+                </div>
               ))}
 
-              {/* Load More Button */}
-              {hasMore && !loading && (
-                <div className="flex justify-center mt-8">
-                  <button onClick={loadMore} disabled={loadingMore}
-                    className="px-8 py-3 bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#2a2a2a] hover:border-[#B9D9EB] text-[#B9D9EB] rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
-                    {loadingMore ? (
-                      <span className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
-                        Loading...
-                      </span>
-                    ) : 'Load More Posts'}
-                  </button>
+              {/* Loading indicator at the end */}
+              {loadingMore && (
+                <div className="flex justify-center py-8">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm text-gray-400">Loading more posts...</span>
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Detail Cards Column - appears on right side on desktop, modal on mobile */}
-            {selectedPostId && (
-              <div className={`hidden lg:block flex-1 lg:h-full lg:overflow-y-auto scrollbar-hide ${isClosing ? 'animate-[slideOutRightFade_250ms_cubic-bezier(0.16,1,0.3,1)]' : 'animate-[slideInRight_250ms_cubic-bezier(0.16,1,0.3,1)]'}`}>
+            {viewMode === 'trade' && (selectedPostId || isClosing) && (
+              <div className={`hidden lg:block lg:min-w-[600px] lg:max-w-[600px] lg:h-full lg:overflow-y-auto scrollbar-hide bg-[#0f0f0f] ${isClosing ? 'animate-[slideOutRightFade_1000ms_cubic-bezier(0.16,1,0.3,1)]' : 'animate-[slideInRight_1000ms_cubic-bezier(0.16,1,0.3,1)]'}`}>
                 <div className="space-y-4">
                   {/* Deploy Pool Card - Show if no pool exists */}
-                  {!selectedPost?.poolAddress && (
+                  {!currentPost?.poolAddress && (
                     <DeployPoolCard
                       postId={selectedPostId}
                       onDeploySuccess={handleTradeSuccess}
@@ -325,37 +544,59 @@ export function Feed() {
                   )}
 
                   {/* Trading Chart Card - Show if pool exists */}
-                  {selectedPost?.poolAddress && (
+                  {currentPost?.poolAddress && (
                     <TradingChartCard postId={selectedPostId} />
                   )}
 
                   {/* Pool Metrics Card - Show if pool exists */}
-                  {poolData && (
-                    <PoolMetricsCard
-                      poolData={poolData}
-                      stats={tradeHistory?.stats}
-                      side={selectedSide}
-                    />
+                  {currentPost?.poolAddress && (
+                    poolData ? (
+                      <PoolMetricsCard
+                        poolData={poolData}
+                        stats={tradeHistory?.stats}
+                        side={selectedSide}
+                      />
+                    ) : (
+                      <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+                        <div className="flex items-center justify-center py-12">
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-sm text-gray-400">Loading pool data...</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
                   )}
 
                   {/* Swap Card - Show if pool exists */}
-                  {selectedPost?.poolAddress && poolData && (
-                    <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
-                      <UnifiedSwapComponent
-                        poolAddress={selectedPost.poolAddress}
-                        postId={selectedPost.id}
-                        priceLong={poolData.priceLong}
-                        priceShort={poolData.priceShort}
-                        supplyLong={poolData.supplyLong}
-                        supplyShort={poolData.supplyShort}
-                        f={poolData.f}
-                        betaNum={poolData.betaNum}
-                        betaDen={poolData.betaDen}
-                        selectedSide={selectedSide}
-                        onSideChange={setSelectedSide}
-                        onTradeSuccess={handleTradeSuccess}
-                      />
-                    </div>
+                  {currentPost?.poolAddress && (
+                    poolData ? (
+                      <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
+                        <UnifiedSwapComponent
+                          poolAddress={currentPost.poolAddress}
+                          postId={currentPost.id}
+                          priceLong={poolData.priceLong}
+                          priceShort={poolData.priceShort}
+                          supplyLong={poolData.supplyLong}
+                          supplyShort={poolData.supplyShort}
+                          f={poolData.f}
+                          betaNum={poolData.betaNum}
+                          betaDen={poolData.betaDen}
+                          selectedSide={selectedSide}
+                          onSideChange={setSelectedSide}
+                          onTradeSuccess={handleTradeSuccess}
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+                        <div className="flex items-center justify-center py-12">
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-sm text-gray-400">Loading trading interface...</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
                   )}
                 </div>
               </div>
@@ -366,7 +607,7 @@ export function Feed() {
 
       {/* Mobile Detail Modal (shown on <1024px when post selected) */}
       {selectedPostId && (
-        <div className={`lg:hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-sm overflow-y-auto ${isClosing ? 'animate-[slideOutRightFade_250ms_cubic-bezier(0.16,1,0.3,1)]' : 'animate-[slideInRight_250ms_cubic-bezier(0.16,1,0.3,1)]'}`}>
+        <div className={`lg:hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-sm overflow-y-auto ${isClosing ? 'animate-[slideOutRightFade_1000ms_cubic-bezier(0.16,1,0.3,1)]' : 'animate-[slideInRight_1000ms_cubic-bezier(0.16,1,0.3,1)]'}`}>
           <div className="min-h-screen pb-20">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a] px-4 py-3">
@@ -375,7 +616,6 @@ export function Feed() {
                 <button
                   onClick={() => {
                     setSelectedPostId(null);
-                    setSelectedPost(null);
                   }}
                   className="p-2 hover:bg-[#2a2a2a] rounded-lg transition-colors"
                 >
@@ -389,7 +629,7 @@ export function Feed() {
             {/* Content */}
             <div className="px-4 py-6 space-y-4">
               {/* Deploy Pool Card - Show if no pool exists */}
-              {!selectedPost?.poolAddress && (
+              {!currentPost?.poolAddress && (
                 <DeployPoolCard
                   postId={selectedPostId}
                   onDeploySuccess={handleTradeSuccess}
@@ -397,25 +637,37 @@ export function Feed() {
               )}
 
               {/* Trading Chart Card - Show if pool exists */}
-              {selectedPost?.poolAddress && (
+              {currentPost?.poolAddress && (
                 <TradingChartCard postId={selectedPostId} />
               )}
 
               {/* Pool Metrics Card - Show if pool exists */}
-              {poolData && (
-                <PoolMetricsCard
-                  poolData={poolData}
-                  stats={tradeHistory?.stats}
-                  side={selectedSide}
-                />
+              {currentPost?.poolAddress && (
+                poolData ? (
+                  <PoolMetricsCard
+                    poolData={poolData}
+                    stats={tradeHistory?.stats}
+                    side={selectedSide}
+                  />
+                ) : (
+                  <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+                    <div className="flex items-center justify-center py-12">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-sm text-gray-400">Loading pool data...</span>
+                      </div>
+                    </div>
+                  </div>
+                )
               )}
 
               {/* Swap Card - Show if pool exists */}
-              {selectedPost?.poolAddress && poolData && (
-                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
-                  <UnifiedSwapComponent
-                    poolAddress={selectedPost.poolAddress}
-                    postId={selectedPost.id}
+              {currentPost?.poolAddress && (
+                poolData ? (
+                  <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
+                    <UnifiedSwapComponent
+                      poolAddress={currentPost.poolAddress}
+                      postId={currentPost.id}
                     priceLong={poolData.priceLong}
                     priceShort={poolData.priceShort}
                     supplyLong={poolData.supplyLong}
@@ -428,6 +680,16 @@ export function Feed() {
                     onTradeSuccess={handleTradeSuccess}
                   />
                 </div>
+                ) : (
+                  <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+                    <div className="flex items-center justify-center py-12">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-sm text-gray-400">Loading trading interface...</span>
+                      </div>
+                    </div>
+                  </div>
+                )
               )}
             </div>
           </div>
@@ -443,6 +705,6 @@ export function Feed() {
         onClose={() => setIsCreateModalOpen(false)}
         onPostCreated={refetch}
       />
-    </>
+    </div>
   );
 }

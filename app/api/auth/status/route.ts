@@ -75,10 +75,10 @@ export async function POST(request: NextRequest) {
       agent_id: user.agent_id,
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('[auth/status] Error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', msg: error.message },
+      { error: 'Internal server error', msg: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

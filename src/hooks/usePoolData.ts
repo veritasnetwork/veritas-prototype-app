@@ -24,20 +24,34 @@ export function usePoolData(poolAddress: string | undefined, postId: string | un
       return;
     }
 
+    // Reset state for new subscription
+    setPoolData(null);
     setLoading(true);
+
+    // Track if we received data synchronously (from cache)
+    let receivedDataSync = false;
+    let isSubscribed = true; // Prevent state updates after unmount
 
     // Subscribe to pool data updates
     const unsubscribe = poolDataService.subscribe(postId, (data) => {
+      if (!isSubscribed) {
+        return;
+      }
       setPoolData(data);
       setLoading(false);
       setError(data === null ? new Error('No pool data available') : null);
+      receivedDataSync = true;
     });
+
+    // If we didn't get data synchronously, keep loading state
+    // (already set above)
 
     // Cleanup on unmount
     return () => {
+      isSubscribed = false;
       unsubscribe();
     };
-  }, [postId, poolAddress]); // keep poolAddress to trigger resubscribe if it changes
+  }, [postId]); // Remove poolAddress from deps - only resubscribe when postId changes
 
   return { poolData, loading, error };
 }

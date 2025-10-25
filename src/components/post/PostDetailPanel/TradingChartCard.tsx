@@ -22,9 +22,10 @@ type ChartType = 'price' | 'relevance';
 
 interface TradingChartCardProps {
   postId: string;
+  refreshTrigger?: number; // Increment this to trigger chart refresh
 }
 
-export function TradingChartCard({ postId }: TradingChartCardProps) {
+export function TradingChartCard({ postId, refreshTrigger }: TradingChartCardProps) {
   const [chartType, setChartType] = useState<ChartType>('price');
   const [timeRange, setTimeRange] = useState<TimeRange>('24H');
 
@@ -34,7 +35,7 @@ export function TradingChartCard({ postId }: TradingChartCardProps) {
   const [chartTypeSliderStyle, setChartTypeSliderStyle] = useState<React.CSSProperties>({});
   const [timeRangeSliderStyle, setTimeRangeSliderStyle] = useState<React.CSSProperties>({});
 
-  const { data: tradeHistory, isLoading: historyLoading } = useTradeHistory(postId, timeRange);
+  const { data: tradeHistory, isLoading: historyLoading, refresh: refreshTradeHistory } = useTradeHistory(postId, timeRange);
 
   // ✅ OPTIMIZATION: Only fetch relevance when chart type is 'relevance'
   const { data: relevanceData, isLoading: relevanceLoading, error: relevanceError, refetch: refetchRelevance } = useRelevanceHistory(
@@ -44,12 +45,24 @@ export function TradingChartCard({ postId }: TradingChartCardProps) {
   const { poolData } = usePoolData(undefined, postId);
   const { rebasePool, isRebasing, error: rebaseError } = useRebasePool();
 
+  // Listen for refreshTrigger changes and refresh trade history
+  useEffect(() => {
+    if (refreshTrigger !== undefined && refreshTrigger > 0) {
+      console.log('[TradingChartCard] refreshTrigger changed, refreshing trade history');
+      refreshTradeHistory();
+    }
+  }, [refreshTrigger, refreshTradeHistory]);
+
   const handleRebase = async () => {
     const result = await rebasePool(postId);
 
     if (result.success) {
-      // Refresh data after successful rebase
-      await refetchRelevance();
+      // Refresh all chart data after successful rebase (settlement updates pool state)
+      console.log('[TradingChartCard] Rebase successful, refreshing all chart data');
+      await Promise.all([
+        refetchRelevance(),     // Refresh relevance chart
+        refreshTradeHistory(),  // Refresh price chart (settlement may affect prices)
+      ]);
       alert(`Pool rebased successfully!\nNew BD Score: ${(result.bdScore! * 100).toFixed(1)}%\nRewards: $${result.stakeChanges!.totalRewards.toFixed(2)}\nSlashes: $${result.stakeChanges!.totalSlashes.toFixed(2)}`);
     } else {
       alert(`Rebase failed: ${result.error}`);
@@ -93,6 +106,17 @@ export function TradingChartCard({ postId }: TradingChartCardProps) {
 
     return () => clearTimeout(timer);
   }, [timeRange]);
+
+  // Refresh chart when trade completes
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      console.log('[TradingChartCard] Refresh triggered, reloading chart data');
+      refreshTradeHistory();
+      if (chartType === 'relevance') {
+        refetchRelevance();
+      }
+    }
+  }, [refreshTrigger, refreshTradeHistory, refetchRelevance, chartType]);
 
   return (
     <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-2xl overflow-hidden">
@@ -159,15 +183,8 @@ export function TradingChartCard({ postId }: TradingChartCardProps) {
       {/* Chart Area */}
       <div className="p-4 pt-2">
         {chartType === 'price' ? (
-          // Price Chart
-          historyLoading ? (
-            <div className="h-[400px] flex items-center justify-center">
-              <div className="text-center">
-                <div className="animate-spin w-6 h-6 border-2 border-[#B9D9EB] border-t-transparent rounded-full mx-auto mb-2"></div>
-                <p className="text-gray-500 text-xs">Loading price data...</p>
-              </div>
-            </div>
-          ) : tradeHistory && tradeHistory.priceLongData && tradeHistory.priceShortData && (tradeHistory.priceLongData.length > 0 || tradeHistory.priceShortData.length > 0) ? (
+          // Price Chart - show data if available (even while loading fresh data in background)
+          tradeHistory && tradeHistory.priceLongData && tradeHistory.priceShortData && (tradeHistory.priceLongData.length > 0 || tradeHistory.priceShortData.length > 0) ? (
             <Suspense fallback={
               <div className="w-full h-[400px] bg-[#0a0a0a] rounded-lg flex items-center justify-center">
                 <div className="flex flex-col items-center gap-3">
@@ -183,6 +200,14 @@ export function TradingChartCard({ postId }: TradingChartCardProps) {
                 height={400}
               />
             </Suspense>
+          ) : historyLoading ? (
+            // Only show loading if we have no data and are actually fetching
+            <div className="h-[400px] flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin w-6 h-6 border-2 border-[#B9D9EB] border-t-transparent rounded-full mx-auto mb-2"></div>
+                <p className="text-gray-500 text-xs">Loading price data...</p>
+              </div>
+            </div>
           ) : (
             <div className="h-[400px] flex items-center justify-center">
               <div className="text-center">
@@ -194,19 +219,21 @@ export function TradingChartCard({ postId }: TradingChartCardProps) {
           )
         ) : (
           // Relevance Chart
-          relevanceLoading && !relevanceError ? (
+          // Show data if available (even while loading fresh data in background)
+          relevanceData && (relevanceData.actualRelevance.length > 0 || relevanceData.impliedRelevance.length > 0) ? (
+            <RelevanceHistoryChart
+              actualRelevance={relevanceData.actualRelevance}
+              impliedRelevance={relevanceData.impliedRelevance}
+              height={400}
+            />
+          ) : relevanceLoading && !relevanceError ? (
+            // Only show loading if we have no data and are actually fetching
             <div className="h-[400px] flex items-center justify-center">
               <div className="text-center">
                 <div className="animate-spin w-6 h-6 border-2 border-[#22c55e] border-t-transparent rounded-full mx-auto mb-2"></div>
                 <p className="text-gray-500 text-xs">Loading relevance data...</p>
               </div>
             </div>
-          ) : relevanceData && (relevanceData.actualRelevance.length > 0 || relevanceData.impliedRelevance.length > 0) ? (
-            <RelevanceHistoryChart
-              actualRelevance={relevanceData.actualRelevance}
-              impliedRelevance={relevanceData.impliedRelevance}
-              height={400}
-            />
           ) : (
             <div className="h-[400px] flex items-center justify-center">
               <div className="text-center">

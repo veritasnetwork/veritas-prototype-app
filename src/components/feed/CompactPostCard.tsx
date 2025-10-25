@@ -22,8 +22,15 @@ export interface CompactPostCardProps {
   };
   // Optional: User's holdings for this post
   holdings?: {
+    long_balance: number;
+    short_balance: number;
     token_balance: number;
     current_value_usdc: number;
+    total_usdc_spent: number;
+    total_usdc_received: number;
+    total_lock_usdc: number;
+    price_long: number;
+    price_short: number;
   };
   // Optional: Click handler (defaults to navigating to post)
   onClick?: () => void;
@@ -68,7 +75,7 @@ export function CompactPostCard({ post, holdings, onClick }: CompactPostCardProp
     if (onClick) {
       onClick();
     } else {
-      router.push(`/post/${post.id}`);
+      router.push(`/post/${post.id}?mode=trade`);
     }
   };
 
@@ -77,46 +84,94 @@ export function CompactPostCard({ post, holdings, onClick }: CompactPostCardProp
     router.push(`/profile/${post.author.username}`);
   };
 
+  // Calculate P&L if holdings data available
+  const profitLoss = holdings
+    ? holdings.current_value_usdc - (holdings.total_usdc_spent - holdings.total_usdc_received)
+    : 0;
+  const profitLossPercent = holdings && (holdings.total_usdc_spent - holdings.total_usdc_received) > 0
+    ? (profitLoss / (holdings.total_usdc_spent - holdings.total_usdc_received)) * 100
+    : 0;
+
   return (
     <article
       onClick={handleClick}
-      className="bg-eggshell rounded-lg p-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-150 cursor-pointer"
+      className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 hover:border-[#3a3a3a] hover:shadow-lg transition-all duration-200 cursor-pointer group"
     >
-      {/* Top Row: Title + Price */}
-      <div className="flex items-start justify-between gap-3 mb-1.5">
-        <h3
-          className="font-medium text-text-primary line-clamp-1"
-          style={{ maxWidth: '70%' }}
-        >
-          {title}
-        </h3>
-        <span className="text-sm font-medium text-text-secondary whitespace-nowrap">
-          ${currentPrice.toFixed(4)}
+      {/* Header: Title + Author */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-white line-clamp-2 mb-1 group-hover:text-[#B9D9EB] transition-colors">
+            {title}
+          </h3>
+          <button
+            onClick={handleUsernameClick}
+            className="text-xs text-gray-400 hover:text-[#B9D9EB] hover:underline transition-colors"
+          >
+            @{post.author.username}
+          </button>
+        </div>
+        <span className="text-xs text-gray-500 whitespace-nowrap">
+          {formatRelativeTime(post.timestamp)}
         </span>
       </div>
 
-      {/* Middle Row: Author + Timestamp */}
-      <div className="flex items-center gap-2 text-xs text-text-secondary mb-1">
-        <button
-          onClick={handleUsernameClick}
-          className="hover:text-text-primary hover:underline transition-colors"
-        >
-          @{post.author.username}
-        </button>
-        <span>•</span>
-        <span>{formatRelativeTime(post.timestamp)}</span>
-      </div>
+      {/* Holdings Details (conditional) */}
+      {holdings && holdings.token_balance !== undefined && holdings.current_value_usdc !== undefined && (
+        <div className="border-t border-[#2a2a2a] pt-3 space-y-2">
+          {/* Position Breakdown: LONG vs SHORT */}
+          <div className="flex items-center gap-2">
+            {holdings.long_balance > 0 && (
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded">
+                <span className="text-[10px] font-medium text-green-400">LONG</span>
+                <span className="text-xs font-semibold text-white">
+                  {holdings.long_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-[10px] text-gray-400">@${holdings.price_long.toFixed(4)}</span>
+              </div>
+            )}
+            {holdings.short_balance > 0 && (
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-red-500/10 border border-red-500/20 rounded">
+                <span className="text-[10px] font-medium text-red-400">SHORT</span>
+                <span className="text-xs font-semibold text-white">
+                  {holdings.short_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-[10px] text-gray-400">@${holdings.price_short.toFixed(4)}</span>
+              </div>
+            )}
+          </div>
 
-      {/* Bottom Row: Holdings (conditional) */}
-      {holdings && (
-        <div className="flex items-center gap-3 text-xs">
-          <span className="font-medium text-text-primary">
-            {holdings.token_balance.toLocaleString()} tokens
-          </span>
-          <span className="text-text-tertiary">•</span>
-          <span className="font-medium text-success">
-            ${holdings.current_value_usdc.toFixed(2)}
-          </span>
+          {/* Value & P&L */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-bold text-white">
+                ${holdings.current_value_usdc.toFixed(2)}
+              </span>
+              <span className="text-xs text-gray-400">value</span>
+            </div>
+
+            {profitLoss !== 0 && (
+              <div className={`flex items-center gap-1 ${profitLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                <span className="text-xs font-semibold">
+                  {profitLoss >= 0 ? '+' : ''}{profitLoss.toFixed(2)} USDC
+                </span>
+                <span className="text-[10px] opacity-80">
+                  ({profitLoss >= 0 ? '+' : ''}{profitLossPercent.toFixed(1)}%)
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Locked Value */}
+          {holdings.total_lock_usdc > 0 && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <svg className="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+              </svg>
+              <span className="text-gray-400">
+                ${holdings.total_lock_usdc.toFixed(2)} locked
+              </span>
+            </div>
+          )}
         </div>
       )}
     </article>

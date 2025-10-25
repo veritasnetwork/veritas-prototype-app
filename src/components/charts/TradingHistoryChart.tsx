@@ -3,6 +3,7 @@
 import { useEffect, useRef, memo } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
 import { ChartDataPoint, VolumeDataPoint } from '@/hooks/api/useTradeHistory';
+import { formatDisplay, asDisplay, microToUsdc, asMicroUsdc } from '@/lib/units';
 
 interface TradingHistoryChartProps {
   priceLongData: ChartDataPoint[];
@@ -33,10 +34,21 @@ export const TradingHistoryChart = memo(function TradingHistoryChart({
       width: chartContainerRef.current.clientWidth,
       height: height,
       timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'transparent' },
-      rightPriceScale: { borderColor: 'transparent' },
+      rightPriceScale: {
+        borderColor: 'transparent',
+        // Custom price formatter for token prices (2 decimals)
+        formatter: (price: number) => {
+          return `$${formatDisplay(asDisplay(price), 2)}`;
+        },
+      },
       crosshair: {
         vertLine: { width: 1, color: '#6b7280', style: 1 },
         horzLine: { width: 1, color: '#6b7280', style: 1 },
+      },
+      localization: {
+        priceFormatter: (price: number) => {
+          return `$${formatDisplay(asDisplay(price), 2)}`;
+        },
       },
     });
     chartRef.current = chart;
@@ -48,6 +60,11 @@ export const TradingHistoryChart = memo(function TradingHistoryChart({
       lineWidth: 2,
       priceScaleId: 'right',
       title: 'LONG',
+      priceFormat: {
+        type: 'price',
+        precision: 2,
+        minMove: 0.01,
+      },
     });
 
     priceShortSeriesRef.current = chart.addAreaSeries({
@@ -57,16 +74,33 @@ export const TradingHistoryChart = memo(function TradingHistoryChart({
       lineWidth: 2,
       priceScaleId: 'right',
       title: 'SHORT',
+      priceFormat: {
+        type: 'price',
+        precision: 2,
+        minMove: 0.01,
+      },
     });
 
-    chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.1, bottom: 0.25 } });
+    chart.priceScale('right').applyOptions({
+      scaleMargins: { top: 0.1, bottom: 0.25 },
+    });
 
     volumeSeriesRef.current = chart.addHistogramSeries({
-      priceFormat: { type: 'volume' },
+      priceFormat: {
+        type: 'price',
+        precision: 2,
+        minMove: 0.01,
+      },
       priceScaleId: 'volume',
     });
 
-    chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
+    chart.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.85, bottom: 0 },
+      formatter: (price: number) => {
+        // Volume formatter for y-axis
+        return `$${formatDisplay(asDisplay(price), 2)}`;
+      },
+    });
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {

@@ -83,12 +83,28 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
       title: 'Actual Relevance',
     });
 
+    // Deduplicate and sort data by time (lightweight-charts requires strictly ascending timestamps)
+    const deduplicateAndSort = (data: ChartDataPoint[]): ChartDataPoint[] => {
+      // Group by timestamp and take the last value for each timestamp
+      const byTime = new Map<number, number>();
+      data.forEach(point => {
+        byTime.set(point.time, point.value);
+      });
+
+      // Convert back to array and sort by time
+      return Array.from(byTime.entries())
+        .map(([time, value]) => ({ time, value }))
+        .sort((a, b) => a.time - b.time);
+    };
+
     // Update data if available
     if (impliedRelevance.length > 0) {
-      impliedSeries.setData(impliedRelevance);
+      const cleanedImplied = deduplicateAndSort(impliedRelevance);
+      impliedSeries.setData(cleanedImplied);
     }
     if (actualRelevance.length > 0) {
-      actualSeries.setData(actualRelevance);
+      const cleanedActual = deduplicateAndSort(actualRelevance);
+      actualSeries.setData(cleanedActual);
     }
 
     // Fit content if we have any data

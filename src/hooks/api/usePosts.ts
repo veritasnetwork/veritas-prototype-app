@@ -15,9 +15,11 @@ interface UsePostsResult {
   loadMore: () => Promise<void>;
   hasMore: boolean;
   loadingMore: boolean;
+  updatePost: (postId: string, updates: Partial<Post>) => void;
 }
 
-const POSTS_PER_PAGE = 15;
+const INITIAL_POSTS = 5; // Initial load for faster perceived performance
+const POSTS_PER_PAGE = 5; // Chunked loading for smooth scrolling
 
 export function usePosts(): UsePostsResult {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -38,8 +40,10 @@ export function usePosts(): UsePostsResult {
       setError(null);
 
       const currentOffset = reset ? 0 : offset;
+      // Use smaller initial load for faster page load
+      const limit = reset ? INITIAL_POSTS : POSTS_PER_PAGE;
       const data = await PostsService.fetchPosts({
-        limit: POSTS_PER_PAGE,
+        limit,
         offset: currentOffset
       });
 
@@ -49,7 +53,8 @@ export function usePosts(): UsePostsResult {
         setPosts(prev => [...prev, ...data]);
       }
 
-      setHasMore(data.length === POSTS_PER_PAGE);
+      // Has more if we got a full page
+      setHasMore(data.length === limit);
 
       if (!reset) {
         setOffset(currentOffset + data.length);
@@ -65,6 +70,17 @@ export function usePosts(): UsePostsResult {
     }
   };
 
+  // Function to update a single post in the list
+  const updatePost = useCallback((postId: string, updates: Partial<Post>) => {
+    setPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.id === postId
+          ? { ...post, ...updates }
+          : post
+      )
+    );
+  }, []);
+
   useEffect(() => {
     fetchPosts(true);
   }, []);
@@ -72,5 +88,5 @@ export function usePosts(): UsePostsResult {
   const refetch = useCallback(() => fetchPosts(true), []);
   const loadMore = useCallback(() => fetchPosts(false), [offset]);
 
-  return { posts, loading, error, refetch, loadMore, hasMore, loadingMore };
+  return { posts, loading, error, refetch, loadMore, hasMore, loadingMore, updatePost };
 }

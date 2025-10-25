@@ -54,6 +54,7 @@ function safeNumber(n: number): number {
 
 class PoolDataService {
   private subscriptions = new Map<string, PoolSubscription>();
+  private cache = new Map<string, PoolData>(); // Persistent cache across subscriptions
 
   // Adaptive polling intervals
   private readonly ACTIVE_INTERVAL = 3000;   // 3s when recently traded
@@ -84,18 +85,25 @@ class PoolDataService {
     // Add subscriber
     sub.subscribers.add(callback);
 
+    // Check for cached data first (from persistent cache or subscription)
+    const cachedData = this.cache.get(postId) || sub.data;
+    if (cachedData) {
+      // Immediately notify with cached data
+      callback(cachedData);
+      sub.data = cachedData; // Ensure subscription has the cached data
+    }
+
     // If first subscriber, start polling
     if (sub.subscribers.size === 1) {
       this.startPolling(postId);
-    } else if (sub.data) {
-      // Immediately notify with cached data
-      callback(sub.data);
     }
 
     // Return unsubscribe function
     return () => {
       const subscription = this.subscriptions.get(postId);
-      if (!subscription) return;
+      if (!subscription) {
+        return;
+      }
 
       subscription.subscribers.delete(callback);
 
@@ -111,13 +119,18 @@ class PoolDataService {
    * Invalidate cache and trigger immediate refresh
    */
   invalidate(postId: string) {
+    console.log(`🔄 [PoolDataService] Invalidating cache for postId: ${postId}`);
     const sub = this.subscriptions.get(postId);
-    if (!sub) return;
+    if (!sub) {
+      console.warn(`⚠️  [PoolDataService] No subscription found for postId: ${postId}`);
+      return;
+    }
 
     // Mark as recently active for faster polling
     sub.lastFetch = 0; // Force immediate fetch
 
     // Fetch immediately
+    console.log(`📡 [PoolDataService] Fetching fresh pool data immediately...`);
     this.fetchPoolData(postId);
 
     // Restart polling with active interval
@@ -226,12 +239,37 @@ class PoolDataService {
       const raw: unknown = await response.json();
       const data = (raw ?? {}) as any;
 
+      console.log('[PoolDataService] Raw API response:', {
+        postId,
+        hasPoolAddress: !!data.poolAddress,
+        poolPriceLong: data.poolPriceLong,
+        poolPriceShort: data.poolPriceShort,
+        poolSupplyLong: data.poolSupplyLong,
+        poolSupplyShort: data.poolSupplyShort,
+      });
+
+      // If no pool deployed, return early
+      if (!data.poolAddress) {
+        console.log('[PoolDataService] No pool deployed for this post');
+        sub.data = null;
+        sub.error = new Error('No pool deployed');
+        this.notifySubscribers(postId);
+        return;
+      }
+
       const priceLong = coerceNumber(data.poolPriceLong);
       const priceShort = coerceNumber(data.poolPriceShort);
       const supplyLong = coerceNumber(data.poolSupplyLong);
       const supplyShort = coerceNumber(data.poolSupplyShort);
 
       if (priceLong === null || priceShort === null || supplyLong === null || supplyShort === null) {
+        console.error('[PoolDataService] Missing pool data fields:', {
+          priceLong,
+          priceShort,
+          supplyLong,
+          supplyShort,
+          rawData: data,
+        });
         sub.data = null;
         sub.error = new Error('Incomplete pool data');
         this.notifySubscribers(postId);
@@ -249,7 +287,7 @@ class PoolDataService {
       const marketCap = safeNumber(marketCapLong + marketCapShort);
       const currentPrice = totalSupply > 0 ? safeNumber(marketCap / totalSupply) : 0;
 
-      sub.data = {
+      const poolData: PoolData = {
         priceLong,
         priceShort,
         supplyLong,
@@ -264,10 +302,22 @@ class PoolDataService {
         marketCap,
       };
 
+      sub.data = poolData;
+      this.cache.set(postId, poolData); // Store in persistent cache
+
       sub.error = null;
       sub.lastFetch = Date.now();
 
+      console.log(`✅ [PoolDataService] Pool data updated for ${postId}:`, {
+        priceLong,
+        priceShort,
+        supplyLong,
+        supplyShort,
+        marketCap
+      });
+
       // Notify all subscribers
+      console.log(`📤 [PoolDataService] Notifying ${sub.subscribers.size} subscriber(s)`);
       this.notifySubscribers(postId);
     } catch (error) {
       console.error(`[PoolDataService] Error fetching pool ${postId}:`, error);

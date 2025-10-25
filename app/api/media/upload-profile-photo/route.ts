@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase
+    const { error: uploadError } = await supabase
       .storage
       .from('profile-photos')
       .upload(filePath, buffer, {
@@ -138,10 +138,10 @@ export async function POST(request: NextRequest) {
       message: 'Profile photo uploaded successfully',
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Profile photo upload error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', msg: error.message },
+      { error: 'Internal server error', msg: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

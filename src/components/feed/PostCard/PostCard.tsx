@@ -9,7 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Post } from '@/types/post.types';
 import { getPostTitle, getPostPreview, isShortFormPost } from '@/types/post.types';
-import { TrendingUp, DollarSign, BarChart3, FileText, Play } from 'lucide-react';
+import { TrendingUp, DollarSign, BarChart3, FileText, Play, Volume2, VolumeX, Pause } from 'lucide-react';
 import { usePanel } from '@/components/post/PostDetailPanel';
 import { FEATURES } from '@/config/features';
 import { RichTextRenderer } from '@/components/common/RichTextRenderer';
@@ -24,12 +24,13 @@ interface PostCardProps {
 export function PostCard({ post, onPostClick, isSelected = false }: PostCardProps) {
   const router = useRouter();
   const articleRef = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const { isOpen, selectedPostId, closePanel } = FEATURES.POST_DETAIL_PANEL ? usePanel() : { isOpen: false, selectedPostId: null, closePanel: () => {} };
 
-  // Initialize expansion state based on whether this post's panel is open
-  const [isExpanded, setIsExpanded] = useState(
-    post.post_type === 'text' && isOpen && selectedPostId === post.id
-  );
+  // No longer expanding posts - they navigate to their own page
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
 
   // State for fetched full content
   const [fullContentJson, setFullContentJson] = useState(post.content_json || null);
@@ -89,57 +90,26 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
   }, [isExpanded, post.post_type, post.article_title, post.cover_image_url]);
 
   const handleClick = (e?: React.MouseEvent) => {
-    // For text posts, check if content is truncated before allowing expansion
-    if (post.post_type === 'text') {
-      // For short-form posts, never expand (they show full content already)
-      if (isShortFormPost(post)) {
-        // Just open the panel for trading
-        if (onPostClick) {
-          onPostClick(post.id);
-        }
-        return;
-      }
-
-      // For long-form posts, check if content is actually truncated
-      const contentLength = post.content_text?.length || 0;
-      const previewLength = 150; // matches getPostPreview call below
-      const canExpand = contentLength > previewLength || post.article_title || post.cover_image_url;
-
-      if (canExpand) {
-        const willExpand = !isExpanded;
-        setIsExpanded(willExpand);
-
-        // Only open panel if expanding (not collapsing)
-        if (willExpand && onPostClick) {
-          onPostClick(post.id);
-        }
-        // Close panel if collapsing - only call closePanel if we're in a panel context
-        // (not in Feed.tsx which doesn't use PanelProvider)
-        else if (!willExpand && onPostClick) {
-          // In Feed.tsx context, onPostClick handles toggling
-          onPostClick(post.id);
-        }
-      } else {
-        // Content fits in preview, just open panel for trading
-        if (onPostClick) {
-          onPostClick(post.id);
-        }
-      }
-    } else {
-      // For media posts, always open panel
-      if (onPostClick) {
-        onPostClick(post.id);
-      }
+    // Always just open the panel for trading, never expand
+    if (onPostClick) {
+      onPostClick(post.id);
     }
   };
 
-  const handleToggleExpand = (e: React.MouseEvent) => {
+  const handleReadMore = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
-    setIsExpanded(!isExpanded);
+    // Store post data in sessionStorage for instant loading on the post page
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(`post_${post.id}`, JSON.stringify(post));
+    }
+    // Navigate to post page in read mode for article reading
+    router.push(`/post/${post.id}?mode=read`);
   };
 
   // Get content preview or full content
-  const preview = getPostPreview(post, 150);
+  // For text-only posts without cover, show more preview text (up to 600 chars)
+  const previewLength = post.post_type === 'text' && !post.cover_image_url && !isShortFormPost(post) ? 600 : 150;
+  const preview = getPostPreview(post, previewLength);
   const fullContent = post.content_text || preview;
 
   // Calculate pool metrics from cached ICBS data
@@ -157,36 +127,88 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
       )
     : null;
 
-  // Calculate market implied relevance (q) from reserves
-  // q = R_L / (R_L + R_S) where R = supply × price
-  const marketImpliedRelevance = poolData
-    ? poolData.marketCapLong / (poolData.marketCapLong + poolData.marketCapShort)
-    : null;
+  // Use market implied relevance from database (if available)
+  // This comes from implied_relevance_history table and is used for both ranking and display
+  const marketImpliedRelevance = (post as any).marketImpliedRelevance ??
+    // Fallback: calculate from pool data if database value not available
+    (poolData ? poolData.marketCapLong / (poolData.marketCapLong + poolData.marketCapShort) : null);
 
   // Determine background for different post types
   const getBackgroundElement = () => {
     if (post.post_type === 'image' && post.media_urls && post.media_urls.length > 0) {
+      const displayMode = (post as any).image_display_mode || 'contain';
+      const useContain = displayMode === 'contain';
+
       return (
         <img
           src={post.media_urls[0]}
           alt={post.caption || 'Post image'}
-          className="w-full h-full object-cover"
+          className={`w-full ${useContain ? 'h-auto object-contain' : 'h-full object-cover'}`}
+          style={useContain ? { maxHeight: '600px' } : undefined}
         />
       );
     } else if (post.post_type === 'video' && post.media_urls && post.media_urls.length > 0) {
+      // For videos: media_urls = [thumbnail, video] or [video] for old posts
+      const videoUrl = post.media_urls.length > 1 ? post.media_urls[1] : post.media_urls[0];
+      const posterUrl = post.media_urls.length > 1 ? post.media_urls[0] : undefined;
+
+      const toggleMute = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (videoRef.current) {
+          videoRef.current.muted = !isMuted;
+          setIsMuted(!isMuted);
+        }
+      };
+
+      const togglePause = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (videoRef.current) {
+          if (isPaused) {
+            videoRef.current.play();
+          } else {
+            videoRef.current.pause();
+          }
+          setIsPaused(!isPaused);
+        }
+      };
+
       return (
-        <>
-          <img
-            src={post.media_urls[0]}
-            alt={post.caption || 'Video thumbnail'}
+        <div className="relative w-full h-full">
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            poster={posterUrl}
+            autoPlay
+            loop
+            muted
+            playsInline
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-            <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
-              <Play className="w-8 h-8 text-black ml-1" />
-            </div>
-          </div>
-        </>
+          {/* Pause/Resume Toggle - Bottom Left */}
+          <button
+            onClick={togglePause}
+            className="absolute bottom-4 left-4 p-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white/70 hover:text-white transition-all z-10"
+            aria-label={isPaused ? 'Resume' : 'Pause'}
+          >
+            {isPaused ? (
+              <Play className="w-4 h-4" />
+            ) : (
+              <Pause className="w-4 h-4" />
+            )}
+          </button>
+          {/* Mute/Unmute Toggle - Bottom Right */}
+          <button
+            onClick={toggleMute}
+            className="absolute bottom-4 right-4 p-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white/70 hover:text-white transition-all z-10"
+            aria-label={isMuted ? 'Unmute' : 'Mute'}
+          >
+            {isMuted ? (
+              <VolumeX className="w-4 h-4" />
+            ) : (
+              <Volume2 className="w-4 h-4" />
+            )}
+          </button>
+        </div>
       );
     } else if (post.post_type === 'text') {
       // MODE 0: Short-form tweet-like post (no title, no cover, ≤500 chars)
@@ -195,14 +217,18 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
           <div className="w-full h-full bg-[#1a1a1a] p-4">
             {!isExpanded && (
               <div className="prose prose-invert prose-sm max-w-none">
-                <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">
-                  {post.content_text || 'No content'}
-                </p>
+                {post.content_json ? (
+                  <RichTextRenderer content={post.content_json} />
+                ) : (
+                  <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">
+                    {post.content_text || 'No content'}
+                  </p>
+                )}
               </div>
             )}
 
             {isExpanded && (
-              <div className="w-full h-full overflow-y-auto">
+              <div className="w-full h-full overflow-y-auto p-4">
                 {loadingContent ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full"></div>
@@ -212,6 +238,16 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
                 ) : (
                   <p className="text-gray-400">No content available</p>
                 )}
+
+                {/* Collapse button at bottom */}
+                <div className="mt-8 flex justify-center">
+                  <button
+                    onClick={handleToggleExpand}
+                    className="text-sm text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors"
+                  >
+                    ← Collapse
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -237,7 +273,7 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
                 {/* Title overlay at bottom */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
                   <h2
-                    className="font-bold text-white leading-tight line-clamp-2"
+                    className="font-bold text-white leading-tight line-clamp-2 mb-2"
                     style={{
                       fontSize: post.article_title && post.article_title.length > 50
                         ? 'clamp(1rem, 2.5vw, 1.25rem)'  // Smaller for long titles
@@ -246,6 +282,14 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
                   >
                     {post.article_title}
                   </h2>
+
+                  {/* Read More button */}
+                  <button
+                    onClick={handleReadMore}
+                    className="text-sm text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors"
+                  >
+                    Read More →
+                  </button>
                 </div>
               </>
             )}
@@ -280,6 +324,16 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
                     ) : (
                       <p className="text-gray-400">No content available</p>
                     )}
+
+                    {/* Collapse button at bottom */}
+                    <div className="mt-8 flex justify-center">
+                      <button
+                        onClick={handleToggleExpand}
+                        className="text-sm text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors"
+                      >
+                        ← Collapse
+                      </button>
+                    </div>
                   </div>
                 </div>
               </>
@@ -293,23 +347,30 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
         <div className="w-full h-full bg-[#1a1a1a]">
           {!isExpanded && (
             <>
-              {/* COLLAPSED: Content preview with fade effect */}
-              <div className="w-full h-full overflow-hidden pt-8 pb-12 px-4 relative">
-                <div className="prose prose-invert prose-sm max-w-none w-full">
-                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap line-clamp-4">
-                    {preview || 'No content'}
-                  </p>
+              {/* COLLAPSED: Content preview with fade effect - show more text for text-only posts */}
+              <div className="w-full overflow-hidden pt-6 pb-16 px-6 relative h-64">
+                <div className="prose prose-invert max-w-none w-full overflow-hidden">
+                  {post.content_json ? (
+                    <RichTextRenderer content={post.content_json} />
+                  ) : (
+                    <p className="text-gray-200 text-base leading-relaxed whitespace-pre-wrap">
+                      {preview || 'No content'}
+                    </p>
+                  )}
                 </div>
 
-                {/* Fade gradient at bottom */}
-                <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-[#1a1a1a] via-[#1a1a1a]/80 to-transparent pointer-events-none" />
+                {/* Fade gradient at bottom - taller gradient for more lines */}
+                <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#1a1a1a] via-[#1a1a1a]/90 to-transparent pointer-events-none" />
               </div>
 
               {/* "Read More" text at bottom */}
-              <div className="absolute bottom-3 left-4">
-                <span className="text-xs text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors">
+              <div className="absolute bottom-4 left-6 z-10">
+                <button
+                  onClick={handleReadMore}
+                  className="text-sm text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors"
+                >
                   Read More →
-                </span>
+                </button>
               </div>
             </>
           )}
@@ -333,6 +394,16 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
               ) : (
                 <p className="text-gray-400">No content available</p>
               )}
+
+              {/* Collapse button at bottom */}
+              <div className="mt-8 flex justify-center">
+                <button
+                  onClick={handleToggleExpand}
+                  className="text-sm text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors"
+                >
+                  ← Collapse
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -344,7 +415,7 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
 
   // Substack-style: Caption outside card for media posts, Author outside for articles
   const hasCaption = (post.post_type === 'image' || post.post_type === 'video') && post.caption;
-  const showAuthorAbove = hasCaption || post.post_type === 'text';
+  const showAuthorAbove = post.post_type === 'image' || post.post_type === 'text' || hasCaption;
 
   return (
     <article
@@ -392,14 +463,14 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
 
       {/* Content Card - The article/media preview */}
       <div
-        className={`relative bg-[#1a1a1a] rounded-xl overflow-hidden transition-all duration-300 ${
+        className={`relative bg-[#1a1a1a] rounded-xl overflow-hidden transition-all duration-1000 ${
           isPanelOpenForThisPost
             ? 'ring-2 ring-[#B9D9EB]'
             : 'group-hover:ring-2 group-hover:ring-gray-600/50'
         }`}
       >
-        <div className={`relative w-full transition-all duration-500 ${
-          post.post_type === 'image' || post.post_type === 'video'
+        <div className={`relative w-full transition-all duration-2000 ${
+          post.post_type === 'video' || (post.post_type === 'image' && (post as any).image_display_mode === 'cover')
             ? 'aspect-[3/2]'
             : 'h-auto'
         }`}>

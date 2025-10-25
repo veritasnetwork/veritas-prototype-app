@@ -41,7 +41,7 @@ pub enum ContentPoolError {
     // Settlement (6040-6049)
     #[msg("Settlement cooldown not elapsed")]
     SettlementCooldown,
-    #[msg("Invalid BD score (must be 0-1 in Q32.32)")]
+    #[msg("Invalid BD score (must be 0-1_000_000 in millionths format)")]
     InvalidBDScore,
     #[msg("No liquidity in pool")]
     NoLiquidity,

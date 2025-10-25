@@ -110,6 +110,46 @@ export function useDeployPool() {
         if (!validateRes.ok) {
           const errorData = await validateRes.json();
           console.error('[STEP 4/7] ❌ Validation failed:', errorData);
+
+          // Check if this is a recoverable situation (pool exists on-chain but not in DB)
+          if (validateRes.status === 409 && errorData.canRecover && errorData.existingPoolAddress) {
+            console.log('[STEP 4/7] 🔄 Pool exists on-chain but not in DB. Attempting recovery...');
+            console.log('[STEP 4/7] Pool address:', errorData.existingPoolAddress);
+
+            // Attempt to recover the pool
+            const recoverRes = await fetch('/api/pools/recover', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${jwt}`,
+              },
+              body: JSON.stringify({
+                postId: params.postId,
+                poolAddress: errorData.existingPoolAddress,
+              }),
+            });
+
+            if (recoverRes.ok) {
+              const recoverData = await recoverRes.json();
+              console.log('[STEP 4/7] ✅ Pool recovered successfully:', recoverData);
+
+              // Trigger a refresh of the UI
+              if (params.onSuccess) {
+                params.onSuccess(errorData.existingPoolAddress);
+              }
+
+              return {
+                success: true,
+                poolAddress: errorData.existingPoolAddress,
+                recovered: true,
+              };
+            } else {
+              const recoverError = await recoverRes.json();
+              console.error('[STEP 4/7] ❌ Recovery failed:', recoverError);
+              throw new Error(`Recovery failed: ${recoverError.error || 'Unknown error'}`);
+            }
+          }
+
           throw new Error(errorData.error || 'Validation failed');
         }
 

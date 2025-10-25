@@ -23,3 +23,4 @@ export {
   HybridDecayRanking,
   DecayAwareRanking,
 } from './DecayBasedRanking';
+export { ImpliedRelevanceFirstRanking } from './ImpliedRelevanceFirstRanking';

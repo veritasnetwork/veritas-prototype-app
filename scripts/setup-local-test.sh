@@ -128,11 +128,12 @@ cd "$ROOT_DIR/solana/veritas-curation"
 # Clean macOS metadata one more time right before starting validator
 find ~/.local/share/solana -name "._*" -delete 2>/dev/null || true
 
-# Start validator in background
-echo -e "${YELLOW}🔧 Starting validator...${NC}"
+# Start validator in background with WebSocket enabled
+echo -e "${YELLOW}🔧 Starting validator with WebSocket enabled...${NC}"
 COPYFILE_DISABLE=1 solana-test-validator \
   --ledger test-ledger \
   --rpc-port 8899 \
+  --rpc-pubsub-enable-block-subscription \
   --quiet \
   --reset &
 
@@ -160,6 +161,28 @@ echo ""
 # ============================================================================
 
 echo -e "${BLUE}━━━ STEP 4/7: Fund Wallets with SOL ━━━${NC}"
+
+# Get authority wallet address
+AUTHORITY_WALLET=$(solana address -k "$ROOT_DIR/solana/veritas-curation/keys/authority.json")
+
+# Airdrop to authority wallet (used for deployment)
+echo -e "${YELLOW}💰 Airdropping 500 SOL to authority wallet...${NC}"
+solana airdrop 100 "$AUTHORITY_WALLET" || {
+    echo -e "${RED}❌ Failed to airdrop to authority wallet${NC}"
+    exit 1
+}
+sleep 1
+solana airdrop 100 "$AUTHORITY_WALLET" 2>/dev/null || true
+sleep 1
+solana airdrop 100 "$AUTHORITY_WALLET" 2>/dev/null || true
+sleep 1
+solana airdrop 100 "$AUTHORITY_WALLET" 2>/dev/null || true
+sleep 1
+solana airdrop 100 "$AUTHORITY_WALLET" 2>/dev/null || true
+
+AUTHORITY_SOL_BALANCE=$(solana balance "$AUTHORITY_WALLET" 2>/dev/null || echo "0 SOL")
+echo -e "${GREEN}✅ Authority wallet balance: $AUTHORITY_SOL_BALANCE${NC}"
+echo -e "${GREEN}   Address: $AUTHORITY_WALLET${NC}"
 
 # Airdrop to default wallet
 echo -e "${YELLOW}💰 Airdropping 100 SOL to default wallet...${NC}"
@@ -305,7 +328,7 @@ echo -e "${BLUE}━━━ STEP 7/7: Initialize Protocol & Update Environment ━
 # Initialize VeritasCustodian
 echo -e "${YELLOW}🏛️  Initializing VeritasCustodian...${NC}"
 cd "$ROOT_DIR/solana/veritas-curation"
-USDC_MINT_LOCALNET=$USDC_MINT ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 ANCHOR_WALLET=~/.config/solana/id.json npx ts-node scripts/initialize-custodian.ts || {
+USDC_MINT_LOCALNET=$USDC_MINT ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 ANCHOR_WALLET=$ROOT_DIR/solana/veritas-curation/keys/authority.json npx ts-node scripts/initialize-custodian.ts || {
     echo -e "${RED}❌ Failed to initialize custodian${NC}"
     exit 1
 }
@@ -313,7 +336,7 @@ echo -e "${GREEN}✅ Custodian initialized!${NC}"
 
 # Initialize PoolFactory
 echo -e "${YELLOW}🏭 Initializing PoolFactory...${NC}"
-ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 ANCHOR_WALLET=~/.config/solana/id.json npx ts-node scripts/initialize-factory.ts || {
+ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 ANCHOR_WALLET=$ROOT_DIR/solana/veritas-curation/keys/authority.json npx ts-node scripts/initialize-factory.ts || {
     echo -e "${RED}❌ Failed to initialize factory${NC}"
     exit 1
 }
@@ -403,6 +426,14 @@ fi
 echo -e "${GREEN}✅ supabase/functions/.env updated and verified!${NC}"
 echo ""
 
+# Start event indexer
+echo -e "${YELLOW}🔄 Starting event indexer...${NC}"
+cd "$ROOT_DIR"
+npm run dev:indexer > /dev/null 2>&1 &
+INDEXER_PID=$!
+echo -e "${GREEN}✅ Event indexer started (PID: $INDEXER_PID)${NC}"
+echo ""
+
 # ============================================================================
 # SETUP COMPLETE
 # ============================================================================
@@ -418,6 +449,7 @@ echo -e "   RPC Endpoint: ${GREEN}http://127.0.0.1:8899${NC}"
 echo -e "   Program ID: ${GREEN}$PROGRAM_ID${NC}"
 echo -e "   USDC Mint: ${GREEN}$USDC_MINT${NC}"
 echo -e "   Validator PID: ${GREEN}$VALIDATOR_PID${NC}"
+echo -e "   Event Indexer PID: ${GREEN}$INDEXER_PID${NC}"
 echo ""
 echo -e "${YELLOW}Default Wallet (Deploy & Authority):${NC}"
 echo -e "   Address: ${GREEN}$DEFAULT_WALLET${NC}"
@@ -446,7 +478,8 @@ echo -e "   2. Start Next.js dev server: ${BLUE}npm run dev${NC}"
 echo -e "   3. Login with Privy using wallet ${GREEN}$TEST_WALLET${NC}"
 echo -e "   4. Create a post and test buying tokens!"
 echo ""
-echo -e "${YELLOW}Validator Management:${NC}"
+echo -e "${YELLOW}Process Management:${NC}"
 echo -e "   Stop validator: ${BLUE}kill $VALIDATOR_PID${NC} or ${BLUE}pkill solana-test-validator${NC}"
-echo -e "   View logs: ${BLUE}solana logs${NC}"
+echo -e "   Stop indexer: ${BLUE}kill $INDEXER_PID${NC}"
+echo -e "   View validator logs: ${BLUE}solana logs${NC}"
 echo ""

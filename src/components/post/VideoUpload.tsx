@@ -5,7 +5,7 @@ import { Upload, X, Video as VideoIcon } from 'lucide-react';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 
 interface VideoUploadProps {
-  onUpload: (url: string) => void;
+  onUpload: (url: string, thumbnailUrl?: string) => void;
   currentUrl: string | null;
   onRemove: () => void;
   disabled?: boolean;
@@ -16,6 +16,53 @@ export function VideoUpload({ onUpload, currentUrl, onRemove, disabled }: VideoU
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Extract first frame as thumbnail
+  const extractThumbnail = async (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+
+      video.preload = 'metadata';
+      video.muted = true;
+
+      video.onloadedmetadata = () => {
+        // Seek to first frame (0.1s to avoid black frames)
+        video.currentTime = 0.1;
+      };
+
+      video.onseeked = () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to create thumbnail'));
+            }
+            // Clean up
+            URL.revokeObjectURL(video.src);
+          },
+          'image/jpeg',
+          0.8
+        );
+      };
+
+      video.onerror = () => {
+        reject(new Error('Failed to load video'));
+        URL.revokeObjectURL(video.src);
+      };
+
+      video.src = URL.createObjectURL(file);
+    });
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,7 +93,33 @@ export function VideoUpload({ onUpload, currentUrl, onRemove, disabled }: VideoU
         throw new Error('Please log in to upload videos');
       }
 
-      // Upload to API
+      // Extract thumbnail from first frame
+      let thumbnailUrl: string | undefined;
+      try {
+        const thumbnailBlob = await extractThumbnail(file);
+
+        // Upload thumbnail
+        const thumbnailFormData = new FormData();
+        thumbnailFormData.append('file', thumbnailBlob, 'thumbnail.jpg');
+
+        const thumbnailResponse = await fetch('/api/media/upload-image', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: thumbnailFormData,
+        });
+
+        if (thumbnailResponse.ok) {
+          const thumbnailData = await thumbnailResponse.json();
+          thumbnailUrl = thumbnailData.url;
+        }
+      } catch (thumbnailError) {
+        console.warn('Failed to extract/upload thumbnail:', thumbnailError);
+        // Continue without thumbnail - non-critical error
+      }
+
+      // Upload video to API
       const formData = new FormData();
       formData.append('file', file);
 
@@ -64,8 +137,8 @@ export function VideoUpload({ onUpload, currentUrl, onRemove, disabled }: VideoU
         throw new Error(data.error || 'Failed to upload video');
       }
 
-      // Return the public URL
-      onUpload(data.url);
+      // Return the public URL and thumbnail URL
+      onUpload(data.url, thumbnailUrl);
     } catch (err) {
       console.error('Video upload error:', err);
       setError(err instanceof Error ? err.message : 'Failed to upload video');

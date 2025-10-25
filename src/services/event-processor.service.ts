@@ -12,6 +12,20 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { PublicKey } from '@solana/web3.js';
 import { fetchPoolData } from '@/lib/solana/fetch-pool-data';
+import { getRpcEndpoint } from '@/lib/solana/network-config';
+import {
+  DisplayUnits,
+  AtomicUnits,
+  MicroUSDC,
+  asDisplay,
+  asAtomic,
+  asMicroUsdc,
+  displayToAtomic,
+  poolDisplayToAtomic,
+  microToUsdc
+} from '@/lib/units';
+import { validateAndUpdate } from '@/lib/db-validation';
+import { syncPoolFromChain } from '@/lib/solana/sync-pool-from-chain';
 
 // Event type definitions matching Rust smart contract events
 export interface TradeEventData {
@@ -125,7 +139,10 @@ export class EventProcessor {
     blockTime?: number,
     slot?: number
   ): Promise<void> {
-    console.log('📥 Processing trade event:', signature);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📥 [EventIndexer] Processing TradeEvent from blockchain');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[EventIndexer] Transaction signature:', signature);
 
     // Extract data from event
     const poolAddress = event.pool.toString();
@@ -138,11 +155,11 @@ export class EventProcessor {
     const tokensTraded = Number(event.tokensTraded) / 1_000_000;
     const skimAmount = Number(event.usdcToStake) / 1_000_000;
 
-    // ICBS state snapshots
-    const sLongBefore = Number(event.sLongBefore);
-    const sLongAfter = Number(event.sLongAfter);
-    const sShortBefore = Number(event.sShortBefore);
-    const sShortAfter = Number(event.sShortAfter);
+    // ICBS state snapshots - on-chain stores in DISPLAY units
+    const sLongBefore = asDisplay(Number(event.sLongBefore));
+    const sLongAfter = asDisplay(Number(event.sLongAfter));
+    const sShortBefore = asDisplay(Number(event.sShortBefore));
+    const sShortAfter = asDisplay(Number(event.sShortAfter));
 
     // Sqrt prices (keep as string for precision)
     const sqrtPriceLongX96 = event.sqrtPriceLongX96After.toString();
@@ -164,8 +181,10 @@ export class EventProcessor {
       .eq('tx_signature', signature)
       .single();
 
+    console.log('[EventIndexer] Checking if trade already exists in database...');
+
     if (existing) {
-      console.log(`🔄 Trade ${signature} already recorded by ${existing.recorded_by}`);
+      console.log(`[EventIndexer] 🔄 Trade already exists - recorded_by: ${existing.recorded_by}`);
 
       // Validate server data against on-chain event
       const amountsMatch =
@@ -174,6 +193,7 @@ export class EventProcessor {
 
       if (amountsMatch) {
         // Server data correct - just mark as confirmed
+        console.log('[EventIndexer] Server data matches on-chain data - marking as confirmed');
         await this.supabase
           .from('trades')
           .update({
@@ -184,7 +204,7 @@ export class EventProcessor {
           })
           .eq('tx_signature', signature);
 
-        console.log(`✅ Validated server record: ${signature}`);
+        console.log(`[EventIndexer] ✅ Trade confirmed in database: ${signature}`);
 
         // Record the skim as a custodian deposit if there is one
         if (skimAmount > 0) {
@@ -219,7 +239,8 @@ export class EventProcessor {
       }
     } else {
       // Server didn't record this (or failed) - insert from indexer
-      console.log(`📝 Server missed this trade, indexer recording: ${signature}`);
+      console.log(`[EventIndexer] 📝 Trade not found in database - indexer will record it now`);
+      console.log(`[EventIndexer] Signature: ${signature}`);
 
       // Get pool deployment to find post_id and ICBS parameters
       const { data: pool } = await this.supabase
@@ -246,7 +267,8 @@ export class EventProcessor {
       }
 
       // Insert complete trade record with all ICBS fields
-      await this.supabase
+      console.log('[EventIndexer] Inserting trade into database...');
+      const { data: insertedTrade, error: insertError } = await this.supabase
         .from('trades')
         .insert({
           tx_signature: signature,
@@ -284,9 +306,98 @@ export class EventProcessor {
           block_time: blockTime ? new Date(blockTime * 1000).toISOString() : null,
           slot,
           indexed_at: new Date().toISOString(),
+        })
+        .select();
+
+      if (insertError) {
+        console.error('[EventIndexer] ❌ Failed to insert trade:', insertError);
+      } else {
+        console.log(`[EventIndexer] ✅ Trade recorded in trades table by indexer`);
+        console.log(`[EventIndexer] Trade details:`, {
+          signature,
+          trade_type: tradeType,
+          side,
+          usdc_amount: usdcToTrade,
+          token_amount: tokensTraded,
+          post_id: pool.post_id,
+          recorded_by: 'indexer'
+        });
+      }
+
+      // BUG FIX #3: Update user pool balances
+      // When indexer records a missed trade, we must update balances
+      const { data: existingBalance } = await this.supabase
+        .from('user_pool_balances')
+        .select('token_balance, belief_lock')
+        .eq('user_id', user.id)
+        .eq('pool_address', poolAddress)
+        .eq('token_type', side)
+        .single();
+
+      let newBalance: number;
+      let newLock: number;
+
+      if (tradeType === 'buy') {
+        newBalance = (existingBalance?.token_balance || 0) + tokensTraded;
+        // For buys: set lock to 2% of USDC amount
+        newLock = Math.floor(usdcToTrade * 0.02);
+      } else {
+        // Sell
+        newBalance = (existingBalance?.token_balance || 0) - tokensTraded;
+
+        // BUG FIX #2: Proportionally reduce lock on sells
+        if (existingBalance?.token_balance && existingBalance.token_balance > 0) {
+          const proportionRemaining = newBalance / existingBalance.token_balance;
+          newLock = Math.floor((existingBalance.belief_lock || 0) * proportionRemaining);
+        } else {
+          newLock = 0;
+        }
+      }
+
+      await this.supabase
+        .from('user_pool_balances')
+        .upsert({
+          user_id: user.id,
+          pool_address: poolAddress,
+          post_id: pool.post_id,
+          token_balance: newBalance,
+          token_type: side,
+          belief_lock: newLock,
+        }, {
+          onConflict: 'user_id,pool_address,token_type'
         });
 
-      console.log(`✅ Indexer recorded trade: ${signature}`);
+      console.log(`💼 Updated balance: ${newBalance} ${side}, lock: ${newLock}`);
+
+      // BUG FIX #5: Add belief submission when indexer records trade
+      const { data: poolData } = await this.supabase
+        .from('pool_deployments')
+        .select('belief_id')
+        .eq('pool_address', poolAddress)
+        .single();
+
+      const { data: agentData } = await this.supabase
+        .from('users')
+        .select('agent_id')
+        .eq('id', user.id)
+        .single();
+
+      if (poolData?.belief_id && agentData?.agent_id) {
+        await this.supabase
+          .from('belief_submissions')
+          .upsert({
+            belief_id: poolData.belief_id,
+            agent_id: agentData.agent_id,
+            belief: 0.5,  // Default neutral belief for indexer-recorded trades
+            meta_prediction: 0.5,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'belief_id,agent_id'
+          });
+
+        console.log(`🧠 Created/updated belief submission for agent ${agentData.agent_id}`);
+      }
 
       // Record the skim as a custodian deposit if there is one
       if (skimAmount > 0) {
@@ -294,19 +405,29 @@ export class EventProcessor {
       }
     }
 
-    // Update pool state with CORRECT field names
+    // Update pool state with type-safe unit conversion
+    // On-chain state stores supplies in display units, DB expects atomic units
+    const poolStateAtomic = poolDisplayToAtomic({
+      sLong: sLongAfter,
+      sShort: sShortAfter,
+      vaultBalance: asMicroUsdc(vaultBalance),
+    });
+
+    // Validate units before database update
+    const poolUpdate = validateAndUpdate('pool_deployments', {
+      s_long_supply: poolStateAtomic.sLongSupply,
+      s_short_supply: poolStateAtomic.sShortSupply,
+      vault_balance: poolStateAtomic.vaultBalance,
+      r_long: rLongAfter,
+      r_short: rShortAfter,
+      sqrt_price_long_x96: sqrtPriceLongX96,
+      sqrt_price_short_x96: sqrtPriceShortX96,
+      last_synced_at: new Date().toISOString(),
+    });
+
     await this.supabase
       .from('pool_deployments')
-      .update({
-        s_long_supply: sLongAfter,           // ✅ Correct field name
-        s_short_supply: sShortAfter,         // ✅ Correct field name
-        vault_balance: vaultBalance,         // ✅ Correct field name
-        r_long: rLongAfter,
-        r_short: rShortAfter,
-        sqrt_price_long_x96: sqrtPriceLongX96,
-        sqrt_price_short_x96: sqrtPriceShortX96,
-        last_synced_at: new Date().toISOString(),
-      })
+      .update(poolUpdate)
       .eq('pool_address', poolAddress);
 
     console.log(`📊 Updated pool state: s_long=${sLongAfter}, s_short=${sShortAfter}, vault=${vaultBalance}`);
@@ -318,7 +439,8 @@ export class EventProcessor {
       .eq('pool_address', poolAddress);
 
     if (totalVolumeData) {
-      const totalVolume = totalVolumeData.reduce((sum, trade) => sum + Number(trade.usdc_amount || 0), 0);
+      const totalVolumeMicro = totalVolumeData.reduce((sum, trade) => sum + Number(trade.usdc_amount || 0), 0);
+      const totalVolume = microToUsdc(totalVolumeMicro as MicroUSDC);
 
       // Get pool to find post_id
       const { data: poolData } = await this.supabase
@@ -516,7 +638,7 @@ export class EventProcessor {
 
     const poolAddress = event.pool.toString();
     const epoch = Number(event.epoch);
-    const bdScore = Number(event.bdScore) / Math.pow(2, 32); // Convert from Q32.32
+    const bdScore = Number(event.bdScore) / 1_000_000; // Convert from millionths format
     const Q64_ONE = BigInt(1) << BigInt(64);
 
     // Get pool and associated belief/post
@@ -587,6 +709,19 @@ export class EventProcessor {
       console.log(`✅ Updated pool ${poolAddress} to epoch ${epoch}`);
     }
 
+    // 2.5. Sync full pool state from chain after settlement
+    console.log(`🔄 Syncing pool state from chain after settlement...`);
+    try {
+      const synced = await syncPoolFromChain(poolAddress);
+      if (synced) {
+        console.log(`✅ Pool state synced successfully after settlement`);
+      } else {
+        console.warn(`⚠️  Failed to sync pool state after settlement`);
+      }
+    } catch (syncError) {
+      console.error(`❌ Exception syncing pool state after settlement:`, syncError);
+    }
+
     // 3. Also store BD score in bd_scores table (legacy/backup)
     await this.supabase
       .from('bd_scores')
@@ -633,7 +768,7 @@ export class EventProcessor {
 
     // Fetch pool data from chain to get mint addresses and post_id
     try {
-      const poolData = await fetchPoolData(poolAddress);
+      const poolData = await fetchPoolData(poolAddress, getRpcEndpoint());
 
       if (!poolData) {
         console.error('❌ Could not fetch pool data for', poolAddress);
@@ -672,24 +807,42 @@ export class EventProcessor {
         return;
       }
 
+      console.log('✅ Pool deployment recorded, now syncing initial state from chain...');
+
+      // Whether it's new or existing, update the pool state with fresh on-chain data
+      // This ensures sqrt_price, supplies, and vault_balance are all accurate
+      // poolData._raw contains the properly converted atomic units for DB storage
+      const { error: updateError } = await this.supabase
+        .from('pool_deployments')
+        .update({
+          s_long_supply: poolData._raw.sLongAtomic,
+          s_short_supply: poolData._raw.sShortAtomic,
+          vault_balance: poolData._raw.vaultBalanceMicro,
+          sqrt_price_long_x96: poolData._raw.sqrtPriceLongX96,
+          sqrt_price_short_x96: poolData._raw.sqrtPriceShortX96,
+          sqrt_lambda_long_x96: poolData.sqrtLambdaLongX96,
+          sqrt_lambda_short_x96: poolData.sqrtLambdaShortX96,
+          f: poolData.f,
+          beta_num: poolData.betaNum,
+          beta_den: poolData.betaDen,
+          r_long: Number(poolData.marketCapLong * 1_000_000),
+          r_short: Number(poolData.marketCapShort * 1_000_000),
+          market_deployment_tx_signature: signature,
+          market_deployed_at: blockTime ? new Date(blockTime * 1000).toISOString() : new Date().toISOString(),
+          status: 'market_deployed',
+          last_synced_at: new Date().toISOString(),
+        })
+        .eq('pool_address', poolAddress);
+
+      if (updateError) {
+        console.error('❌ Failed to update pool state after deployment:', updateError);
+        return;
+      }
+
       if (result?.success) {
         console.log(`✅ Recorded pool deployment via event: ${poolAddress}`);
       } else if (result?.error === 'EXISTS') {
-        console.log(`ℹ️  Pool ${poolAddress} already recorded, updating state...`);
-
-        // Update pool state since it already exists
-        const { error: updateError } = await this.supabase
-          .from('pool_deployments')
-          .update({
-            token_supply: Number(event.longTokens) + Number(event.shortTokens),
-            reserve: Number(event.initialDeposit),
-            last_synced_at: new Date().toISOString(),
-          })
-          .eq('pool_address', poolAddress);
-
-        if (updateError) {
-          console.error('Failed to update pool state:', updateError);
-        }
+        console.log(`ℹ️  Pool ${poolAddress} already recorded, state updated with on-chain data`);
       } else {
         console.error('❌ Failed to record pool deployment:', result?.message);
         return;

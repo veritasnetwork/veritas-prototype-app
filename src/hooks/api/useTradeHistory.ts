@@ -51,8 +51,10 @@ const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
 };
 
 export function useTradeHistory(postId: string | undefined, timeRange: TimeRange = 'ALL') {
+  const swrKey = postId ? `/api/posts/${postId}/trades?range=${timeRange}` : null;
+
   const { data, error, isLoading, isValidating, mutate } = useSWR<TradeHistoryResponse>(
-    postId ? `/api/posts/${postId}/trades?range=${timeRange}` : null,
+    swrKey,
     fetcher,
     {
       refreshInterval: 60000, // Refresh every 60 seconds
@@ -60,7 +62,7 @@ export function useTradeHistory(postId: string | undefined, timeRange: TimeRange
       dedupingInterval: 2000, // Reduce deduping to 2 seconds
       revalidateIfStale: true, // Always revalidate stale data
       revalidateOnMount: true, // Always fetch on mount
-      keepPreviousData: true, // Show previous chart while loading new timeframe
+      keepPreviousData: false, // Don't show previous data when switching posts
     }
   );
 

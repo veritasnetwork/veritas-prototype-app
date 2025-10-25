@@ -16,20 +16,45 @@ interface PoolMetricsCardProps {
 }
 
 /**
- * Format large numbers with k/m/b suffixes
- * Examples: 1234 -> 1.23k, 1234567 -> 1.23m, 1234567890 -> 1.23b
+ * Format numbers with appropriate precision and suffixes
+ * - Large numbers: k/m/b suffixes (1.23k, 1.23m, 1.23b)
+ * - Small numbers: More decimal places (0.000068)
+ * - Tiny numbers: Scientific notation (6.8e-5)
+ * @param value - The number to format
+ * @param isPrice - If true, shows 2 decimals for normal values; if false, shows whole numbers
  */
-function formatCompactNumber(value: number): string {
+function formatCompactNumber(value: number, isPrice: boolean = false): string {
+  // Handle large numbers
   if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(2)}b`;
+    return `${(value / 1_000_000_000).toFixed(isPrice ? 2 : 0)}b`;
   }
   if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(2)}m`;
+    return `${(value / 1_000_000).toFixed(isPrice ? 2 : 0)}m`;
   }
   if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(2)}k`;
+    return `${(value / 1_000).toFixed(isPrice ? 2 : 0)}k`;
   }
-  return value.toFixed(2);
+
+  // Handle tiny values with appropriate precision (only relevant for prices)
+  if (isPrice && value < 0.01 && value > 0) {
+    if (value < 0.000001) {
+      // Ultra-tiny: use scientific notation
+      return value.toExponential(2);
+    }
+    if (value < 0.0001) {
+      // Micro: show 6 decimals
+      return value.toFixed(6);
+    }
+    if (value < 0.001) {
+      // Small: show 5 decimals
+      return value.toFixed(5);
+    }
+    // Show 4 decimals for values between 0.001 and 0.01
+    return value.toFixed(4);
+  }
+
+  // Normal values: 2 decimals for prices, whole numbers for everything else
+  return isPrice ? value.toFixed(2) : Math.round(value).toString();
 }
 
 export function PoolMetricsCard({
@@ -71,59 +96,58 @@ export function PoolMetricsCard({
 
   return (
     <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-4 py-3">
-      {/* Desktop: Horizontal scroll */}
-      <div className="hidden md:flex items-center gap-4 overflow-x-auto">
-        {/* Side Indicator Dot - far left */}
-        <div className="shrink-0 mr-2">
+      {/* Desktop: Horizontal layout with label-value pairs */}
+      <div className="hidden md:flex items-center justify-center gap-2 overflow-x-auto">
+        {/* Side Indicator Dot */}
+        <div className="shrink-0">
           <div className={`w-2 h-2 rounded-full ${side === 'LONG' ? 'bg-[#B9D9EB]' : 'bg-orange-400'}`} />
         </div>
 
         {/* Price */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-baseline gap-1.5 shrink-0">
           <span className="text-[10px] text-gray-500 uppercase tracking-wide">Price</span>
-          <p className="text-sm font-semibold text-white tabular-nums w-[55px] text-right">${currentPrice.toFixed(4)}</p>
-          {/* 24h Change */}
-          <div className="w-[72px]">
-            {priceChangePercent24h !== undefined && priceChangePercent24h !== 0 && (
-              <div className={`px-2 py-1 rounded text-xs font-medium tabular-nums text-center ${
-                priceChangePercent24h > 0
-                  ? 'bg-green-500/20 text-green-400'
-                  : 'bg-red-500/20 text-red-400'
-              }`}>
-                {priceChangePercent24h >= 0 ? '+' : ''}{priceChangePercent24h.toFixed(2)}%
-              </div>
-            )}
-          </div>
+          <p className="text-sm font-semibold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
         </div>
 
+        {/* 24h Change (only if available) */}
+        {priceChangePercent24h !== undefined && priceChangePercent24h !== 0 && (
+          <div className={`px-1.5 py-0.5 rounded text-xs font-medium tabular-nums shrink-0 ${
+            priceChangePercent24h > 0
+              ? 'bg-green-500/20 text-green-400'
+              : 'bg-red-500/20 text-red-400'
+          }`}>
+            {priceChangePercent24h >= 0 ? '+' : ''}{priceChangePercent24h.toFixed(1)}%
+          </div>
+        )}
+
         {/* Divider */}
-        <div className="h-8 w-px bg-[#2a2a2a] shrink-0" />
+        <div className="h-8 w-px bg-[#2a2a2a] shrink-0 mx-1.5" />
 
         {/* Market Cap */}
-        <div className="shrink-0 w-[60px]">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide block">Mkt Cap</span>
-          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(marketCap)}</p>
+        <div className="flex items-baseline gap-1.5 shrink-0">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Mkt</span>
+          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(marketCap, true)}</p>
         </div>
 
         {/* Supply */}
-        <div className="shrink-0 w-[55px]">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide block">Supply</span>
+        <div className="flex items-baseline gap-1.5 shrink-0">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Supply</span>
           <p className="text-sm font-semibold text-white tabular-nums">{formatCompactNumber(totalSupply)}</p>
         </div>
 
         {/* Reserve */}
-        <div className="shrink-0 w-[60px]">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide block">Reserve</span>
-          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve)}</p>
+        <div className="flex items-baseline gap-1.5 shrink-0">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Reserve</span>
+          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve, true)}</p>
         </div>
 
         {/* Volume (if available) */}
         {totalVolume !== undefined && (
           <>
-            <div className="h-8 w-px bg-[#2a2a2a] shrink-0" />
-            <div className="shrink-0 w-[60px]">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wide block">24h Vol</span>
-              <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(totalVolume)}</p>
+            <div className="h-8 w-px bg-[#2a2a2a] shrink-0 mx-1.5" />
+            <div className="flex items-baseline gap-1.5 shrink-0">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Vol</span>
+              <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(totalVolume, true)}</p>
             </div>
           </>
         )}
@@ -153,7 +177,7 @@ export function PoolMetricsCard({
         {/* Market Cap */}
         <div>
           <span className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Mkt Cap</span>
-          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(marketCap)}</p>
+          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(marketCap, true)}</p>
         </div>
 
         {/* Supply */}
@@ -165,14 +189,14 @@ export function PoolMetricsCard({
         {/* Reserve */}
         <div>
           <span className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Reserve</span>
-          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve)}</p>
+          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve, true)}</p>
         </div>
 
         {/* Volume (if available) */}
         {totalVolume !== undefined && (
           <div>
             <span className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">24h Vol</span>
-            <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(totalVolume)}</p>
+            <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(totalVolume, true)}</p>
           </div>
         )}
       </div>

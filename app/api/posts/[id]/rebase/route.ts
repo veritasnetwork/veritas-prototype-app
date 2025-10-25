@@ -19,11 +19,10 @@ import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { VeritasCuration } from '@/lib/solana/target/types/veritas_curation';
 import { loadProtocolAuthority } from '@/lib/solana/load-authority';
 import idl from '@/lib/solana/target/idl/veritas_curation.json';
+import { asBDScore, bdScoreToMillionths } from '@/lib/units';
 
 const programId = process.env.NEXT_PUBLIC_VERITAS_PROGRAM_ID!;
 const rpcEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || 'http://127.0.0.1:8899';
-
-const Q32_SCALE = 1 << 32; // Q32.32 fixed-point scale
 
 interface RebaseResponse {
   success: true;
@@ -42,7 +41,7 @@ interface RebaseResponse {
 /**
  * Call Supabase Edge Function
  */
-async function callEdgeFunction(functionName: string, payload: any) {
+async function callEdgeFunction(functionName: string, payload: Record<string, unknown>) {
   console.log(`[rebase] Calling ${functionName}...`);
 
   const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
@@ -126,7 +125,7 @@ export async function POST(
 
     const provider = new AnchorProvider(
       connection,
-      // @ts-ignore
+      // @ts-expect-error - Dummy wallet for read-only operations
       { publicKey: protocolAuthority.publicKey, signTransaction: () => {}, signAllTransactions: () => {} },
       { commitment: 'confirmed' }
     );
@@ -277,8 +276,10 @@ export async function POST(
     // Step 3: Build settlement transaction
     console.log('[rebase] Step 3: Building settlement transaction...');
 
-    // Convert BD score to Q32.32 format
-    const bdScoreQ32 = new BN(Math.floor(bdScore * Q32_SCALE));
+    // Convert BD score to millionths format (contract expects 0-1,000,000)
+    const bdScoreTyped = asBDScore(bdScore);
+    const bdScoreMillionths = bdScoreToMillionths(bdScoreTyped);
+    const bdScoreBN = new BN(bdScoreMillionths);
 
     // Derive factory PDA
     const [factoryPda] = PublicKey.findProgramAddressSync(
@@ -300,7 +301,7 @@ export async function POST(
 
     // Build settle_epoch instruction
     const settleEpochIx = await program.methods
-      .settleEpoch(bdScoreQ32)
+      .settleEpoch(bdScoreBN)
       .accounts({
         contentPool: poolPda,
         protocolAuthority: protocolAuthority.publicKey,
@@ -329,9 +330,9 @@ export async function POST(
 
     // Calculate stake changes for response
     const totalRewards = Object.values(epochProcessResult.stake_changes?.individual_rewards || {})
-      .reduce((sum: number, val: any) => sum + (val as number), 0);
+      .reduce((sum: number, val: unknown) => sum + (typeof val === 'number' ? val : 0), 0);
     const totalSlashes = Object.values(epochProcessResult.stake_changes?.individual_slashes || {})
-      .reduce((sum: number, val: any) => sum + (val as number), 0);
+      .reduce((sum: number, val: unknown) => sum + (typeof val === 'number' ? val : 0), 0);
 
     const response: RebaseResponse = {
       success: true,

@@ -13,11 +13,12 @@ export class DecayBasedRanking implements RankingStrategy {
 
   rank(posts: Post[]): Post[] {
     return [...posts].sort((a, b) => {
-      // Get decayed q values (0.0 to 1.0)
-      const qA = a.decayedPoolState?.q ?? 0.5; // Default to neutral if no pool
-      const qB = b.decayedPoolState?.q ?? 0.5;
+      // Use market-implied relevance from database (0.0 to 1.0)
+      // This is calculated from reserve ratios: reserve_long / (reserve_long + reserve_short)
+      const qA = (a as any).marketImpliedRelevance ?? 0.5; // Default to neutral if no data
+      const qB = (b as any).marketImpliedRelevance ?? 0.5;
 
-      // Sort descending (highest q first)
+      // Sort descending (highest relevance first)
       if (qB !== qA) {
         return qB - qA;
       }
@@ -55,8 +56,8 @@ export class HybridDecayRanking implements RankingStrategy {
   }
 
   private calculateScore(post: Post, now: number): number {
-    // Decay component (0.0 to 1.0)
-    const q = post.decayedPoolState?.q ?? 0.5;
+    // Market-implied relevance from database (0.0 to 1.0)
+    const q = (post as any).marketImpliedRelevance ?? 0.5;
     const decayScore = q * this.decayWeight;
 
     // Recency component (exponential decay)
@@ -89,13 +90,12 @@ export class DecayAwareRanking implements RankingStrategy {
   }
 
   private calculateScore(post: Post): number {
-    // Base score from decayed q value
-    let score = post.decayedPoolState?.q ?? 0.5;
+    // Base score from market-implied relevance
+    let score = (post as any).marketImpliedRelevance ?? 0.5;
 
     // Apply penalty if post is expired and decaying
-    if (post.decayedPoolState?.daysExpired && post.decayedPoolState.daysExpired > 0) {
-      score *= (1 - this.expirationPenalty);
-    }
+    // Note: We don't track daysExpired in database, so this is removed for now
+    // You can add this back if needed by tracking post age in the database
 
     return score;
   }

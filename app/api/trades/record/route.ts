@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { PoolSyncService } from '@/services/pool-sync.service';
 import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
+import { asDisplay, displayToAtomic, poolDisplayToAtomic, asMicroUsdc } from '@/lib/units';
+import { syncPoolFromChain } from '@/lib/solana/sync-pool-from-chain';
 
 interface RecordTradeRequest {
   user_id: string;
@@ -138,52 +140,23 @@ export async function POST(req: NextRequest) {
     const beliefId = poolDeployment.belief_id;
     console.log('[STEP 3/7] ✅ Belief found:', beliefId);
 
-    console.log('[STEP 4/7] Calculating token balance...');
-    // Calculate new token balance based on trade type
+    console.log('[STEP 4/7] Preparing trade data...');
+    // Parse trade amounts (balance calculation moved to database function)
     const tokenAmount = parseFloat(body.token_amount);
     const usdcAmount = parseFloat(body.usdc_amount);
 
     console.log('[STEP 4/7] Trade amounts:', { tokenAmount, usdcAmount });
-
-    // Get current balance
-    const { data: existingBalance } = await supabase
-      .from('user_pool_balances')
-      .select('token_balance, belief_lock')
-      .eq('user_id', body.user_id)
-      .eq('pool_address', body.pool_address)
-      .eq('token_type', body.side)
-      .single();
-
-    console.log('[STEP 4/7] Existing balance:', existingBalance);
-
-    let newTokenBalance: number;
-    let newBeliefLock: number;
-
-    if (body.trade_type === 'buy') {
-      newTokenBalance = (existingBalance?.token_balance || 0) + tokenAmount;
-      newBeliefLock = Math.floor(usdcAmount * 0.02); // 2% lock on new purchase
-    } else {
-      // Sell
-      newTokenBalance = (existingBalance?.token_balance || 0) - tokenAmount;
-      if (newTokenBalance < 0) {
-        console.error('[STEP 4/7] ❌ Insufficient balance. Current:', existingBalance?.token_balance, 'Selling:', tokenAmount);
-        return NextResponse.json(
-          { error: 'Insufficient token balance for sell' },
-          { status: 400 }
-        );
-      }
-      newBeliefLock = existingBalance?.belief_lock || 0; // Keep existing lock on sell
-    }
-
-    console.log('[STEP 4/7] ✅ New balance calculated:', { newTokenBalance, newBeliefLock });
 
     // Use default belief values if not provided
     const belief = body.initial_belief ?? 0.5;
     const metaPrediction = body.meta_belief ?? 0.5;
     console.log('[STEP 4/7] Beliefs:', { belief, metaPrediction });
 
+    // NOTE: Balance calculation is now done inside record_trade_atomic with FOR UPDATE locks
+    // This prevents race conditions when concurrent trades occur (Bug #1 fix)
+
     console.log('[STEP 5/7] Calling record_trade_atomic RPC...');
-    // Call atomic RPC function
+    // Call atomic RPC function (balance calculation happens inside the function now)
     const rpcParams = {
       p_pool_address: body.pool_address,
       p_post_id: body.post_id,
@@ -191,7 +164,7 @@ export async function POST(req: NextRequest) {
       p_wallet_address: body.wallet_address,
       p_trade_type: body.trade_type,
       p_token_amount: tokenAmount,
-      p_usdc_amount: usdcAmount,
+      p_usdc_amount: usdcAmount,  // IMPORTANT: In display units (USDC), converted to micro-USDC inside function
       p_tx_signature: body.tx_signature,
       p_token_type: body.side,
       p_sqrt_price_long_x96: body.sqrt_price_long_x96 || '0',
@@ -200,8 +173,7 @@ export async function POST(req: NextRequest) {
       p_agent_id: agentId,
       p_belief: belief,
       p_meta_prediction: metaPrediction,
-      p_token_balance: newTokenBalance,
-      p_belief_lock: newBeliefLock,
+      // REMOVED: p_token_balance and p_belief_lock (calculated inside function with locks)
     };
 
     console.log('[STEP 5/7] RPC params:', rpcParams);
@@ -224,6 +196,17 @@ export async function POST(req: NextRequest) {
           { status: 409 }
         );
       }
+      if (result?.error === 'INSUFFICIENT_BALANCE') {
+        console.error('[STEP 5/7] ❌ Insufficient balance:', result);
+        return NextResponse.json(
+          {
+            error: result.message || 'Insufficient token balance for sell',
+            available: result.available,
+            required: result.required
+          },
+          { status: 400 }
+        );
+      }
       console.error('[STEP 5/7] ❌ RPC failed:', result);
       return NextResponse.json(
         { error: result?.message || 'Trade recording failed' },
@@ -231,12 +214,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('[STEP 5/7] ✅ RPC success:', {
+    console.log('[STEP 5/7] ✅ RPC success - Trade recorded in database:', {
       trade_id: result.trade_id,
       skim_amount: result.skim_amount,
-      belief_submission_id: result.belief_submission_id,
-      balance_id: result.balance_id
+      new_balance: result.new_balance,
+      new_lock: result.new_lock
     });
+
+    // Verify the trade was actually inserted
+    console.log('[STEP 5/7] Verifying trade insertion in database...');
+    const { data: tradeVerify, error: verifyError } = await supabase
+      .from('trades')
+      .select('id, tx_signature, trade_type, side, token_amount, usdc_amount, recorded_by, confirmed, created_at')
+      .eq('tx_signature', body.tx_signature)
+      .single();
+
+    if (verifyError) {
+      console.error('[STEP 5/7] ⚠️  Could not verify trade insertion:', verifyError);
+    } else {
+      console.log('[STEP 5/7] ✅ Trade verified in trades table:', {
+        id: tradeVerify.id,
+        trade_type: tradeVerify.trade_type,
+        side: tradeVerify.side,
+        token_amount: tradeVerify.token_amount,
+        usdc_amount: tradeVerify.usdc_amount,
+        recorded_by: tradeVerify.recorded_by,
+        confirmed: tradeVerify.confirmed,
+        created_at: tradeVerify.created_at
+      });
+    }
 
     console.log('[STEP 6/7] Recording implied relevance...');
     // Record implied relevance from virtual reserves after trade
@@ -279,11 +285,61 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log('[STEP 7/7] Triggering pool sync...');
-    // Sync pool state after recording trade (non-blocking)
-    // Uses PoolSyncService for clean, reusable sync logic
+    console.log('[STEP 7/7] Updating pool state in database...');
+    // Update pool_deployments with the new state from the trade
+    if (body.sqrt_price_long_x96 && body.sqrt_price_short_x96 && body.s_long_after !== undefined && body.s_short_after !== undefined) {
+      try {
+        // Type-safe unit conversion: Frontend sends DISPLAY units, DB expects ATOMIC units
+        const poolState = poolDisplayToAtomic({
+          sLong: asDisplay(body.s_long_after),
+          sShort: asDisplay(body.s_short_after),
+          vaultBalance: asMicroUsdc(0), // Not updating vault_balance here
+        });
+
+        const { error: poolUpdateError } = await supabase
+          .from('pool_deployments')
+          .update({
+            sqrt_price_long_x96: body.sqrt_price_long_x96,
+            sqrt_price_short_x96: body.sqrt_price_short_x96,
+            s_long_supply: poolState.sLongSupply,
+            s_short_supply: poolState.sShortSupply,
+            last_synced_at: new Date().toISOString(),
+          })
+          .eq('pool_address', body.pool_address);
+
+        if (poolUpdateError) {
+          console.error('[STEP 7/7] ❌ Failed to update pool state:', poolUpdateError);
+        } else {
+          console.log('[STEP 7/7] ✅ Pool state updated:', {
+            pool_address: body.pool_address,
+            sqrt_price_long: body.sqrt_price_long_x96,
+            sqrt_price_short: body.sqrt_price_short_x96,
+            supply_long_display: body.s_long_after,
+            supply_short_display: body.s_short_after,
+            supply_long_atomic: poolState.sLongSupply,
+            supply_short_atomic: poolState.sShortSupply,
+          });
+        }
+      } catch (poolUpdateException) {
+        console.error('[STEP 7/7] ❌ Exception updating pool state:', poolUpdateException);
+      }
+    } else {
+      console.warn('[STEP 7/7] ⚠️  Missing pool state data from client - syncing from chain as fallback...');
+      // Fallback: Sync from chain if client didn't provide pool state
+      try {
+        const synced = await syncPoolFromChain(body.pool_address);
+        if (synced) {
+          console.log('[STEP 7/7] ✅ Pool state synced from chain successfully');
+        } else {
+          console.error('[STEP 7/7] ❌ Failed to sync pool state from chain');
+        }
+      } catch (syncError) {
+        console.error('[STEP 7/7] ❌ Exception syncing pool state from chain:', syncError);
+      }
+    }
+
+    // Also trigger async pool sync as backup (non-blocking)
     PoolSyncService.syncAfterTrade(body.pool_address);
-    console.log('[STEP 7/7] ✅ Pool sync queued (non-blocking)');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('✅ [/api/trades/record] Trade recorded successfully');

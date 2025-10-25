@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { sqrtPriceX96ToPrice, USDC_PRECISION } from '@/lib/solana/sqrt-price-helpers';
+import { microToUsdc, asMicroUsdc } from '@/lib/units';
 
 export async function GET(
   request: NextRequest,
@@ -28,9 +29,10 @@ export async function GET(
     // Initialize Supabase client with service role for data access
     const supabase = getSupabaseServiceRole();
 
-    // Fetch user data
+    // Fetch user data with timeout
     console.log('[Profile API] Querying database for username:', username);
-    const { data: user, error: userError } = await supabase
+
+    const userQuery = supabase
       .from('users')
       .select(`
         id,
@@ -41,7 +43,9 @@ export async function GET(
         agents!inner(solana_address)
       `)
       .eq('username', username)
-      .single();
+      .maybeSingle(); // Use maybeSingle() instead of single() to avoid hanging
+
+    const { data: user, error: userError } = await userQuery;
 
     if (userError || !user) {
       console.error('[Profile API] User fetch error:', {
@@ -59,7 +63,7 @@ export async function GET(
     console.log('[Profile API] User found:', user.id, user.username);
 
     // Extract solana_address from nested agents relation
-    const solana_address = (user.agents as any)?.solana_address || null;
+    const solana_address = (user.agents as { solana_address?: string })?.solana_address || null;
 
     // Fetch all data in parallel for better performance
     const [
@@ -121,12 +125,25 @@ export async function GET(
     }
 
     const stats = {
-      total_stake: agentData?.total_stake || 0,
+      total_stake: agentData?.total_stake ? microToUsdc(asMicroUsdc(Number(agentData.total_stake))) : 0,
       total_posts: totalPosts || 0,
     };
 
     // Transform posts to match new Post type schema
-    const recent_posts = (recentPosts || []).map((post: any) => {
+    const recent_posts = (recentPosts || []).map((post: {
+      id: string;
+      pool_deployments?: Array<{
+        sqrt_price_long_x96?: string;
+        sqrt_price_short_x96?: string;
+        s_long_supply?: number;
+        s_short_supply?: number;
+        vault_balance?: number;
+        pool_address?: string;
+        long_mint_address?: string;
+        short_mint_address?: string;
+      }>;
+      [key: string]: unknown;
+    }) => {
       const pool = post.pool_deployments?.[0];
 
       // Calculate prices from sqrt prices
@@ -192,7 +209,11 @@ export async function GET(
       recent_posts,
     };
 
-    return NextResponse.json(profileData);
+    return NextResponse.json(profileData, {
+      headers: {
+        'Cache-Control': 'public, max-age=10, stale-while-revalidate=30',
+      }
+    });
   } catch (error) {
     console.error('Profile API error:', error);
     return NextResponse.json(

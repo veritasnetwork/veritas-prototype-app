@@ -1,9 +1,10 @@
 /**
  * useProfile Hook
  * Fetches user profile data including stats and recent posts
+ * Now uses SWR for automatic caching and revalidation
  */
 
-import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import type { Post } from '@/types/post.types';
 
 export interface ProfileData {
@@ -25,58 +26,43 @@ interface UseProfileReturn {
   data: ProfileData | null;
   isLoading: boolean;
   error: string | null;
-  refetch: () => Promise<void>;
+  mutate: () => void;
 }
 
+const fetcher = async (url: string): Promise<ProfileData> => {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('User not found');
+    }
+    throw new Error('Failed to load profile');
+  }
+
+  return response.json();
+};
+
 export function useProfile(username: string): UseProfileReturn {
-  const [data, setData] = useState<ProfileData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchProfile = async () => {
-    if (!username) {
-      setError('Username is required');
-      setIsLoading(false);
-      return;
+  const { data, error, isLoading, mutate } = useSWR<ProfileData>(
+    username ? `/api/users/${username}/profile` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 10000, // Cache for 10 seconds
+      revalidateOnMount: true,
+      loadingTimeout: 10000, // 10 second timeout
+      errorRetryCount: 1, // Only retry once
+      shouldRetryOnError: false, // Don't retry on 404
+      onLoadingSlow: () => {
+        console.warn('[useProfile] Slow loading detected for:', username);
+      },
     }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/users/${username}/profile`);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          setError('User not found');
-        } else {
-          setError('Failed to load profile');
-        }
-        setData(null);
-        setIsLoading(false);
-        return;
-      }
-
-      const profileData = await response.json();
-      setData(profileData);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching profile:', err);
-      setError('Failed to load profile');
-      setData(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProfile();
-  }, [username]);
+  );
 
   return {
-    data,
+    data: data || null,
     isLoading,
-    error,
-    refetch: fetchProfile,
+    error: error?.message || null,
+    mutate,
   };
 }

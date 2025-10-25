@@ -61,6 +61,8 @@ export async function GET(
           content_text,
           caption,
           media_urls,
+          cover_image_url,
+          article_title,
           user_id,
           created_at,
           users:user_id (
@@ -85,7 +87,24 @@ export async function GET(
     }
 
     // Aggregate by pool (LONG + SHORT)
-    const holdingsMap = new Map<string, any>();
+    interface HoldingEntry {
+      pool_address: string;
+      post_id: string;
+      posts: unknown;
+      pool_deployments: unknown;
+      long_balance: number;
+      short_balance: number;
+      long_lock: number;
+      short_lock: number;
+      long_spent: number;
+      short_spent: number;
+      long_received: number;
+      short_received: number;
+      total_lock_usdc: number;
+      last_trade_at: string;
+    }
+
+    const holdingsMap = new Map<string, HoldingEntry>();
     for (const pos of positions || []) {
       if (!holdingsMap.has(pos.pool_address)) {
         holdingsMap.set(pos.pool_address, {
@@ -97,6 +116,10 @@ export async function GET(
           short_balance: 0,
           long_lock: 0,
           short_lock: 0,
+          long_spent: 0,
+          short_spent: 0,
+          long_received: 0,
+          short_received: 0,
           total_lock_usdc: 0,
           last_trade_at: pos.last_trade_at,
         });
@@ -106,9 +129,13 @@ export async function GET(
       if (pos.token_type === 'LONG') {
         entry.long_balance = pos.token_balance;
         entry.long_lock = pos.belief_lock / 1_000_000;
+        entry.long_spent = pos.total_usdc_spent / 1_000_000;
+        entry.long_received = pos.total_usdc_received / 1_000_000;
       } else {
         entry.short_balance = pos.token_balance;
         entry.short_lock = pos.belief_lock / 1_000_000;
+        entry.short_spent = pos.total_usdc_spent / 1_000_000;
+        entry.short_received = pos.total_usdc_received / 1_000_000;
       }
       entry.total_lock_usdc = entry.long_lock + entry.short_lock;
       if (new Date(pos.last_trade_at) > new Date(entry.last_trade_at)) {
@@ -120,7 +147,7 @@ export async function GET(
 
     // Transform and calculate current values - fetch pool data from chain
     const transformedHoldings = await Promise.all(
-      holdings.map(async (holding: any) => {
+      holdings.map(async (holding: HoldingEntry) => {
         const post = holding.posts;
         const poolAddress = holding.pool_deployments?.pool_address;
 
@@ -131,7 +158,8 @@ export async function GET(
 
         if (poolAddress) {
           try {
-            poolData = await fetchPoolData(poolAddress);
+            const rpcEndpoint = process.env.SOLANA_RPC_ENDPOINT || 'http://localhost:8899';
+            poolData = await fetchPoolData(poolAddress, rpcEndpoint);
             if (poolData) {
               // Use average of long/short prices for holdings display
               currentPrice = (poolData.priceLong + poolData.priceShort) / 2;
@@ -149,6 +177,8 @@ export async function GET(
             content_text: post?.content_text,
             caption: post?.caption,
             media_urls: post?.media_urls,
+            cover_image_url: post?.cover_image_url,
+            article_title: post?.article_title,
             user_id: post?.user_id,
             created_at: post?.created_at,
             author: {
@@ -162,14 +192,24 @@ export async function GET(
             price_long: poolData?.priceLong || 0,
             price_short: poolData?.priceShort || 0,
             current_price: currentPrice,
-            total_supply: poolData?.totalSupply || 0, // Already in display units from fetchPoolData
+            supply_long: poolData?.supplyLong || 0, // Supply in display units
+            supply_short: poolData?.supplyShort || 0,
+            total_supply: poolData?.totalSupply || 0,
             vault_balance: poolData?.vaultBalance || 0,
+            // ICBS parameters for trade simulation
+            f: poolData?.f || 1,
+            beta_num: poolData?.betaNum || 1,
+            beta_den: poolData?.betaDen || 2,
           },
           balance: {
             long_balance: holding.long_balance,
             short_balance: holding.short_balance,
             total_lock_usdc: holding.total_lock_usdc,
+            total_usdc_spent: holding.long_spent + holding.short_spent,
+            total_usdc_received: holding.long_received + holding.short_received,
             current_value_usdc: currentValueUsdc,
+            price_long: poolData?.priceLong || 0,
+            price_short: poolData?.priceShort || 0,
           },
         };
       })

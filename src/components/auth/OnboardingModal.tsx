@@ -1,16 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { usePrivy, useConnectWallet } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
-import { useUSDCBalance } from '@/hooks/useUSDCBalance';
 
 interface OnboardingModalProps {
   isOpen: boolean;
 }
 
 export function OnboardingModal({ isOpen }: OnboardingModalProps) {
-  const { user: privyUser, getAccessToken, ready } = usePrivy();
+  const { user: privyUser, getAccessToken } = usePrivy();
   const { refreshUser } = useAuth();
   const { connectWallet } = useConnectWallet();
 
@@ -24,15 +23,9 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
 
   // Get Solana wallet address
   const solanaWallet = privyUser?.linkedAccounts?.find(
-    (account: any) => account.type === 'wallet' && account.chainType === 'solana'
+    (account: { type: string; chainType?: string }) => account.type === 'wallet' && account.chainType === 'solana'
   );
-  const solanaAddress = solanaWallet?.address;
-
-  // No auto-trigger here - useEagerWalletConnect in Feed handles it
-  // This keeps onboarding modal focused on profile creation
-
-  // Fetch USDC balance only if wallet is connected
-  const { balance: usdcBalance, loading: balanceLoading } = useUSDCBalance(solanaAddress);
+  const solanaAddress = (solanaWallet as { address?: string })?.address;
 
   // Shortened wallet address for display
   const shortenedAddress = solanaAddress

@@ -5,28 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
-import { Connection, PublicKey } from '@solana/web3.js';
-import { getRpcEndpoint } from '@/lib/solana/network-config';
 import { PostAPIResponseSchema } from '@/types/api';
 import { sqrtPriceX96ToPrice, USDC_PRECISION } from '@/lib/solana/sqrt-price-helpers';
-
-// Helper to read u128 little-endian
-function readU128LE(buffer: Buffer, offset: number): bigint {
-  let value = BigInt(0); // Changed from 0n to BigInt(0)
-  for (let i = 0; i < 16; i++) {
-    value |= BigInt(buffer[offset + i]) << BigInt(i * 8);
-  }
-  return value;
-}
-
-// Helper to read u64 little-endian
-function readU64LE(buffer: Buffer, offset: number): bigint {
-  let value = BigInt(0); // Changed from 0n to BigInt(0)
-  for (let i = 0; i < 8; i++) {
-    value |= BigInt(buffer[offset + i]) << BigInt(i * 8);
-  }
-  return value;
-}
+import { syncPoolFromChain } from '@/lib/solana/sync-pool-from-chain';
 
 export async function GET(
   request: NextRequest,
@@ -92,8 +73,7 @@ export async function GET(
 
     // Extract nested relations
     const userData = Array.isArray(post.users) ? post.users[0] : post.users;
-    const beliefData = Array.isArray(post.beliefs) ? post.beliefs[0] : post.beliefs;
-    let poolData = post.pool_deployments?.[0] || null;
+    const poolData = post.pool_deployments?.[0] || null;
 
     console.log('[Post API] Extracted data:', {
       hasUser: !!userData,
@@ -103,8 +83,36 @@ export async function GET(
 
     // Pool data is kept fresh by the event indexer
     // Event indexer updates pool_deployments table after every trade event
-    // No need to poll chain here - trust the database
+    // If critical fields are null, sync from chain as fallback
     if (poolData?.pool_address) {
+      // Check if critical fields are null
+      const hasNullFields =
+        poolData.sqrt_price_long_x96 === null ||
+        poolData.sqrt_price_short_x96 === null ||
+        poolData.s_long_supply === null ||
+        poolData.s_short_supply === null ||
+        poolData.vault_balance === null;
+
+      if (hasNullFields) {
+        console.log('[Post API] Pool has null fields, syncing from chain...');
+        const synced = await syncPoolFromChain(poolData.pool_address);
+
+        if (synced) {
+          // Re-fetch pool data after sync
+          const { data: refreshedPool } = await supabase
+            .from('pool_deployments')
+            .select('*')
+            .eq('pool_address', poolData.pool_address)
+            .single();
+
+          if (refreshedPool) {
+            // Replace poolData with refreshed data
+            Object.assign(poolData, refreshedPool);
+            console.log('[Post API] Pool data refreshed after sync');
+          }
+        }
+      }
+
       const lastSynced = poolData.last_synced_at ? new Date(poolData.last_synced_at).getTime() : 0;
       const now = Date.now();
       const staleness = now - lastSynced;

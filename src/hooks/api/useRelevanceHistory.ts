@@ -18,7 +18,9 @@ interface RelevanceHistoryData {
 }
 
 const fetcher = async (url: string): Promise<RelevanceHistoryData> => {
-  const res = await fetch(url);
+  // Add query param to only fetch relevance data (skip price/trade data)
+  const urlWithParams = `${url}?include=relevance`;
+  const res = await fetch(urlWithParams);
   if (!res.ok) {
     if (res.status === 404) return { actualRelevance: [], impliedRelevance: [] };
     throw new Error('Failed to fetch relevance history');
@@ -59,6 +61,13 @@ export function useRelevanceHistory(postId: string | undefined) {
     {
       revalidateOnFocus: false,
       dedupingInterval: 5000,
+      loadingTimeout: 10000, // 10 second timeout to prevent hanging
+      onLoadingSlow: () => {
+        console.warn('[useRelevanceHistory] Slow loading detected for', postId);
+      },
+      onError: (err) => {
+        console.error('[useRelevanceHistory] Error fetching relevance data:', err);
+      },
     }
   );
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { TradeHistoryResponseSchema } from '@/types/api';
+import { microToUsdc, asMicroUsdc } from '@/lib/units';
 
 interface Trade {
   recorded_at: string;
@@ -145,9 +146,12 @@ export async function GET(
         const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
         const uniqueTime = baseTime + index * 0.001;
 
+        // usdc_amount is stored in micro-USDC (atomic units), convert to USDC (display units)
+        const usdcAmount = microToUsdc(asMicroUsdc(Math.round(parseFloat(trade.usdc_amount))));
+
         return {
           time: uniqueTime,
-          value: parseFloat(trade.usdc_amount),
+          value: usdcAmount,
           // Light blue for LONG, Orange for SHORT
           color: trade.side === 'LONG' ? 'rgba(185, 217, 235, 0.8)' : 'rgba(249, 115, 22, 0.8)'
         };
@@ -157,14 +161,17 @@ export async function GET(
     const priceLongValues = priceLongData.map((d: { value: number }) => d.value);
     const priceShortValues = priceShortData.map((d: { value: number }) => d.value);
 
-    // Calculate volumes by side
-    const totalVolume = trades.reduce((sum: number, trade: Trade) => sum + parseFloat(trade.usdc_amount), 0);
+    // Calculate volumes by side (convert micro-USDC to USDC using units library)
+    const totalVolume = trades.reduce((sum: number, trade: Trade) =>
+      sum + microToUsdc(asMicroUsdc(Math.round(parseFloat(trade.usdc_amount)))), 0);
     const volumeLong = trades
       .filter((t: Trade) => t.side === 'LONG')
-      .reduce((sum: number, trade: Trade) => sum + parseFloat(trade.usdc_amount), 0);
+      .reduce((sum: number, trade: Trade) =>
+        sum + microToUsdc(asMicroUsdc(Math.round(parseFloat(trade.usdc_amount)))), 0);
     const volumeShort = trades
       .filter((t: Trade) => t.side === 'SHORT')
-      .reduce((sum: number, trade: Trade) => sum + parseFloat(trade.usdc_amount), 0);
+      .reduce((sum: number, trade: Trade) =>
+        sum + microToUsdc(asMicroUsdc(Math.round(parseFloat(trade.usdc_amount)))), 0);
 
     // LONG stats
     const highestPriceLong = priceLongValues.length > 0 ? Math.max(...priceLongValues) : 0;

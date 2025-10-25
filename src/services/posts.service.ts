@@ -7,9 +7,156 @@ import { supabase } from '@/lib/supabase';
 import type { Post, BeliefHistoryPoint } from '@/types/post.types';
 import type { DbPost, DbBeliefHistory } from '@/types/database.types';
 import { sqrtPriceX96ToPrice, USDC_PRECISION } from '@/lib/solana/sqrt-price-helpers';
-import { feedRankingService } from '@/services/feed';
+import { feedRankingService, ImpliedRelevanceFirstRanking } from '@/services/feed';
 
 export class PostsService {
+  /**
+   * Fetches updated metrics for a single post (used for polling the selected post)
+   * Returns only the changed fields to minimize data transfer
+   */
+  static async fetchSinglePostMetrics(postId: string): Promise<Partial<Post> | null> {
+    try {
+      // Fetch updated pool deployments and volume for the given post
+      const { data: post, error } = await supabase
+        .from('posts')
+        .select(`
+          id,
+          total_volume_usdc,
+          pool_deployments (
+            s_long_supply,
+            s_short_supply,
+            sqrt_price_long_x96,
+            sqrt_price_short_x96,
+            vault_balance
+          )
+        `)
+        .eq('id', postId)
+        .single();
+
+      if (error || !post) {
+        console.error('Failed to fetch post metrics:', error);
+        return null;
+      }
+
+      // Fetch latest implied relevance
+      const { data: impliedRelevanceData } = await supabase
+        .from('implied_relevance_history')
+        .select('implied_relevance')
+        .eq('post_id', postId)
+        .order('recorded_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      const poolData = Array.isArray(post.pool_deployments)
+        ? post.pool_deployments[0]
+        : post.pool_deployments;
+
+      const metrics: Partial<Post> & { marketImpliedRelevance?: number } = {
+        id: post.id,
+        totalVolumeUsdc: post.total_volume_usdc ? Number(post.total_volume_usdc) : undefined,
+      };
+
+      // Add pool data if available
+      if (poolData) {
+        metrics.poolSupplyLong = poolData.s_long_supply ? Number(poolData.s_long_supply) / USDC_PRECISION : undefined;
+        metrics.poolSupplyShort = poolData.s_short_supply ? Number(poolData.s_short_supply) / USDC_PRECISION : undefined;
+        metrics.poolSqrtPriceLongX96 = poolData.sqrt_price_long_x96 || undefined;
+        metrics.poolSqrtPriceShortX96 = poolData.sqrt_price_short_x96 || undefined;
+        metrics.poolVaultBalance = poolData.vault_balance ? Number(poolData.vault_balance) / USDC_PRECISION : undefined;
+      }
+
+      // Add implied relevance if available
+      if (impliedRelevanceData?.implied_relevance !== undefined) {
+        metrics.marketImpliedRelevance = impliedRelevanceData.implied_relevance;
+      }
+
+      return metrics;
+    } catch (error) {
+      console.error('Failed to fetch post metrics:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches updated metrics for a batch of posts (used for polling)
+   * Returns only the changed fields to minimize data transfer
+   */
+  static async fetchPostMetrics(postIds: string[]): Promise<Partial<Post>[]> {
+    try {
+      if (postIds.length === 0) return [];
+
+      // Fetch updated pool deployments and volume for the given posts
+      const { data: posts, error } = await supabase
+        .from('posts')
+        .select(`
+          id,
+          total_volume_usdc,
+          pool_deployments (
+            s_long_supply,
+            s_short_supply,
+            sqrt_price_long_x96,
+            sqrt_price_short_x96,
+            vault_balance
+          )
+        `)
+        .in('id', postIds);
+
+      if (error) {
+        console.error('Failed to fetch post metrics:', error);
+        return [];
+      }
+
+      // Fetch latest implied relevance for all posts
+      const { data: impliedRelevanceData } = await supabase
+        .from('implied_relevance_history')
+        .select('post_id, implied_relevance, recorded_at')
+        .in('post_id', postIds)
+        .order('recorded_at', { ascending: false });
+
+      // Create a map of post_id -> latest implied_relevance
+      const impliedRelevanceMap = new Map<string, number>();
+      if (impliedRelevanceData) {
+        for (const row of impliedRelevanceData) {
+          if (!impliedRelevanceMap.has(row.post_id)) {
+            impliedRelevanceMap.set(row.post_id, row.implied_relevance);
+          }
+        }
+      }
+
+      // Transform to partial post updates
+      return (posts || []).map(dbPost => {
+        const poolData = Array.isArray(dbPost.pool_deployments)
+          ? dbPost.pool_deployments[0]
+          : dbPost.pool_deployments;
+
+        const metrics: Partial<Post> & { marketImpliedRelevance?: number } = {
+          id: dbPost.id,
+          totalVolumeUsdc: dbPost.total_volume_usdc ? Number(dbPost.total_volume_usdc) : undefined,
+        };
+
+        // Add pool data if available
+        if (poolData) {
+          metrics.poolSupplyLong = poolData.s_long_supply ? Number(poolData.s_long_supply) / USDC_PRECISION : undefined;
+          metrics.poolSupplyShort = poolData.s_short_supply ? Number(poolData.s_short_supply) / USDC_PRECISION : undefined;
+          metrics.poolSqrtPriceLongX96 = poolData.sqrt_price_long_x96 || undefined;
+          metrics.poolSqrtPriceShortX96 = poolData.sqrt_price_short_x96 || undefined;
+          metrics.poolVaultBalance = poolData.vault_balance ? Number(poolData.vault_balance) / USDC_PRECISION : undefined;
+        }
+
+        // Add implied relevance if available
+        const impliedRelevance = impliedRelevanceMap.get(dbPost.id);
+        if (impliedRelevance !== undefined) {
+          metrics.marketImpliedRelevance = impliedRelevance;
+        }
+
+        return metrics;
+      });
+    } catch (error) {
+      console.error('Failed to fetch post metrics:', error);
+      return [];
+    }
+  }
+
   /**
    * Fetches all posts from Supabase, enriched with on-chain pool state and ranked by relevance
    */
@@ -22,7 +169,8 @@ export class PostsService {
         throw new Error('Supabase configuration missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.');
       }
 
-      // Query posts directly with joins for user and pool data
+      // Query posts with latest implied relevance from database
+      // Use LATERAL join to get the most recent implied_relevance for each post
       const { data: posts, error } = await supabase
         .from('posts')
         .select(`
@@ -65,13 +213,41 @@ export class PostsService {
         return [];
       }
 
-      // Transform database posts to frontend posts
-      const transformedPosts = posts.map(this.transformDbPost);
+      // Fetch latest implied relevance for all posts in one query
+      const postIds = posts.map(p => p.id);
+      const { data: impliedRelevanceData } = await supabase
+        .from('implied_relevance_history')
+        .select('post_id, implied_relevance, recorded_at')
+        .in('post_id', postIds)
+        .order('recorded_at', { ascending: false });
 
-      // Enrich with on-chain pool state and rank by decay-based relevance
+      // Create a map of post_id -> latest implied_relevance
+      const impliedRelevanceMap = new Map<string, number>();
+      if (impliedRelevanceData) {
+        for (const row of impliedRelevanceData) {
+          if (!impliedRelevanceMap.has(row.post_id)) {
+            impliedRelevanceMap.set(row.post_id, row.implied_relevance);
+          }
+        }
+      }
+
+      // Transform database posts to frontend posts with implied relevance
+      const transformedPosts = posts.map(dbPost => {
+        const post = this.transformDbPost(dbPost);
+        const impliedRelevance = impliedRelevanceMap.get(post.id);
+
+        // Attach implied relevance as marketImpliedRelevance
+        if (impliedRelevance !== undefined) {
+          (post as any).marketImpliedRelevance = impliedRelevance;
+        }
+
+        return post;
+      });
+
+      // Rank using ImpliedRelevanceFirst strategy: posts with implied relevance first, then by recency
       const rankedPosts = await feedRankingService.rank(transformedPosts, {
-        enrichWithPoolState: true,
-        // Use default DecayBasedRanking strategy
+        strategy: new ImpliedRelevanceFirstRanking(),
+        enrichWithPoolState: false,  // Use database instead of on-chain
       });
 
       return rankedPosts;

@@ -140,7 +140,7 @@ export function EditProfileModal({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-colors"
+                className="absolute bottom-0 right-0 p-2 bg-[#B9D9EB] hover:bg-[#B9D9EB]/90 text-[#0C1D51] rounded-full transition-colors"
                 aria-label="Upload photo"
               >
                 <Upload className="w-4 h-4" />
@@ -153,9 +153,6 @@ export function EditProfileModal({
               onChange={handleFileChange}
               className="hidden"
             />
-            <p className="text-xs text-gray-400 text-center">
-              Click the upload icon to change your photo
-            </p>
           </div>
 
           {/* Username Input */}
@@ -201,7 +198,7 @@ export function EditProfileModal({
             <button
               type="submit"
               disabled={!hasChanges || isUploading}
-              className="flex-1 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 bg-[#B9D9EB] hover:bg-[#B9D9EB]/90 text-[#0C1D51] font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isUploading ? (
                 <>

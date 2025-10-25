@@ -31,7 +31,7 @@ pub struct SettleEpoch<'info> {
 
 pub fn handler(
     ctx: Context<SettleEpoch>,
-    bd_score: u32,  // BD score in Q32.32 format [0, 2^32]
+    bd_score: u32,  // BD score in millionths format [0, 1_000_000] where 500_000 = 50%
 ) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
     let clock = Clock::get()?;

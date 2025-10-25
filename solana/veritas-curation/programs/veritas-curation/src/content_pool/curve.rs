@@ -2,6 +2,14 @@ use anchor_lang::prelude::*;
 use super::errors::ContentPoolError;
 use super::state::{TokenSide, MAX_SAFE_SUPPLY};
 
+/// UNIT CONTRACT
+/// - USDC: µUSDC integers (u64/u128).
+/// - Supplies s_long/s_short: **DISPLAY tokens** (whole tokens, u64).
+///   (Atomic 1e6 scaling is applied only at SPL mint/burn boundaries.)
+/// - price_q96: µUSDC per DISPLAY token, in Q96.
+/// - sqrt_price_x96: sqrt(price_q96) << 48.
+/// - Reserves r: µUSDC (since r = s_display * price_q96 / Q96).
+
 /// ICBS Curve implementation using square root prices to prevent overflow
 /// This maintains the exact same bonding curve mathematics while avoiding u128 overflow
 pub struct ICBSCurve;

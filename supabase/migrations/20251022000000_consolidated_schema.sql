@@ -718,11 +718,11 @@ COMMENT ON COLUMN "public"."pool_deployments"."sqrt_price_short_x96" IS 'Cached 
 
 
 
-COMMENT ON COLUMN "public"."pool_deployments"."s_long_supply" IS 'LONG token supply (atomic units, 6 decimals) - from ContentPool.s_long';
+COMMENT ON COLUMN "public"."pool_deployments"."s_long_supply" IS 'LONG token supply in atomic units (6 decimals). On-chain ContentPool.s_long stores display units; converted to atomic for DB storage (display × 1,000,000).';
 
 
 
-COMMENT ON COLUMN "public"."pool_deployments"."s_short_supply" IS 'SHORT token supply (atomic units, 6 decimals) - from ContentPool.s_short';
+COMMENT ON COLUMN "public"."pool_deployments"."s_short_supply" IS 'SHORT token supply in atomic units (6 decimals). On-chain ContentPool.s_short stores display units; converted to atomic for DB storage (display × 1,000,000).';
 
 
 
@@ -908,6 +908,61 @@ COMMENT ON COLUMN "public"."settlements"."confirmed" IS 'Whether settlement tran
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."implied_relevance_history" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "post_id" "uuid" NOT NULL,
+    "belief_id" "uuid" NOT NULL,
+    "implied_relevance" numeric NOT NULL,
+    "reserve_long" numeric NOT NULL,
+    "reserve_short" numeric NOT NULL,
+    "event_type" "text" NOT NULL,
+    "event_reference" "text" NOT NULL,
+    "confirmed" boolean DEFAULT false NOT NULL,
+    "recorded_by" "text" DEFAULT 'server'::"text" NOT NULL,
+    "recorded_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "implied_relevance_history_event_type_check" CHECK (("event_type" = ANY (ARRAY['trade'::"text", 'deployment'::"text", 'rebase'::"text"]))),
+    CONSTRAINT "implied_relevance_history_implied_relevance_check" CHECK ((("implied_relevance" >= (0)::numeric) AND ("implied_relevance" <= (1)::numeric))),
+    CONSTRAINT "implied_relevance_history_recorded_by_check" CHECK (("recorded_by" = ANY (ARRAY['server'::"text", 'indexer'::"text"]))),
+    CONSTRAINT "implied_relevance_history_reserve_long_check" CHECK (("reserve_long" >= (0)::numeric)),
+    CONSTRAINT "implied_relevance_history_reserve_short_check" CHECK (("reserve_short" >= (0)::numeric))
+);
+
+
+ALTER TABLE "public"."implied_relevance_history" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."implied_relevance_history" IS 'Tracks market-implied relevance over time based on reserve ratios. Used to compare trader predictions against actual BD relevance scores.';
+
+
+
+COMMENT ON COLUMN "public"."implied_relevance_history"."implied_relevance" IS 'Market-implied relevance: reserve_long / (reserve_long + reserve_short). Shows what traders collectively predict the relevance to be.';
+
+
+
+COMMENT ON COLUMN "public"."implied_relevance_history"."reserve_long" IS 'Reserve state for LONG side at time of recording (in USDC display units)';
+
+
+
+COMMENT ON COLUMN "public"."implied_relevance_history"."reserve_short" IS 'Reserve state for SHORT side at time of recording (in USDC display units)';
+
+
+
+COMMENT ON COLUMN "public"."implied_relevance_history"."event_type" IS 'Event that triggered this recording: trade, deployment, or rebase';
+
+
+
+COMMENT ON COLUMN "public"."implied_relevance_history"."event_reference" IS 'Transaction signature, pool address, etc. for idempotency';
+
+
+
+COMMENT ON COLUMN "public"."implied_relevance_history"."confirmed" IS 'Whether this event was confirmed on-chain';
+
+
+
+COMMENT ON COLUMN "public"."implied_relevance_history"."recorded_by" IS 'Source that recorded this: server or indexer';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."system_config" (
     "key" "text" NOT NULL,
     "value" "text" NOT NULL,
@@ -943,8 +998,7 @@ INSERT INTO system_config (key, value, description) VALUES
 
     -- Pool Redistribution
     ('base_skim_rate', '0.01', 'Base penalty rate for pools with zero delta_relevance (1% = 0.01)'),
-    ('epoch_rollover_balance', '0', 'Accumulated penalty pot from epochs with no winning pools')
-ON CONFLICT (key) DO NOTHING;
+    ('epoch_rollover_balance', '0', 'Accumulated penalty pot from epochs with no winning pools');
 
 
 CREATE TABLE IF NOT EXISTS "public"."trades" (
@@ -1291,6 +1345,16 @@ ALTER TABLE ONLY "public"."settlements"
 
 
 
+ALTER TABLE ONLY "public"."implied_relevance_history"
+    ADD CONSTRAINT "implied_relevance_history_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."implied_relevance_history"
+    ADD CONSTRAINT "implied_relevance_history_event_reference_key" UNIQUE ("event_reference");
+
+
+
 ALTER TABLE ONLY "public"."system_config"
     ADD CONSTRAINT "system_config_pkey" PRIMARY KEY ("key");
 
@@ -1512,6 +1576,18 @@ CREATE INDEX "idx_settlements_timestamp" ON "public"."settlements" USING "btree"
 
 
 CREATE INDEX "idx_settlements_tx" ON "public"."settlements" USING "btree" ("tx_signature");
+
+
+
+CREATE INDEX "idx_implied_relevance_post_time" ON "public"."implied_relevance_history" USING "btree" ("post_id", "recorded_at" DESC);
+
+
+
+CREATE INDEX "idx_implied_relevance_belief_time" ON "public"."implied_relevance_history" USING "btree" ("belief_id", "recorded_at" DESC);
+
+
+
+CREATE INDEX "idx_implied_relevance_event_type" ON "public"."implied_relevance_history" USING "btree" ("event_type");
 
 
 

@@ -41,7 +41,7 @@ export function CompactPostCard({ post, onClick }: CompactPostCardProps) {
     if (onClick) {
       onClick();
     } else {
-      router.push(`/post/${post.id}`);
+      router.push(`/post/${post.id}?mode=trade`);
     }
   };
 

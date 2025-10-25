@@ -3,18 +3,28 @@ import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
 import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 
+interface TiptapNode {
+  text?: string;
+  type?: string;
+  content?: TiptapNode[];
+}
+
+interface TiptapDoc {
+  content?: TiptapNode[];
+}
+
 // Helper function to extract plain text from Tiptap JSON
-function extractPlainTextFromTiptap(doc: any): string {
+function extractPlainTextFromTiptap(doc: TiptapDoc): string {
   if (!doc || !doc.content) return '';
 
   let text = '';
 
-  function traverse(node: any) {
+  function traverse(node: TiptapNode) {
     if (node.text) {
       text += node.text;
     }
     if (node.content && Array.isArray(node.content)) {
-      node.content.forEach((child: any) => {
+      node.content.forEach((child: TiptapNode) => {
         traverse(child);
         // Add space after block elements
         if (child.type === 'paragraph' || child.type === 'heading') {
@@ -222,46 +232,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Submit initial belief ONLY if both initial_belief and meta_belief are provided
-    if (initial_belief !== undefined && meta_belief !== undefined) {
-      const { error: submissionError } = await supabase
-        .from('belief_submissions')
-        .insert({
-          belief_id: post_id,
-          agent_id: agent_id,
-          belief: initial_belief,
-          meta_prediction: meta_belief,
-          epoch: currentEpoch,
-        });
+    // Submit initial belief and store pool deployment in parallel
+    const optionalInserts = [];
 
-      if (submissionError) {
-        console.error('Failed to submit initial belief:', submissionError);
-        // Note: Not rolling back here since post/belief are created
-      }
+    if (initial_belief !== undefined && meta_belief !== undefined) {
+      optionalInserts.push(
+        supabase
+          .from('belief_submissions')
+          .insert({
+            belief_id: post_id,
+            agent_id: agent_id,
+            belief: initial_belief,
+            meta_prediction: meta_belief,
+            epoch: currentEpoch,
+          })
+      );
     }
 
-    // Store pool deployment info if provided
     if (pool_deployment) {
-      const { error: poolError } = await supabase
-        .from('pool_deployments')
-        .insert({
-          post_id: post_id,
-          belief_id: post_id,
-          pool_address: pool_deployment.pool_address,
-          long_mint_address: pool_deployment.long_mint_address || null,
-          short_mint_address: pool_deployment.short_mint_address || null,
-          market_address: pool_deployment.market_address || null,
-          deployed_by_agent_id: agent_id,
-          deployment_tx_signature: pool_deployment.deployment_tx_signature || tx_signature,
-          f: pool_deployment.f ?? 3,
-          beta_num: pool_deployment.beta_num ?? 1,
-          beta_den: pool_deployment.beta_den ?? 2,
-        });
+      optionalInserts.push(
+        supabase
+          .from('pool_deployments')
+          .insert({
+            post_id: post_id,
+            belief_id: post_id,
+            pool_address: pool_deployment.pool_address,
+            long_mint_address: pool_deployment.long_mint_address || null,
+            short_mint_address: pool_deployment.short_mint_address || null,
+            market_address: pool_deployment.market_address || null,
+            deployed_by_agent_id: agent_id,
+            deployment_tx_signature: pool_deployment.deployment_tx_signature || tx_signature,
+            f: pool_deployment.f ?? 3,
+            beta_num: pool_deployment.beta_num ?? 1,
+            beta_den: pool_deployment.beta_den ?? 2,
+          })
+      );
+    }
 
-      if (poolError) {
-        console.error('Failed to store pool deployment:', poolError);
-        // Continue anyway - post is created
-      }
+    // Execute optional inserts in parallel
+    if (optionalInserts.length > 0) {
+      const results = await Promise.allSettled(optionalInserts);
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const insertType = index === 0 && initial_belief !== undefined ? 'belief_submission' : 'pool_deployment';
+          console.error(`Failed to insert ${insertType}:`, result.reason);
+          // Continue anyway - post is created
+        }
+      });
     }
 
     return NextResponse.json({

@@ -13,6 +13,7 @@ import { useSellTokens } from '@/hooks/useSellTokens';
 import { useSwapBalances } from '@/hooks/useSwapBalances';
 import { useFundWallet } from '@privy-io/react-auth/solana';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
+import { usdcToMicro, displayToAtomic, asDisplay, DisplayUnits, AtomicUnits, MicroUSDC } from '@/lib/units';
 import {
   estimateTokensOut,
   estimateUsdcOut,
@@ -300,23 +301,61 @@ export function UnifiedSwapComponent({
     }
   };
 
-  // Handle swap execution
+  // Handle swap execution with type-safe units
   const handleSwap = async () => {
     const amount = parseFloat(inputAmount);
-    if (!amount || amount <= 0) return;
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🟢 [UnifiedSwapComponent] Swap initiated');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[SWAP] Parameters:', {
+      mode,
+      side,
+      inputAmount,
+      amount,
+      postId,
+      poolAddress,
+      initialBelief,
+      metaBelief
+    });
+
+    if (!amount || amount <= 0) {
+      console.log('[SWAP] ❌ Invalid amount');
+      return;
+    }
 
     setTradeError(null); // Clear previous errors
 
     try {
       if (mode === 'buy') {
-        // Convert USDC to micro-USDC (6 decimals)
-        const microUsdc = Math.floor(amount * 1_000_000);
+        // Convert USDC to micro-USDC with type safety
+        const microUsdc = usdcToMicro(amount);
+        console.log('[SWAP] 💰 Buying tokens:', {
+          displayAmount: amount,
+          microUsdc,
+          side,
+          postId,
+          poolAddress
+        });
         await buyTokens(postId, poolAddress, microUsdc, side, initialBelief, metaBelief);
+        console.log('[SWAP] ✅ Buy completed successfully');
       } else {
-        // Convert display tokens to atomic units for selling
-        const tokensAtomic = Math.floor(amount * 1_000_000);
+        // Convert display tokens to atomic units with type safety
+        const displayUnits = asDisplay(amount);
+        const tokensAtomic = displayToAtomic(displayUnits);
+        console.log('[SWAP] 💸 Selling tokens:', {
+          displayAmount: amount,
+          displayUnits,
+          tokensAtomic,
+          side,
+          postId,
+          poolAddress
+        });
         await sellTokens(postId, poolAddress, tokensAtomic, side, initialBelief, metaBelief);
+        console.log('[SWAP] ✅ Sell completed successfully');
       }
+
+      console.log('[SWAP] 🎉 Trade successful, resetting form');
 
       // Reset after successful transaction
       setInputAmount('');
@@ -326,8 +365,13 @@ export function UnifiedSwapComponent({
       setInitialBelief(0.5);
       setMetaBelief(0.5);
     } catch (error) {
-      console.error('Swap error:', error);
+      console.error('[SWAP] ❌ Swap error:', error);
       if (error instanceof Error) {
+        console.error('[SWAP] Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
         setTradeError(error.message);
       }
     }
@@ -461,7 +505,9 @@ export function UnifiedSwapComponent({
             ? side === 'LONG'
               ? "bg-[#B9D9EB] hover:bg-[#a3cfe3] text-black"
               : "bg-orange-500 hover:bg-orange-600 text-white"
-            : "bg-orange-500 hover:bg-orange-600 text-white"
+            : side === 'LONG'
+              ? "bg-[#B9D9EB] hover:bg-[#a3cfe3] text-black"
+              : "bg-orange-500 hover:bg-orange-600 text-white"
         )}
       >
         {isLoading ? 'Processing...' : `${mode === 'buy' ? 'Buy' : 'Sell'} ${side}`}
@@ -582,7 +628,9 @@ export function UnifiedSwapComponent({
                     ? side === 'LONG'
                       ? "bg-[#B9D9EB] hover:bg-[#a3cfe3] text-black"
                       : "bg-orange-500 hover:bg-orange-600 text-white"
-                    : "bg-orange-500 hover:bg-orange-600 text-white"
+                    : side === 'LONG'
+                      ? "bg-[#B9D9EB] hover:bg-[#a3cfe3] text-black"
+                      : "bg-orange-500 hover:bg-orange-600 text-white"
                 )}
               >
                 {isLoading ? 'Processing...' : 'Confirm'}

@@ -3,7 +3,12 @@
  *
  * The on-chain ContentPool stores prices as sqrt(price) * 2^96 to prevent overflow.
  * These helpers convert between the on-chain X96 format and human-readable prices.
+ *
+ * IMPORTANT: On-chain token supplies (s_long, s_short) are stored in DISPLAY units.
+ * See /lib/units.ts for unit conversion conventions.
  */
+
+import { DisplayUnits, MicroUSDC, asDisplay, asMicroUsdc, displayToAtomic } from '@/lib/units';
 
 const Q96 = 2n ** 96n;
 const USDC_DECIMALS = 6;
@@ -88,32 +93,81 @@ export function priceToSqrtPriceX96(priceUsdc: number): bigint {
  * const formatted = formatPoolAccountData(poolAccount);
  * console.log(`Long Price: $${formatted.priceLong.toFixed(4)}`);
  */
+/**
+ * Parse a value that might be a BN object (from Anchor) or a number
+ * Anchor returns BN fields as either BN objects or hex strings depending on version
+ */
+function parseAnchorNumber(value: any): number {
+  if (value === null || value === undefined) return 0;
+
+  // If it's already a number, return it
+  if (typeof value === 'number') return value;
+
+  // If it's a bigint, convert to number
+  if (typeof value === 'bigint') return Number(value);
+
+  // If it's a BN object from Anchor
+  if (value && typeof value === 'object' && 'toNumber' in value) {
+    return value.toNumber();
+  }
+
+  // If it's a string, it's likely hex from Anchor
+  if (typeof value === 'string') {
+    // Check if it looks like a hex string (contains a-f or leading zeros)
+    if (/^[0-9a-f]+$/i.test(value) && (value.length > 1 || parseInt(value, 16) !== parseInt(value, 10))) {
+      return parseInt(value, 16);
+    }
+    // Otherwise parse as decimal
+    return Number(value);
+  }
+
+  return 0;
+}
+
 export function formatPoolAccountData(pool: any) {
-  const supplyLong = Number(pool.sLong || 0);
-  const supplyShort = Number(pool.sShort || 0);
+  // Parse hex strings from Anchor
+  // IMPORTANT: pool.sLong and pool.sShort are stored in DISPLAY units on-chain
+  // See src/lib/units.ts for unit conventions
+  const sLongDisplay = asDisplay(parseAnchorNumber(pool.sLong));
+  const sShortDisplay = asDisplay(parseAnchorNumber(pool.sShort));
+  const vaultBalanceMicro = asMicroUsdc(parseAnchorNumber(pool.vaultBalance));
 
-  const priceLong = pool.sqrtPriceLongX96
-    ? sqrtPriceX96ToPrice(pool.sqrtPriceLongX96.toString())
+  // Parse sqrt prices (can be BN objects or hex strings)
+  const sqrtPriceLongX96 = pool.sqrtPriceLongX96
+    ? (typeof pool.sqrtPriceLongX96 === 'object' && 'toString' in pool.sqrtPriceLongX96
+      ? BigInt(pool.sqrtPriceLongX96.toString(10))
+      : BigInt('0x' + pool.sqrtPriceLongX96.toString()))
+    : 0n;
+
+  const sqrtPriceShortX96 = pool.sqrtPriceShortX96
+    ? (typeof pool.sqrtPriceShortX96 === 'object' && 'toString' in pool.sqrtPriceShortX96
+      ? BigInt(pool.sqrtPriceShortX96.toString(10))
+      : BigInt('0x' + pool.sqrtPriceShortX96.toString()))
+    : 0n;
+
+  const priceLong = sqrtPriceLongX96 > 0n
+    ? sqrtPriceX96ToPrice(sqrtPriceLongX96)
     : 0;
 
-  const priceShort = pool.sqrtPriceShortX96
-    ? sqrtPriceX96ToPrice(pool.sqrtPriceShortX96.toString())
+  const priceShort = sqrtPriceShortX96 > 0n
+    ? sqrtPriceX96ToPrice(sqrtPriceShortX96)
     : 0;
 
-  // Convert from atomic units to display units (both use 6 decimals)
-  const supplyLongDisplay = supplyLong / USDC_PRECISION;
-  const supplyShortDisplay = supplyShort / USDC_PRECISION;
-
-  // Market cap calculations
-  const marketCapLong = supplyLongDisplay * priceLong;
-  const marketCapShort = supplyShortDisplay * priceShort;
+  // Market cap calculations (using display units for readability)
+  const marketCapLong = sLongDisplay * priceLong;
+  const marketCapShort = sShortDisplay * priceShort;
   const totalMarketCap = marketCapLong + marketCapShort;
 
+  // Also need to parse other addresses/mints that might be needed
+  const contentId = pool.contentId?.toString() || '';
+  const longMint = pool.longMint;
+  const shortMint = pool.shortMint;
+
   return {
-    // Token supplies
-    supplyLong: supplyLongDisplay,
-    supplyShort: supplyShortDisplay,
-    totalSupply: supplyLongDisplay + supplyShortDisplay,
+    // Token supplies (display units for UI)
+    supplyLong: sLongDisplay,
+    supplyShort: sShortDisplay,
+    totalSupply: sLongDisplay + sShortDisplay,
 
     // Prices in USDC
     priceLong,
@@ -125,23 +179,31 @@ export function formatPoolAccountData(pool: any) {
     marketCapShort,
     totalMarketCap,
 
-    // Vault balance
-    vaultBalance: Number(pool.vaultBalance || 0) / USDC_PRECISION,
+    // Vault balance (in USDC for UI)
+    vaultBalance: vaultBalanceMicro / USDC_PRECISION,
 
-    // Raw values for debugging
+    // Raw values for debugging and database storage
     _raw: {
-      sqrtPriceLongX96: pool.sqrtPriceLongX96?.toString(),
-      sqrtPriceShortX96: pool.sqrtPriceShortX96?.toString(),
-      sLong: supplyLong,
-      sShort: supplyShort,
+      sqrtPriceLongX96: sqrtPriceLongX96.toString(),
+      sqrtPriceShortX96: sqrtPriceShortX96.toString(),
+      sLong: sLongDisplay, // Display units from on-chain
+      sShort: sShortDisplay, // Display units from on-chain
+      sLongAtomic: displayToAtomic(sLongDisplay), // Convert to atomic for DB
+      sShortAtomic: displayToAtomic(sShortDisplay), // Convert to atomic for DB
+      vaultBalanceMicro: vaultBalanceMicro, // Atomic units (micro-USDC)
     },
 
     // ICBS parameters (for trade simulation)
-    f: Number(pool.f || 2),
+    f: Number(pool.f || 1),
     betaNum: Number(pool.betaNum || 1),
     betaDen: Number(pool.betaDen || 2),
     sqrtLambdaLongX96: pool.sqrtLambdaLongX96?.toString() || '0',
     sqrtLambdaShortX96: pool.sqrtLambdaShortX96?.toString() || '0',
+
+    // Add contentId and mints for event indexer
+    contentId,
+    longMint,
+    shortMint,
   };
 }
 

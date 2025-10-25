@@ -73,7 +73,7 @@ export function FundWalletButton({ variant = 'full', className = '' }: FundWalle
     <button
       onClick={handleFundWallet}
       disabled={isFunding}
-      className={`px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${className}`}
+      className={`w-full px-4 py-2.5 bg-[#B9D9EB] hover:bg-[#B9D9EB]/90 text-[#0C1D51] font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${className}`}
       aria-label="Fund wallet"
     >
       <Wallet className="w-4 h-4" />

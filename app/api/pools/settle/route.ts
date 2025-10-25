@@ -14,8 +14,6 @@ import { VeritasCuration } from '@/lib/solana/target/types/veritas_curation';
 import { loadProtocolAuthority } from '@/lib/solana/load-authority';
 import idl from '@/lib/solana/target/idl/veritas_curation.json';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const programId = process.env.NEXT_PUBLIC_VERITAS_PROGRAM_ID!;
 const rpcEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || 'http://127.0.0.1:8899';
 
@@ -82,7 +80,7 @@ export async function POST(req: NextRequest) {
     const connection = new Connection(rpcEndpoint, 'confirmed');
     const provider = new AnchorProvider(
       connection,
-      // @ts-ignore - We'll use the protocol authority wallet for signing
+      // @ts-expect-error - We'll use the protocol authority wallet for signing
       { publicKey: protocolAuthority.publicKey, signTransaction: () => {}, signAllTransactions: () => {} },
       { commitment: 'confirmed' }
     );

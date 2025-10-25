@@ -60,7 +60,7 @@ pub const DEFAULT_P0: u64 = 1_000_000;  // 1.0 USDC per token (in micro-USDC, 6 
 
 // Default Limits
 pub const DEFAULT_MIN_INITIAL_DEPOSIT: u64 = 50_000_000;  // 50 USDC
-pub const DEFAULT_MIN_SETTLE_INTERVAL: i64 = 300;          // 5 minutes
+pub const DEFAULT_MIN_SETTLE_INTERVAL: i64 = 7200;         // 2 hours (increased from 5 minutes)
 
 // Validation Bounds
 pub const MIN_F: u16 = 1;

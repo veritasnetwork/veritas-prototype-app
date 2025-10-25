@@ -18,6 +18,7 @@ import { calculateStakeSkim } from '@/lib/stake/calculate-skim';
 import { loadProtocolAuthority } from '@/lib/solana/load-authority';
 import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 import idl from '@/lib/solana/target/idl/veritas_curation.json';
+import { asMicroUsdc, asAtomic } from '@/lib/units';
 
 interface PrepareTradeRequest {
   postId: string;
@@ -31,23 +32,59 @@ interface PrepareTradeRequest {
 }
 
 export async function POST(req: NextRequest) {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🔵 [/api/trades/prepare] Trade preparation request received');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
   try {
     const body: PrepareTradeRequest = await req.json();
+
+    console.log('[PREPARE] Raw request body:', body);
 
     // Normalize field names and values
     const tradeType = (body.tradeType?.toLowerCase() || '') as 'buy' | 'sell';
     const side = (body.side?.toLowerCase() || '') as 'long' | 'short';
 
     // Handle different field names for amount
-    const amount = body.amount || body.usdcAmount || body.tokenAmount || 0;
+    const rawAmount = body.amount || body.usdcAmount || body.tokenAmount || 0;
+
+    // Validate and convert to type-safe units
+    let amount: number;
+    try {
+      if (tradeType === 'buy') {
+        // For buys, amount should be micro-USDC (already atomic)
+        amount = asMicroUsdc(Math.floor(rawAmount)); // Ensure integer micro-USDC
+      } else {
+        // For sells, amount should be atomic tokens
+        amount = asAtomic(Math.floor(rawAmount)); // Ensure integer atomic tokens
+      }
+    } catch (unitError) {
+      console.error('[PREPARE] ❌ Invalid amount units:', unitError);
+      return NextResponse.json(
+        { error: `Invalid amount: ${unitError instanceof Error ? unitError.message : 'Unit validation failed'}` },
+        { status: 400 }
+      );
+    }
+
+    console.log('[PREPARE] Normalized parameters:', {
+      tradeType,
+      side,
+      amount,
+      rawAmount,
+      postId: body.postId,
+      walletAddress: body.walletAddress
+    });
 
     // Validate request
     if (!body.postId || !tradeType || !side || !amount || !body.walletAddress) {
+      console.error('[PREPARE] ❌ Missing required fields');
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
+
+    console.log('[PREPARE] ✅ Validation passed');
 
     // Check rate limit (50 trades per hour)
     try {
@@ -120,11 +157,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Calculate stake skim
+    // Note: amount is already in µUSDC for buys, calculateStakeSkim expects and returns µUSDC
     const stakeSkim = await calculateStakeSkim({
       userId: user.id,
       poolAddress: poolAddress,
       tradeType: tradeType,
-      tradeAmount: amount,
+      tradeAmount: amount, // µUSDC for buys
       walletAddress: body.walletAddress,
       side: side.toUpperCase() as 'LONG' | 'SHORT',
     });
@@ -151,7 +189,7 @@ export async function POST(req: NextRequest) {
             stake: stakeSkim,
           }, { status: 400 });
         }
-      } catch (error) {
+      } catch {
         return NextResponse.json({
           error: 'USDC account not found. Please fund your wallet with USDC first.',
         }, { status: 400 });
@@ -183,6 +221,7 @@ export async function POST(req: NextRequest) {
       side,
       tradeType,
       amount,
+      stakeSkim, // << add this to subtract from buy amount
     });
 
     return NextResponse.json({
@@ -215,7 +254,8 @@ async function calculateTradeOutputs(params: {
   poolAddress: string;
   side: 'long' | 'short';
   tradeType: 'buy' | 'sell';
-  amount: number;
+  amount: number;     // µUSDC for buys; atomic tokens for sells
+  stakeSkim?: number; // µUSDC
 }): Promise<{ tokensOut: number; usdcOut: number }> {
   try {
     const { fetchPoolData } = await import('@/lib/solana/fetch-pool-data');
@@ -225,16 +265,17 @@ async function calculateTradeOutputs(params: {
 
     const side = params.side.toUpperCase() as 'LONG' | 'SHORT';
     const icbsSide = side === 'LONG' ? TokenSide.Long : TokenSide.Short;
-    const currentSupply = side === 'LONG' ? poolData.supplyLong : poolData.supplyShort;
-    const otherSupply = side === 'LONG' ? poolData.supplyShort : poolData.supplyLong;
-    const lambdaScale = 1.0; // Use default lambda scale
+    const currentSupply = side === 'LONG' ? poolData.supplyLong : poolData.supplyShort; // display units
+    const otherSupply = side === 'LONG' ? poolData.supplyShort : poolData.supplyLong;   // display units
+    const lambdaScale = 1.0;
 
-    // Simulate the trade
     if (params.tradeType === 'buy') {
+      // Subtract stake skim to get net amount that goes to the curve
+      const netMicro = Math.max(0, params.amount - (params.stakeSkim ?? 0));
       const tokensOut = estimateTokensOut(
         currentSupply,
         otherSupply,
-        params.amount / 1_000_000, // Convert micro-USDC to USDC
+        netMicro / 1_000_000, // µUSDC -> USDC (display)
         icbsSide,
         lambdaScale,
         poolData.f,
@@ -246,7 +287,7 @@ async function calculateTradeOutputs(params: {
       const usdcOut = estimateUsdcOut(
         currentSupply,
         otherSupply,
-        params.amount / 1_000_000, // Convert atomic tokens to display units
+        params.amount / 1_000_000, // atomic -> display tokens
         icbsSide,
         lambdaScale,
         poolData.f,
@@ -257,7 +298,6 @@ async function calculateTradeOutputs(params: {
     }
   } catch (error) {
     console.warn('[TRADE SIMULATION] Could not simulate trade:', error);
-    // Return zeros if simulation fails - trade will still work
     return { tokensOut: 0, usdcOut: 0 };
   }
 }
@@ -289,16 +329,16 @@ async function buildTradeTransaction(params: {
   // Create dummy wallet for provider
   const dummyWallet = {
     publicKey: walletPubkey,
-    signTransaction: async (tx: any) => tx,
-    signAllTransactions: async (txs: any[]) => txs,
+    signTransaction: async <T extends anchor.web3.Transaction | anchor.web3.VersionedTransaction>(tx: T): Promise<T> => tx,
+    signAllTransactions: async <T extends anchor.web3.Transaction | anchor.web3.VersionedTransaction>(txs: T[]): Promise<T[]> => txs,
   };
 
   // Create provider and program
-  const provider = new AnchorProvider(params.connection, dummyWallet as any, {
+  const provider = new AnchorProvider(params.connection, dummyWallet as anchor.Wallet, {
     commitment: 'confirmed',
   });
   const program = new Program<VeritasCuration>(
-    idl as VeritasCuration,
+    idl as anchor.Idl,
     provider
   );
 
@@ -335,6 +375,10 @@ async function buildTradeTransaction(params: {
       `Protocol authority mismatch. Expected: ${expectedAuthority.toBase58()}, Got: ${authorityKeypair.publicKey.toBase58()}`
     );
   }
+
+  // Amounts are already validated before this function is called
+  // params.amount is micro-USDC for buys, atomic tokens for sells
+  // params.stakeSkim is micro-USDC
 
   // Build transaction using Anchor's transaction builder (includes signers)
   const tx = await program.methods

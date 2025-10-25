@@ -214,16 +214,18 @@
           "writable": true
         },
         {
-          "name": "creator_usdc",
+          "name": "receiver_usdc",
           "writable": true
         },
         {
-          "name": "creator",
-          "writable": true,
-          "signer": true
+          "name": "receiver",
+          "writable": true
         },
         {
-          "name": "protocol_authority",
+          "name": "signer",
+          "docs": [
+            "Either the pool creator OR the protocol authority can close the pool"
+          ],
           "signer": true
         },
         {
@@ -253,7 +255,7 @@
         {
           "name": "pool",
           "docs": [
-            "The pool to be created"
+            "The pool to be created (init_if_needed allows reinitialization of orphaned pools)"
           ],
           "writable": true,
           "pda": {
@@ -285,7 +287,7 @@
         {
           "name": "registry",
           "docs": [
-            "Registry entry for this pool (prevents duplicates)"
+            "Registry entry for this pool (init_if_needed allows reinitialization of orphaned pools)"
           ],
           "writable": true,
           "pda": {
@@ -1798,14 +1800,18 @@
           {
             "name": "s_long",
             "docs": [
-              "LONG token supply (integer, 6 decimals)"
+              "LONG token supply in DISPLAY units (e.g., 25 = 0.000025 tokens)",
+              "For SPL minting/burning, multiply by 1,000,000 to get atomic units",
+              "Database stores atomic units; on-chain stores display units"
             ],
             "type": "u64"
           },
           {
             "name": "s_short",
             "docs": [
-              "SHORT token supply (integer, 6 decimals)"
+              "SHORT token supply in DISPLAY units (e.g., 25 = 0.000025 tokens)",
+              "For SPL minting/burning, multiply by 1,000,000 to get atomic units",
+              "Database stores atomic units; on-chain stores display units"
             ],
             "type": "u64"
           },
@@ -1861,7 +1867,7 @@
           {
             "name": "min_settle_interval",
             "docs": [
-              "Cooldown between settlements (default: 300s)"
+              "Cooldown between settlements (default: 7200s = 2 hours)"
             ],
             "type": "i64"
           },

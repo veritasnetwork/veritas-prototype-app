@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
       const fileName = `${users.id}-${Date.now()}.${fileExt}`;
 
       // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase
+      const { error: uploadError } = await supabase
         .storage
         .from('veritas-media')
         .upload(`avatars/${fileName}`, avatarFile, {

@@ -9,6 +9,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { syncPoolFromChain } from '@/lib/solana/sync-pool-from-chain';
+import { displayToAtomic, asDisplay } from '@/lib/units';
 
 export async function POST(req: NextRequest) {
   console.log('[/api/pools/record] Record request received');
@@ -33,10 +35,9 @@ export async function POST(req: NextRequest) {
       longMintAddress,
       shortMintAddress,
       usdcVaultAddress,
-      f,
-      betaNum,
-      betaDen,
-      sqrtLambdaX96,
+      f = 3,
+      betaNum = 1,
+      betaDen = 2,
       sqrtPriceLongX96,
       sqrtPriceShortX96,
     } = body;
@@ -86,81 +87,82 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Post or belief not found' }, { status: 404 });
     }
 
-    // Call atomic RPC function with advisory lock
-    // This prevents race conditions when multiple requests try to deploy the same pool
-    const { data: result, error: rpcError } = await supabase.rpc('deploy_pool_with_lock', {
+    // Call the deploy_pool_with_lock function with all parameters
+    // This will insert the pool and calculate the correct implied relevance
+    const { error: deployError } = await supabase.rpc('deploy_pool_with_lock', {
       p_post_id: postId,
-      p_pool_address: poolAddress,
       p_belief_id: post.belief_id,
+      p_pool_address: poolAddress,
+      p_token_supply: initialDeposit * 1_000_000, // Initial deposit in micro-USDC
+      p_reserve: initialDeposit * 1_000_000, // Initial reserve in micro-USDC
+      p_f: f,
+      p_beta_num: betaNum,
+      p_beta_den: betaDen,
       p_long_mint_address: longMintAddress,
       p_short_mint_address: shortMintAddress,
+      p_s_long_supply: displayToAtomic(asDisplay(sLongSupply || 0)), // Convert from display to atomic units
+      p_s_short_supply: displayToAtomic(asDisplay(sShortSupply || 0)), // Convert from display to atomic units
+      p_sqrt_price_long_x96: sqrtPriceLongX96 || '0',
+      p_sqrt_price_short_x96: sqrtPriceShortX96 || '0',
+      p_vault_balance: initialDeposit * 1_000_000,
       p_deployment_tx_signature: signature,
+      p_deployer_user_id: user.id, // Pass deployer's user ID to create initial holdings
     });
 
-    if (rpcError) {
-      console.error('[/api/pools/record] RPC error:', rpcError);
-      return NextResponse.json(
-        { error: 'Failed to record deployment', details: rpcError.message },
-        { status: 500 }
-      );
-    }
-
-    if (!result?.success) {
-      if (result?.error === 'LOCKED') {
-        return NextResponse.json(
-          { error: 'Pool deployment already in progress for this post' },
-          { status: 409 }
-        );
-      }
-      if (result?.error === 'EXISTS') {
-        console.log('[/api/pools/record] Pool already recorded:', result.pool_address);
+    if (deployError) {
+      // Check if it's a duplicate deployment (already exists)
+      if (deployError.message?.includes('already deployed')) {
+        console.log('[/api/pools/record] Pool already deployed, returning success');
         return NextResponse.json({
           success: true,
-          poolAddress: result.pool_address,
-          note: 'Pool already recorded'
+          poolAddress: poolAddress,
+          note: 'Pool already deployed'
         });
       }
+
+      console.error('[/api/pools/record] Deploy error:', deployError);
       return NextResponse.json(
-        { error: result?.message || 'Deployment recording failed' },
+        { error: 'Failed to record deployment', details: deployError.message },
         { status: 500 }
       );
     }
 
-    console.log('[/api/pools/record] Pool deployment recorded via RPC:', result.pool_address);
+    console.log('[/api/pools/record] Pool deployment recorded successfully');
 
-    // Calculate short allocation for implied relevance tracking
-    const shortAllocation = initialDeposit * 1_000_000 - longAllocation;
+    // The deploy_pool_with_lock function now handles implied relevance calculation
+    // It calculates the actual implied relevance based on the pool's reserves
+    // No need to manually insert into implied_relevance_history here
 
-    // Record initial implied relevance (50/50 split at deployment)
-    const initialReserveLong = (initialDeposit * 1_000_000) / 2;
-    const initialReserveShort = (initialDeposit * 1_000_000) / 2;
-    const initialImpliedRelevance = 0.5; // 50/50 = neutral
-
-    const { error: impliedError } = await supabase
-      .from('implied_relevance_history')
+    // Record initial "deployment" trade entry so the trade history chart has initial price data
+    // At deployment, prices are 1.0 for both LONG and SHORT (equal allocation)
+    const { error: tradeError } = await supabase
+      .from('trades')
       .insert({
+        pool_address: poolAddress,
         post_id: postId,
-        belief_id: post.belief_id,
-        implied_relevance: initialImpliedRelevance,
-        reserve_long: initialReserveLong,
-        reserve_short: initialReserveShort,
-        event_type: 'deployment',
-        event_reference: signature, // Use tx signature for idempotency
-        confirmed: false,
+        user_id: user.id,
+        wallet_address: null, // System deployment, not a user trade
+        trade_type: 'buy', // Use 'buy' for compatibility with chart types
+        token_amount: 0,
+        usdc_amount: 0,
+        tx_signature: signature,
+        side: 'LONG', // Use 'LONG' for color-coding compatibility
+        price_long: 1.0,
+        price_short: 1.0,
         recorded_by: 'server',
+        confirmed: true,
       });
 
-    if (impliedError) {
-      // Ignore unique constraint violations (event indexer already recorded)
-      if (impliedError.code !== '23505') {
-        console.error('[/api/pools/record] Failed to record implied relevance:', impliedError);
+    if (tradeError) {
+      // Ignore unique constraint violations (tx_signature already recorded)
+      if (tradeError.code !== '23505') {
+        console.error('[/api/pools/record] Failed to record initial trade entry:', tradeError);
       }
-      // Don't fail the request - implied relevance is supplementary data
     } else {
-      console.log('[/api/pools/record] Initial implied relevance recorded: 0.5');
+      console.log('[/api/pools/record] Initial trade entry recorded with deployment prices');
     }
 
-    return NextResponse.json({ success: true, poolAddress: result.pool_address });
+    return NextResponse.json({ success: true, poolAddress: poolAddress });
 
   } catch (error) {
     console.error('[/api/pools/record] Error:', error);

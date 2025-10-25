@@ -76,7 +76,7 @@ pub struct SettlementEvent {
     pub pool: Pubkey,
     pub settler: Pubkey,
     pub epoch: u64,                 // Pool's current epoch after settlement
-    pub bd_score: u32,              // Q32.32
+    pub bd_score: u32,              // Millionths format [0, 1_000_000]
     pub market_prediction_q: u128,  // Q64.64
     pub f_long: u128,               // Q64.64
     pub f_short: u128,              // Q64.64

@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         signedTransaction: transaction.serialize().toString('base64'),
       });
-    } catch (e) {
+    } catch {
       // Try as versioned transaction
       const transaction = VersionedTransaction.deserialize(buffer);
       transaction.sign([keypair]);
@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
         signedTransaction: Buffer.from(transaction.serialize()).toString('base64'),
       });
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Mock signing error:', error);
     return NextResponse.json(
-      { error: 'Failed to sign transaction', details: error.message },
+      { error: 'Failed to sign transaction', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

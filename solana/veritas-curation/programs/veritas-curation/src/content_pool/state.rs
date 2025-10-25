@@ -36,9 +36,13 @@ pub struct ContentPool {
     pub _padding1: [u8; 10],
 
     // Token Supplies - Integer (16 bytes)
-    /// LONG token supply (integer, 6 decimals)
+    /// LONG token supply in DISPLAY units (e.g., 25 = 0.000025 tokens)
+    /// For SPL minting/burning, multiply by 1,000,000 to get atomic units
+    /// Database stores atomic units; on-chain stores display units
     pub s_long: u64,
-    /// SHORT token supply (integer, 6 decimals)
+    /// SHORT token supply in DISPLAY units (e.g., 25 = 0.000025 tokens)
+    /// For SPL minting/burning, multiply by 1,000,000 to get atomic units
+    /// Database stores atomic units; on-chain stores display units
     pub s_short: u64,
 
     // Virtual Reserves - Integer (16 bytes) - ESSENTIAL FOR SETTLEMENT
@@ -62,7 +66,7 @@ pub struct ContentPool {
     // Settlement (40 bytes)
     /// Last settlement timestamp (8 bytes)
     pub last_settle_ts: i64,
-    /// Cooldown between settlements (default: 300s)
+    /// Cooldown between settlements (default: 7200s = 2 hours)
     pub min_settle_interval: i64,
     /// Current epoch for this pool (independent per-pool epoch counter)
     pub current_epoch: u64,
@@ -131,7 +135,7 @@ pub const MAX_PRICE_MICRO: u64 = 1_000_000_000_000;  // 1M USDC/token
 // Settlement
 pub const MIN_PREDICTION_BPS: u16 = 100;      // 1% in basis points
 pub const MAX_PREDICTION_BPS: u16 = 9900;     // 99% in basis points
-pub const MIN_SETTLE_INTERVAL: i64 = 300;     // 5 minutes
+pub const MIN_SETTLE_INTERVAL: i64 = 7200;    // 2 hours (increased from 5 minutes)
 
 // Fixed-Point for X96 format
 pub const Q96_ONE: u128 = 1 << 96;        // 1.0 in X96

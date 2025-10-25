@@ -182,21 +182,25 @@ export async function POST(req: NextRequest) {
         const dummyKeypair = Keypair.generate();
         const wallet = {
           publicKey: dummyKeypair.publicKey,
-          signTransaction: async (tx: any) => {
-            tx.sign(dummyKeypair);
+          signTransaction: async <T extends anchor.web3.Transaction | anchor.web3.VersionedTransaction>(tx: T): Promise<T> => {
+            if ('sign' in tx && typeof tx.sign === 'function') {
+              tx.sign([dummyKeypair]);
+            }
             return tx;
           },
-          signAllTransactions: async (txs: any[]) => {
+          signAllTransactions: async <T extends anchor.web3.Transaction | anchor.web3.VersionedTransaction>(txs: T[]): Promise<T[]> => {
             return txs.map(tx => {
-              tx.sign(dummyKeypair);
+              if ('sign' in tx && typeof tx.sign === 'function') {
+                tx.sign([dummyKeypair]);
+              }
               return tx;
             });
           },
         };
-        const provider = new anchor.AnchorProvider(connection, wallet as any, {});
+        const provider = new anchor.AnchorProvider(connection, wallet as anchor.Wallet, {});
 
         const idl = await import('@/lib/solana/target/idl/veritas_curation.json');
-        const program = new anchor.Program(idl.default as any, provider);
+        const program = new anchor.Program(idl.default as anchor.Idl, provider);
 
         const poolData = await program.account.contentPool.fetch(poolPda);
 
@@ -214,7 +218,9 @@ export async function POST(req: NextRequest) {
           return NextResponse.json(
             {
               error: 'Pool already exists and is fully deployed for this post.',
-              existingPoolAddress: poolPda.toBase58()
+              existingPoolAddress: poolPda.toBase58(),
+              canRecover: true,
+              recoveryHint: 'The pool exists on-chain but may not be recorded in the database. Try recovering it.'
             },
             { status: 409 }
           );
@@ -229,13 +235,22 @@ export async function POST(req: NextRequest) {
           poolExists: true,
           isOrphaned: true,
         });
-      } catch (fetchError: any) {
+      } catch (fetchError) {
         console.error('[/api/pools/deploy] ❌ Could not fetch pool data:', {
-          error: fetchError.message,
-          name: fetchError.name,
-          stack: fetchError.stack?.substring(0, 200),
+          error: fetchError instanceof Error ? fetchError.message : 'Unknown error',
+          name: fetchError instanceof Error ? fetchError.name : 'Unknown',
+          stack: fetchError instanceof Error ? fetchError.stack?.substring(0, 200) : undefined,
         });
-        // Fall through to allow deployment
+        // If pool account exists but we can't deserialize it, treat as orphaned
+        // This means the account was created but deploy_market never ran successfully
+        console.log('[/api/pools/deploy] ⚠️  Pool account exists but cannot fetch data - treating as orphaned');
+        return NextResponse.json({
+          success: true,
+          postId,
+          userId: user.id,
+          poolExists: true,
+          isOrphaned: true,
+        });
       }
     }
 

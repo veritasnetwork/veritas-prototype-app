@@ -19,8 +19,6 @@ import { AnchorProvider, Program, BN } from "npm:@coral-xyz/anchor@0.30.1";
 import { bs58 } from "npm:@coral-xyz/anchor@0.30.1/dist/cjs/utils/bytes/index.js";
 import idl from "../_shared/veritas_curation_idl.json" with { type: "json" };
 
-const Q32_SCALE = 1 << 32; // Q32.32 fixed-point scale
-
 interface SettlementRequest {
   pool_address: string;
   belief_id?: string; // Optional - will fetch from pool if not provided
@@ -64,15 +62,16 @@ function loadProtocolAuthority(): Keypair {
 }
 
 /**
- * Convert BD relevance score [0, 1] to Q32.32 fixed-point
+ * Convert BD relevance score [0, 1] to millionths format [0, 1_000_000]
+ * Contract expects millionths: 0 = 0%, 500_000 = 50%, 1_000_000 = 100%
  */
-function scoreToQ32(score: number): BN {
+function scoreToMillionths(score: number): BN {
   if (score < 0 || score > 1) {
     console.warn(`BD score ${score} out of range [0,1], clamping`);
     score = Math.max(0, Math.min(1, score));
   }
 
-  const scaledScore = Math.floor(score * Q32_SCALE);
+  const scaledScore = Math.floor(score * 1_000_000);
   return new BN(scaledScore);
 }
 
@@ -86,13 +85,13 @@ async function settlePool(
   authority: Keypair
 ): Promise<string> {
   const poolPubkey = new PublicKey(poolAddress);
-  const scoreQ32 = scoreToQ32(bdScore);
+  const scoreMillionths = scoreToMillionths(bdScore);
 
-  console.log(`[SETTLE] Pool ${poolAddress}: BD score ${bdScore.toFixed(4)}, Q32=${scoreQ32.toString()}`);
+  console.log(`[SETTLE] Pool ${poolAddress}: BD score ${bdScore.toFixed(4)}, millionths=${scoreMillionths.toString()}`);
 
   // Build settle_epoch transaction
   const tx = await program.methods
-    .settleEpoch(scoreQ32)
+    .settleEpoch(scoreMillionths)
     .accounts({
       contentPool: poolPubkey,
       protocolAuthority: authority.publicKey,

@@ -8,8 +8,77 @@ use crate::content_pool::{
     state::*,
     events::TradeEvent,
     errors::ContentPoolError,
-    curve::ICBSCurve,
+    curve::{ICBSCurve, Q96},
+    math::mul_div_u128,
 };
+
+// Token has 6 decimals
+const TOKEN_SCALE: u64 = 1_000_000;
+
+/// Convert display token units to atomic units (for SPL minting/burning)
+#[inline]
+fn to_atomic(display_tokens: u64) -> Result<u64> {
+    display_tokens
+        .checked_mul(TOKEN_SCALE)
+        .ok_or(ContentPoolError::SupplyOverflow.into())
+}
+
+/// Convert atomic token units to display units (must be exact multiple)
+#[inline]
+fn atomic_to_display_exact(atomic: u64) -> Result<u64> {
+    require!(
+        atomic % TOKEN_SCALE == 0,
+        ContentPoolError::InvalidTradeAmount
+    );
+    Ok(atomic / TOKEN_SCALE)
+}
+
+/// Local integer square root
+#[inline]
+fn isqrt_u128(n: u128) -> u128 {
+    if n == 0 { return 0; }
+    let mut x = n;
+    let mut y = (x + 1) >> 1;
+    while y < x {
+        x = y;
+        y = (x + n / x) >> 1;
+    }
+    x
+}
+
+/// Compute current √λ_x96 from pool state (vault_balance and supplies)
+/// This is the source of truth for lambda - we derive it from first principles:
+/// λ = D / ||s|| where D = vault_balance (µUSDC), ||s|| = sqrt(s_L^2 + s_S^2) (display tokens)
+#[inline]
+fn current_sqrt_lambda_x96(pool: &ContentPool) -> Result<u128> {
+    let s_l = pool.s_long as u128;
+    let s_s = pool.s_short as u128;
+
+    // ||s|| = floor(sqrt(s_L^2 + s_S^2)), min 1 to avoid div-by-zero
+    let n2 = s_l.checked_mul(s_l)
+        .and_then(|v| v.checked_add(s_s.checked_mul(s_s)?))
+        .ok_or(ContentPoolError::NumericalOverflow)?;
+    let norm = isqrt_u128(n2).max(1);
+
+    // λ_Q96 = (vault_balance * Q96) / norm    [vault_balance is µUSDC BEFORE trade]
+    let lambda_q96 = mul_div_u128(pool.vault_balance as u128, Q96, norm)?;
+
+    // √λ_x96 = sqrt(λ_Q96) << 48
+    let sqrt_lambda_x96 = isqrt_u128(lambda_q96)
+        .checked_shl(48)
+        .ok_or(ContentPoolError::NumericalOverflow)?;
+
+    // Sanity check: lambda should be in a reasonable range (0.00001 USDC to 100,000 USDC per token)
+    // lambda_usdc = lambda_q96 / Q96 (µUSDC per token)
+    // Allow 10 µUSDC (0.00001 USDC) to 100B µUSDC (100k USDC) to handle edge cases
+    let lambda_usdc = lambda_q96 / Q96;
+    require!(
+        lambda_usdc >= 10 && lambda_usdc <= 100_000_000_000u128,
+        ContentPoolError::InvalidParameter
+    );
+
+    Ok(sqrt_lambda_x96)
+}
 
 #[derive(Accounts)]
 pub struct Trade<'info> {
@@ -124,7 +193,8 @@ pub fn handler(
 
     match trade_type {
         TradeType::Buy => {
-            // Validate stake skim
+            // ======== BUY ========
+            // Validate stake skim (µUSDC throughout)
             require!(
                 stake_skim <= amount,
                 ContentPoolError::InvalidStakeSkim
@@ -134,7 +204,14 @@ pub fn handler(
                 .checked_sub(stake_skim)
                 .ok_or(ContentPoolError::InvalidStakeSkim)?;
 
-            // Transfer stake skim to stake vault
+            // OPTIONAL safety: catch egregious unit mistakes (skim > 50% of trade)
+            // Keep generous threshold to avoid false positives on config changes
+            require!(
+                stake_skim <= amount / 2,
+                ContentPoolError::InvalidStakeSkim
+            );
+
+            // Transfer skim (µUSDC) first
             if stake_skim > 0 {
                 token::transfer(
                     CpiContext::new(
@@ -149,7 +226,11 @@ pub fn handler(
                 )?;
             }
 
-            // Transfer trade amount to pool vault
+            // Compute √λ from current state BEFORE adding new USDC
+            // This ensures lambda reflects the pool state before this trade
+            let sqrt_lambda_x96 = current_sqrt_lambda_x96(pool)?;
+
+            // Transfer trade amount (µUSDC) to vault
             token::transfer(
                 CpiContext::new(
                     ctx.accounts.token_program.to_account_info(),
@@ -162,14 +243,14 @@ pub fn handler(
                 usdc_to_trade,
             )?;
 
-            // Calculate tokens out
-            let (tokens_out, new_sqrt_price) = match side {
+            // Curve math returns Δs in DISPLAY tokens
+            let (delta_display, new_sqrt_price) = match side {
                 TokenSide::Long => {
                     ICBSCurve::calculate_buy(
-                        pool.s_long,
-                        usdc_to_trade,
-                        pool.sqrt_lambda_long_x96,
-                        pool.s_short,
+                        pool.s_long,                // display units
+                        usdc_to_trade,              // µUSDC
+                        sqrt_lambda_x96,            // computed from state
+                        pool.s_short,               // display units
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
@@ -178,10 +259,10 @@ pub fn handler(
                 }
                 TokenSide::Short => {
                     ICBSCurve::calculate_buy(
-                        pool.s_short,
-                        usdc_to_trade,
-                        pool.sqrt_lambda_short_x96,
-                        pool.s_long,
+                        pool.s_short,               // display units
+                        usdc_to_trade,              // µUSDC
+                        sqrt_lambda_x96,            // computed from state
+                        pool.s_long,                // display units
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
@@ -190,13 +271,14 @@ pub fn handler(
                 }
             };
 
-            // Check slippage
+            // Convert once: display → atomic for SPL mint
+            let delta_atomic = to_atomic(delta_display)?;
             require!(
-                tokens_out >= min_tokens_out,
+                delta_atomic >= min_tokens_out,
                 ContentPoolError::SlippageExceeded
             );
 
-            // Mint tokens to trader
+            // Mint atomic to trader
             token::mint_to(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
@@ -207,17 +289,16 @@ pub fn handler(
                     },
                     &[pool_seeds],
                 ),
-                tokens_out,
+                delta_atomic,
             )?;
 
-            // Update pool state
+            // Update pool STATE in DISPLAY units only
             match side {
                 TokenSide::Long => {
                     let new_supply = pool.s_long
-                        .checked_add(tokens_out)
+                        .checked_add(delta_display)
                         .ok_or(ContentPoolError::SupplyOverflow)?;
 
-                    // Validate against maximum safe supply
                     require!(
                         new_supply <= MAX_SAFE_SUPPLY,
                         ContentPoolError::SupplyOverflow
@@ -225,16 +306,16 @@ pub fn handler(
 
                     pool.s_long = new_supply;
                     pool.sqrt_price_long_x96 = new_sqrt_price;
-                    // Update virtual reserve: R_L = s_L × p_L
+
+                    // r = s(display) * price(micro/token) → µUSDC
                     pool.r_long = ICBSCurve::virtual_reserves(pool.s_long, pool.sqrt_price_long_x96)?;
 
-                    // Recalculate SHORT price due to inverse coupling
-                    // p_S depends on both s_L and s_S through the denominator √(s_L² + s_S²)
+                    // Recouple SHORT price and reserves using the same sqrt_lambda_x96
                     pool.sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price(
                         pool.s_long,
                         pool.s_short,
                         TokenSide::Short,
-                        pool.sqrt_lambda_short_x96,
+                        sqrt_lambda_x96,
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
@@ -243,10 +324,9 @@ pub fn handler(
                 }
                 TokenSide::Short => {
                     let new_supply = pool.s_short
-                        .checked_add(tokens_out)
+                        .checked_add(delta_display)
                         .ok_or(ContentPoolError::SupplyOverflow)?;
 
-                    // Validate against maximum safe supply
                     require!(
                         new_supply <= MAX_SAFE_SUPPLY,
                         ContentPoolError::SupplyOverflow
@@ -254,16 +334,15 @@ pub fn handler(
 
                     pool.s_short = new_supply;
                     pool.sqrt_price_short_x96 = new_sqrt_price;
-                    // Update virtual reserve: R_S = s_S × p_S
+
                     pool.r_short = ICBSCurve::virtual_reserves(pool.s_short, pool.sqrt_price_short_x96)?;
 
-                    // Recalculate LONG price due to inverse coupling
-                    // p_L depends on both s_L and s_S through the denominator √(s_L² + s_S²)
+                    // Recouple LONG price and reserves using the same sqrt_lambda_x96
                     pool.sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price(
                         pool.s_long,
                         pool.s_short,
                         TokenSide::Long,
-                        pool.sqrt_lambda_long_x96,
+                        sqrt_lambda_x96,
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
@@ -272,12 +351,16 @@ pub fn handler(
                 }
             }
 
-            // Update vault balance
+            // Update vault (µUSDC)
             pool.vault_balance = pool.vault_balance
                 .checked_add(usdc_to_trade)
                 .ok_or(ContentPoolError::NumericalOverflow)?;
 
-            // Emit event with complete ICBS snapshots
+            // Persist the computed sqrt_lambda (identical for both sides)
+            pool.sqrt_lambda_long_x96 = sqrt_lambda_x96;
+            pool.sqrt_lambda_short_x96 = sqrt_lambda_x96;
+
+            // Emit: record tokens_traded in DISPLAY (it reflects state change)
             emit!(TradeEvent {
                 pool: pool.key(),
                 trader: ctx.accounts.trader.key(),
@@ -286,7 +369,7 @@ pub fn handler(
                 usdc_amount: amount,
                 usdc_to_trade,
                 usdc_to_stake: stake_skim,
-                tokens_traded: tokens_out,
+                tokens_traded: delta_display, // display units
                 // BEFORE snapshots
                 s_long_before,
                 s_short_before,
@@ -306,13 +389,28 @@ pub fn handler(
         }
 
         TradeType::Sell => {
-            // Calculate USDC out
+            // ======== SELL ========
+            // Require sells to be exact multiples of TOKEN_SCALE (so state stays consistent)
+            require!(
+                amount % TOKEN_SCALE == 0,
+                ContentPoolError::InvalidTradeAmount
+            );
+            let sell_display = atomic_to_display_exact(amount)?;
+            require!(
+                sell_display >= MIN_TOKEN_TRADE_SIZE,
+                ContentPoolError::InvalidTradeAmount
+            );
+
+            // Compute √λ from current state BEFORE burning tokens
+            let sqrt_lambda_x96 = current_sqrt_lambda_x96(pool)?;
+
+            // Curve math (display)
             let (usdc_out, new_sqrt_price) = match side {
                 TokenSide::Long => {
                     ICBSCurve::calculate_sell(
                         pool.s_long,
-                        amount,
-                        pool.sqrt_lambda_long_x96,
+                        sell_display,
+                        sqrt_lambda_x96,
                         pool.s_short,
                         pool.f,
                         pool.beta_num,
@@ -323,8 +421,8 @@ pub fn handler(
                 TokenSide::Short => {
                     ICBSCurve::calculate_sell(
                         pool.s_short,
-                        amount,
-                        pool.sqrt_lambda_short_x96,
+                        sell_display,
+                        sqrt_lambda_x96,
                         pool.s_long,
                         pool.f,
                         pool.beta_num,
@@ -334,13 +432,12 @@ pub fn handler(
                 }
             };
 
-            // Check slippage
             require!(
                 usdc_out >= min_usdc_out,
                 ContentPoolError::SlippageExceeded
             );
 
-            // Burn tokens from trader
+            // Burn atomic
             token::burn(
                 CpiContext::new(
                     ctx.accounts.token_program.to_account_info(),
@@ -353,7 +450,7 @@ pub fn handler(
                 amount,
             )?;
 
-            // Transfer USDC to trader
+            // Pay out µUSDC
             token::transfer(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
@@ -367,22 +464,21 @@ pub fn handler(
                 usdc_out,
             )?;
 
-            // Update pool state
+            // Update state (DISPLAY)
             match side {
                 TokenSide::Long => {
                     pool.s_long = pool.s_long
-                        .checked_sub(amount)
+                        .checked_sub(sell_display)
                         .ok_or(ContentPoolError::InsufficientBalance)?;
                     pool.sqrt_price_long_x96 = new_sqrt_price;
-                    // Update virtual reserve: R_L = s_L × p_L
                     pool.r_long = ICBSCurve::virtual_reserves(pool.s_long, pool.sqrt_price_long_x96)?;
 
-                    // Recalculate SHORT price due to inverse coupling
+                    // Recouple SHORT price and reserves using the same sqrt_lambda_x96
                     pool.sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price(
                         pool.s_long,
                         pool.s_short,
                         TokenSide::Short,
-                        pool.sqrt_lambda_short_x96,
+                        sqrt_lambda_x96,
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
@@ -391,18 +487,17 @@ pub fn handler(
                 }
                 TokenSide::Short => {
                     pool.s_short = pool.s_short
-                        .checked_sub(amount)
+                        .checked_sub(sell_display)
                         .ok_or(ContentPoolError::InsufficientBalance)?;
                     pool.sqrt_price_short_x96 = new_sqrt_price;
-                    // Update virtual reserve: R_S = s_S × p_S
                     pool.r_short = ICBSCurve::virtual_reserves(pool.s_short, pool.sqrt_price_short_x96)?;
 
-                    // Recalculate LONG price due to inverse coupling
+                    // Recouple LONG price and reserves using the same sqrt_lambda_x96
                     pool.sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price(
                         pool.s_long,
                         pool.s_short,
                         TokenSide::Long,
-                        pool.sqrt_lambda_long_x96,
+                        sqrt_lambda_x96,
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
@@ -411,12 +506,15 @@ pub fn handler(
                 }
             }
 
-            // Update vault balance
             pool.vault_balance = pool.vault_balance
                 .checked_sub(usdc_out)
                 .ok_or(ContentPoolError::InsufficientBalance)?;
 
-            // Emit event with complete ICBS snapshots
+            // Persist the computed sqrt_lambda (identical for both sides)
+            pool.sqrt_lambda_long_x96 = sqrt_lambda_x96;
+            pool.sqrt_lambda_short_x96 = sqrt_lambda_x96;
+
+            // Emit: for sells, keep tokens_traded = atomic burned (helps reconcile wallets)
             emit!(TradeEvent {
                 pool: pool.key(),
                 trader: ctx.accounts.trader.key(),
@@ -425,7 +523,7 @@ pub fn handler(
                 usdc_amount: usdc_out,
                 usdc_to_trade: usdc_out,
                 usdc_to_stake: 0,
-                tokens_traded: amount,  // For sells, this is tokens IN (burned)
+                tokens_traded: amount, // atomic burned (helps reconcile wallets)
                 // BEFORE snapshots
                 s_long_before,
                 s_short_before,

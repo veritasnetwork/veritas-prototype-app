@@ -10,9 +10,11 @@ import { usePathname } from 'next/navigation';
 interface SidebarProps {
   onCreatePost: () => void;
   isCompact?: boolean;
+  viewMode?: 'read' | 'trade';
+  onViewModeChange?: (mode: 'read' | 'trade') => void;
 }
 
-export function Sidebar({ onCreatePost, isCompact = false }: SidebarProps) {
+export function Sidebar({ onCreatePost, isCompact = false, viewMode = 'trade', onViewModeChange }: SidebarProps) {
   const { user, logout } = useAuth();
   const { user: privyUser } = usePrivy();
   const { address: solanaAddress } = useSolanaWallet();
@@ -30,17 +32,23 @@ export function Sidebar({ onCreatePost, isCompact = false }: SidebarProps) {
   const isMainnet = process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.includes('mainnet');
 
   return (
-    <aside className={`hidden lg:fixed lg:left-0 lg:top-0 lg:h-screen lg:flex lg:flex-col lg:p-4 bg-[#0f0f0f] transition-all duration-300 ease-in-out ${isCompact ? 'lg:w-28' : 'lg:w-64'}`}>
+    <aside
+      className={`hidden lg:fixed lg:left-0 lg:top-0 lg:h-screen lg:flex lg:flex-col lg:p-4 transition-[width] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCompact ? 'lg:w-28' : 'lg:w-64'}`}
+      style={{ backgroundColor: '#0f0f0f', willChange: 'width' }}
+    >
       {/* Bubble Container */}
-      <div className={`flex flex-col h-full bg-[#1a1a1a] rounded-2xl shadow-lg transition-all duration-300 ease-in-out ${isCompact ? 'p-3' : 'p-5'}`}>
+      <div
+        className={`flex flex-col h-full rounded-2xl shadow-lg overflow-hidden transition-[padding] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCompact ? 'p-3' : 'p-5'}`}
+        style={{ backgroundColor: '#1a1a1a', willChange: 'padding' }}
+      >
         {/* Logo */}
-        <Link href="/feed" className={`flex items-center mb-8 hover:opacity-80 transition-all duration-300 ${isCompact ? 'justify-center' : 'gap-3'}`}>
+        <Link href="/feed" className={`flex items-center mb-8 hover:opacity-80 transition-all duration-1000 ${isCompact ? 'justify-center' : 'gap-3'}`}>
         <img
           src="/icons/logo.png"
           alt="Veritas Logo"
-          className={`transition-all duration-300 ease-in-out ${isCompact ? 'w-12 h-12' : 'w-10 h-10'}`}
+          className={`transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCompact ? 'w-12 h-12' : 'w-10 h-10'}`}
         />
-        <span className={`text-white font-bold text-2xl tracking-wider font-mono transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${
+        <span className={`text-white font-bold text-2xl tracking-wider font-mono transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden whitespace-nowrap ${
           isCompact ? 'max-w-0 opacity-0' : 'max-w-xs opacity-100'
         }`}>
           VERITAS
@@ -124,6 +132,68 @@ export function Sidebar({ onCreatePost, isCompact = false }: SidebarProps) {
                 </>
               )}
             </Link>
+          )}
+
+          {/* Divider */}
+          <div className="py-2">
+            <div className="border-t border-gray-700/50" />
+          </div>
+
+          {/* View Mode Toggle */}
+          {!isCompact ? (
+            <div className="space-y-2">
+              <div className="bg-[#0f0f0f] rounded-xl p-1 flex gap-1">
+                <button
+                  onClick={() => onViewModeChange?.('read')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    viewMode === 'read'
+                      ? 'bg-[#B9D9EB] text-black'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  Read
+                </button>
+                <button
+                  onClick={() => onViewModeChange?.('trade')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    viewMode === 'trade'
+                      ? 'bg-[#B9D9EB] text-black'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  Trade
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#0f0f0f] rounded-xl p-1 flex flex-col gap-1">
+              <button
+                onClick={() => onViewModeChange?.('read')}
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  viewMode === 'read'
+                    ? 'bg-[#B9D9EB] text-black'
+                    : 'text-gray-400 hover:bg-white/5'
+                }`}
+                title="Read Mode"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </button>
+              <button
+                onClick={() => onViewModeChange?.('trade')}
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  viewMode === 'trade'
+                    ? 'bg-[#B9D9EB] text-black'
+                    : 'text-gray-400 hover:bg-white/5'
+                }`}
+                title="Trade Mode"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </button>
+            </div>
           )}
 
           {/* Divider */}

@@ -24,6 +24,8 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const [contentJson, setContentJson] = useState<TiptapDocument | null>(null); // Rich text content
   const [caption, setCaption] = useState(''); // For image/video posts (280 chars max)
   const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null); // Single media URL
+  const [videoThumbnailUrl, setVideoThumbnailUrl] = useState<string | null>(null); // Video thumbnail
+  const [imageDisplayMode, setImageDisplayMode] = useState<'cover' | 'contain'>('contain'); // Image layout mode
 
   // ARTICLE-SPECIFIC STATE
   const [articleTitle, setArticleTitle] = useState(''); // Optional title for articles
@@ -59,7 +61,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       document.removeEventListener('keydown', handleCmdEnter);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, contentJson, caption, uploadedMediaUrl]);
+  }, [isOpen]); // Remove unnecessary dependencies that cause re-renders
 
   const handleClose = async () => {
     // Don't close if already submitting
@@ -70,6 +72,9 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
     if (uploadedMediaUrl) {
       mediaToDelete.push(uploadedMediaUrl);
+    }
+    if (videoThumbnailUrl) {
+      mediaToDelete.push(videoThumbnailUrl);
     }
     if (coverImageUrl) {
       mediaToDelete.push(coverImageUrl);
@@ -105,6 +110,8 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     setContentJson(null);
     setCaption('');
     setUploadedMediaUrl(null);
+    setVideoThumbnailUrl(null);
+    setImageDisplayMode('contain');
     setArticleTitle('');
     setCoverImageUrl(null);
     setError(null);
@@ -168,10 +175,15 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
           user_id: user.id,
           post_type: postType,
           content_json: postType === 'text' ? contentJson : undefined,
-          media_urls: (postType === 'image' || postType === 'video') && uploadedMediaUrl ? [uploadedMediaUrl] : undefined,
+          media_urls: (postType === 'image' || postType === 'video') && uploadedMediaUrl
+            ? (postType === 'video' && videoThumbnailUrl
+                ? [videoThumbnailUrl, uploadedMediaUrl] // For videos: [thumbnail, video]
+                : [uploadedMediaUrl]) // For images or videos without thumbnail
+            : undefined,
           caption: (postType === 'image' || postType === 'video') ? caption || undefined : undefined,
           article_title: postType === 'text' && articleTitle ? articleTitle : undefined,
           cover_image_url: postType === 'text' && coverImageUrl ? coverImageUrl : undefined,
+          image_display_mode: postType === 'image' ? imageDisplayMode : undefined,
         }),
       });
 
@@ -189,14 +201,16 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       setContentJson(null);
       setCaption('');
       setUploadedMediaUrl(null);
+      setVideoThumbnailUrl(null);
+      setImageDisplayMode('contain');
       setArticleTitle('');
       setCoverImageUrl(null);
       setError(null);
       onClose();
 
-      // Trigger refetch in background (non-blocking)
+      // Trigger refetch immediately (non-blocking)
       if (onPostCreated) {
-        setTimeout(() => onPostCreated(), 100);
+        onPostCreated();
       }
     } catch (err) {
       console.error('Post creation error:', err);
@@ -241,12 +255,15 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   return (
     <div
       className="fixed inset-0 z-modal flex items-center justify-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
+      onMouseDown={(e) => {
+        // Only close on backdrop click, not on any child element
+        if (e.target === e.currentTarget) {
+          handleClose();
+        }
       }}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-none" />
 
       {/* Modal */}
       <div
@@ -254,6 +271,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-end px-6 md:px-8 py-3">
@@ -404,6 +422,52 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
                   disabled={isSubmitting}
                 />
               </div>
+
+              {/* Image Display Mode Toggle */}
+              {uploadedMediaUrl && (
+                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-3">
+                    Display Mode
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setImageDisplayMode('contain')}
+                      disabled={isSubmitting}
+                      className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        imageDisplayMode === 'contain'
+                          ? 'bg-[#B9D9EB] text-[#0C1D51]'
+                          : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a]'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <span>Full Image</span>
+                        <span className="text-xs opacity-70">With letterbox</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageDisplayMode('cover')}
+                      disabled={isSubmitting}
+                      className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        imageDisplayMode === 'cover'
+                          ? 'bg-[#B9D9EB] text-[#0C1D51]'
+                          : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a]'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <span>Fill Card</span>
+                        <span className="text-xs opacity-70">Cropped to fit</span>
+                      </div>
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {imageDisplayMode === 'contain'
+                      ? 'Shows the complete image with black bars if needed'
+                      : 'Zooms to fill the card, may crop edges'}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -427,8 +491,16 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
               <div>
                 <VideoUpload
                   currentUrl={uploadedMediaUrl}
-                  onUpload={setUploadedMediaUrl}
-                  onRemove={() => setUploadedMediaUrl(null)}
+                  onUpload={(videoUrl, thumbnailUrl) => {
+                    setUploadedMediaUrl(videoUrl);
+                    if (thumbnailUrl) {
+                      setVideoThumbnailUrl(thumbnailUrl);
+                    }
+                  }}
+                  onRemove={() => {
+                    setUploadedMediaUrl(null);
+                    setVideoThumbnailUrl(null);
+                  }}
                   disabled={isSubmitting}
                 />
               </div>

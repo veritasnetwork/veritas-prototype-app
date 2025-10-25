@@ -70,6 +70,33 @@ BEGIN
     status = 'market_deployed',
     deployed_at = COALESCE(pool_deployments.deployed_at, NOW());
 
+  -- 5. Record initial implied relevance (0.5 for balanced deployment)
+  -- Initial deployment has equal reserves, so implied relevance = 0.5
+  INSERT INTO implied_relevance_history (
+    post_id,
+    belief_id,
+    implied_relevance,
+    reserve_long,
+    reserve_short,
+    event_type,
+    event_reference,
+    confirmed,
+    recorded_by,
+    recorded_at
+  ) VALUES (
+    p_post_id,
+    p_belief_id,
+    0.5,  -- Always 0.5 at deployment (equal reserves)
+    25000000,  -- Default initial reserve (25 USDC in micro-USDC units)
+    25000000,
+    'deployment',
+    p_pool_address,  -- Use pool address as event reference for deployments
+    false,
+    'server',
+    NOW()
+  )
+  ON CONFLICT (event_reference) DO NOTHING;  -- Idempotent
+
   -- Return success
   RETURN jsonb_build_object(
     'success', true,

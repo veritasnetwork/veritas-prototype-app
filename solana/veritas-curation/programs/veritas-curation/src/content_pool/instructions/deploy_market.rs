@@ -157,20 +157,8 @@ pub fn handler(
         ContentPoolError::InvalidAllocation
     );
 
-    // CRITICAL: Validate minimum allocation amounts to prevent zero token minting
-    // With p0 = 100,000 (0.1 USDC), we need at least ~1 USDC per side to avoid rounding to zero
-    // Conservative minimum: each side should get at least 10 * p0 micro-USDC
+    // Get p0 from factory (used for supply calculation later)
     let p0 = ctx.accounts.factory.default_p0;
-    let min_side_allocation = p0.saturating_mul(10); // 10x p0 per side
-
-    require!(
-        long_allocation >= min_side_allocation,
-        ContentPoolError::InvalidAllocation
-    );
-    require!(
-        short_allocation >= min_side_allocation,
-        ContentPoolError::InvalidAllocation
-    );
 
     // Create deployer's LONG token account if needed
     if ctx.accounts.deployer_long.data_is_empty() {
@@ -381,7 +369,12 @@ pub fn handler(
         mint_long_accounts,
         seeds,
     );
-    token::mint_to(mint_long_ctx, chosen.s_long)?;
+    // Convert display units to atomic units for SPL minting (6 decimals)
+    const TOKEN_SCALE: u64 = 1_000_000;
+    let long_atomic = (chosen.s_long as u64)
+        .checked_mul(TOKEN_SCALE)
+        .ok_or(ContentPoolError::NumericalOverflow)?;
+    token::mint_to(mint_long_ctx, long_atomic)?;
 
     // Mint SHORT tokens
     let mint_short_accounts = MintTo {
@@ -394,39 +387,42 @@ pub fn handler(
         mint_short_accounts,
         seeds,
     );
-    token::mint_to(mint_short_ctx, chosen.s_short)?;
+    let short_atomic = (chosen.s_short as u64)
+        .checked_mul(TOKEN_SCALE)
+        .ok_or(ContentPoolError::NumericalOverflow)?;
+    token::mint_to(mint_short_ctx, short_atomic)?;
 
     // Use the chosen values for pool state
     let s_long = chosen.s_long;
     let s_short = chosen.s_short;
+    let r_long = chosen.r_long;
+    let r_short = chosen.r_short;
     let sqrt_lambda_x96 = chosen.sqrt_lambda_x96;
     let sqrt_price_long_x96 = chosen.sqrt_price_long_x96;
     let sqrt_price_short_x96 = chosen.sqrt_price_short_x96;
 
-    // Micro-adjust reserves to exactly match initial_deposit (fix rounding errors)
-    let mut r_long = chosen.r_long;
-    let mut r_short = chosen.r_short;
+    // Verify reserves are close to initial deposit (within 0.01%)
+    // We accept small rounding errors rather than adjusting reserves,
+    // which would violate the r_i = s_i × p_i invariant
     let r_sum = (r_long as u128).checked_add(r_short as u128)
         .ok_or(ContentPoolError::NumericalOverflow)?;
     let deposit_u128 = initial_deposit as u128;
 
-    if r_sum > deposit_u128 {
-        // Reduce larger reserve proportionally
-        let diff = (r_sum - deposit_u128) as u64;
-        if r_long >= r_short {
-            r_long = r_long.saturating_sub(diff);
-        } else {
-            r_short = r_short.saturating_sub(diff);
-        }
-    } else if r_sum < deposit_u128 {
-        // Increase larger reserve proportionally
-        let diff = (deposit_u128 - r_sum) as u64;
-        if r_long >= r_short {
-            r_long = r_long.saturating_add(diff);
-        } else {
-            r_short = r_short.saturating_add(diff);
-        }
-    }
+    let diff = if r_sum > deposit_u128 {
+        r_sum - deposit_u128
+    } else {
+        deposit_u128 - r_sum
+    };
+
+    // Allow up to 0.01% error (1 basis point)
+    let max_error = deposit_u128 / 10_000;
+    require!(
+        diff <= max_error,
+        ContentPoolError::NumericalOverflow
+    );
+
+    msg!("deploy_market: r_sum={}, deposit={}, diff={}",
+         r_sum, deposit_u128, diff);
 
     // Update pool state
     let pool = &mut ctx.accounts.pool;
@@ -447,15 +443,17 @@ pub fn handler(
     pool.sqrt_price_short_x96 = sqrt_price_short_x96;
 
     // initial q from reserves (on-manifold), not from USDC split
-    // r_sum is now guaranteed to equal initial_deposit after micro-adjust
-    let initial_q_bps = if initial_deposit > 0 {
-        ((r_long as u128) * 10_000u128 / (initial_deposit as u128)) as u64
+    // Use actual r_sum for consistency (may differ from initial_deposit by a few µUSDC)
+    let initial_q_bps = if r_sum > 0 {
+        ((r_long as u128) * 10_000u128 / r_sum) as u64
     } else {
         5_000
     };
     pool.initial_q = ((initial_q_bps as u128) * (Q32_ONE as u128) / 10_000u128) as u64;
 
-    pool.vault_balance = initial_deposit;
+    // Store the actual sum of reserves as vault_balance for consistency
+    // This may differ from initial_deposit by a few µUSDC due to rounding
+    pool.vault_balance = r_sum as u64;
 
     // Emit event
     emit!(MarketDeployedEvent {

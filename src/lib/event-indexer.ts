@@ -71,9 +71,13 @@ export async function startEventIndexer(): Promise<WebSocketIndexer | null> {
   const rpcUrl = process.env.SOLANA_RPC_URL || 'http://127.0.0.1:8899';
   console.log(`   RPC URL: ${rpcUrl}`);
 
+  // WebSocket endpoint: for solana-test-validator, WS port is RPC port + 1
+  // e.g., RPC on 8899 → WS on 8900
+  const wsUrl = rpcUrl.replace('http://', 'ws://').replace(':8899', ':8900');
+
   const connection = new Connection(rpcUrl, {
     commitment: 'confirmed',
-    wsEndpoint: rpcUrl.replace('http', 'ws'), // Convert HTTP to WS
+    wsEndpoint: wsUrl,
   });
 
   // Load program authority keypair (for provider, not used for signing)
@@ -149,17 +153,4 @@ function loadAuthorityKeypair(): Keypair {
   // Fallback: generate ephemeral keypair (not ideal but allows testing)
   console.warn('⚠️  No keypair found, generating ephemeral keypair');
   return Keypair.generate();
-}
-
-// Auto-start for local/devnet (server-side only)
-if (typeof window === 'undefined') {
-  // Only run on server
-  const network = process.env.SOLANA_NETWORK || 'localnet';
-
-  if (network !== 'mainnet-beta') {
-    // Auto-start for local/devnet
-    startEventIndexer().catch((error) => {
-      console.error('❌ Failed to start event indexer:', error);
-    });
-  }
 }

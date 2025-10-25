@@ -38,7 +38,10 @@ export class WebSocketIndexer {
     console.log(`🚀 Starting WebSocket indexer for ${network}...`);
     console.log(`   Program ID: ${this.program.programId.toString()}`);
 
-    // Subscribe to program logs
+    // First, sync historical transactions
+    await this.syncHistoricalTransactions();
+
+    // Then subscribe to new program logs
     this.subscriptionId = this.connection.onLogs(
       this.program.programId,
       async (logs: Logs, ctx) => {
@@ -52,6 +55,88 @@ export class WebSocketIndexer {
     );
 
     console.log(`✅ WebSocket indexer started (subscription ID: ${this.subscriptionId})`);
+  }
+
+  /**
+   * Sync unindexed pools on startup
+   * Fetches current on-chain state for pools that weren't properly indexed
+   * Works on all networks (localnet/devnet/mainnet) regardless of tx history
+   */
+  private async syncHistoricalTransactions() {
+    console.log('🔄 Syncing unindexed pools...');
+
+    try {
+      const { getSupabaseServiceRole } = await import('@/lib/supabase-server');
+      const { fetchPoolData } = await import('@/lib/solana/fetch-pool-data');
+      const supabase = getSupabaseServiceRole();
+
+      // Find pools that have NULL sqrt_price (not indexed)
+      const { data: pools, error } = await supabase
+        .from('pool_deployments')
+        .select('pool_address')
+        .is('sqrt_price_long_x96', null)
+        .limit(50);
+
+      if (error) {
+        console.error('   Failed to query pools:', error);
+        return;
+      }
+
+      if (!pools || pools.length === 0) {
+        console.log('   No unindexed pools found');
+        return;
+      }
+
+      console.log(`   Found ${pools.length} unindexed pool(s)`);
+
+      // For each pool, fetch current on-chain state and update database
+      const rpcUrl = process.env.SOLANA_RPC_URL || 'http://127.0.0.1:8899';
+
+      for (const pool of pools) {
+        try {
+          console.log(`   Syncing pool: ${pool.pool_address}`);
+
+          const poolData = await fetchPoolData(pool.pool_address, rpcUrl);
+
+          if (!poolData) {
+            console.warn(`   ⚠️  Could not fetch data for ${pool.pool_address}`);
+            continue;
+          }
+
+          // Update database with on-chain state
+          const { error: updateError } = await supabase
+            .from('pool_deployments')
+            .update({
+              sqrt_price_long_x96: poolData._raw.sqrtPriceLongX96,
+              sqrt_price_short_x96: poolData._raw.sqrtPriceShortX96,
+              sqrt_lambda_long_x96: poolData.sqrtLambdaLongX96,
+              sqrt_lambda_short_x96: poolData.sqrtLambdaShortX96,
+              vault_balance: Number(poolData.vaultBalance * 1_000_000),
+              s_long_supply: Number(poolData.supplyLong * 1_000_000),
+              s_short_supply: Number(poolData.supplyShort * 1_000_000),
+              r_long: Number(poolData.marketCapLong * 1_000_000),
+              r_short: Number(poolData.marketCapShort * 1_000_000),
+              f: poolData.f,
+              beta_num: poolData.betaNum,
+              beta_den: poolData.betaDen,
+              last_synced_at: new Date().toISOString(),
+            })
+            .eq('pool_address', pool.pool_address);
+
+          if (updateError) {
+            console.error(`   ❌ Failed to update ${pool.pool_address}:`, updateError);
+          } else {
+            console.log(`   ✅ Synced ${pool.pool_address}`);
+          }
+        } catch (err) {
+          console.warn(`   Failed to sync pool ${pool.pool_address}:`, err);
+        }
+      }
+
+      console.log('✅ Pool sync complete');
+    } catch (err) {
+      console.error('❌ Failed to sync pools:', err);
+    }
   }
 
   async stop() {

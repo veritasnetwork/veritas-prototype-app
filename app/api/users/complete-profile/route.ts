@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
 import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 
@@ -91,8 +90,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = getSupabaseServiceRole();
-    console.log('[complete-profile] Supabase client created');
+    console.log('[complete-profile] Supabase client ready');
 
     // Get Solana address (required for user creation)
     const solanaAddress = body.solana_address;
@@ -175,11 +173,17 @@ export async function POST(request: NextRequest) {
       message: 'Profile completed successfully',
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('[complete-profile] ❌ Uncaught error:', error);
-    console.error('[complete-profile] Error stack:', error.stack);
+    if (error instanceof Error) {
+      console.error('[complete-profile] Error stack:', error.stack);
+    }
     return NextResponse.json(
-      { error: 'Internal server error', msg: error.message, stack: error.stack },
+      {
+        error: 'Internal server error',
+        msg: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     );
   }

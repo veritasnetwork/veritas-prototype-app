@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { EventProcessor } from '@/services/event-processor.service';
-import { Program, BorshCoder, EventParser } from '@coral-xyz/anchor';
+import { BorshCoder, EventParser } from '@coral-xyz/anchor';
 import { PublicKey } from '@solana/web3.js';
 import idl from '@/lib/solana/target/idl/veritas_curation.json';
 
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     // Create event parser
     const eventParser = new EventParser(
       new PublicKey(programId),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       new BorshCoder(idl as any)
     );
 
