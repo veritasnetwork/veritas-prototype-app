@@ -9,6 +9,8 @@
 
 import { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
+import { usePrivy } from '@/hooks/usePrivyHooks';
+import { useAuth } from '@/providers/AuthProvider';
 import { getPostTitle, getPostPreview } from '@/types/post.types';
 import { RichTextRenderer } from '@/components/common/RichTextRenderer';
 import { usePoolData } from '@/hooks/usePoolData';
@@ -16,13 +18,12 @@ import { useTradeHistory } from '@/hooks/api/useTradeHistory';
 import { formatRelativeTime } from '@/utils/formatters';
 import type { Post } from '@/types/post.types';
 import Image from 'next/image';
-import { Volume2, VolumeX, Pause, Play } from 'lucide-react';
+import { Volume2, VolumeX, Pause, Play, TrendingUp, BarChart3 } from 'lucide-react';
+import { formatPoolDataFromDb } from '@/lib/solana/sqrt-price-helpers';
+import { OnboardingModal } from '@/components/auth/OnboardingModal';
 
-// Lazy load heavy trading components
-const TradingChartCard = lazy(() => import('@/components/post/PostDetailPanel/TradingChartCard').then(mod => ({ default: mod.TradingChartCard })));
-const PoolMetricsCard = lazy(() => import('@/components/post/PostDetailPanel/PoolMetricsCard').then(mod => ({ default: mod.PoolMetricsCard })));
-const UnifiedSwapComponent = lazy(() => import('@/components/post/PostDetailPanel/UnifiedSwapComponent').then(mod => ({ default: mod.UnifiedSwapComponent })));
-const DeployPoolCard = lazy(() => import('@/components/post/PostDetailPanel/DeployPoolCard').then(mod => ({ default: mod.DeployPoolCard })));
+// Lazy load trading panel
+const TradingPanel = lazy(() => import('@/components/post/TradingPanel').then(mod => ({ default: mod.TradingPanel })));
 
 interface PostDetailPageClientProps {
   postId: string;
@@ -42,49 +43,71 @@ function LoadingCard({ height = 'h-64' }: { height?: string }) {
 
 export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
   const router = useRouter();
+  const { authenticated } = usePrivy();
+  const { needsOnboarding, isLoading: authLoading } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [post, setPost] = useState<Post | null>(() => {
-    // Try to get cached post data from sessionStorage for instant loading
-    if (typeof window !== 'undefined') {
-      const cached = sessionStorage.getItem(`post_${postId}`);
-      if (cached) {
-        try {
-          return JSON.parse(cached);
-        } catch (e) {
-          console.warn('Failed to parse cached post data');
-        }
-      }
-    }
-    return null;
-  });
-  const [loading, setLoading] = useState(!post); // Only loading if no cached data
+  const [post, setPost] = useState<Post | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSide, setSelectedSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [isMuted, setIsMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
-  // Check URL params for mode override, otherwise default to trade mode
-  const [viewMode, setViewMode] = useState<'read' | 'trade'>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const modeParam = params.get('mode');
-      if (modeParam === 'trade' || modeParam === 'read') {
-        return modeParam;
+  const [viewMode, setViewMode] = useState<'read' | 'trade'>('trade');
+  const [isClosing, setIsClosing] = useState(false);
+
+  // Load cached post and URL params on client-side only (after hydration)
+  useEffect(() => {
+    // Try to get cached post data from sessionStorage for instant loading
+    const cached = sessionStorage.getItem(`post_${postId}`);
+    if (cached) {
+      try {
+        const cachedPost = JSON.parse(cached);
+        setPost(cachedPost);
+        setLoading(false);
+      } catch (e) {
+        console.warn('Failed to parse cached post data');
       }
     }
-    // Default to trade mode for all posts
-    return 'trade';
-  });
-  const [isClosing, setIsClosing] = useState(false);
+
+    // Check URL params for mode override
+    const params = new URLSearchParams(window.location.search);
+    const modeParam = params.get('mode');
+    if (modeParam === 'trade' || modeParam === 'read') {
+      setViewMode(modeParam);
+    }
+  }, [postId]);
+
+  // Prepare initial pool data from post for instant rendering
+  const initialPoolData = post?.poolAddress && post.poolPriceLong && post.poolPriceShort &&
+    post.poolSupplyLong !== null && post.poolSupplyShort !== null ? {
+    priceLong: post.poolPriceLong,
+    priceShort: post.poolPriceShort,
+    supplyLong: post.poolSupplyLong,
+    supplyShort: post.poolSupplyShort,
+    f: post.poolF || 1,
+    betaNum: post.poolBetaNum || 1,
+    betaDen: post.poolBetaDen || 2,
+    vaultBalance: post.poolVaultBalance || 0,
+    totalSupply: (post.poolSupplyLong || 0) + (post.poolSupplyShort || 0),
+    currentPrice: 0,
+    reserveBalance: post.poolVaultBalance || 0,
+    marketCap: 0,
+  } : undefined;
 
   // Fetch pool data only after post is available (either cached or loaded)
   const shouldFetchPoolData = post?.poolAddress;
-  const { poolData, loading: poolLoading } = usePoolData(shouldFetchPoolData ? post.poolAddress : undefined);
-  const { trades, loading: tradesLoading } = useTradeHistory(shouldFetchPoolData ? post.id : undefined);
+  const { poolData, loading: poolLoading } = usePoolData(
+    shouldFetchPoolData ? post.poolAddress : undefined,
+    shouldFetchPoolData ? post.id : undefined,
+    initialPoolData // Pass initial data for instant rendering
+  );
+  const { data: tradeHistory, loading: tradesLoading } = useTradeHistory(shouldFetchPoolData ? post.id : undefined);
 
   // Fetch post data (or refresh if already cached)
   useEffect(() => {
     const fetchPost = async () => {
       try {
+        console.log('[PostDetailPage] Fetching post:', postId);
         // If we have cached data, don't show loading state but still refresh in background
         if (!post) {
           setLoading(true);
@@ -92,17 +115,21 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
         setError(null);
 
         const response = await fetch(`/api/posts/${postId}`);
+        console.log('[PostDetailPage] Response status:', response.status);
 
         if (!response.ok) {
           if (response.status === 404) {
+            console.error('[PostDetailPage] Post not found:', postId);
             setError('Post not found');
           } else {
+            console.error('[PostDetailPage] Failed to load post:', response.status, response.statusText);
             setError('Failed to load post');
           }
           return;
         }
 
         const data = await response.json();
+        console.log('[PostDetailPage] Post loaded successfully:', data.id);
         setPost(data);
 
         // Update cache with fresh data
@@ -110,7 +137,7 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
           sessionStorage.setItem(`post_${postId}`, JSON.stringify(data));
         }
       } catch (err) {
-        console.error('Error fetching post:', err);
+        console.error('[PostDetailPage] Error fetching post:', err);
         setError('Failed to load post');
       } finally {
         setLoading(false);
@@ -186,6 +213,36 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
   const hasPool = !!post.poolAddress;
   const title = getPostTitle(post);
 
+  // Calculate pool metrics from cached ICBS data (same as PostCard)
+  const poolDataFromDb = post.poolSupplyLong !== undefined &&
+                    post.poolSupplyShort !== undefined &&
+                    post.poolSqrtPriceLongX96 &&
+                    post.poolSqrtPriceShortX96 &&
+                    post.poolVaultBalance !== undefined
+    ? formatPoolDataFromDb(
+        post.poolSupplyLong,
+        post.poolSupplyShort,
+        post.poolSqrtPriceLongX96,
+        post.poolSqrtPriceShortX96,
+        post.poolVaultBalance
+      )
+    : null;
+
+  // Use market implied relevance from database (if available)
+  const marketImpliedRelevance = (post as any).marketImpliedRelevance ??
+    (poolDataFromDb ? poolDataFromDb.marketCapLong / (poolDataFromDb.marketCapLong + poolDataFromDb.marketCapShort) : null);
+
+  console.log('[PostDetailPage] Render state:', {
+    postId: post.id,
+    poolAddress: post.poolAddress,
+    hasPool,
+    poolData,
+    poolLoading,
+    viewMode,
+    marketImpliedRelevance,
+    totalVolumeUsdc: post.totalVolumeUsdc
+  });
+
   const handleAuthorClick = () => {
     if (post.author?.username) {
       router.push(`/profile/${post.author.username}`);
@@ -233,34 +290,52 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
               {/* Post Header Card */}
               <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
-                  {/* Author Info */}
-                  <button
-                    onClick={handleAuthorClick}
-                    className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-                  >
-                    {post.author?.avatar_url ? (
-                      <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-[#B9D9EB] to-[#0C1D51]">
-                        <Image
-                          src={post.author.avatar_url}
-                          alt={post.author.username}
-                          fill
-                          className="object-cover"
-                        />
+                  {/* Author Info and Metrics */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <button
+                      onClick={handleAuthorClick}
+                      className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                    >
+                      {post.author?.avatar_url ? (
+                        <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-[#B9D9EB] to-[#0C1D51]">
+                          <Image
+                            src={post.author.avatar_url}
+                            alt={post.author.username}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#B9D9EB] to-[#0C1D51] flex items-center justify-center">
+                          <span className="text-white font-semibold">
+                            {post.author?.username?.[0]?.toUpperCase() || 'U'}
+                          </span>
+                        </div>
+                      )}
+                      <div className="text-left">
+                        <p className="text-white font-medium">
+                          {post.author?.display_name || post.author?.username}
+                        </p>
+                        <p className="text-gray-400 text-sm">@{post.author?.username}</p>
                       </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#B9D9EB] to-[#0C1D51] flex items-center justify-center">
-                        <span className="text-white font-semibold">
-                          {post.author?.username?.[0]?.toUpperCase() || 'U'}
-                        </span>
+                    </button>
+
+                    {/* Market implied relevance pill */}
+                    {marketImpliedRelevance !== null && (
+                      <div className="bg-black/70 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center justify-center">
+                        <TrendingUp className="w-4 h-4 text-[#B9D9EB] mr-1.5" />
+                        <span className="font-semibold text-[#B9D9EB] text-sm">{(marketImpliedRelevance * 100).toFixed(1)}%</span>
                       </div>
                     )}
-                    <div className="text-left">
-                      <p className="text-white font-medium">
-                        {post.author?.display_name || post.author?.username}
-                      </p>
-                      <p className="text-gray-400 text-sm">@{post.author?.username}</p>
-                    </div>
-                  </button>
+
+                    {/* Total volume pill */}
+                    {post.totalVolumeUsdc !== undefined && post.totalVolumeUsdc > 0 && (
+                      <div className="bg-black/70 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center justify-center">
+                        <BarChart3 className="w-4 h-4 text-gray-400 mr-1.5" />
+                        <span className="font-semibold text-gray-300 text-sm">${post.totalVolumeUsdc >= 1000 ? (post.totalVolumeUsdc / 1000).toFixed(1) + 'k' : post.totalVolumeUsdc.toFixed(0)}</span>
+                      </div>
+                    )}
+                  </div>
 
                   {/* View Mode Toggle */}
                   <div className="flex items-center bg-[#0f0f0f] rounded-lg p-0.5">
@@ -381,12 +456,12 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
                 </div>
               )}
 
-              {/* Blog Cover Image */}
-              {post.post_type === 'blog' && post.cover_image && (
+              {/* Article/Blog Cover Image */}
+              {((post.post_type === 'text' && post.cover_image_url) || (post.post_type === 'blog' && post.cover_image)) && (
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden">
                   <div className="relative aspect-video">
                     <Image
-                      src={post.cover_image}
+                      src={post.cover_image_url || post.cover_image}
                       alt="Cover image"
                       fill
                       className="object-cover"
@@ -397,13 +472,13 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
 
               {/* Post Content (text/blog) */}
               {(post.post_type === 'text' || post.post_type === 'blog') && (
-                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6">
+                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6 overflow-hidden">
                   {post.content_json ? (
-                    <div className="prose prose-invert max-w-none">
+                    <div className={`prose prose-invert ${viewMode === 'read' ? 'max-w-none' : 'max-w-full'} break-words`}>
                       <RichTextRenderer content={post.content_json} />
                     </div>
                   ) : post.content_text ? (
-                    <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-gray-300 whitespace-pre-wrap leading-relaxed break-words">
                       {post.content_text}
                     </p>
                   ) : (
@@ -415,49 +490,31 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
 
             {/* RIGHT COLUMN: Trading Interface - Only show in trade mode or when closing */}
             {(viewMode === 'trade' || isClosing) && (
-              <div className={`space-y-4 lg:top-6 lg:w-1/2 ${
+              <div className={`lg:top-6 lg:w-1/2 ${
                 isClosing ? 'lg:absolute lg:right-0 animate-[slideOutRightFade_1000ms_cubic-bezier(0.16,1,0.3,1)]' : 'lg:sticky lg:self-start animate-[slideInRight_1000ms_cubic-bezier(0.16,1,0.3,1)]'
               }`}>
-                {hasPool ? (
-                <>
-                  {/* Trading Chart */}
-                  <Suspense fallback={<LoadingCard height="h-96" />}>
-                    <TradingChartCard
-                      post={post}
-                      poolData={poolData}
-                      trades={trades}
-                      loading={tradesLoading}
-                      selectedSide={selectedSide}
-                      onSideChange={setSelectedSide}
-                    />
-                  </Suspense>
-
-                  {/* Trading Interface */}
-                  <Suspense fallback={<LoadingCard height="h-64" />}>
-                    <UnifiedSwapComponent
-                      post={post}
-                      poolData={poolData}
-                      selectedSide={selectedSide}
-                      onSideChange={setSelectedSide}
-                    />
-                  </Suspense>
-
-                  {/* Pool Metrics */}
-                  <Suspense fallback={<LoadingCard height="h-48" />}>
-                    <PoolMetricsCard poolData={poolData} loading={poolLoading} />
-                  </Suspense>
-                </>
-              ) : (
-                /* No pool yet - show deploy card */
-                <Suspense fallback={<LoadingCard height="h-64" />}>
-                  <DeployPoolCard post={post} />
+                <Suspense fallback={<LoadingCard height="h-96" />}>
+                  <TradingPanel
+                    postId={post.id}
+                    poolAddress={post.poolAddress}
+                    poolData={poolData}
+                    tradeStats={tradeHistory?.stats}
+                    selectedSide={selectedSide}
+                    onSideChange={setSelectedSide}
+                    loadingPoolData={poolLoading}
+                    initialPoolData={initialPoolData}
+                  />
                 </Suspense>
-              )}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Onboarding Modal - Show if user needs onboarding */}
+      {authenticated && needsOnboarding && !authLoading && (
+        <OnboardingModal isOpen={true} />
+      )}
     </main>
   );
 }

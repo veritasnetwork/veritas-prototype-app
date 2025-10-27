@@ -57,44 +57,55 @@ class PoolDataService {
   private cache = new Map<string, PoolData>(); // Persistent cache across subscriptions
 
   // Adaptive polling intervals
-  private readonly ACTIVE_INTERVAL = 3000;   // 3s when recently traded
-  private readonly NORMAL_INTERVAL = 10000;  // 10s normal polling
-  private readonly IDLE_INTERVAL = 30000;    // 30s when idle
+  private readonly ACTIVE_INTERVAL = 5000;   // 5s when recently traded
+  private readonly NORMAL_INTERVAL = 30000;  // 30s normal polling
+  private readonly IDLE_INTERVAL = 60000;    // 60s when idle
   private readonly ACTIVE_WINDOW = 60000;    // 60s after trade = "active"
 
   /**
-   * Subscribe to pool data updates
+   * Subscribe to pool data updates with optional initial data
    */
-  subscribe(postId: string, callback: Subscriber): () => void {
+  subscribe(postId: string, callback: Subscriber, initialData?: PoolData | null): () => void {
+    console.log('[PoolDataService] subscribe called for postId:', postId);
     let sub = this.subscriptions.get(postId);
 
     if (!sub) {
+      console.log('[PoolDataService] Creating new subscription for postId:', postId);
       // Create new subscription
       sub = {
         postId,
         subscribers: new Set(),
-        data: null,
+        data: initialData || null,
         lastFetch: 0,
         intervalId: null,
         isFetching: false,
         error: null,
       };
       this.subscriptions.set(postId, sub);
+
+      // If initial data provided, cache it immediately
+      if (initialData) {
+        console.log('[PoolDataService] Caching initial data for postId:', postId);
+        this.cache.set(postId, initialData);
+      }
     }
 
     // Add subscriber
     sub.subscribers.add(callback);
+    console.log('[PoolDataService] Total subscribers for postId:', postId, '=', sub.subscribers.size);
 
-    // Check for cached data first (from persistent cache or subscription)
-    const cachedData = this.cache.get(postId) || sub.data;
+    // Check for cached data first (prioritize: initialData > persistent cache > subscription data)
+    const cachedData = initialData || this.cache.get(postId) || sub.data;
     if (cachedData) {
-      // Immediately notify with cached data
+      console.log('[PoolDataService] Using cached data for postId:', postId);
+      // Immediately notify with cached data (synchronous)
       callback(cachedData);
       sub.data = cachedData; // Ensure subscription has the cached data
     }
 
     // If first subscriber, start polling
     if (sub.subscribers.size === 1) {
+      console.log('[PoolDataService] First subscriber, starting polling for postId:', postId);
       this.startPolling(postId);
     }
 
@@ -119,7 +130,6 @@ class PoolDataService {
    * Invalidate cache and trigger immediate refresh
    */
   invalidate(postId: string) {
-    console.log(`🔄 [PoolDataService] Invalidating cache for postId: ${postId}`);
     const sub = this.subscriptions.get(postId);
     if (!sub) {
       console.warn(`⚠️  [PoolDataService] No subscription found for postId: ${postId}`);
@@ -130,7 +140,6 @@ class PoolDataService {
     sub.lastFetch = 0; // Force immediate fetch
 
     // Fetch immediately
-    console.log(`📡 [PoolDataService] Fetching fresh pool data immediately...`);
     this.fetchPoolData(postId);
 
     // Restart polling with active interval
@@ -169,14 +178,20 @@ class PoolDataService {
    * Start polling for a pool
    */
   private startPolling(postId: string) {
+    console.log('[PoolDataService] startPolling for postId:', postId);
     const sub = this.subscriptions.get(postId);
-    if (!sub) return;
+    if (!sub) {
+      console.log('[PoolDataService] No subscription found in startPolling for postId:', postId);
+      return;
+    }
 
     // Fetch immediately
+    console.log('[PoolDataService] Fetching immediately for postId:', postId);
     this.fetchPoolData(postId);
 
     // Start interval
     const interval = this.getInterval(postId);
+    console.log('[PoolDataService] Setting up interval:', interval, 'ms for postId:', postId);
     sub.intervalId = setInterval(() => {
       this.fetchPoolData(postId);
     }, interval);
@@ -216,15 +231,23 @@ class PoolDataService {
    * Event indexer keeps the database fresh - we don't poll the chain
    */
   private async fetchPoolData(postId: string) {
+    console.log('[PoolDataService] fetchPoolData called for postId:', postId);
     const sub = this.subscriptions.get(postId);
-    if (!sub) return;
+    if (!sub) {
+      console.log('[PoolDataService] No subscription found in fetchPoolData for postId:', postId);
+      return;
+    }
 
     // Prevent concurrent fetches for same pool
-    if (sub.isFetching) return;
+    if (sub.isFetching) {
+      console.log('[PoolDataService] Already fetching for postId:', postId);
+      return;
+    }
 
     sub.isFetching = true;
 
     try {
+      console.log('[PoolDataService] Fetching from API for postId:', postId);
       const response = await fetch(`/api/posts/${postId}`, {
         cache: 'no-store',
         headers: {
@@ -239,9 +262,9 @@ class PoolDataService {
       const raw: unknown = await response.json();
       const data = (raw ?? {}) as any;
 
-      console.log('[PoolDataService] Raw API response:', {
+      console.log('[PoolDataService] Fetched post data:', {
         postId,
-        hasPoolAddress: !!data.poolAddress,
+        poolAddress: data.poolAddress,
         poolPriceLong: data.poolPriceLong,
         poolPriceShort: data.poolPriceShort,
         poolSupplyLong: data.poolSupplyLong,
@@ -250,7 +273,7 @@ class PoolDataService {
 
       // If no pool deployed, return early
       if (!data.poolAddress) {
-        console.log('[PoolDataService] No pool deployed for this post');
+        console.log('[PoolDataService] No pool deployed for post:', postId);
         sub.data = null;
         sub.error = new Error('No pool deployed');
         this.notifySubscribers(postId);
@@ -308,16 +331,8 @@ class PoolDataService {
       sub.error = null;
       sub.lastFetch = Date.now();
 
-      console.log(`✅ [PoolDataService] Pool data updated for ${postId}:`, {
-        priceLong,
-        priceShort,
-        supplyLong,
-        supplyShort,
-        marketCap
-      });
 
       // Notify all subscribers
-      console.log(`📤 [PoolDataService] Notifying ${sub.subscribers.size} subscriber(s)`);
       this.notifySubscribers(postId);
     } catch (error) {
       console.error(`[PoolDataService] Error fetching pool ${postId}:`, error);

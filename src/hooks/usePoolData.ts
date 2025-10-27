@@ -6,15 +6,16 @@
  * - Automatic cleanup when unmounted
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { poolDataService, PoolData } from '@/services/PoolDataService';
 
 export type { PoolData };
 
-export function usePoolData(poolAddress: string | undefined, postId: string | undefined) {
-  const [poolData, setPoolData] = useState<PoolData | null>(null);
-  const [loading, setLoading] = useState(true);
+export function usePoolData(poolAddress: string | undefined, postId: string | undefined, initialData?: PoolData | null) {
+  const [poolData, setPoolData] = useState<PoolData | null>(initialData || null);
+  const [loading, setLoading] = useState(!initialData); // Start as loaded if we have initial data
   const [error, setError] = useState<Error | null>(null);
+  const postIdRef = useRef(postId);
 
   useEffect(() => {
     if (!postId) {
@@ -24,15 +25,20 @@ export function usePoolData(poolAddress: string | undefined, postId: string | un
       return;
     }
 
-    // Reset state for new subscription
-    setPoolData(null);
-    setLoading(true);
+    // Only reset state if postId actually changed (not on every render)
+    const postIdChanged = postIdRef.current !== postId;
+    if (postIdChanged) {
+      postIdRef.current = postId;
+      // Only reset if we don't have initial data
+      if (!initialData) {
+        setPoolData(null);
+        setLoading(true);
+      }
+    }
 
-    // Track if we received data synchronously (from cache)
-    let receivedDataSync = false;
     let isSubscribed = true; // Prevent state updates after unmount
 
-    // Subscribe to pool data updates
+    // Subscribe to pool data updates, pass initial data if available
     const unsubscribe = poolDataService.subscribe(postId, (data) => {
       if (!isSubscribed) {
         return;
@@ -40,18 +46,14 @@ export function usePoolData(poolAddress: string | undefined, postId: string | un
       setPoolData(data);
       setLoading(false);
       setError(data === null ? new Error('No pool data available') : null);
-      receivedDataSync = true;
-    });
-
-    // If we didn't get data synchronously, keep loading state
-    // (already set above)
+    }, initialData);
 
     // Cleanup on unmount
     return () => {
       isSubscribed = false;
       unsubscribe();
     };
-  }, [postId]); // Remove poolAddress from deps - only resubscribe when postId changes
+  }, [postId]); // Only resubscribe when postId changes
 
   return { poolData, loading, error };
 }
