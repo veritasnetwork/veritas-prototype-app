@@ -18,24 +18,20 @@ const programId = process.env.NEXT_PUBLIC_VERITAS_PROGRAM_ID!;
 const rpcEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || 'http://127.0.0.1:8899';
 
 export async function POST(req: NextRequest) {
-  console.log('[/api/pools/settle] Request received');
   try {
     // Authenticate user
     const authHeader = req.headers.get('authorization');
     const privyUserId = await verifyAuthHeader(authHeader);
 
     if (!privyUserId) {
-      console.log('[/api/pools/settle] Authentication failed');
       return NextResponse.json({ error: 'Invalid or missing authentication' }, { status: 401 });
     }
 
     const body = await req.json();
     const { postId, walletAddress } = body;
 
-    console.log('[/api/pools/settle] Request body:', { postId, walletAddress });
 
     if (!postId || !walletAddress) {
-      console.log('[/api/pools/settle] Missing required fields');
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -50,7 +46,6 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (poolError || !poolDeployment) {
-      console.log('[/api/pools/settle] Pool not found for post:', postId);
       return NextResponse.json({ error: 'Pool not found for this post' }, { status: 404 });
     }
 
@@ -62,12 +57,10 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (beliefError || !belief) {
-      console.log('[/api/pools/settle] Belief not found:', poolDeployment.belief_id);
       return NextResponse.json({ error: 'Belief not found' }, { status: 404 });
     }
 
     if (belief.previous_aggregate === null || belief.previous_aggregate === undefined) {
-      console.log('[/api/pools/settle] No BD score available for belief:', belief.id);
       return NextResponse.json({
         error: 'No decomposition score available. Pool must be processed in an epoch first.'
       }, { status: 400 });
@@ -171,10 +164,6 @@ export async function POST(req: NextRequest) {
     // Convert BD score to Q32.32 format (0-1 range to 0-1,000,000 integer)
     const bdScore = Math.floor(belief.previous_aggregate * 1_000_000);
 
-    console.log('[/api/pools/settle] BD score:', {
-      raw: belief.previous_aggregate,
-      q32Format: bdScore
-    });
 
     // Convert post ID to content ID (same as in pool deployment)
     const postIdBytes = Buffer.from(postId.replace(/-/g, ''), 'hex');
@@ -218,7 +207,6 @@ export async function POST(req: NextRequest) {
       requireAllSignatures: false
     }).toString('base64');
 
-    console.log('[/api/pools/settle] Settlement transaction created successfully');
 
     return NextResponse.json({
       transaction: serializedTx,

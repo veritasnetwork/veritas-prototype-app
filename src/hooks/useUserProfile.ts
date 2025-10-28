@@ -41,7 +41,16 @@ export function useUserProfile(): UseUserProfileReturn {
 
       const { data, error: queryError } = await supabase
         .from('users')
-        .select('id, username, display_name, bio, avatar_url, total_stake, beliefs_created, beliefs_participated')
+        .select(`
+          id,
+          username,
+          display_name,
+          bio,
+          avatar_url,
+          beliefs_created,
+          beliefs_participated,
+          agents!inner(total_stake)
+        `)
         .eq('id', user.id)
         .single();
 
@@ -49,7 +58,14 @@ export function useUserProfile(): UseUserProfileReturn {
         throw queryError;
       }
 
-      setProfile(data);
+      // Flatten the agents.total_stake into the profile object
+      const profileData = {
+        ...data,
+        total_stake: (data.agents as any)?.total_stake || 0
+      };
+      delete (profileData as any).agents;
+
+      setProfile(profileData);
     } catch (err) {
       console.error('Error fetching user profile:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch profile');

@@ -1,10 +1,12 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::TokenAccount;
 use crate::pool_factory::state::PoolFactory;
 use crate::content_pool::{
     state::*,
     events::SettlementEvent,
     errors::ContentPoolError,
-    curve::{ICBSCurve, mul_x96},
+    math::{renormalize_scales, mul_div_u128, ceil_div},
+    curve::{ICBSCurve, Q96},
 };
 
 #[derive(Accounts)]
@@ -22,11 +24,17 @@ pub struct SettleEpoch<'info> {
     pub factory: Account<'info, PoolFactory>,
 
     #[account(
-        constraint = protocol_authority.key() == factory.pool_authority @ ContentPoolError::UnauthorizedProtocol
+        constraint = protocol_authority.key() == factory.protocol_authority @ ContentPoolError::UnauthorizedProtocol
     )]
     pub protocol_authority: Signer<'info>,
 
     pub settler: Signer<'info>,
+
+    /// Vault token account (needed for λ derivation to update prices)
+    #[account(
+        constraint = vault.key() == pool.vault @ ContentPoolError::InvalidVault
+    )]
+    pub vault: Account<'info, TokenAccount>,
 }
 
 pub fn handler(
@@ -76,64 +84,128 @@ pub fn handler(
         q
     };
 
-    // Calculate settlement factors
+    // Calculate raw settlement factors
     // f_L = x / q
-    let f_long = ((bd_score as u128 * 1_000_000) / q_clamped as u128) as u64;
+    let f_long_raw = ((bd_score as u128 * 1_000_000) / q_clamped as u128) as u64;
 
     // f_S = (1 - x) / (1 - q)
     let one_minus_x = 1_000_000u64.saturating_sub(bd_score as u64);
     let one_minus_q = 1_000_000u64.saturating_sub(q_clamped);
-    let f_short = ((one_minus_x as u128 * 1_000_000) / one_minus_q as u128) as u64;
+    let f_short_raw = ((one_minus_x as u128 * 1_000_000) / one_minus_q as u128) as u64;
 
-    // Apply settlement factors to reserves (THE KEY ICBS MECHANISM!)
-    // R_L' = R_L × f_L
-    // R_S' = R_S × f_S
-    pool.r_long = ((pool.r_long as u128 * f_long as u128) / 1_000_000) as u64;
-    pool.r_short = ((pool.r_short as u128 * f_short as u128) / 1_000_000) as u64;
+    // Hard-cap factors to [0.01, 100] to prevent unbounded drift
+    let f_long = f_long_raw.clamp(F_MIN, F_MAX);
+    let f_short = f_short_raw.clamp(F_MIN, F_MAX);
 
-    // Update sqrt lambda to reflect the reserve changes
-    // Since R = s × p and s is unchanged, we need to adjust lambda (price scaling)
-    // New lambda = old lambda × f
-    // We want sqrt(f) in X96 format. f is in millionths (1_000_000 = 1.0)
-    // sqrt(f) * 2^96 = sqrt(f * 2^192) = sqrt((f * 2^192) / 1_000_000)
-    // To avoid overflow, we compute: sqrt(f * (2^192 / 1_000_000))
-    // (2^192 / 1_000_000) is a very large number, so we do: sqrt((f << 192) / 1_000_000)
-    // But (f << 192) overflows. Instead: sqrt_f_x96 = sqrt(f) * 2^96
-    // = integer_sqrt(f) * integer_sqrt(2^192) / integer_sqrt(1_000_000)
-    // = integer_sqrt(f) * 2^96 / 1000
-    let sqrt_f_long_raw = integer_sqrt(f_long as u128)?;
-    let sqrt_f_short_raw = integer_sqrt(f_short as u128)?;
-    let sqrt_million = 1000u128; // sqrt(1_000_000) = 1000
-    let sqrt_f_long_x96 = (sqrt_f_long_raw * Q96_ONE) / sqrt_million;
-    let sqrt_f_short_x96 = (sqrt_f_short_raw * Q96_ONE) / sqrt_million;
+    // Store old scales for event
+    let scale_long_before = pool.s_scale_long_q64;
+    let scale_short_before = pool.s_scale_short_q64;
 
-    pool.sqrt_lambda_long_x96 = mul_x96(pool.sqrt_lambda_long_x96, sqrt_f_long_x96)?;
-    pool.sqrt_lambda_short_x96 = mul_x96(pool.sqrt_lambda_short_x96, sqrt_f_short_x96)?;
+    // Update scales (Q64 conversion)
+    let f_long_q64 = ((f_long as u128) << 64) / 1_000_000;
+    let f_short_q64 = ((f_short as u128) << 64) / 1_000_000;
+
+    // --- SAFE σ UPDATE (avoid u128 overflow) ---
+    // Use mul_div_u128 instead of direct multiplication to prevent overflow
+    // when σ ≈ 2^96 and f ≈ 2^64. Floor rounding is fine; renormalize_scales will correct.
+    pool.s_scale_long_q64 = mul_div_u128(pool.s_scale_long_q64, f_long_q64, Q64)?;
+    pool.s_scale_short_q64 = mul_div_u128(pool.s_scale_short_q64, f_short_q64, Q64)?;
+
+    // Renormalize scales to keep both sigma and virtual norm in safe range
+    {
+        let mut sigma_long = pool.s_scale_long_q64;
+        let mut sigma_short = pool.s_scale_short_q64;
+        let s_long = pool.s_long;
+        let s_short = pool.s_short;
+        renormalize_scales(
+            &mut sigma_long,
+            &mut sigma_short,
+            s_long,
+            s_short,
+        );
+        pool.s_scale_long_q64 = sigma_long;
+        pool.s_scale_short_q64 = sigma_short;
+    }
+
+    // --- SAFE RESERVE UPDATE ---
+    // Use mul_div_u128 to prevent overflow during reserve scaling
+    pool.r_long = mul_div_u128(pool.r_long as u128, f_long as u128, 1_000_000u128)? as u64;
+    pool.r_short = mul_div_u128(pool.r_short as u128, f_short as u128, 1_000_000u128)? as u64;
+
+    // --- INVARIANT RECOUPLE: r_L + r_S == vault_balance ---
+    // After scaling by capped factors, reserves may drift from vault due to clamping/rounding.
+    // Proportionally adjust reserves to maintain the invariant.
+    let total_after = (pool.r_long as u128)
+        .checked_add(pool.r_short as u128)
+        .ok_or(ContentPoolError::NumericalOverflow)?;
+
+    if total_after > 0 {
+        let target = pool.vault_balance as u128;
+        if total_after != target {
+            // Proportional recouple: scale both reserves to sum to vault_balance
+            let r_long_new = mul_div_u128(pool.r_long as u128, target, total_after)?;
+            pool.r_long = r_long_new as u64;
+            pool.r_short = (target.saturating_sub(r_long_new)) as u64;
+        }
+    }
+
+    // DO NOT UPDATE vault_balance, s_long, s_short here!
+    //
+    // NOTE ON λ ARCHITECTURE:
+    // λ is NOT stored in pool state. It's derived from (vault, σ, s_v) via the invariant:
+    // vault_balance = λ × ||ŝ_v|| where ŝ_v = s_display / σ
+    //
+    // This means λ automatically adjusts after settlements to maintain the invariant.
+    // The old sqrt_lambda_* fields are deprecated but kept for backward compatibility.
+
+    // --- PRICE RECOMPUTATION (recommended for UX) ---
+    // Settlement changed σ, which affects virtual supplies and thus display prices.
+    // Recompute prices now to keep UI consistent until the next trade.
+
+    // Compute virtual supplies with ceiling division (same as derive_lambda)
+    let s_long_v = if pool.s_long > 0 {
+        ceil_div(pool.s_long as u128 * Q64, pool.s_scale_long_q64).max(1) as u64
+    } else {
+        0
+    };
+
+    let s_short_v = if pool.s_short > 0 {
+        ceil_div(pool.s_short as u128 * Q64, pool.s_scale_short_q64).max(1) as u64
+    } else {
+        0
+    };
+
+    // Derive λ with current σ (vault unchanged)
+    let lambda_q96 = derive_lambda(&ctx.accounts.vault, &pool)?;
+
+    // Store display-token sqrt prices (consistent with trade.rs)
+    pool.sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price_from_virtual(
+        s_long_v,
+        s_short_v,
+        TokenSide::Long,
+        lambda_q96,
+        pool.s_scale_long_q64,
+        pool.s_scale_short_q64,
+        pool.f,
+        pool.beta_num,
+        pool.beta_den,
+    )?;
+
+    pool.sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price_from_virtual(
+        s_long_v,
+        s_short_v,
+        TokenSide::Short,
+        lambda_q96,
+        pool.s_scale_long_q64,
+        pool.s_scale_short_q64,
+        pool.f,
+        pool.beta_num,
+        pool.beta_den,
+    )?;
 
     // Update last settlement timestamp and increment pool epoch
     pool.last_settle_ts = clock.unix_timestamp;
     pool.current_epoch = pool.current_epoch.checked_add(1).ok_or(ContentPoolError::NumericalOverflow)?;
-
-    // Recalculate prices after lambda update
-    pool.sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price(
-        pool.s_long,
-        pool.s_short,
-        TokenSide::Long,
-        pool.sqrt_lambda_long_x96,
-        pool.f,
-        pool.beta_num,
-        pool.beta_den,
-    )?;
-
-    pool.sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price(
-        pool.s_long,
-        pool.s_short,
-        TokenSide::Short,
-        pool.sqrt_lambda_short_x96,
-        pool.f,
-        pool.beta_num,
-        pool.beta_den,
-    )?;
 
     // Emit event
     emit!(SettlementEvent {
@@ -148,6 +220,10 @@ pub fn handler(
         r_short_before: r_short_before as u128,
         r_long_after: pool.r_long as u128,
         r_short_after: pool.r_short as u128,
+        s_scale_long_before: scale_long_before,
+        s_scale_long_after: pool.s_scale_long_q64,
+        s_scale_short_before: scale_short_before,
+        s_scale_short_after: pool.s_scale_short_q64,
         timestamp: clock.unix_timestamp,
     });
 
@@ -155,9 +231,11 @@ pub fn handler(
 }
 
 // Helper functions
-fn integer_sqrt(n: u128) -> Result<u128> {
+
+/// Integer square root for u128 (floor)
+fn isqrt_u128(n: u128) -> u128 {
     if n == 0 {
-        return Ok(0);
+        return 0;
     }
     let mut x = n;
     let mut y = (x + 1) / 2;
@@ -165,5 +243,63 @@ fn integer_sqrt(n: u128) -> Result<u128> {
         x = y;
         y = (x + n / x) / 2;
     }
-    Ok(x)
+    x
+}
+
+/// Derive λ from current pool state (vault, σ, s_v)
+///
+/// λ is NOT stored; it's derived fresh each time from the invariant:
+/// vault_balance = λ × ||ŝ_v||
+///
+/// This ensures λ automatically adjusts to keep the invariant after trades/settlements.
+fn derive_lambda(vault: &Account<TokenAccount>, pool: &ContentPool) -> Result<u128> {
+    // 1. Compute virtual supplies with CEILING division to prevent zero
+    let s_long_virtual = if pool.s_long > 0 {
+        ceil_div(pool.s_long as u128 * Q64, pool.s_scale_long_q64).max(1)
+    } else {
+        0
+    };
+
+    let s_short_virtual = if pool.s_short > 0 {
+        ceil_div(pool.s_short as u128 * Q64, pool.s_scale_short_q64).max(1)
+    } else {
+        0
+    };
+
+    // 2. CRITICAL: Virtual supplies must fit u64 for curve
+    require!(
+        s_long_virtual <= u64::MAX as u128,
+        ContentPoolError::VirtualSupplyOverflow
+    );
+    require!(
+        s_short_virtual <= u64::MAX as u128,
+        ContentPoolError::VirtualSupplyOverflow
+    );
+
+    // 3. Compute norm: ||ŝ|| = sqrt(ŝ_L² + ŝ_S²)
+    let norm_sq = s_long_virtual
+        .checked_mul(s_long_virtual)
+        .and_then(|v| v.checked_add(s_short_virtual.checked_mul(s_short_virtual)?))
+        .ok_or(ContentPoolError::NumericalOverflow)?;
+    let norm = isqrt_u128(norm_sq).max(1); // min 1 to avoid div-by-zero
+
+    // 4. Derive λ using DIVISION-FIRST to avoid overflow
+    // Instead of: lambda_q96 = (vault * Q96) / norm  (can overflow at multiply)
+    // We do: lambda_q96 = (vault / norm) * Q96 + (vault % norm * Q96) / norm
+    let vault_balance = vault.amount;
+    let a = vault_balance as u128;
+    let d = norm;
+    let q = a / d;
+    let r = a % d;
+
+    let term1 = q.checked_mul(Q96)
+        .ok_or(ContentPoolError::NumericalOverflow)?;
+    let term2_num = r.checked_mul(Q96)
+        .ok_or(ContentPoolError::NumericalOverflow)?;
+    let term2 = term2_num / d;
+
+    let lambda_q96 = term1.checked_add(term2)
+        .ok_or(ContentPoolError::NumericalOverflow)?;
+
+    Ok(lambda_q96)
 }

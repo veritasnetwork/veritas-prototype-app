@@ -1,11 +1,10 @@
-//! View-only instruction: Returns current pool state with decay applied
+//! View-only instruction: Returns current pool state
 //!
 //! Does NOT mutate on-chain state - purely for reading current values.
 //! Used by: UI display, feed ranking, analytics
 
 use anchor_lang::prelude::*;
 use crate::content_pool::state::{ContentPool, Q32_ONE};
-use crate::content_pool::decay::calculate_decayed_reserves;
 use crate::content_pool::errors::ContentPoolError;
 
 #[derive(Accounts)]
@@ -18,8 +17,9 @@ pub fn handler(ctx: Context<GetCurrentState>) -> Result<CurrentPoolState> {
     let pool = &ctx.accounts.pool;
     let current_time = Clock::get()?.unix_timestamp;
 
-    // Calculate decayed reserves (does not mutate state)
-    let (r_long, r_short) = calculate_decayed_reserves(pool, current_time)?;
+    // Use actual reserves (no decay calculation)
+    let r_long = pool.r_long;
+    let r_short = pool.r_short;
 
     // Calculate total reserves
     let total = (r_long as u128)
@@ -62,19 +62,10 @@ pub fn handler(ctx: Context<GetCurrentState>) -> Result<CurrentPoolState> {
         1_000_000 // 1.0 USDC default
     };
 
-    // Calculate days expired
-    let days_expired = if current_time > pool.expiration_timestamp {
-        (current_time - pool.expiration_timestamp) / 86400
-    } else {
-        0
-    };
-
-    // Calculate days since last on-chain update
-    let days_since_last_update = (current_time - pool.last_decay_update) / 86400;
-
-    // Decay is pending if expired and at least 1 day since last update
-    let decay_pending = current_time > pool.expiration_timestamp &&
-                        days_since_last_update >= 1;
+    // Decay fields unused (kept for backward compatibility)
+    let days_expired = 0;
+    let days_since_last_update = 0;
+    let decay_pending = false;
 
     Ok(CurrentPoolState {
         r_long,

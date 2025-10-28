@@ -77,7 +77,7 @@ export function TiptapImageNode({ node, deleteNode, selected }: TiptapImageNodeP
         disabled={isDeleting}
         className={`absolute top-2 right-2 bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${
           selected ? 'opacity-100' : ''
-        } disabled:opacity-50 disabled:cursor-not-allowed shadow-lg`}
+        } disabled:opacity-50 disabled:cursor-default shadow-lg`}
         title="Delete image"
         type="button"
       >

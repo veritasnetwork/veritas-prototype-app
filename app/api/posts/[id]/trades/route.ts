@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { TradeHistoryResponseSchema } from '@/types/api';
-import { microToUsdc, asMicroUsdc } from '@/lib/units';
+import { microToUsdc, asMicroUsdc } from '@/lib/units'; // Only used for usdc_amount
 
 interface Trade {
   recorded_at: string;
@@ -120,6 +120,7 @@ export async function GET(
     });
 
     // Separate price series for LONG and SHORT tokens
+    // Prices are stored in USDC (display units) as per spec
     const priceLongData = validTrades.map((trade, index) => {
       const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
       const uniqueTime = baseTime + index * 0.001; // Add small offset for duplicates
@@ -161,17 +162,30 @@ export async function GET(
     const priceLongValues = priceLongData.map((d: { value: number }) => d.value);
     const priceShortValues = priceShortData.map((d: { value: number }) => d.value);
 
-    // Calculate volumes by side (convert micro-USDC to USDC using units library)
-    const totalVolume = trades.reduce((sum: number, trade: Trade) =>
-      sum + microToUsdc(asMicroUsdc(Math.round(parseFloat(trade.usdc_amount)))), 0);
+    // Calculate volumes by side
+    // usdc_amount is already stored in micro-USDC in the database, so just convert to display units
+    const totalVolume = trades.reduce((sum: number, trade: Trade) => {
+      const microAmount = parseFloat(trade.usdc_amount);
+      // Filter out clearly bad data (amounts less than 1 micro-USDC are likely errors)
+      if (microAmount < 1) return sum;
+      return sum + (microAmount / 1_000_000);
+    }, 0);
+
     const volumeLong = trades
       .filter((t: Trade) => t.side === 'LONG')
-      .reduce((sum: number, trade: Trade) =>
-        sum + microToUsdc(asMicroUsdc(Math.round(parseFloat(trade.usdc_amount)))), 0);
+      .reduce((sum: number, trade: Trade) => {
+        const microAmount = parseFloat(trade.usdc_amount);
+        if (microAmount < 1) return sum;
+        return sum + (microAmount / 1_000_000);
+      }, 0);
+
     const volumeShort = trades
       .filter((t: Trade) => t.side === 'SHORT')
-      .reduce((sum: number, trade: Trade) =>
-        sum + microToUsdc(asMicroUsdc(Math.round(parseFloat(trade.usdc_amount)))), 0);
+      .reduce((sum: number, trade: Trade) => {
+        const microAmount = parseFloat(trade.usdc_amount);
+        if (microAmount < 1) return sum;
+        return sum + (microAmount / 1_000_000);
+      }, 0);
 
     // LONG stats
     const highestPriceLong = priceLongValues.length > 0 ? Math.max(...priceLongValues) : 0;

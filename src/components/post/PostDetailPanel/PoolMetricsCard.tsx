@@ -17,22 +17,22 @@ interface PoolMetricsCardProps {
 
 /**
  * Format numbers with appropriate precision and suffixes
- * - Large numbers: k/m/b suffixes (1.23k, 1.23m, 1.23b)
+ * - Large numbers: k/m/b suffixes (1.2k, 1.2m, 1.2b) with 1 decimal
  * - Small numbers: More decimal places (0.000068)
  * - Tiny numbers: Scientific notation (6.8e-5)
  * @param value - The number to format
  * @param isPrice - If true, shows 2 decimals for normal values; if false, shows whole numbers
  */
 function formatCompactNumber(value: number, isPrice: boolean = false): string {
-  // Handle large numbers
+  // Handle large numbers with k/m/b suffixes
   if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(isPrice ? 2 : 0)}b`;
+    return `${(value / 1_000_000_000).toFixed(1)}b`;
   }
   if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(isPrice ? 2 : 0)}m`;
+    return `${(value / 1_000_000).toFixed(1)}m`;
   }
   if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(isPrice ? 2 : 0)}k`;
+    return `${(value / 1_000).toFixed(1)}k`;
   }
 
   // Handle tiny values with appropriate precision (only relevant for prices)
@@ -71,13 +71,42 @@ export function PoolMetricsCard({
   const { priceLong, priceShort, supplyLong, supplyShort, reserveBalance } = poolData;
 
   // Calculate side-specific market caps
-  const marketCapLong = supplyLong * priceLong;
-  const marketCapShort = supplyShort * priceShort;
+  // Note: When supply is 0, price calculation may be undefined/zero but market cap should be 0
+  const marketCapLong = (supplyLong > 0 && priceLong > 0) ? supplyLong * priceLong : 0;
+  const marketCapShort = (supplyShort > 0 && priceShort > 0) ? supplyShort * priceShort : 0;
 
-  // Split reserves proportionally by market cap
+  // Calculate reserves based on ICBS virtual reserves (r = s × p)
+  // When both supplies are 0, pool has no tokens and reserves should be 0
+  // When only one supply is 0, that side has no reserves
   const totalMarketCap = marketCapLong + marketCapShort;
-  const reserveLong = totalMarketCap > 0 ? (reserveBalance * marketCapLong) / totalMarketCap : reserveBalance / 2;
-  const reserveShort = totalMarketCap > 0 ? (reserveBalance * marketCapShort) / totalMarketCap : reserveBalance / 2;
+  let reserveLong = 0;
+  let reserveShort = 0;
+
+  if (totalMarketCap > 0) {
+    // Normal case: distribute vault balance proportionally to market caps
+    reserveLong = (reserveBalance * marketCapLong) / totalMarketCap;
+    reserveShort = (reserveBalance * marketCapShort) / totalMarketCap;
+  } else if (supplyLong === 0 && supplyShort === 0) {
+    // Both supplies are 0: no reserves (pool is empty)
+    reserveLong = 0;
+    reserveShort = 0;
+  } else {
+    // Edge case: shouldn't happen in practice but split equally as fallback
+    reserveLong = reserveBalance / 2;
+    reserveShort = reserveBalance / 2;
+  }
+
+  // Debug logging
+  console.log('[PoolMetricsCard] Reserve calculation:', {
+    reserveBalance,
+    marketCapLong,
+    marketCapShort,
+    totalMarketCap,
+    reserveLong,
+    reserveShort,
+    side,
+    sideReserve: side === 'LONG' ? reserveLong : reserveShort,
+  });
 
   // Get stats values (with fallbacks)
   const priceChangeLong24h = stats?.priceChangePercentLong24h;
@@ -113,10 +142,10 @@ export function PoolMetricsCard({
         {priceChangePercent24h !== undefined && priceChangePercent24h !== 0 && (
           <div className={`px-1.5 py-0.5 rounded text-xs font-medium tabular-nums shrink-0 ${
             priceChangePercent24h > 0
-              ? 'bg-green-500/20 text-green-400'
-              : 'bg-red-500/20 text-red-400'
+              ? 'bg-[#B9D9EB]/20 text-[#B9D9EB]'
+              : 'bg-orange-400/20 text-orange-400'
           }`}>
-            {priceChangePercent24h >= 0 ? '+' : ''}{priceChangePercent24h.toFixed(1)}%
+            {priceChangePercent24h >= 0 ? '+' : ''}{Math.round(priceChangePercent24h)}%
           </div>
         )}
 
@@ -126,7 +155,7 @@ export function PoolMetricsCard({
         {/* Market Cap */}
         <div className="flex items-baseline gap-1.5 shrink-0">
           <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Mkt</span>
-          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(marketCap, true)}</p>
+          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(marketCap)}</p>
         </div>
 
         {/* Supply */}
@@ -138,7 +167,7 @@ export function PoolMetricsCard({
         {/* Reserve */}
         <div className="flex items-baseline gap-1.5 shrink-0">
           <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Reserve</span>
-          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve, true)}</p>
+          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve)}</p>
         </div>
 
         {/* Volume (if available) */}
@@ -147,57 +176,66 @@ export function PoolMetricsCard({
             <div className="h-8 w-px bg-[#2a2a2a] shrink-0 mx-1.5" />
             <div className="flex items-baseline gap-1.5 shrink-0">
               <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Vol</span>
-              <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(totalVolume, true)}</p>
+              <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(totalVolume)}</p>
             </div>
           </>
         )}
       </div>
 
-      {/* Mobile: Grid layout (2 columns) */}
-      <div className="md:hidden grid grid-cols-2 gap-3">
-        {/* Price + Change */}
-        <div className="col-span-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* Side Indicator Dot */}
-            <div className={`w-2 h-2 rounded-full ${side === 'LONG' ? 'bg-[#B9D9EB]' : 'bg-orange-400'}`} />
-            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Price</span>
-            <p className="text-base font-semibold text-white tabular-nums">${currentPrice.toFixed(4)}</p>
-          </div>
-          {priceChangePercent24h !== undefined && priceChangePercent24h !== 0 && (
-            <div className={`px-2 py-1 rounded text-xs font-medium ${
-              priceChangePercent24h > 0
-                ? 'bg-green-500/20 text-green-400'
-                : 'bg-red-500/20 text-red-400'
-            }`}>
-              {priceChangePercent24h >= 0 ? '+' : ''}{priceChangePercent24h.toFixed(2)}%
-            </div>
-          )}
+      {/* Mobile: Horizontal scrollable layout */}
+      <div className="md:hidden flex items-center gap-3 overflow-x-auto">
+        {/* Side Indicator Dot */}
+        <div className="shrink-0">
+          <div className={`w-2 h-2 rounded-full ${side === 'LONG' ? 'bg-[#B9D9EB]' : 'bg-orange-400'}`} />
         </div>
 
+        {/* Price */}
+        <div className="flex items-baseline gap-1 shrink-0">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide">Price</span>
+          <p className="text-sm font-semibold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
+        </div>
+
+        {/* 24h Change (only if available) */}
+        {priceChangePercent24h !== undefined && priceChangePercent24h !== 0 && (
+          <div className={`px-1.5 py-0.5 rounded text-xs font-medium tabular-nums shrink-0 ${
+            priceChangePercent24h > 0
+              ? 'bg-[#B9D9EB]/20 text-[#B9D9EB]'
+              : 'bg-orange-400/20 text-orange-400'
+          }`}>
+            {priceChangePercent24h >= 0 ? '+' : ''}{Math.round(priceChangePercent24h)}%
+          </div>
+        )}
+
+        {/* Divider */}
+        <div className="h-6 w-px bg-[#2a2a2a] shrink-0" />
+
         {/* Market Cap */}
-        <div>
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Mkt Cap</span>
-          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(marketCap, true)}</p>
+        <div className="flex items-baseline gap-1 shrink-0">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Mkt</span>
+          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(marketCap)}</p>
         </div>
 
         {/* Supply */}
-        <div>
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Supply</span>
+        <div className="flex items-baseline gap-1 shrink-0">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Supply</span>
           <p className="text-sm font-semibold text-white tabular-nums">{formatCompactNumber(totalSupply)}</p>
         </div>
 
         {/* Reserve */}
-        <div>
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Reserve</span>
-          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve, true)}</p>
+        <div className="flex items-baseline gap-1 shrink-0">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Reserve</span>
+          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve)}</p>
         </div>
 
         {/* Volume (if available) */}
         {totalVolume !== undefined && (
-          <div>
-            <span className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">24h Vol</span>
-            <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(totalVolume, true)}</p>
-          </div>
+          <>
+            <div className="h-6 w-px bg-[#2a2a2a] shrink-0" />
+            <div className="flex items-baseline gap-1 shrink-0">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Vol</span>
+              <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(totalVolume)}</p>
+            </div>
+          </>
         )}
       </div>
     </div>

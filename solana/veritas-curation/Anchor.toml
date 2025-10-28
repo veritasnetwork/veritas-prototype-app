@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-veritas_curation = "EXJvhoCsYc4tntxffGJhCyTzv6e2EDp9gqiFK17qhC4v"
+veritas_curation = "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
 
 [registry]
 url = "https://api.apr.dev"
@@ -16,4 +16,4 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/*.test.ts"
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/content-pool-icbs.test.ts tests/pool-factory-icbs.test.ts tests/fee-calculation.test.ts tests/fee-config.test.ts tests/trade-fees.test.ts tests/upgrade-authority-prototype.test.ts tests/debug-lambda-calc.test.ts"

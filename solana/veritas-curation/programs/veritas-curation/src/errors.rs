@@ -58,4 +58,10 @@ pub enum ErrorCode {
 
     #[msg("System paused")]
     SystemPaused, // 503
+
+    #[msg("Invalid program data account")]
+    InvalidProgramData,
+
+    #[msg("Invalid upgrade authority")]
+    InvalidUpgradeAuthority,
 }

@@ -40,8 +40,10 @@ function extractPlainTextFromTiptap(doc: TiptapDoc): string {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[POST /api/posts/create] Starting post creation...');
     const authHeader = request.headers.get('Authorization');
     const privyUserId = await verifyAuthHeader(authHeader);
+    console.log('[POST /api/posts/create] Auth verified:', privyUserId);
 
     if (!privyUserId) {
       return NextResponse.json(
@@ -55,7 +57,6 @@ export async function POST(request: NextRequest) {
       const { success, headers } = await checkRateLimit(privyUserId, rateLimiters.postCreate);
 
       if (!success) {
-        console.log('[/api/posts/create] Rate limit exceeded for user:', privyUserId);
         return NextResponse.json(
           {
             error: 'Rate limit exceeded. You can create up to 10 posts per hour.',
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
       caption,
       article_title,
       cover_image_url,
+      image_display_mode,
       initial_belief,
       meta_belief,
       tx_signature,
@@ -94,6 +96,7 @@ export async function POST(request: NextRequest) {
 
     // Generate post_id server-side
     const post_id = crypto.randomUUID();
+    console.log('[POST /api/posts/create] Generated post_id:', post_id);
 
     // Validate post_type
     const validPostTypes = ['text', 'image', 'video'];
@@ -189,12 +192,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (beliefError) {
-      console.error('Failed to create belief:', beliefError);
+      console.error('[POST /api/posts/create] Failed to create belief:', beliefError);
       return NextResponse.json(
         { error: 'Failed to create belief', details: beliefError.message },
         { status: 500 }
       );
     }
+
+    console.log('[POST /api/posts/create] Belief created successfully:', belief.id);
 
     // Extract plain text from content for search/display
     let content_text = null;
@@ -217,13 +222,14 @@ export async function POST(request: NextRequest) {
         content_text: content_text,
         article_title: article_title || null,
         cover_image_url: cover_image_url || null,
+        image_display_mode: image_display_mode || null,
         belief_id: post_id, // Use same ID for linked belief
       })
       .select()
       .single();
 
     if (postError) {
-      console.error('Failed to create post:', postError);
+      console.error('[POST /api/posts/create] Failed to create post:', postError);
       // Rollback belief
       await supabase.from('beliefs').delete().eq('id', post_id);
       return NextResponse.json(
@@ -231,6 +237,8 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    console.log('[POST /api/posts/create] Post created successfully:', post.id);
 
     // Submit initial belief and store pool deployment in parallel
     const optionalInserts = [];
@@ -281,6 +289,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    console.log('[POST /api/posts/create] Returning success response:', { post_id: post.id, belief_id: belief.id });
     return NextResponse.json({
       success: true,
       post_id: post.id,
@@ -288,7 +297,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Create post error:', error);
+    console.error('[POST /api/posts/create] Create post error:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

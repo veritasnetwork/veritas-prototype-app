@@ -1,34 +1,33 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
 import { useEagerWalletConnect } from '@/hooks/useEagerWalletConnect';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { PostCard } from './PostCard';
 import { usePosts } from '@/hooks/api/usePosts';
 import { NavigationHeader } from '@/components/layout/NavigationHeader';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { CreatePostModal } from '@/components/post/CreatePostModal';
-import { PostDetailContent } from '@/components/post/PostDetailPanel/PostDetailContent';
-import { TradingChartCard } from '@/components/post/PostDetailPanel/TradingChartCard';
-import { PoolMetricsCard } from '@/components/post/PostDetailPanel/PoolMetricsCard';
-import { BeliefScoreCard } from '@/components/post/PostDetailPanel/BeliefScoreCard';
-import { UnifiedSwapComponent } from '@/components/post/PostDetailPanel/UnifiedSwapComponent';
-import { DeployPoolCard } from '@/components/post/PostDetailPanel/DeployPoolCard';
+import { TradingPanel } from '@/components/post/TradingPanel';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
+import { HowItWorksModal } from '@/components/auth/HowItWorksModal';
 import { usePoolData } from '@/hooks/usePoolData';
 import { useTradeHistory } from '@/hooks/api/useTradeHistory';
 import { PostsService } from '@/services/posts.service';
 import type { Post } from '@/types/post.types';
+import { shouldNavigateToArticlePage } from '@/types/post.types';
 import { poolDataService } from '@/services/PoolDataService';
 
-const POLL_INTERVAL = 20000; // 20 seconds
-
 export function Feed() {
+  const router = useRouter();
   const { authenticated, ready, login, user: privyUser } = usePrivy();
   const { needsOnboarding, isLoading: authLoading } = useAuth();
+  const { requireAuth } = useRequireAuth();
 
   // Automatically attempt to reconnect previously linked wallets
   useEagerWalletConnect();
@@ -37,12 +36,11 @@ export function Feed() {
   const { wallet: solanaWallet, isLoading: walletLoading } = useSolanaWallet();
   const { posts, loading, error, refetch, loadMore, hasMore, loadingMore, updatePost } = usePosts();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isHowItWorksModalOpen, setIsHowItWorksModalOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const [showAuthPopup, setShowAuthPopup] = useState(false);
   const [selectedSide, setSelectedSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [isClosing, setIsClosing] = useState(false);
   const [viewMode, setViewMode] = useState<'read' | 'trade'>('trade');
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastSelectedPostIdRef = useRef<string | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
@@ -87,30 +85,15 @@ export function Feed() {
     if (viewMode === 'trade' && !selectedPostId && posts.length > 0 && !loading) {
       setSelectedPostId(posts[0].id);
     }
-  }, [posts, loading, viewMode, selectedPostId]);
+  }, [posts, loading, viewMode]); // Removed selectedPostId from deps to prevent infinite loop
 
-  // Show auth popup if not authenticated OR no Solana wallet connected
-  useEffect(() => {
-    if (!ready) return;
-
-    // Check both authentication AND Solana wallet connection
-    const hasSolanaWallet = privyUser?.linkedAccounts?.some(
-      (account: any) => account.type === 'wallet' && account.chainType === 'solana'
-    );
-
-    console.log('[Feed] Auth check:', {
-      ready,
-      authenticated,
-      privyUser: !!privyUser,
-      linkedAccounts: privyUser?.linkedAccounts?.length,
-      hasSolanaWallet,
-      solanaWallet: !!solanaWallet,
-      walletLoading,
-    });
-
-    const needsAuth = !authenticated || !hasSolanaWallet;
-    setShowAuthPopup(needsAuth);
-  }, [ready, authenticated, privyUser, solanaWallet, walletLoading]);
+  // Handle create post click - check auth first
+  const handleCreatePost = async () => {
+    const isAuthed = await requireAuth();
+    if (isAuthed) {
+      setIsCreateModalOpen(true);
+    }
+  };
 
   // Helper to subscribe/unsubscribe pool data based on visibility
   const subscribeToPool = useCallback((postId: string) => {
@@ -235,55 +218,50 @@ export function Feed() {
     };
   }, [hasMore, loadingMore, loading, loadMore, posts.length]); // Re-run when posts length changes
 
-  // Polling for selected post metrics
-  useEffect(() => {
-    // Clear existing interval
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-
-    // Only poll if we have a selected post
-    if (selectedPostId) {
-      const pollSelectedPost = async () => {
-        try {
-          const metrics = await PostsService.fetchSinglePostMetrics(selectedPostId);
-          if (metrics) {
-            // Update in the feed list
-            updatePost(selectedPostId, metrics);
-          }
-        } catch (err) {
-          console.warn('[Feed] Polling error for selected post:', err);
-        }
-      };
-
-      // Start polling
-      pollIntervalRef.current = setInterval(pollSelectedPost, POLL_INTERVAL);
-    }
-
-    // Cleanup on unmount or when selection changes
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
-    };
-  }, [selectedPostId, updatePost]);
-
   const handlePostClick = (postId: string) => {
+    console.log('[Feed] handlePostClick called with:', postId, 'viewMode:', viewMode);
+
+    const post = posts.find(p => p.id === postId);
+    if (!post) {
+      console.warn('[Feed] Post not found:', postId);
+      return;
+    }
+
+    // Check if we're on mobile (< 1024px)
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+
+    // On mobile: Always navigate to dedicated post page
+    if (isMobile) {
+      // Articles with substantial text navigate to read mode for better reading experience
+      const mode = shouldNavigateToArticlePage(post) ? 'read' : 'trade';
+      console.log(`[Feed] Mobile - navigating to ${mode} mode:`, `/post/${postId}?mode=${mode}`);
+
+      // Store post data in sessionStorage for instant loading
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(`post_${postId}`, JSON.stringify(post));
+      }
+      router.push(`/post/${postId}?mode=${mode}`);
+      return;
+    }
+
+    // Desktop behavior below this point
+
     // In read mode, navigate to the post page in trade mode
     if (viewMode === 'read') {
-      window.location.href = `/post/${postId}?mode=trade`;
+      console.log('[Feed] Read mode - navigating to:', `/post/${postId}?mode=trade`);
+      router.push(`/post/${postId}?mode=trade`);
       return;
     }
 
     // In trade mode, show the detail panel (no toggle - always show details)
     if (selectedPostId === postId) {
       // Clicking the same post in trade mode does nothing
+      console.log('[Feed] Same post already selected, ignoring');
       return;
     }
 
     // Select the new post
+    console.log('[Feed] Selecting new post:', postId);
     setIsClosing(false);
     setSelectedPostId(postId);
 
@@ -359,45 +337,6 @@ export function Feed() {
     );
   }
 
-  // Show auth popup first if needed (blocks everything)
-  // IMPORTANT: Check auth BEFORE onboarding to prevent showing onboarding before wallet connection
-  // Return early - don't render feed content until authenticated with wallet
-  if (showAuthPopup) {
-    return (
-      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-8 max-w-md mx-4 shadow-2xl">
-          <div className="flex flex-col items-center gap-6 mb-6">
-            <div className="flex items-center gap-3">
-              <img
-                src="/icons/logo.png"
-                alt="Veritas Logo"
-                className="w-10 h-10"
-              />
-              <h2 className="text-[#F0EAD6] text-2xl font-bold font-mono">VERITAS</h2>
-            </div>
-            <p className="text-gray-400 text-center text-sm">
-              Connect your wallet to access the feed and start trading
-            </p>
-
-            <button
-              onClick={() => login()}
-              disabled={!ready}
-              className="w-full bg-[#B9D9EB] hover:bg-[#0C1D51] text-[#0C1D51] hover:text-[#B9D9EB] border border-[#0C1D51] font-medium py-3 px-6 rounded-lg font-mono disabled:opacity-50 transition-all duration-300 ease-in-out"
-            >
-              CONNECT WALLET & SIGN IN
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show onboarding modal ONLY if authenticated AND needs onboarding AND auth status loaded
-  // This ensures user has connected wallet before seeing onboarding, and we've checked their profile
-  if (authenticated && needsOnboarding && !authLoading) {
-    return <OnboardingModal isOpen={true} />;
-  }
-
   // Still loading auth status - show loading screen
   if (authenticated && authLoading) {
     return (
@@ -453,7 +392,7 @@ export function Feed() {
         <div className="text-center max-w-md mx-auto px-6">
           <div className="mb-6">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-900/20 flex items-center justify-center">
-              <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
@@ -477,25 +416,21 @@ export function Feed() {
 
   return (
     <div className="bg-[#0f0f0f] min-h-screen">
-      {/* Mobile Header (shown on <1024px) */}
-      <div className="lg:hidden">
-        <NavigationHeader />
-      </div>
-
       {/* Desktop Sidebar (shown on >=1024px) */}
       <Sidebar
-        onCreatePost={() => setIsCreateModalOpen(true)}
+        onCreatePost={handleCreatePost}
         isCompact={viewMode === 'trade' && !!selectedPostId}
         viewMode={viewMode}
         onViewModeChange={handleViewModeChange}
+        onHowItWorks={() => setIsHowItWorksModalOpen(true)}
       />
 
       {/* Main Content Area */}
       <div className={`min-h-screen bg-[#0f0f0f] pb-20 lg:pb-0 transition-[margin-left] duration-1000 ease-in-out ${viewMode === 'trade' && selectedPostId ? 'lg:ml-28' : 'lg:ml-64'}`}>
-        <div className={`mx-auto py-8 bg-[#0f0f0f] transition-[max-width,padding] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${viewMode === 'trade' && selectedPostId ? 'lg:max-w-[1400px] lg:px-4' : 'max-w-[680px] px-6'}`}>
+        <div className={`mx-auto py-8 bg-[#0f0f0f] transition-[max-width,padding] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${viewMode === 'trade' && selectedPostId ? 'lg:max-w-[1400px] lg:px-4' : 'max-w-[750px] px-4 lg:px-6'}`}>
           <div className={`flex flex-col lg:flex-row bg-[#0f0f0f] ${viewMode === 'trade' && selectedPostId ? 'lg:gap-12' : ''} ${viewMode === 'trade' && selectedPostId ? 'lg:items-start lg:h-[calc(100vh-4rem)]' : ''}`}>
             {/* Posts Column */}
-            <div className={`flex flex-col gap-8 w-full lg:w-[680px] lg:flex-shrink-0 bg-[#0f0f0f] ${viewMode === 'trade' && selectedPostId ? 'lg:h-full lg:overflow-y-auto scrollbar-hide lg:pb-8' : ''}`}>
+            <div className={`flex flex-col w-full lg:w-[680px] lg:flex-shrink-0 bg-[#0f0f0f] lg:gap-8 ${viewMode === 'trade' && selectedPostId ? 'lg:h-full lg:overflow-y-auto scrollbar-hide lg:pb-8' : ''}`}>
               {posts.map((post, index) => (
                 <div
                   key={post.id}
@@ -507,6 +442,7 @@ export function Feed() {
                       visibilityObserverRef.current.observe(el);
                     }
                   }}
+                  className="border-b border-[#2a2a2a] lg:border-0 py-4 px-4 lg:py-0 lg:mb-0"
                 >
                   <PostCard
                     post={post}
@@ -532,172 +468,29 @@ export function Feed() {
             </div>
 
             {/* Detail Cards Column - appears on right side on desktop, modal on mobile */}
-            {viewMode === 'trade' && (selectedPostId || isClosing) && (
+            {viewMode === 'trade' && (selectedPostId || isClosing) && currentPost && (
               <div className={`hidden lg:block lg:min-w-[600px] lg:max-w-[600px] lg:h-full lg:overflow-y-auto scrollbar-hide bg-[#0f0f0f] ${isClosing ? 'animate-[slideOutRightFade_1000ms_cubic-bezier(0.16,1,0.3,1)]' : 'animate-[slideInRight_1000ms_cubic-bezier(0.16,1,0.3,1)]'}`}>
-                <div className="space-y-4">
-                  {/* Deploy Pool Card - Show if no pool exists */}
-                  {!currentPost?.poolAddress && (
-                    <DeployPoolCard
-                      postId={selectedPostId}
-                      onDeploySuccess={handleTradeSuccess}
-                    />
-                  )}
-
-                  {/* Trading Chart Card - Show if pool exists */}
-                  {currentPost?.poolAddress && (
-                    <TradingChartCard postId={selectedPostId} />
-                  )}
-
-                  {/* Pool Metrics Card - Show if pool exists */}
-                  {currentPost?.poolAddress && (
-                    poolData ? (
-                      <PoolMetricsCard
-                        poolData={poolData}
-                        stats={tradeHistory?.stats}
-                        side={selectedSide}
-                      />
-                    ) : (
-                      <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
-                        <div className="flex items-center justify-center py-12">
-                          <div className="flex flex-col items-center gap-3">
-                            <div className="w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
-                            <span className="text-sm text-gray-400">Loading pool data...</span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  )}
-
-                  {/* Swap Card - Show if pool exists */}
-                  {currentPost?.poolAddress && (
-                    poolData ? (
-                      <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
-                        <UnifiedSwapComponent
-                          poolAddress={currentPost.poolAddress}
-                          postId={currentPost.id}
-                          priceLong={poolData.priceLong}
-                          priceShort={poolData.priceShort}
-                          supplyLong={poolData.supplyLong}
-                          supplyShort={poolData.supplyShort}
-                          f={poolData.f}
-                          betaNum={poolData.betaNum}
-                          betaDen={poolData.betaDen}
-                          selectedSide={selectedSide}
-                          onSideChange={setSelectedSide}
-                          onTradeSuccess={handleTradeSuccess}
-                        />
-                      </div>
-                    ) : (
-                      <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
-                        <div className="flex items-center justify-center py-12">
-                          <div className="flex flex-col items-center gap-3">
-                            <div className="w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
-                            <span className="text-sm text-gray-400">Loading trading interface...</span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
+                <TradingPanel
+                  postId={currentPost.id}
+                  poolAddress={currentPost.poolAddress}
+                  poolData={poolData}
+                  tradeStats={tradeHistory?.stats}
+                  selectedSide={selectedSide}
+                  onSideChange={setSelectedSide}
+                  onTradeSuccess={handleTradeSuccess}
+                />
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Mobile Detail Modal (shown on <1024px when post selected) */}
-      {selectedPostId && (
-        <div className={`lg:hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-sm overflow-y-auto ${isClosing ? 'animate-[slideOutRightFade_1000ms_cubic-bezier(0.16,1,0.3,1)]' : 'animate-[slideInRight_1000ms_cubic-bezier(0.16,1,0.3,1)]'}`}>
-          <div className="min-h-screen pb-20">
-            {/* Header */}
-            <div className="sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a] px-4 py-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-white font-semibold">Trading Details</h2>
-                <button
-                  onClick={() => {
-                    setSelectedPostId(null);
-                  }}
-                  className="p-2 hover:bg-[#2a2a2a] rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="px-4 py-6 space-y-4">
-              {/* Deploy Pool Card - Show if no pool exists */}
-              {!currentPost?.poolAddress && (
-                <DeployPoolCard
-                  postId={selectedPostId}
-                  onDeploySuccess={handleTradeSuccess}
-                />
-              )}
-
-              {/* Trading Chart Card - Show if pool exists */}
-              {currentPost?.poolAddress && (
-                <TradingChartCard postId={selectedPostId} />
-              )}
-
-              {/* Pool Metrics Card - Show if pool exists */}
-              {currentPost?.poolAddress && (
-                poolData ? (
-                  <PoolMetricsCard
-                    poolData={poolData}
-                    stats={tradeHistory?.stats}
-                    side={selectedSide}
-                  />
-                ) : (
-                  <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
-                    <div className="flex items-center justify-center py-12">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-sm text-gray-400">Loading pool data...</span>
-                      </div>
-                    </div>
-                  </div>
-                )
-              )}
-
-              {/* Swap Card - Show if pool exists */}
-              {currentPost?.poolAddress && (
-                poolData ? (
-                  <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
-                    <UnifiedSwapComponent
-                      poolAddress={currentPost.poolAddress}
-                      postId={currentPost.id}
-                    priceLong={poolData.priceLong}
-                    priceShort={poolData.priceShort}
-                    supplyLong={poolData.supplyLong}
-                    supplyShort={poolData.supplyShort}
-                    f={poolData.f}
-                    betaNum={poolData.betaNum}
-                    betaDen={poolData.betaDen}
-                    selectedSide={selectedSide}
-                    onSideChange={setSelectedSide}
-                    onTradeSuccess={handleTradeSuccess}
-                  />
-                </div>
-                ) : (
-                  <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
-                    <div className="flex items-center justify-center py-12">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-sm text-gray-400">Loading trading interface...</span>
-                      </div>
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Mobile Detail Modal - NOT SHOWN ON MOBILE
+          On mobile, we navigate to dedicated pages instead of showing modals
+          This modal is kept for compatibility but should never appear on mobile */}
 
       {/* Mobile Bottom Navigation (shown on <1024px) */}
-      <MobileNav onCreatePost={() => setIsCreateModalOpen(true)} />
+      <MobileNav onCreatePost={handleCreatePost} />
 
       {/* Create Post Modal */}
       <CreatePostModal
@@ -705,6 +498,17 @@ export function Feed() {
         onClose={() => setIsCreateModalOpen(false)}
         onPostCreated={refetch}
       />
+
+      {/* How It Works Modal */}
+      <HowItWorksModal
+        isOpen={isHowItWorksModalOpen}
+        onClose={() => setIsHowItWorksModalOpen(false)}
+      />
+
+      {/* Onboarding Modal - Show on top of feed if user needs onboarding */}
+      {authenticated && needsOnboarding && !authLoading && (
+        <OnboardingModal isOpen={true} />
+      )}
     </div>
   );
 }

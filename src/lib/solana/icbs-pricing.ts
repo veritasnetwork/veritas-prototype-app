@@ -39,42 +39,38 @@ export function calculateICBSPrice(
   sShort: number,
   side: TokenSide,
   lambdaScale: number = 1.0,
-  f: number = 1,  // FIXED: Changed from 3 to 1 to match Rust implementation
+  f: number = 1,  // FIXED: Must be 1 to match on-chain implementation
   betaNum: number = 1,
   betaDen: number = 2
 ): number {
+  // For F=1 and β=0.5, the ICBS formula simplifies to:
+  // p_L = λ × s_L / ||s||
+  // p_S = λ × s_S / ||s||
+  // where ||s|| = sqrt(s_L² + s_S²)
+
+  // Validate that we're using the simplified parameters
+  if (f !== 1 || betaNum !== 1 || betaDen !== 2) {
+    console.warn('ICBS price calculation expects F=1, β=0.5 for simplified formula');
+  }
+
   // Get the supply for the requested side
   const s = side === TokenSide.Long ? sLong : sShort;
 
-  // Handle edge case of zero supply
-  if (s === 0) {
-    return lambdaScale; // Minimum price
+  // Handle edge case of zero or near-zero supplies
+  if (sLong <= 0.000001 && sShort <= 0.000001) {
+    return lambdaScale; // Initial price when both supplies are essentially zero
   }
 
-  // Use display units directly (already converted from API)
-  const sLongDisplay = sLong;
-  const sShortDisplay = sShort;
-  const sDisplay = s;
+  // Calculate L2 norm: ||s|| = sqrt(s_L² + s_S²)
+  const norm = Math.sqrt(sLong * sLong + sShort * sShort);
 
-  // Calculate F/β
-  const fOverBeta = (f * betaDen) / betaNum;
+  // Handle edge case where norm is zero (shouldn't happen with check above)
+  if (norm === 0) {
+    return lambdaScale;
+  }
 
-  // Calculate s^(F/β - 1)
-  const sPower = Math.pow(sDisplay, fOverBeta - 1);
-
-  // Calculate s_L^(F/β) + s_S^(F/β)
-  const sLongPow = Math.pow(sLongDisplay, fOverBeta);
-  const sShortPow = Math.pow(sShortDisplay, fOverBeta);
-  const sumPow = sLongPow + sShortPow;
-
-  // Calculate β (as a decimal)
-  const beta = betaNum / betaDen;
-
-  // Calculate (s_L^(F/β) + s_S^(F/β))^(β - 1)
-  const sumPower = Math.pow(sumPow, beta - 1);
-
-  // Calculate final price: λ × F × s^(F/β - 1) × (sum)^(β - 1)
-  const price = lambdaScale * f * sPower * sumPower;
+  // Calculate simplified price: p = λ × s / ||s||
+  const price = lambdaScale * s / norm;
 
   return price;
 }
@@ -140,7 +136,8 @@ export function calculateMarketPrediction(
 }
 
 /**
- * Estimate tokens received for a given USDC amount (buy trade)
+ * Estimate tokens received for a given USDC amount (buy trade) using cost function
+ * This matches the on-chain calculate_buy implementation
  */
 export function estimateTokensOut(
   currentSupply: number,
@@ -152,58 +149,69 @@ export function estimateTokensOut(
   betaNum: number = 1,
   betaDen: number = 2
 ): number {
-  // Binary search for the amount of tokens that costs approximately usdcIn
-  let low = 0;
-  let high = usdcIn * 100; // Upper bound estimate
-  let result = 0;
-
-  const tolerance = 0.01; // 1 cent tolerance
-
-  while (low <= high) {
-    const mid = (low + high) / 2;
-
-    // Calculate average price for this trade (supply is already in display units)
-    const newSupply = currentSupply + mid;
-
-    const priceBefore = calculateICBSPrice(
-      side === TokenSide.Long ? currentSupply : otherSupply,
-      side === TokenSide.Long ? otherSupply : currentSupply,
-      side,
-      lambdaScale,
-      f,
-      betaNum,
-      betaDen
-    );
-
-    const priceAfter = calculateICBSPrice(
-      side === TokenSide.Long ? newSupply : otherSupply,
-      side === TokenSide.Long ? otherSupply : newSupply,
-      side,
-      lambdaScale,
-      f,
-      betaNum,
-      betaDen
-    );
-
-    // Use average price for cost estimation
-    const avgPrice = (priceBefore + priceAfter) / 2;
-    const cost = avgPrice * mid;
-
-    if (Math.abs(cost - usdcIn) < tolerance) {
-      return mid;
-    } else if (cost < usdcIn) {
-      result = mid;
-      low = mid + 0.001; // Increment by small amount for precision
-    } else {
-      high = mid - 0.001;
-    }
+  // Validate parameters
+  if (f !== 1 || betaNum !== 1 || betaDen !== 2) {
+    console.warn('ICBS only supports F=1, β=0.5');
   }
 
-  return result;
+  // Determine current supplies based on side
+  const [sLongBefore, sShortBefore] = side === TokenSide.Long
+    ? [currentSupply, otherSupply]
+    : [otherSupply, currentSupply];
+
+  // Calculate current cost: C_before = λ × sqrt(s_L² + s_S²)
+  const costBefore = calculateCost(sLongBefore, sShortBefore, lambdaScale);
+
+  // After buying, cost increases by usdcIn: C_after = C_before + usdcIn
+  const costAfter = costBefore + usdcIn;
+
+  // From C_after = λ × sqrt(s_L_after² + s_S_after²), solve for new supply
+  // norm_after = C_after / λ
+  const normAfter = costAfter / lambdaScale;
+
+  // norm_after² = s_L_after² + s_S_after²
+  // For buying LONG: norm_after² = (s_L + Δs)² + s_S²
+  // For buying SHORT: norm_after² = s_L² + (s_S + Δs)²
+  const normAfterSq = normAfter * normAfter;
+  const otherSupplySq = otherSupply * otherSupply;
+
+  // Solve for new supply squared
+  const newSupplySq = normAfterSq - otherSupplySq;
+
+  // Safety check: ensure we're not taking sqrt of negative
+  if (newSupplySq < 0) {
+    console.warn('Invalid calculation: negative supply squared');
+    return 0;
+  }
+
+  // Calculate new supply
+  const newSupply = Math.sqrt(newSupplySq);
+
+  // Tokens received = new supply - current supply
+  const tokensOut = Math.max(0, newSupply - currentSupply);
+
+  return tokensOut;
 }
 
 /**
- * Estimate USDC received for selling tokens
+ * Cost function for ICBS: C = λ × sqrt(s_L² + s_S²)
+ * This matches the on-chain implementation for F=1, β=0.5
+ */
+function calculateCost(
+  sLong: number,
+  sShort: number,
+  lambda: number = 1.0
+): number {
+  // Calculate L2 norm: sqrt(s_L² + s_S²)
+  const norm = Math.sqrt(sLong * sLong + sShort * sShort);
+
+  // Cost = λ × norm
+  return lambda * norm;
+}
+
+/**
+ * Estimate USDC received for selling tokens using cost function approach
+ * This matches the on-chain calculate_sell implementation
  */
 export function estimateUsdcOut(
   currentSupply: number,
@@ -215,30 +223,29 @@ export function estimateUsdcOut(
   betaNum: number = 1,
   betaDen: number = 2
 ): number {
-  // Calculate new supply after selling (supply is already in display units)
+  // Validate parameters
+  if (f !== 1 || betaNum !== 1 || betaDen !== 2) {
+    console.warn('ICBS only supports F=1, β=0.5');
+  }
+
+  // Calculate new supply after selling
   const newSupply = Math.max(0, currentSupply - tokensIn);
 
-  // Calculate average price
-  const priceBefore = calculateICBSPrice(
-    side === TokenSide.Long ? currentSupply : otherSupply,
-    side === TokenSide.Long ? otherSupply : currentSupply,
-    side,
-    lambdaScale,
-    f,
-    betaNum,
-    betaDen
-  );
+  // Determine supplies before and after based on side
+  const [sLongBefore, sShortBefore] = side === TokenSide.Long
+    ? [currentSupply, otherSupply]
+    : [otherSupply, currentSupply];
 
-  const priceAfter = calculateICBSPrice(
-    side === TokenSide.Long ? newSupply : otherSupply,
-    side === TokenSide.Long ? otherSupply : newSupply,
-    side,
-    lambdaScale,
-    f,
-    betaNum,
-    betaDen
-  );
+  const [sLongAfter, sShortAfter] = side === TokenSide.Long
+    ? [newSupply, otherSupply]
+    : [otherSupply, newSupply];
 
-  const avgPrice = (priceBefore + priceAfter) / 2;
-  return avgPrice * tokensIn;
+  // Calculate costs before and after
+  const costBefore = calculateCost(sLongBefore, sShortBefore, lambdaScale);
+  const costAfter = calculateCost(sLongAfter, sShortAfter, lambdaScale);
+
+  // USDC out = decrease in cost (selling reduces total cost)
+  const usdcOut = Math.max(0, costBefore - costAfter);
+
+  return usdcOut;
 }

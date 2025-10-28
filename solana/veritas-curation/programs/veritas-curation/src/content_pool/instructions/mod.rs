@@ -5,7 +5,8 @@ pub mod settle_epoch;
 pub mod close_pool;
 pub mod get_current_state;
 
-// Re-export all types for Anchor macros
+// Re-export all types for Anchor macros (glob needed for client accounts)
+#[allow(ambiguous_glob_reexports)]
 pub use deploy_market::*;
 pub use trade::*;
 pub use add_liquidity::*;

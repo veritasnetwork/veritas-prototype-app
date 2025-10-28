@@ -35,7 +35,6 @@ export function getSupabaseServiceRole(): SupabaseClient {
       );
     }
 
-    console.log('[Supabase] Creating service role client singleton');
 
     serviceRoleClient = createClient(url, key, {
       auth: {
@@ -77,7 +76,6 @@ export function getSupabaseAnon(): SupabaseClient {
       );
     }
 
-    console.log('[Supabase] Creating anon client singleton');
 
     anonClient = createClient(url, key, {
       auth: {

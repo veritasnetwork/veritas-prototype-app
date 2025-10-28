@@ -3,7 +3,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import { useSolanaWallet } from './useSolanaWallet';
 import { useAuth } from '@/providers/AuthProvider';
-import { getRpcEndpoint } from '@/lib/solana/network-config';
+import { getRpcEndpoint, getUsdcMint } from '@/lib/solana/network-config';
 import { createClient } from '@supabase/supabase-js';
 
 export function useSwapBalances(poolAddress: string, postId: string) {
@@ -11,6 +11,8 @@ export function useSwapBalances(poolAddress: string, postId: string) {
   const { user } = useAuth();
   const [usdcBalance, setUsdcBalance] = useState<number>(0);
   const [shareBalance, setShareBalance] = useState<number>(0);
+  const [longBalance, setLongBalance] = useState<number>(0);
+  const [shortBalance, setShortBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -23,6 +25,8 @@ export function useSwapBalances(poolAddress: string, postId: string) {
       if (!address || !user) {
         setUsdcBalance(0);
         setShareBalance(0);
+        setLongBalance(0);
+        setShortBalance(0);
         setLoading(false);
         return;
       }
@@ -33,43 +37,30 @@ export function useSwapBalances(poolAddress: string, postId: string) {
         const rpcEndpoint = getRpcEndpoint();
         const connection = new Connection(rpcEndpoint, 'confirmed');
         const walletPubkey = new PublicKey(address);
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
 
-        // Step 1: Get LONG/SHORT mint addresses for ICBS pool
-        const { data: poolData, error: poolError } = await supabase
-          .from('pool_deployments')
-          .select('long_mint_address, short_mint_address')
-          .eq('pool_address', poolAddress)
-          .single();
+        // Step 1: Get LONG/SHORT mint addresses for ICBS pool (only if poolAddress provided)
+        let poolData = null;
+        if (poolAddress) {
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          );
 
-        if (poolError || !poolData) {
-          console.error('[useSwapBalances] Pool not found:', poolError);
-          setUsdcBalance(0);
-          setShareBalance(0);
-          setLoading(false);
-          return;
+          const { data, error: poolError } = await supabase
+            .from('pool_deployments')
+            .select('long_mint_address, short_mint_address')
+            .eq('pool_address', poolAddress)
+            .single();
+
+          if (poolError) {
+            console.error('[useSwapBalances] Pool not found:', poolError);
+          } else {
+            poolData = data;
+          }
         }
 
-        // Step 2: Get USDC mint from environment (network-specific)
-        // Localnet: Uses test USDC mint from deployment
-        // Devnet/Mainnet: Uses standard USDC mint addresses
-        const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'localnet';
-        const usdcMintStr =
-          network === 'localnet'
-            ? process.env.NEXT_PUBLIC_USDC_MINT_LOCALNET
-            : process.env.NEXT_PUBLIC_USDC_MINT_ADDRESS;
-
-        if (!usdcMintStr) {
-          console.error('[useSwapBalances] USDC mint not configured');
-          setUsdcBalance(0);
-          setShareBalance(0);
-          setLoading(false);
-          return;
-        }
-        const usdcMint = new PublicKey(usdcMintStr);
+        // Step 2: Get USDC mint from network config
+        const usdcMint = getUsdcMint();
 
         // Step 3: Get user's USDC token account balance
         try {
@@ -87,11 +78,9 @@ export function useSwapBalances(poolAddress: string, postId: string) {
           setUsdcBalance(0);
         }
 
-        // Step 4: Fetch LONG token balance (ICBS pools have LONG/SHORT, not single share token)
-        // For now, we'll track LONG balance as the primary "share" balance
-        // TODO: Add separate state for LONG vs SHORT balances
-        try {
-          if (poolData.long_mint_address) {
+        // Step 4: Fetch LONG token balance (only if pool data available)
+        if (poolData?.long_mint_address) {
+          try {
             const longMint = new PublicKey(poolData.long_mint_address);
             const longTokenAccount = await getAssociatedTokenAddress(
               longMint,
@@ -101,18 +90,44 @@ export function useSwapBalances(poolAddress: string, postId: string) {
             const accountInfo = await getAccount(connection, longTokenAccount);
             // Convert from atomic units (6 decimals) to display units
             const balance = Number(accountInfo.amount) / 1_000_000;
-            setShareBalance(balance);
-          } else {
+            setLongBalance(balance);
+            setShareBalance(balance); // Keep shareBalance for backward compatibility
+          } catch (err) {
+            // Token account doesn't exist yet - that's OK
+            setLongBalance(0);
             setShareBalance(0);
           }
-        } catch (err) {
-          console.error('[useSwapBalances] LONG token account error:', err);
+        } else {
+          setLongBalance(0);
           setShareBalance(0);
+        }
+
+        // Step 5: Fetch SHORT token balance (only if pool data available)
+        if (poolData?.short_mint_address) {
+          try {
+            const shortMint = new PublicKey(poolData.short_mint_address);
+            const shortTokenAccount = await getAssociatedTokenAddress(
+              shortMint,
+              walletPubkey
+            );
+
+            const accountInfo = await getAccount(connection, shortTokenAccount);
+            // Convert from atomic units (6 decimals) to display units
+            const balance = Number(accountInfo.amount) / 1_000_000;
+            setShortBalance(balance);
+          } catch (err) {
+            // Token account doesn't exist yet - that's OK
+            setShortBalance(0);
+          }
+        } else {
+          setShortBalance(0);
         }
       } catch (error) {
         console.error('[useSwapBalances] Error fetching balances:', error);
         setUsdcBalance(0);
         setShareBalance(0);
+        setLongBalance(0);
+        setShortBalance(0);
       } finally {
         setLoading(false);
       }
@@ -124,6 +139,8 @@ export function useSwapBalances(poolAddress: string, postId: string) {
   return {
     usdcBalance,
     shareBalance,
+    longBalance,
+    shortBalance,
     loading,
     refresh,
   };

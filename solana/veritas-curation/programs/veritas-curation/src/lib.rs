@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("EXJvhoCsYc4tntxffGJhCyTzv6e2EDp9gqiFK17qhC4v");
+declare_id!("7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2");
 
 // Module declarations
 pub mod constants;
@@ -10,13 +10,16 @@ pub mod content_pool;
 pub mod pool_factory;
 pub mod veritas_custodian;
 
-// Re-exports
-pub use errors::*;
-// Re-export content_pool instruction contexts for Anchor's #[program] macro
+// Re-exports (glob imports needed for Anchor's #[program] macro to find client accounts)
+#[allow(ambiguous_glob_reexports)]
 pub use content_pool::instructions::*;
 pub use content_pool::state::{TokenSide, TradeType};
+#[allow(ambiguous_glob_reexports)]
 pub use pool_factory::*;
-pub use veritas_custodian::*;
+#[allow(ambiguous_glob_reexports)]
+pub use veritas_custodian::state::*;
+#[allow(ambiguous_glob_reexports)]
+pub use veritas_custodian::instructions::*;
 
 #[program]
 pub mod veritas_curation {
@@ -93,11 +96,20 @@ pub mod veritas_curation {
 
     pub fn initialize_factory(
         ctx: Context<InitializeFactory>,
-        factory_authority: Pubkey,
-        pool_authority: Pubkey,
+        protocol_authority: Pubkey,
         custodian: Pubkey,
+        total_fee_bps: u16,
+        creator_split_bps: u16,
+        protocol_treasury: Pubkey,
     ) -> Result<()> {
-        pool_factory::instructions::initialize_factory(ctx, factory_authority, pool_authority, custodian)
+        pool_factory::instructions::initialize_factory(
+            ctx,
+            protocol_authority,
+            custodian,
+            total_fee_bps,
+            creator_split_bps,
+            protocol_treasury,
+        )
     }
 
     pub fn create_pool(
@@ -110,18 +122,25 @@ pub mod veritas_curation {
         )
     }
 
-    pub fn update_pool_authority(
-        ctx: Context<UpdatePoolAuthority>,
+    pub fn update_protocol_authority(
+        ctx: Context<UpdateProtocolAuthority>,
         new_authority: Pubkey,
     ) -> Result<()> {
-        pool_factory::instructions::update_pool_authority(ctx, new_authority)
+        pool_factory::instructions::update_protocol_authority(ctx, new_authority)
     }
 
-    pub fn update_factory_authority(
-        ctx: Context<UpdateFactoryAuthority>,
-        new_authority: Pubkey,
+    pub fn update_fee_config(
+        ctx: Context<UpdateFeeConfig>,
+        new_total_fee_bps: Option<u16>,
+        new_creator_split_bps: Option<u16>,
+        update_treasury: bool,
     ) -> Result<()> {
-        pool_factory::instructions::update_factory_authority(ctx, new_authority)
+        pool_factory::instructions::update_fee_config(
+            ctx,
+            new_total_fee_bps,
+            new_creator_split_bps,
+            update_treasury,
+        )
     }
 
     pub fn update_defaults(
@@ -150,10 +169,9 @@ pub mod veritas_curation {
 
     pub fn initialize_custodian(
         ctx: Context<InitializeCustodian>,
-        owner: Pubkey,
         protocol_authority: Pubkey,
     ) -> Result<()> {
-        veritas_custodian::instructions::initialize_custodian(ctx, owner, protocol_authority)
+        veritas_custodian::instructions::initialize_custodian(ctx, protocol_authority)
     }
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
@@ -168,18 +186,11 @@ pub mod veritas_curation {
         veritas_custodian::instructions::withdraw(ctx, amount, recipient)
     }
 
-    pub fn update_protocol_authority(
-        ctx: Context<UpdateProtocolAuthority>,
+    pub fn update_custodian_protocol_authority(
+        ctx: Context<UpdateCustodianProtocolAuthority>,
         new_protocol_authority: Pubkey,
     ) -> Result<()> {
-        veritas_custodian::instructions::update_protocol_authority(ctx, new_protocol_authority)
-    }
-
-    pub fn update_owner(
-        ctx: Context<UpdateOwner>,
-        new_owner: Pubkey,
-    ) -> Result<()> {
-        veritas_custodian::instructions::update_owner(ctx, new_owner)
+        veritas_custodian::instructions::update_protocol_authority::update_protocol_authority(ctx, new_protocol_authority)
     }
 
     pub fn toggle_emergency_pause(

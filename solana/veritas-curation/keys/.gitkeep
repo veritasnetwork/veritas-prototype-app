@@ -1,1 +1,3 @@
-# This directory stores keypairs - DO NOT COMMIT .json files
+# DEPRECATED: This directory is no longer used.
+# Protocol authority is now stored in PROTOCOL_AUTHORITY_KEYPAIR environment variable.
+# See .env.local for local development or Vercel environment variables for production.

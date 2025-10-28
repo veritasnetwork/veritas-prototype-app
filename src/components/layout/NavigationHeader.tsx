@@ -12,7 +12,7 @@ export function NavigationHeader() {
   const { address: solanaAddress } = useSolanaWallet();
 
   return (
-    <header className="sticky top-0 z-sticky h-14 bg-[#1a1a1a]/95 backdrop-blur-md border-b border-gray-800">
+    <header className="sticky top-0 z-sticky h-14 bg-[#0f0f0f]/95 backdrop-blur-md border-b border-gray-800">
       <div className="h-full px-4 flex items-center justify-between">
         {/* Logo */}
         <Link href="/feed" className="flex items-center gap-2 hover:opacity-80 transition-opacity">

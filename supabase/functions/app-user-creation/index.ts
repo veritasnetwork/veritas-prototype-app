@@ -23,7 +23,7 @@ interface UserCreationResponse {
     agent_id: string
     username: string
     display_name: string
-    total_stake: number
+    avatar_url: string | null
     beliefs_created: number
     beliefs_participated: number
     created_at: string
@@ -95,7 +95,7 @@ serve(async (req) => {
           avatar_url: avatar_url !== undefined ? avatar_url : existingUser.avatar_url,
         })
         .eq('id', existingUser.id)
-        .select()
+        .select('id, agent_id, username, display_name, avatar_url, bio, beliefs_created, beliefs_participated, created_at')
         .single()
 
       if (updateError) {
@@ -125,7 +125,6 @@ serve(async (req) => {
             username: updatedUser.username,
             display_name: updatedUser.display_name,
             avatar_url: updatedUser.avatar_url,
-            total_stake: updatedUser.total_stake,
             beliefs_created: updatedUser.beliefs_created,
             beliefs_participated: updatedUser.beliefs_participated,
             created_at: updatedUser.created_at
@@ -262,11 +261,10 @@ serve(async (req) => {
         username: finalUsername,
         display_name: display_name || finalUsername,
         avatar_url: avatar_url || null,
-        total_stake: 0, // cached from agent
         beliefs_created: 0,
         beliefs_participated: 0
       })
-      .select()
+      .select('id, agent_id, username, display_name, avatar_url, bio, beliefs_created, beliefs_participated, created_at')
       .single()
 
     if (userError) {
@@ -305,7 +303,7 @@ serve(async (req) => {
         agent_id: user.agent_id,
         username: user.username,
         display_name: user.display_name,
-        total_stake: user.total_stake,
+        avatar_url: user.avatar_url,
         beliefs_created: user.beliefs_created,
         beliefs_participated: user.beliefs_participated,
         created_at: user.created_at

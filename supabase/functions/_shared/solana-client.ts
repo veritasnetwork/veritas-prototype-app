@@ -194,17 +194,24 @@ export async function loadVeritasIDL() {
 
 /**
  * Get configured RPC endpoint from environment
- * Handles Docker localhost translation
+ * Handles Docker localhost translation for local development only
  *
  * @returns RPC endpoint URL
  */
 export function getRpcEndpoint(): string {
   const endpoint = Deno.env.get('SOLANA_RPC_ENDPOINT') || 'http://127.0.0.1:8899';
 
-  // Convert localhost to host.docker.internal for Docker compatibility
-  return endpoint
-    .replace('localhost', 'host.docker.internal')
-    .replace('127.0.0.1', 'host.docker.internal');
+  // Only apply Docker translation for localhost/127.0.0.1
+  // Production endpoints (https://...) are returned as-is
+  if (endpoint.includes('localhost') || endpoint.includes('127.0.0.1')) {
+    // Local Supabase runs in Docker, so translate localhost to host.docker.internal
+    return endpoint
+      .replace('localhost', 'host.docker.internal')
+      .replace('127.0.0.1', 'host.docker.internal');
+  }
+
+  // Production: return Helius, QuickNode, or other RPC URLs unchanged
+  return endpoint;
 }
 
 /**

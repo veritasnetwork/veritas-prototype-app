@@ -14,17 +14,20 @@ import { usePanel } from '@/components/post/PostDetailPanel';
 import { FEATURES } from '@/config/features';
 import { RichTextRenderer } from '@/components/common/RichTextRenderer';
 import { formatPoolDataFromDb } from '@/lib/solana/sqrt-price-helpers';
+import { useVideoPriority } from '@/hooks/useVideoPriority';
 
 interface PostCardProps {
   post: Post;
   onPostClick?: (postId: string) => void;
   isSelected?: boolean;
+  compact?: boolean; // For grid layouts (Explore page) - shorter text previews
 }
 
-export function PostCard({ post, onPostClick, isSelected = false }: PostCardProps) {
+export function PostCard({ post, onPostClick, isSelected = false, compact = false }: PostCardProps) {
   const router = useRouter();
   const articleRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const { isOpen, selectedPostId, closePanel } = FEATURES.POST_DETAIL_PANEL ? usePanel() : { isOpen: false, selectedPostId: null, closePanel: () => {} };
 
   // No longer expanding posts - they navigate to their own page
@@ -36,8 +39,41 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
   const [fullContentJson, setFullContentJson] = useState(post.content_json || null);
   const [loadingContent, setLoadingContent] = useState(false);
 
+  // Lazy loading state
+  const [shouldLoadMedia, setShouldLoadMedia] = useState(post.post_type === 'text'); // Text loads immediately
+
+  // Register video with priority manager (only plays 2-3 videos closest to viewport center)
+  const { setUserPaused, setHovered } = useVideoPriority(videoRef, cardRef, post.id, post.post_type === 'video' && shouldLoadMedia);
+
   // Determine if panel is open for this post - use isSelected prop if provided, otherwise fall back to panel state
   const isPanelOpenForThisPost = isSelected || (FEATURES.POST_DETAIL_PANEL && isOpen && selectedPostId === post.id);
+
+  // Viewport detection for lazy loading
+  useEffect(() => {
+    if (!cardRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          // Load media when entering viewport with margin
+          if (entry.isIntersecting && !shouldLoadMedia) {
+            setShouldLoadMedia(true);
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: '200px', // Start loading 200px before entering viewport
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(cardRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [shouldLoadMedia]);
 
   // Fetch full content when expanded (if not already loaded)
   useEffect(() => {
@@ -90,9 +126,13 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
   }, [isExpanded, post.post_type, post.article_title, post.cover_image_url]);
 
   const handleClick = (e?: React.MouseEvent) => {
+    console.log('[PostCard] Click detected on post:', post.id, 'Type:', post.post_type);
     // Always just open the panel for trading, never expand
     if (onPostClick) {
+      console.log('[PostCard] Calling onPostClick with:', post.id);
       onPostClick(post.id);
+    } else {
+      console.log('[PostCard] No onPostClick handler provided!');
     }
   };
 
@@ -107,8 +147,11 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
   };
 
   // Get content preview or full content
-  // For text-only posts without cover, show more preview text (up to 600 chars)
-  const previewLength = post.post_type === 'text' && !post.cover_image_url && !isShortFormPost(post) ? 600 : 150;
+  // For text-only posts without cover, show more preview text (up to 800 chars before truncating)
+  // In compact mode (grid), use much shorter previews to keep heights standard: 100 chars max
+  const previewLength = compact
+    ? 100  // Very short for grid - keeps card heights consistent
+    : (post.post_type === 'text' && !post.cover_image_url && !isShortFormPost(post) ? 800 : 150);
   const preview = getPostPreview(post, previewLength);
   const fullContent = post.content_text || preview;
 
@@ -131,18 +174,31 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
   // This comes from implied_relevance_history table and is used for both ranking and display
   const marketImpliedRelevance = (post as any).marketImpliedRelevance ??
     // Fallback: calculate from pool data if database value not available
-    (poolData ? poolData.marketCapLong / (poolData.marketCapLong + poolData.marketCapShort) : null);
+    (poolData && poolData.totalMarketCap > 0
+      ? poolData.marketCapLong / (poolData.marketCapLong + poolData.marketCapShort)
+      : null);
+
+  // Check if content is actually truncated (needs Read More button) - define before getBackgroundElement
+  const needsReadMore = (post.content_text?.length || 0) > previewLength + 50; // +50 for some buffer
 
   // Determine background for different post types
   const getBackgroundElement = () => {
     if (post.post_type === 'image' && post.media_urls && post.media_urls.length > 0) {
-      const displayMode = (post as any).image_display_mode || 'contain';
+      const displayMode = post.image_display_mode || 'contain';
       const useContain = displayMode === 'contain';
+
+      // Lazy load images - only load when shouldLoadMedia is true
+      if (!shouldLoadMedia) {
+        return (
+          <div className={`w-full bg-gray-800 animate-pulse ${useContain ? 'h-auto' : 'h-full'}`} style={useContain ? { maxHeight: '600px', minHeight: '200px' } : undefined} />
+        );
+      }
 
       return (
         <img
           src={post.media_urls[0]}
           alt={post.caption || 'Post image'}
+          loading="lazy"
           className={`w-full ${useContain ? 'h-auto object-contain' : 'h-full object-cover'}`}
           style={useContain ? { maxHeight: '600px' } : undefined}
         />
@@ -163,25 +219,42 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
       const togglePause = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (videoRef.current) {
-          if (isPaused) {
-            videoRef.current.play();
-          } else {
-            videoRef.current.pause();
-          }
-          setIsPaused(!isPaused);
+          const newPausedState = !isPaused;
+          setIsPaused(newPausedState);
+          setUserPaused(newPausedState);
         }
       };
 
+      // Lazy load videos - show poster until shouldLoadMedia is true
+      if (!shouldLoadMedia) {
+        return (
+          <div className="relative w-full h-full bg-gray-800">
+            {posterUrl && (
+              <img
+                src={posterUrl}
+                alt="Video thumbnail"
+                loading="lazy"
+                className="w-full h-full object-cover"
+              />
+            )}
+          </div>
+        );
+      }
+
       return (
-        <div className="relative w-full h-full">
+        <div
+          className="relative w-full h-full"
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+        >
           <video
             ref={videoRef}
             src={videoUrl}
             poster={posterUrl}
-            autoPlay
             loop
             muted
             playsInline
+            preload="metadata"
             className="w-full h-full object-cover"
           />
           {/* Pause/Resume Toggle - Bottom Left */}
@@ -214,21 +287,27 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
       // MODE 0: Short-form tweet-like post (no title, no cover, ≤500 chars)
       if (isShortFormPost(post)) {
         return (
-          <div className="w-full h-full bg-[#1a1a1a] p-4">
+          <div className="w-full lg:bg-[#1a1a1a] lg:p-4 relative">
             {!isExpanded && (
-              <div className="prose prose-invert prose-sm max-w-none">
-                {post.content_json ? (
-                  <RichTextRenderer content={post.content_json} />
-                ) : (
-                  <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">
-                    {post.content_text || 'No content'}
+              <>
+                <div className={compact ? 'max-h-[120px] overflow-hidden' : ''}>
+                  <p className="text-gray-200 text-sm leading-relaxed m-0 w-full break-words overflow-wrap-anywhere">
+                    {compact ? preview : (post.content_text || 'No content')}
                   </p>
+                </div>
+                {compact && needsReadMore && (
+                  <button
+                    onClick={handleReadMore}
+                    className="mt-2 text-xs text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors"
+                  >
+                    Read More →
+                  </button>
                 )}
-              </div>
+              </>
             )}
 
             {isExpanded && (
-              <div className="w-full h-full overflow-y-auto p-4">
+              <div className="w-full h-full overflow-y-auto lg:p-4">
                 {loadingContent ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full"></div>
@@ -239,15 +318,7 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
                   <p className="text-gray-400">No content available</p>
                 )}
 
-                {/* Collapse button at bottom */}
-                <div className="mt-8 flex justify-center">
-                  <button
-                    onClick={handleToggleExpand}
-                    className="text-sm text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors"
-                  >
-                    ← Collapse
-                  </button>
-                </div>
+                {/* Removed collapse button - expansion no longer used */}
               </div>
             )}
           </div>
@@ -297,7 +368,7 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
             {isExpanded && (
               <>
                 {/* EXPANDED: Cover at top, then title, then content */}
-                <div className="w-full h-full bg-[#1a1a1a] overflow-y-auto">
+                <div className="w-full h-full lg:bg-[#1a1a1a] overflow-y-auto">
                   {/* Cover Image (fixed height when expanded) */}
                   <div className="w-full h-64 overflow-hidden">
                     <img
@@ -325,15 +396,7 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
                       <p className="text-gray-400">No content available</p>
                     )}
 
-                    {/* Collapse button at bottom */}
-                    <div className="mt-8 flex justify-center">
-                      <button
-                        onClick={handleToggleExpand}
-                        className="text-sm text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors"
-                      >
-                        ← Collapse
-                      </button>
-                    </div>
+                    {/* Removed collapse button - expansion no longer used */}
                   </div>
                 </div>
               </>
@@ -344,34 +407,38 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
 
       // MODE 2: Text-only article (no cover, possibly no title)
       return (
-        <div className="w-full h-full bg-[#1a1a1a]">
+        <div className="w-full lg:bg-[#1a1a1a] relative">
           {!isExpanded && (
             <>
-              {/* COLLAPSED: Content preview with fade effect - show more text for text-only posts */}
-              <div className="w-full overflow-hidden pt-6 pb-16 px-6 relative h-64">
-                <div className="prose prose-invert max-w-none w-full overflow-hidden">
+              {/* COLLAPSED: Content preview - in compact mode, use fixed height to match other cards */}
+              <div className={`w-full lg:pt-6 ${needsReadMore ? 'pb-16' : 'lg:pb-6'} lg:px-6 relative ${compact ? 'max-h-[180px] overflow-hidden' : (needsReadMore ? 'max-h-[400px] overflow-hidden' : '')}`}>
+                <div className="prose prose-invert max-w-none w-full">
                   {post.content_json ? (
                     <RichTextRenderer content={post.content_json} />
                   ) : (
-                    <p className="text-gray-200 text-base leading-relaxed whitespace-pre-wrap">
+                    <p className="text-gray-200 text-base leading-relaxed break-words overflow-wrap-anywhere">
                       {preview || 'No content'}
                     </p>
                   )}
                 </div>
 
-                {/* Fade gradient at bottom - taller gradient for more lines */}
-                <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#1a1a1a] via-[#1a1a1a]/90 to-transparent pointer-events-none" />
+                {/* Only show fade gradient if content is truncated */}
+                {needsReadMore && (
+                  <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#1a1a1a] via-[#1a1a1a]/90 to-transparent pointer-events-none" />
+                )}
               </div>
 
-              {/* "Read More" text at bottom */}
-              <div className="absolute bottom-4 left-6 z-10">
-                <button
-                  onClick={handleReadMore}
-                  className="text-sm text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors"
-                >
-                  Read More →
-                </button>
-              </div>
+              {/* "Read More" text at bottom - only if content is truncated */}
+              {needsReadMore && (
+                <div className="absolute bottom-4 left-6 z-10">
+                  <button
+                    onClick={handleReadMore}
+                    className="text-sm text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors bg-[#1a1a1a] px-2 py-1 rounded"
+                  >
+                    Read More →
+                  </button>
+                </div>
+              )}
             </>
           )}
 
@@ -395,15 +462,7 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
                 <p className="text-gray-400">No content available</p>
               )}
 
-              {/* Collapse button at bottom */}
-              <div className="mt-8 flex justify-center">
-                <button
-                  onClick={handleToggleExpand}
-                  className="text-sm text-[#B9D9EB] font-medium hover:text-[#D0E7F4] transition-colors"
-                >
-                  ← Collapse
-                </button>
-              </div>
+              {/* Removed collapse button - expansion no longer used */}
             </div>
           )}
         </div>
@@ -419,15 +478,15 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
 
   return (
     <article
-      ref={articleRef}
-      className="cursor-pointer group mx-1"
+      ref={cardRef}
+      className="cursor-pointer group"
       onClick={(e) => {
         handleClick(e);
       }}
     >
       {/* Author and Caption - Outside the content card (Substack style) */}
       {showAuthorAbove && (
-        <div className="mb-2">
+        <div className="mb-2 lg:mb-2">
           {/* Author Info with Belief & Price */}
           <div className="flex items-center gap-2 mb-2">
             <div className="w-6 h-6 rounded-full bg-[#F0EAD6] flex items-center justify-center text-gray-700 text-xs font-bold">
@@ -436,7 +495,7 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
             <span className="text-white font-medium text-xs">@{post.author?.username || 'anonymous'}</span>
 
             {/* Market implied relevance pill */}
-            {marketImpliedRelevance !== null && (
+            {marketImpliedRelevance !== null && !isNaN(marketImpliedRelevance) && (
               <div className="bg-black/70 backdrop-blur-sm rounded-full px-2 py-0.5 flex items-center justify-center">
                 <TrendingUp className="w-3 h-3 text-[#B9D9EB] mr-1" />
                 <span className="font-semibold text-[#B9D9EB] text-xs">{(marketImpliedRelevance * 100).toFixed(1)}%</span>
@@ -462,17 +521,20 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
       )}
 
       {/* Content Card - The article/media preview */}
+      {/* Mobile: No rounded corners or ring, content flows naturally */}
+      {/* Desktop: Card with rounded corners and hover ring */}
       <div
-        className={`relative bg-[#1a1a1a] rounded-xl overflow-hidden transition-all duration-1000 ${
-          isPanelOpenForThisPost
-            ? 'ring-2 ring-[#B9D9EB]'
-            : 'group-hover:ring-2 group-hover:ring-gray-600/50'
-        }`}
+        className={`relative overflow-hidden transition-all duration-1000
+          lg:bg-[#1a1a1a] lg:rounded-xl
+          ${isPanelOpenForThisPost
+            ? 'lg:ring-2 lg:ring-[#B9D9EB]'
+            : 'lg:group-hover:ring-2 lg:group-hover:ring-gray-600/50'
+          }`}
       >
         <div className={`relative w-full transition-all duration-2000 ${
-          post.post_type === 'video' || (post.post_type === 'image' && (post as any).image_display_mode === 'cover')
+          post.post_type === 'video' || (post.post_type === 'image' && post.image_display_mode === 'cover')
             ? 'aspect-[3/2]'
-            : 'h-auto'
+            : 'h-auto' // Let all other content determine its own height
         }`}>
           {/* Background - Image, Video, or Gradient */}
           {getBackgroundElement()}
@@ -485,7 +547,7 @@ export function PostCard({ post, onPostClick, isSelected = false }: PostCardProp
               </div>
               <span className="text-white font-medium text-sm">@{post.author?.username || 'anonymous'}</span>
               {/* Market implied relevance pill (for posts without author above) */}
-              {marketImpliedRelevance !== null && (
+              {marketImpliedRelevance !== null && !isNaN(marketImpliedRelevance) && (
                 <div className="bg-black/70 rounded-full px-2 py-0.5 ml-2 flex items-center">
                   <TrendingUp className="w-3 h-3 text-[#B9D9EB] mr-1" />
                   <span className="font-semibold text-[#B9D9EB] text-xs">{(marketImpliedRelevance * 100).toFixed(1)}%</span>

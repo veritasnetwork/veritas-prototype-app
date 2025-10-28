@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { verifyAuthHeader } from '@/lib/auth/privy-server';
 import { PoolSyncService } from '@/services/pool-sync.service';
 import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 import { asDisplay, displayToAtomic, poolDisplayToAtomic, asMicroUsdc } from '@/lib/units';
@@ -43,30 +44,28 @@ interface RecordTradeRequest {
   r_long_after?: number;
   r_short_after?: number;
 
+  // Vault balance (AFTER trade)
+  vault_balance_after?: number; // Micro-USDC
+
   // Belief submission (optional)
   initial_belief?: number;
   meta_belief?: number;
+
+  // Skim amount (only for buys)
+  skim_amount?: number; // Display USDC
 }
 
 export async function POST(req: NextRequest) {
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('🔵 [/api/trades/record] Trade recording request received');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
   try {
     const body: RecordTradeRequest = await req.json();
 
-    console.log('[STEP 1/7] Request body:', {
-      tx_signature: body.tx_signature,
-      wallet_address: body.wallet_address,
-      trade_type: body.trade_type,
-      side: body.side,
-      token_amount: body.token_amount,
-      usdc_amount: body.usdc_amount,
-      pool_address: body.pool_address,
-      post_id: body.post_id,
-      user_id: body.user_id,
-    });
+    // Auth check
+    const authHeader = req.headers.get('Authorization');
+    const privyUserId = await verifyAuthHeader(authHeader);
+
+    if (!privyUserId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
 
     // Validate required fields
     if (!body.tx_signature || !body.wallet_address || !body.trade_type || !body.usdc_amount || !body.side) {
@@ -77,14 +76,59 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('[STEP 1/7] ✅ Validation passed');
+    // Create Supabase client
+    const supabase = getSupabaseServiceRole();
+
+    // Verify wallet ownership
+    const { data: verifiedUser, error: verifyError } = await supabase
+      .from('users')
+      .select('id, agent_id')
+      .eq('auth_id', privyUserId)
+      .single();
+
+    if (verifyError || !verifiedUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Get user's Solana address
+    const { data: agent, error: agentError } = await supabase
+      .from('agents')
+      .select('solana_address')
+      .eq('id', verifiedUser.agent_id)
+      .single();
+
+    if (agentError || !agent || !agent.solana_address) {
+      return NextResponse.json({ error: 'User has no Solana wallet' }, { status: 400 });
+    }
+
+    if (agent.solana_address !== body.wallet_address) {
+      return NextResponse.json({ error: 'Wallet does not belong to authenticated user' }, { status: 403 });
+    }
+
+    if (verifiedUser.id !== body.user_id) {
+      return NextResponse.json({ error: 'User ID mismatch' }, { status: 403 });
+    }
+
+    // Prevent duplicates
+    const { data: existingTrade } = await supabase
+      .from('trades')
+      .select('id, tx_signature')
+      .eq('tx_signature', body.tx_signature)
+      .maybeSingle();
+
+    if (existingTrade) {
+      return NextResponse.json({
+        message: 'Trade already recorded',
+        trade_id: existingTrade.id,
+        recorded: true
+      }, { status: 200 });
+    }
 
     // Check rate limit (50 trades per hour)
     try {
       const { success, headers } = await checkRateLimit(body.wallet_address, rateLimiters.trade);
 
       if (!success) {
-        console.log('[/api/trades/record] Rate limit exceeded for wallet:', body.wallet_address);
         return NextResponse.json(
           {
             error: 'Rate limit exceeded. You can record up to 50 trades per hour.',
@@ -99,10 +143,6 @@ export async function POST(req: NextRequest) {
       // Continue with request - fail open for availability
     }
 
-    // Create Supabase client
-    const supabase = getSupabaseServiceRole();
-
-    console.log('[STEP 2/7] Looking up user agent...');
     // Get agent_id and belief_id first (needed for RPC call)
     const { data: user, error: userError } = await supabase
       .from('users')
@@ -119,13 +159,11 @@ export async function POST(req: NextRequest) {
     }
 
     const agentId = user.agent_id;
-    console.log('[STEP 2/7] ✅ Agent found:', agentId);
 
-    console.log('[STEP 3/7] Looking up belief_id from pool deployment...');
     // Get belief_id from pool_deployments
     const { data: poolDeployment, error: poolError } = await supabase
       .from('pool_deployments')
-      .select('belief_id')
+      .select('belief_id, status, pool_address')
       .eq('post_id', body.post_id)
       .single();
 
@@ -138,24 +176,54 @@ export async function POST(req: NextRequest) {
     }
 
     const beliefId = poolDeployment.belief_id;
-    console.log('[STEP 3/7] ✅ Belief found:', beliefId);
 
-    console.log('[STEP 4/7] Preparing trade data...');
+    // ✅ RECTIFY STATUS: If pool has status 'pool_created' but trading is happening,
+    // update it to 'market_deployed' (market must be deployed if trades are occurring)
+    if (poolDeployment.status === 'pool_created') {
+      console.warn('[STEP 3/7] ⚠️  Pool has status "pool_created" but trade is occurring - updating to "market_deployed"');
+      const { error: statusUpdateError } = await supabase
+        .from('pool_deployments')
+        .update({
+          status: 'market_deployed',
+          market_deployed_at: new Date().toISOString(),
+        })
+        .eq('pool_address', poolDeployment.pool_address);
+
+      if (statusUpdateError) {
+        console.error('[STEP 3/7] ⚠️  Failed to update pool status:', statusUpdateError);
+        // Don't fail the trade - just log the warning
+      } else {
+        console.log('[STEP 3/7] ✅ Pool status updated to "market_deployed"');
+      }
+    }
+
     // Parse trade amounts (balance calculation moved to database function)
     const tokenAmount = parseFloat(body.token_amount);
     const usdcAmount = parseFloat(body.usdc_amount);
 
-    console.log('[STEP 4/7] Trade amounts:', { tokenAmount, usdcAmount });
 
     // Use default belief values if not provided
     const belief = body.initial_belief ?? 0.5;
     const metaPrediction = body.meta_belief ?? 0.5;
-    console.log('[STEP 4/7] Beliefs:', { belief, metaPrediction });
 
     // NOTE: Balance calculation is now done inside record_trade_atomic with FOR UPDATE locks
     // This prevents race conditions when concurrent trades occur (Bug #1 fix)
 
-    console.log('[STEP 5/7] Calling record_trade_atomic RPC...');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📝 [TRADE RECORD] Data from Frontend:');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('Trade:', body.trade_type, body.side);
+    console.log('Amounts:');
+    console.log('  token_amount:', tokenAmount);
+    console.log('  usdc_amount:', usdcAmount, 'USDC');
+    console.log('Supplies (AFTER trade):');
+    console.log('  s_long_after:', body.s_long_after);
+    console.log('  s_short_after:', body.s_short_after);
+    console.log('Sqrt Prices (AFTER trade):');
+    console.log('  sqrt_price_long_x96:', body.sqrt_price_long_x96);
+    console.log('  sqrt_price_short_x96:', body.sqrt_price_short_x96);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
     // Call atomic RPC function (balance calculation happens inside the function now)
     const rpcParams = {
       p_pool_address: body.pool_address,
@@ -173,10 +241,14 @@ export async function POST(req: NextRequest) {
       p_agent_id: agentId,
       p_belief: belief,
       p_meta_prediction: metaPrediction,
+      // ✅ NEW: Pass supplies from on-chain state after trade
+      p_s_long_after: body.s_long_after ?? null,
+      p_s_short_after: body.s_short_after ?? null,
+      // Skim amount for custodian accounting
+      p_skim_amount: body.skim_amount ?? 0,
       // REMOVED: p_token_balance and p_belief_lock (calculated inside function with locks)
     };
 
-    console.log('[STEP 5/7] RPC params:', rpcParams);
 
     const { data: result, error: rpcError } = await supabase.rpc('record_trade_atomic', rpcParams);
 
@@ -214,37 +286,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('[STEP 5/7] ✅ RPC success - Trade recorded in database:', {
-      trade_id: result.trade_id,
-      skim_amount: result.skim_amount,
-      new_balance: result.new_balance,
-      new_lock: result.new_lock
-    });
 
     // Verify the trade was actually inserted
-    console.log('[STEP 5/7] Verifying trade insertion in database...');
-    const { data: tradeVerify, error: verifyError } = await supabase
+    const { data: tradeVerify, error: tradeVerifyError } = await supabase
       .from('trades')
       .select('id, tx_signature, trade_type, side, token_amount, usdc_amount, recorded_by, confirmed, created_at')
       .eq('tx_signature', body.tx_signature)
       .single();
 
-    if (verifyError) {
-      console.error('[STEP 5/7] ⚠️  Could not verify trade insertion:', verifyError);
+    if (tradeVerifyError) {
+      console.error('[STEP 5/7] ⚠️  Could not verify trade insertion:', tradeVerifyError);
     } else {
-      console.log('[STEP 5/7] ✅ Trade verified in trades table:', {
-        id: tradeVerify.id,
-        trade_type: tradeVerify.trade_type,
-        side: tradeVerify.side,
-        token_amount: tradeVerify.token_amount,
-        usdc_amount: tradeVerify.usdc_amount,
-        recorded_by: tradeVerify.recorded_by,
-        confirmed: tradeVerify.confirmed,
-        created_at: tradeVerify.created_at
-      });
     }
 
-    console.log('[STEP 6/7] Recording implied relevance...');
     // Record implied relevance from virtual reserves after trade
     if (body.r_long_after !== undefined && body.r_short_after !== undefined && body.post_id) {
       try {
@@ -270,14 +324,8 @@ export async function POST(req: NextRequest) {
           if (impliedError.code !== '23505') {
             console.error('[STEP 6/7] ❌ Failed to record implied relevance:', impliedError);
           } else {
-            console.log('[STEP 6/7] ⚠️  Implied relevance already recorded (duplicate)');
           }
         } else {
-          console.log('[STEP 6/7] ✅ Implied relevance recorded:', {
-            impliedRelevance: impliedRelevance.toFixed(4),
-            r_long: body.r_long_after,
-            r_short: body.r_short_after
-          });
         }
       } catch (impliedRelevanceError) {
         console.error('[IMPLIED RELEVANCE] Error:', impliedRelevanceError);
@@ -285,40 +333,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log('[STEP 7/7] Updating pool state in database...');
     // Update pool_deployments with the new state from the trade
     if (body.sqrt_price_long_x96 && body.sqrt_price_short_x96 && body.s_long_after !== undefined && body.s_short_after !== undefined) {
       try {
-        // Type-safe unit conversion: Frontend sends DISPLAY units, DB expects ATOMIC units
-        const poolState = poolDisplayToAtomic({
-          sLong: asDisplay(body.s_long_after),
-          sShort: asDisplay(body.s_short_after),
-          vaultBalance: asMicroUsdc(0), // Not updating vault_balance here
-        });
+        // IMPORTANT: DB stores supplies in DISPLAY units (per units.ts spec)
+        // Frontend sends DISPLAY units, so store directly without conversion
+        const sLongDisplay = asDisplay(body.s_long_after);
+        const sShortDisplay = asDisplay(body.s_short_after);
+
+        const updateData: any = {
+          sqrt_price_long_x96: body.sqrt_price_long_x96,
+          sqrt_price_short_x96: body.sqrt_price_short_x96,
+          s_long_supply: sLongDisplay,
+          s_short_supply: sShortDisplay,
+          last_synced_at: new Date().toISOString(),
+        };
+
+        // Update vault balance if provided (micro-USDC from chain)
+        if (body.vault_balance_after !== undefined) {
+          updateData.vault_balance = body.vault_balance_after;
+        }
 
         const { error: poolUpdateError } = await supabase
           .from('pool_deployments')
-          .update({
-            sqrt_price_long_x96: body.sqrt_price_long_x96,
-            sqrt_price_short_x96: body.sqrt_price_short_x96,
-            s_long_supply: poolState.sLongSupply,
-            s_short_supply: poolState.sShortSupply,
-            last_synced_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('pool_address', body.pool_address);
 
         if (poolUpdateError) {
           console.error('[STEP 7/7] ❌ Failed to update pool state:', poolUpdateError);
         } else {
-          console.log('[STEP 7/7] ✅ Pool state updated:', {
-            pool_address: body.pool_address,
-            sqrt_price_long: body.sqrt_price_long_x96,
-            sqrt_price_short: body.sqrt_price_short_x96,
-            supply_long_display: body.s_long_after,
-            supply_short_display: body.s_short_after,
-            supply_long_atomic: poolState.sLongSupply,
-            supply_short_atomic: poolState.sShortSupply,
-          });
         }
       } catch (poolUpdateException) {
         console.error('[STEP 7/7] ❌ Exception updating pool state:', poolUpdateException);
@@ -329,7 +372,6 @@ export async function POST(req: NextRequest) {
       try {
         const synced = await syncPoolFromChain(body.pool_address);
         if (synced) {
-          console.log('[STEP 7/7] ✅ Pool state synced from chain successfully');
         } else {
           console.error('[STEP 7/7] ❌ Failed to sync pool state from chain');
         }
@@ -338,12 +380,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Also trigger async pool sync as backup (non-blocking)
-    PoolSyncService.syncAfterTrade(body.pool_address);
+    // Pool sync already handled by syncPoolFromChain above
+    // PoolSyncService edge function has Docker networking issues in local dev
 
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('✅ [/api/trades/record] Trade recorded successfully');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     return NextResponse.json({
       message: 'Trade recorded optimistically',

@@ -8,6 +8,7 @@ import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { PostAPIResponseSchema } from '@/types/api';
 import { sqrtPriceX96ToPrice, USDC_PRECISION } from '@/lib/solana/sqrt-price-helpers';
 import { syncPoolFromChain } from '@/lib/solana/sync-pool-from-chain';
+import { atomicToDisplay, asAtomic } from '@/lib/units';
 
 export async function GET(
   request: NextRequest,
@@ -15,48 +16,47 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    console.log('[Post API] Fetching post with id:', id);
+    console.log('[GET /api/posts/[id]] Fetching post:', id);
 
     const supabase = getSupabaseServiceRole();
 
-    // Fetch post with all related data - using simpler syntax
+    // Fetch post with all related data - use same query as feed for consistency
     const { data: post, error } = await supabase
       .from('posts')
       .select(`
         *,
-        users!posts_user_id_fkey (
+        total_volume_usdc,
+        user:users!posts_user_id_fkey (
           id,
           username,
           display_name,
           avatar_url
         ),
-        beliefs!posts_belief_id_fkey (
-          id,
+        belief:beliefs!posts_belief_id_fkey (
           previous_aggregate
         ),
         pool_deployments (
           pool_address,
-          s_long_supply,
-          s_short_supply,
-          vault_balance,
-          sqrt_price_long_x96,
-          sqrt_price_short_x96,
+          token_supply,
+          reserve,
           f,
           beta_num,
           beta_den,
-          deployment_tx_signature,
           long_mint_address,
           short_mint_address,
+          s_long_supply,
+          s_short_supply,
+          sqrt_price_long_x96,
+          sqrt_price_short_x96,
+          vault_balance,
           last_synced_at
         )
       `)
       .eq('id', id)
       .single();
 
-    console.log('[Post API] Query result:', { post, error });
-
     if (error) {
-      console.error('[Post API] Error fetching post:', error);
+      console.error('[GET /api/posts/[id]] Database error:', { id, error: error.message, code: error.code });
       return NextResponse.json(
         { error: 'Post not found', details: error?.message, code: error?.code },
         { status: 404 }
@@ -64,26 +64,24 @@ export async function GET(
     }
 
     if (!post) {
-      console.error('[Post API] No post found for id:', id);
+      console.warn('[GET /api/posts/[id]] Post not found in DB:', id);
       return NextResponse.json(
         { error: 'Post not found' },
         { status: 404 }
       );
     }
 
-    // Extract nested relations
-    const userData = Array.isArray(post.users) ? post.users[0] : post.users;
-    const poolData = post.pool_deployments?.[0] || null;
+    console.log('[GET /api/posts/[id]] Found post:', { id: post.id, userId: post.user_id, hasPool: !!post.pool_deployments?.[0] });
 
-    console.log('[Post API] Extracted data:', {
-      hasUser: !!userData,
-      hasPool: !!poolData,
-      postType: post.post_type
-    });
+    // Extract nested relations
+    const userData = Array.isArray(post.user) ? post.user[0] : post.user;
+    const poolData = post.pool_deployments?.[0] || null;
 
     // Pool data is kept fresh by the event indexer
     // Event indexer updates pool_deployments table after every trade event
-    // If critical fields are null, sync from chain as fallback
+    //
+    // PERFORMANCE: Don't block the API response to sync from chain
+    // The event indexer handles this asynchronously
     if (poolData?.pool_address) {
       // Check if critical fields are null
       const hasNullFields =
@@ -94,33 +92,11 @@ export async function GET(
         poolData.vault_balance === null;
 
       if (hasNullFields) {
-        console.log('[Post API] Pool has null fields, syncing from chain...');
-        const synced = await syncPoolFromChain(poolData.pool_address);
-
-        if (synced) {
-          // Re-fetch pool data after sync
-          const { data: refreshedPool } = await supabase
-            .from('pool_deployments')
-            .select('*')
-            .eq('pool_address', poolData.pool_address)
-            .single();
-
-          if (refreshedPool) {
-            // Replace poolData with refreshed data
-            Object.assign(poolData, refreshedPool);
-            console.log('[Post API] Pool data refreshed after sync');
-          }
-        }
-      }
-
-      const lastSynced = poolData.last_synced_at ? new Date(poolData.last_synced_at).getTime() : 0;
-      const now = Date.now();
-      const staleness = now - lastSynced;
-
-      if (staleness > 60000) {
-        console.log(`[Post API] Pool data is ${Math.round(staleness / 1000)}s old - may be stale if event indexer is down`);
-      } else {
-        console.log('[Post API] Using fresh pool data from event indexer');
+        console.warn('[GET /api/posts/[id]] Pool has null fields, but not blocking response. Event indexer will fix:', poolData.pool_address);
+        // Trigger async sync in background (fire and forget)
+        syncPoolFromChain(poolData.pool_address).catch((err) => {
+          console.error('[GET /api/posts/[id]] Background sync failed:', err);
+        });
       }
     }
 
@@ -128,20 +104,40 @@ export async function GET(
     let priceLong: number | null = null;
     let priceShort: number | null = null;
 
+    if (poolData?.pool_address) {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📖 [GET POST] Reading from Database:');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('Pool:', poolData.pool_address);
+      console.log('Supplies (from DB):');
+      console.log('  s_long_supply:', poolData.s_long_supply);
+      console.log('  s_short_supply:', poolData.s_short_supply);
+      console.log('Sqrt Prices (from DB):');
+      console.log('  sqrt_price_long_x96:', poolData.sqrt_price_long_x96);
+      console.log('  sqrt_price_short_x96:', poolData.sqrt_price_short_x96);
+      console.log('Vault:');
+      console.log('  vault_balance (micro-USDC):', poolData.vault_balance);
+    }
+
     if (poolData?.sqrt_price_long_x96) {
       try {
         priceLong = sqrtPriceX96ToPrice(poolData.sqrt_price_long_x96);
+        console.log('Calculated prices:');
+        console.log('  priceLong (USDC):', priceLong);
       } catch (e) {
-        console.warn('[Post API] Failed to calculate priceLong:', e);
       }
     }
 
     if (poolData?.sqrt_price_short_x96) {
       try {
         priceShort = sqrtPriceX96ToPrice(poolData.sqrt_price_short_x96);
+        console.log('  priceShort (USDC):', priceShort);
       } catch (e) {
-        console.warn('[Post API] Failed to calculate priceShort:', e);
       }
+    }
+
+    if (poolData?.pool_address) {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
 
     // Transform the data to match our Post type
@@ -159,6 +155,7 @@ export async function GET(
       media_urls: post.media_urls,
       article_title: post.article_title,
       cover_image_url: post.cover_image_url,
+      image_display_mode: post.image_display_mode || 'contain',
 
       // Author info
       author: userData ? {
@@ -169,12 +166,18 @@ export async function GET(
       } : null,
 
       // Belief info
-      belief: null, // TODO: Add belief schema when protocol integration complete
+      belief: null,
 
       // Pool info (ICBS - synced from chain if stale)
       poolAddress: poolData?.pool_address || null,
-      poolSupplyLong: poolData?.s_long_supply ? Number(poolData.s_long_supply) / USDC_PRECISION : null,
-      poolSupplyShort: poolData?.s_short_supply ? Number(poolData.s_short_supply) / USDC_PRECISION : null,
+      // Token supplies are stored in DISPLAY units in DB (per units.ts spec)
+      // Note: Use !== null/undefined check to allow 0 values (selling all tokens results in 0 supply)
+      poolSupplyLong: poolData?.s_long_supply !== null && poolData?.s_long_supply !== undefined
+        ? Number(poolData.s_long_supply)
+        : null,
+      poolSupplyShort: poolData?.s_short_supply !== null && poolData?.s_short_supply !== undefined
+        ? Number(poolData.s_short_supply)
+        : null,
       poolPriceLong: priceLong,
       poolPriceShort: priceShort,
       poolSqrtPriceLongX96: poolData?.sqrt_price_long_x96 || null,
@@ -184,31 +187,16 @@ export async function GET(
       // ICBS parameters (F is FIXED at 1 for all pools)
       poolF: poolData?.f || 1,
       poolBetaNum: poolData?.beta_num || 1,
-      poolBetaDen: poolData?.beta_den || 2,
-
-      // Additional metadata
-      likes: post.likes || 0,
-      views: post.views || 0
+      poolBetaDen: poolData?.beta_den || 2
     };
-
-    console.log('[Post API] Returning transformed post:', {
-      id: transformedPost.id,
-      poolSupplyLong: transformedPost.poolSupplyLong,
-      poolSupplyShort: transformedPost.poolSupplyShort,
-      poolPriceLong: transformedPost.poolPriceLong,
-      poolPriceShort: transformedPost.poolPriceShort,
-      lastSynced: poolData?.last_synced_at
-    });
 
     // Validate response with Zod schema
     try {
       const validated = PostAPIResponseSchema.parse(transformedPost);
       return NextResponse.json(validated);
     } catch (validationError) {
-      console.error('[Post API] Schema validation failed:', validationError);
       // In development, return unvalidated data with warning
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[Post API] Returning unvalidated data in development mode');
         return NextResponse.json(transformedPost);
       }
       // In production, fail
@@ -218,12 +206,10 @@ export async function GET(
       );
     }
   } catch (error) {
-    console.error('Error fetching post:', error);
-
+    console.error('[GET /api/posts/[id]] Unexpected error:', error);
     // Check for connection errors
     if (error instanceof Error) {
       if (error.message.includes('fetch') || error.message.includes('ECONNREFUSED')) {
-        console.error('⚠️  Cannot connect to Supabase - Is it running? Try: npx supabase start');
         return NextResponse.json(
           { error: 'Database unavailable. Run: npx supabase start' },
           { status: 503 }
@@ -232,7 +218,7 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

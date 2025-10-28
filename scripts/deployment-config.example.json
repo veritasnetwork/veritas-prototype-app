@@ -1,0 +1,44 @@
+{
+  "network": "mainnet-beta",
+  "rpcEndpoint": "https://api.mainnet-beta.solana.com",
+  "cluster": "mainnet",
+
+  "keypairs": {
+    "protocolAuthority": {
+      "path": "/path/to/production-protocol-authority.json",
+      "description": "Deploys program, initializes contracts, signs user transactions. Hot wallet (goes to Vercel)."
+    },
+    "upgradeAuthority": {
+      "publicKey": "YourHardwareWalletPublicKeyHere",
+      "description": "Controls smart contract upgrades. Hardware wallet public key (set manually after deployment)."
+    }
+  },
+
+  "usdcMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+
+  "programDefaults": {
+    "factory": {
+      "minDeposit": 20000000,
+      "defaultF": 1,
+      "defaultBetaNum": 1,
+      "defaultBetaDen": 2,
+      "defaultP0": 1000000
+    },
+    "custodian": {
+      "description": "Protocol authority and owner will be set from config"
+    }
+  },
+
+  "security": {
+    "confirmBeforeExecute": true,
+    "requireMultisig": false,
+    "backupKeypairs": true
+  },
+
+  "deployment": {
+    "programId": "will-be-filled-after-deploy",
+    "factoryPda": "will-be-derived",
+    "custodianPda": "will-be-derived",
+    "usdcVaultPda": "will-be-derived"
+  }
+}

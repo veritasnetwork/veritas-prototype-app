@@ -130,8 +130,8 @@ export function CompactPostCard({ post, holdings, onClick }: CompactPostCardProp
               </div>
             )}
             {holdings.short_balance > 0 && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-red-500/10 border border-red-500/20 rounded">
-                <span className="text-[10px] font-medium text-red-400">SHORT</span>
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/10 border border-orange-500/20 rounded">
+                <span className="text-[10px] font-medium text-orange-400">SHORT</span>
                 <span className="text-xs font-semibold text-white">
                   {holdings.short_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </span>
@@ -150,7 +150,7 @@ export function CompactPostCard({ post, holdings, onClick }: CompactPostCardProp
             </div>
 
             {profitLoss !== 0 && (
-              <div className={`flex items-center gap-1 ${profitLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              <div className={`flex items-center gap-1 ${profitLoss >= 0 ? 'text-green-400' : 'text-orange-400'}`}>
                 <span className="text-xs font-semibold">
                   {profitLoss >= 0 ? '+' : ''}{profitLoss.toFixed(2)} USDC
                 </span>

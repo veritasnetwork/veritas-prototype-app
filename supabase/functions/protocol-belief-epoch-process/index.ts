@@ -102,16 +102,39 @@ serve(async (req) => {
     console.log(`📅 Current epoch: ${currentEpoch}`)
     console.log(`⏰ Timestamp: ${new Date().toISOString()}`)
 
-    // Verify belief exists
+    // Verify belief exists and check if already processed for this epoch
     const { data: belief, error: beliefError } = await supabaseClient
       .from('beliefs')
-      .select('id')
+      .select('id, last_processed_epoch, previous_aggregate, certainty')
       .eq('id', belief_id)
       .single()
 
     if (beliefError || !belief) {
       throw new Error(`Belief not found: ${beliefError?.message || 'Unknown error'}`)
     }
+
+    // Idempotency check: Skip if already processed for this epoch
+    if (belief.last_processed_epoch !== null && belief.last_processed_epoch >= currentEpoch) {
+      console.log(`⏭️  SKIPPING: Belief already processed for epoch ${belief.last_processed_epoch} (current: ${currentEpoch})`)
+      console.log(`✅ Returning cached result: aggregate=${(belief.previous_aggregate * 100).toFixed(1)}%`)
+
+      // Return cached result without reprocessing
+      return new Response(JSON.stringify({
+        belief_id: belief_id,
+        participant_count: 0, // Unknown from cache
+        aggregate: belief.previous_aggregate,
+        certainty: belief.certainty,
+        jensen_shannon_disagreement_entropy: 0, // Unknown from cache
+        redistribution_occurred: false, // Already happened
+        slashing_pool: 0,
+        skipped: true,
+        reason: 'already_processed'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    console.log(`✅ Proceeding with epoch processing (last processed: ${belief.last_processed_epoch ?? 'never'})`)
 
     // Get ALL participants who have ever submitted to this belief market
     const { data: submissions, error: submissionsError } = await supabaseClient
@@ -192,12 +215,13 @@ serve(async (req) => {
     // Use aggregation/decomposition result directly as final aggregate (absolute BD relevance)
     const finalAggregate = aggregationData.aggregate
 
-    // Step 3: Update beliefs table with certainty and new previous_aggregate
+    // Step 3: Update beliefs table with certainty, new previous_aggregate, and mark as processed
     const { error: beliefUpdateError } = await supabaseClient
       .from('beliefs')
       .update({
         certainty: aggregationData.certainty,
-        previous_aggregate: finalAggregate
+        previous_aggregate: finalAggregate,
+        last_processed_epoch: currentEpoch // Mark as processed for this epoch
       })
       .eq('id', belief_id)
 
@@ -309,7 +333,8 @@ serve(async (req) => {
     // Step 6: Stake Redistribution (ΔS = score × w_i)
     const redistributionData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-stake-redistribution', {
       belief_id: belief_id,
-      information_scores: btsData.information_scores
+      information_scores: btsData.information_scores,
+      current_epoch: currentEpoch
     })
 
     console.log(`💰 Step 6: Stake redistribution complete`)
@@ -329,6 +354,21 @@ serve(async (req) => {
       Object.entries(redistributionData.individual_slashes).forEach(([id, slash]) => {
         if ((slash as number) > 0) console.log(`💰   ${id.substring(0, 8)}: -$${(slash as number).toFixed(2)} (slash)`)
       })
+    }
+
+    // Verify events were recorded
+    const { data: recordedEvents, error: eventsError } = await supabaseClient
+      .from('stake_redistribution_events')
+      .select('agent_id')
+      .eq('belief_id', belief_id)
+      .eq('epoch', currentEpoch)
+
+    if (eventsError) {
+      console.error(`⚠️  Failed to verify redistribution events: ${eventsError.message}`)
+    } else if (redistributionData.redistribution_occurred && (!recordedEvents || recordedEvents.length === 0)) {
+      console.error(`⚠️  No redistribution events were recorded! This is a critical bug.`)
+    } else if (recordedEvents && recordedEvents.length > 0) {
+      console.log(`✅ Recorded ${recordedEvents.length} redistribution events`)
     }
 
     console.log(`\n✅ Belief ${belief_id.substring(0, 8)} processing complete`)

@@ -124,7 +124,7 @@ export function EditProfileModal({
           {/* Avatar Upload */}
           <div className="flex flex-col items-center">
             <div className="relative mb-4">
-              <div className="w-24 h-24 rounded-full border-3 border-[#B9D9EB] bg-gradient-to-br from-[#B9D9EB] to-[#0C1D51] flex items-center justify-center overflow-hidden">
+              <div className="w-24 h-24 rounded-full border-3 border-[#B9D9EB] shadow-lg overflow-hidden">
                 {avatarPreview ? (
                   <img
                     src={avatarPreview}
@@ -132,9 +132,11 @@ export function EditProfileModal({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-white text-3xl font-bold">
-                    {username?.charAt(0).toUpperCase() || 'U'}
-                  </span>
+                  <div className="w-full h-full bg-[#F0EAD6] flex items-center justify-center">
+                    <span className="text-gray-700 text-3xl font-bold">
+                      {username?.charAt(0).toUpperCase() || 'U'}
+                    </span>
+                  </div>
                 )}
               </div>
               <button
@@ -181,8 +183,8 @@ export function EditProfileModal({
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-              <p className="text-sm text-red-400">{error}</p>
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
+              <p className="text-sm text-orange-400">{error}</p>
             </div>
           )}
 
@@ -198,7 +200,7 @@ export function EditProfileModal({
             <button
               type="submit"
               disabled={!hasChanges || isUploading}
-              className="flex-1 py-2.5 bg-[#B9D9EB] hover:bg-[#B9D9EB]/90 text-[#0C1D51] font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 bg-[#B9D9EB] hover:bg-[#B9D9EB]/90 text-[#0C1D51] font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-default flex items-center justify-center gap-2"
             >
               {isUploading ? (
                 <>

@@ -30,7 +30,14 @@ async function teardown() {
 async function callRedistribution(params: {
   belief_id: string;
   information_scores: Record<string, number>;
+  current_epoch?: number;
 }) {
+  // Use epoch 0 as default for backward compatibility with existing tests
+  const payload = {
+    ...params,
+    current_epoch: params.current_epoch ?? 0
+  };
+
   const response = await fetch(
     `${EDGE_FUNCTION_URL}/protocol-beliefs-stake-redistribution`,
     {
@@ -40,7 +47,7 @@ async function callRedistribution(params: {
         'Authorization': `Bearer ${ANON_KEY}`,
         'apikey': ANON_KEY,
       },
-      body: JSON.stringify(params),
+      body: JSON.stringify(payload),
     }
   );
 
@@ -529,6 +536,150 @@ Deno.test("verifies locks are not modified during redistribution", async () => {
   // Lock should be unchanged
   assertEquals(lockAfter!.belief_lock, lockBefore!.belief_lock);
   assertEquals(lockAfter!.belief_lock, 10_000_000);
+
+  await teardown();
+});
+
+Deno.test("records redistribution events in audit table", async () => {
+  setup();
+  const { beliefId, agent1Id, agent2Id } = await setupTwoAgentScenario({
+    agent1Lock: 10_000_000,
+    agent2Lock: 10_000_000
+  });
+
+  const currentEpoch = 5;
+
+  const response = await callRedistribution({
+    belief_id: beliefId,
+    information_scores: {
+      [agent1Id]: 0.5,   // Winner
+      [agent2Id]: -0.5   // Loser
+    },
+    current_epoch: currentEpoch
+  });
+
+  assertEquals(response.status, 200);
+
+  // Verify events were recorded
+  const { data: events, error } = await supabase
+    .from('stake_redistribution_events')
+    .select('*')
+    .eq('belief_id', beliefId)
+    .eq('epoch', currentEpoch);
+
+  assert(!error, `Query failed: ${error?.message}`);
+  assertEquals(events?.length, 2, 'Should record 2 events');
+
+  // Verify winner event
+  const winnerEvent = events?.find(e => e.agent_id === agent1Id);
+  assert(winnerEvent, 'Winner event not found');
+  assertEquals(winnerEvent.information_score, 0.5);
+  assert(winnerEvent.stake_delta > 0, 'Winner should have positive delta');
+  assertEquals(winnerEvent.belief_weight, 10_000_000);
+
+  // Verify loser event
+  const loserEvent = events?.find(e => e.agent_id === agent2Id);
+  assert(loserEvent, 'Loser event not found');
+  assertEquals(loserEvent.information_score, -0.5);
+  assert(loserEvent.stake_delta < 0, 'Loser should have negative delta');
+  assertEquals(loserEvent.belief_weight, 10_000_000);
+
+  // Verify zero-sum in events
+  const totalDelta = (winnerEvent?.stake_delta || 0) + (loserEvent?.stake_delta || 0);
+  assert(Math.abs(totalDelta) <= 1, `Zero-sum violated in events: ${totalDelta}`);
+
+  await teardown();
+});
+
+Deno.test("prevents double redistribution (idempotency)", async () => {
+  setup();
+  const { beliefId, agent1Id, agent2Id } = await setupTwoAgentScenario({
+    agent1Lock: 10_000_000,
+    agent2Lock: 10_000_000
+  });
+
+  const currentEpoch = 5;
+  const scores = {
+    [agent1Id]: 0.5,
+    [agent2Id]: -0.5
+  };
+
+  // First call - should redistribute
+  const response1 = await callRedistribution({
+    belief_id: beliefId,
+    information_scores: scores,
+    current_epoch: currentEpoch
+  });
+
+  assertEquals(response1.status, 200);
+  const data1 = await response1.json();
+  assertEquals(data1.redistribution_occurred, true);
+
+  const stakesAfterFirst = {
+    [agent1Id]: await getAgentStake(agent1Id),
+    [agent2Id]: await getAgentStake(agent2Id)
+  };
+
+  // Second call - should be idempotent (no change)
+  const response2 = await callRedistribution({
+    belief_id: beliefId,
+    information_scores: scores,
+    current_epoch: currentEpoch
+  });
+
+  assertEquals(response2.status, 200);
+  const data2 = await response2.json();
+  assertEquals(data2.skipped, true);
+  assertEquals(data2.reason, 'already_redistributed');
+
+  // Verify stakes didn't change
+  const stakesAfterSecond = {
+    [agent1Id]: await getAgentStake(agent1Id),
+    [agent2Id]: await getAgentStake(agent2Id)
+  };
+
+  assertEquals(stakesAfterSecond[agent1Id], stakesAfterFirst[agent1Id]);
+  assertEquals(stakesAfterSecond[agent2Id], stakesAfterFirst[agent2Id]);
+
+  // Verify only 2 events (not 4)
+  const { data: events } = await supabase
+    .from('stake_redistribution_events')
+    .select('id')
+    .eq('belief_id', beliefId)
+    .eq('epoch', currentEpoch);
+
+  assertEquals(events?.length, 2, 'Should only have 2 events after duplicate call');
+
+  await teardown();
+});
+
+Deno.test("reconcile_agent_stake matches actual stake after redistribution", async () => {
+  setup();
+  const { beliefId, agent1Id, agent2Id } = await setupTwoAgentScenario({
+    agent1Lock: 10_000_000,
+    agent2Lock: 10_000_000
+  });
+
+  await callRedistribution({
+    belief_id: beliefId,
+    information_scores: {
+      [agent1Id]: 0.8,
+      [agent2Id]: -0.8
+    },
+    current_epoch: 5
+  });
+
+  // Call reconciliation function
+  const { data, error } = await supabase.rpc('reconcile_agent_stake', {
+    p_agent_id: agent1Id
+  });
+
+  assert(!error, `Reconciliation failed: ${error?.message}`);
+  assert(data, 'No reconciliation data returned');
+
+  const reconciliation = typeof data === 'string' ? JSON.parse(data) : data;
+  assertEquals(reconciliation.is_correct, true, 'Reconciliation should show correct stake');
+  assertEquals(reconciliation.discrepancy, 0, 'Should have zero discrepancy');
 
   await teardown();
 });

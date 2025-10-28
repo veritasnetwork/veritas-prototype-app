@@ -14,7 +14,9 @@ export async function calculateStakeSkim(params: StakeSkimParams): Promise<numbe
 
   const supabase = getSupabaseServiceRole();
 
-  const { data, error } = await supabase.rpc('calculate_skim_with_lock', {
+  // Use readonly version for trade preparation (no FOR UPDATE lock)
+  // The locked version is only used during actual trade execution in record_trade_atomic
+  const { data, error } = await supabase.rpc('calculate_skim_with_lock_readonly', {
     p_user_id: params.userId,
     p_wallet_address: params.walletAddress,
     p_pool_address: params.poolAddress,

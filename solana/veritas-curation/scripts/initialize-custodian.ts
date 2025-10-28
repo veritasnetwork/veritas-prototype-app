@@ -10,6 +10,7 @@ import { PublicKey } from "@solana/web3.js";
 import { VeritasCuration } from "../target/types/veritas_curation";
 import fs from "fs";
 import path from "path";
+import { loadProtocolAuthority } from "./load-authority";
 
 async function main() {
   console.log("🚀 Initializing VeritasCustodian...\n");
@@ -49,7 +50,6 @@ async function main() {
   try {
     const custodianAccount = await program.account.veritasCustodian.fetch(custodianPda);
     console.log("⚠️  Already initialized!");
-    console.log("   Owner:", custodianAccount.owner.toString());
     console.log("   Protocol Authority:", custodianAccount.protocolAuthority.toString());
     console.log("✅ Custodian is ready!");
     return;
@@ -58,11 +58,15 @@ async function main() {
   }
 
   console.log("⚙️  Initializing...");
+
+  // Load protocol authority from environment variable
+  const protocolAuthorityKeypair = loadProtocolAuthority();
+  const protocolAuthority = protocolAuthorityKeypair.publicKey;
+
   try {
     const tx = await program.methods
       .initializeCustodian(
-        wallet.publicKey,  // owner
-        wallet.publicKey   // protocol_authority  
+        protocolAuthority   // protocol_authority from env
       )
       .accounts({
         usdcMint: usdcMint,
@@ -76,7 +80,6 @@ async function main() {
     const custodianAccount = await program.account.veritasCustodian.fetch(custodianPda);
     console.log("\n📊 Custodian Details:");
     console.log("   Address:", custodianPda.toString());
-    console.log("   Owner:", custodianAccount.owner.toString());
     console.log("   Protocol Authority:", custodianAccount.protocolAuthority.toString());
     console.log("   USDC Vault:", custodianAccount.usdcVault.toString());
 
@@ -89,7 +92,6 @@ async function main() {
     deploymentData.custodian = {
       address: custodianPda.toString(),
       usdcVault: usdcVaultPda.toString(),
-      owner: custodianAccount.owner.toString(),
       protocolAuthority: custodianAccount.protocolAuthority.toString(),
     };
     fs.writeFileSync(outputPath, JSON.stringify(deploymentData, null, 2));

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import type { PostType, TiptapDocument } from '@/types/post.types';
 import { FileText, Image as ImageIcon, Video } from 'lucide-react';
 import { TiptapEditor } from './TiptapEditor';
@@ -18,6 +19,7 @@ interface CreatePostModalProps {
 export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostModalProps) {
   const { getAccessToken } = usePrivy();
   const { user } = useAuth();
+  const { requireAuth } = useRequireAuth();
 
   // NEW SCHEMA STATE
   const [postType, setPostType] = useState<PostType>('text');
@@ -25,7 +27,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const [caption, setCaption] = useState(''); // For image/video posts (280 chars max)
   const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null); // Single media URL
   const [videoThumbnailUrl, setVideoThumbnailUrl] = useState<string | null>(null); // Video thumbnail
-  const [imageDisplayMode, setImageDisplayMode] = useState<'cover' | 'contain'>('contain'); // Image layout mode
+  const [imageDisplayMode, setImageDisplayMode] = useState<'cover' | 'contain'>('cover'); // Image layout mode
 
   // ARTICLE-SPECIFIC STATE
   const [articleTitle, setArticleTitle] = useState(''); // Optional title for articles
@@ -62,6 +64,17 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]); // Remove unnecessary dependencies that cause re-renders
+
+  // Debug: Log when modal unexpectedly unmounts
+  useEffect(() => {
+    if (isOpen) {
+    }
+    return () => {
+      if (isOpen) {
+        console.warn('[CreatePostModal] Unmounted while isOpen=true - possible crash!');
+      }
+    };
+  }, [isOpen]);
 
   const handleClose = async () => {
     // Don't close if already submitting
@@ -111,7 +124,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     setCaption('');
     setUploadedMediaUrl(null);
     setVideoThumbnailUrl(null);
-    setImageDisplayMode('contain');
+    setImageDisplayMode('cover');
     setArticleTitle('');
     setCoverImageUrl(null);
     setError(null);
@@ -120,6 +133,10 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
 
   const handleSubmit = async () => {
+    // Check auth first
+    const isAuthed = await requireAuth();
+    if (!isAuthed) return;
+
     // Validate based on post type
     if (postType === 'text' && !contentJson) {
       setError('Please enter some content');
@@ -202,7 +219,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       setCaption('');
       setUploadedMediaUrl(null);
       setVideoThumbnailUrl(null);
-      setImageDisplayMode('contain');
+      setImageDisplayMode('cover');
       setArticleTitle('');
       setCoverImageUrl(null);
       setError(null);
@@ -267,14 +284,14 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
       {/* Modal */}
       <div
-        className="relative bg-[#1a1a1a] border border-gray-800 rounded-lg md:rounded-xl shadow-2xl w-full max-w-2xl mx-4 md:mx-0 max-h-[90vh] flex flex-col"
+        className="relative bg-[#1a1a1a] border border-gray-800 rounded-lg md:rounded-xl shadow-2xl w-full max-w-2xl mx-4 md:mx-0 max-h-[95vh] flex flex-col"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-end px-6 md:px-8 py-3">
+        <div className="flex items-center justify-end px-6 md:px-8 py-2">
           <button
             onClick={handleClose}
             disabled={isSubmitting}
@@ -288,7 +305,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 md:px-8 py-6 space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 md:px-8 py-4 space-y-4">
           {/* Post Type Selector */}
           <div>
             <div className="grid grid-cols-3 gap-3">
@@ -420,16 +437,13 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
                   onUpload={setUploadedMediaUrl}
                   onRemove={() => setUploadedMediaUrl(null)}
                   disabled={isSubmitting}
+                  displayMode={imageDisplayMode}
                 />
               </div>
 
               {/* Image Display Mode Toggle */}
               {uploadedMediaUrl && (
-                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
-                  <label className="block text-sm font-medium text-gray-300 mb-3">
-                    Display Mode
-                  </label>
-                  <div className="flex gap-2">
+                <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => setImageDisplayMode('contain')}
@@ -440,10 +454,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
                           : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a]'
                       }`}
                     >
-                      <div className="flex flex-col items-center gap-1">
-                        <span>Full Image</span>
-                        <span className="text-xs opacity-70">With letterbox</span>
-                      </div>
+                      <span>Full Image</span>
                     </button>
                     <button
                       type="button"
@@ -455,17 +466,8 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
                           : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a]'
                       }`}
                     >
-                      <div className="flex flex-col items-center gap-1">
-                        <span>Fill Card</span>
-                        <span className="text-xs opacity-70">Cropped to fit</span>
-                      </div>
+                      <span>Fill Card</span>
                     </button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {imageDisplayMode === 'contain'
-                      ? 'Shows the complete image with black bars if needed'
-                      : 'Zooms to fill the card, may crop edges'}
-                  </p>
                 </div>
               )}
             </div>
@@ -516,7 +518,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 md:px-8 py-6 border-t border-gray-800">
+        <div className="flex items-center justify-end gap-3 px-6 md:px-8 py-4 border-t border-gray-800">
           <button
             onClick={handleClose}
             disabled={isSubmitting}

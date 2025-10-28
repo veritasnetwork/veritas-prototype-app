@@ -16,20 +16,24 @@ interface FundWalletButtonProps {
   variant?: 'full' | 'icon' | 'compact';
   /** Custom className for styling */
   className?: string;
+  /** Currency to fund (only used with 'compact' variant) */
+  currency?: 'SOL' | 'USDC';
 }
 
-export function FundWalletButton({ variant = 'full', className = '' }: FundWalletButtonProps) {
+export function FundWalletButton({ variant = 'full', className = '', currency = 'USDC' }: FundWalletButtonProps) {
   const { fundWallet } = useFundWallet();
   const { address } = useSolanaWallet();
   const [isFunding, setIsFunding] = useState(false);
 
-  const handleFundWallet = async () => {
+  const handleFundWallet = async (curr?: 'SOL' | 'USDC') => {
     if (!address) return;
 
+    const fundingCurrency = curr || currency;
     setIsFunding(true);
     try {
       await fundWallet(address, {
         cluster: { name: 'mainnet-beta' }, // or 'devnet' for testing
+        currencyCode: fundingCurrency === 'USDC' ? 'usdc_sol' : 'sol', // MoonPay currency codes
       });
     } catch (error) {
       console.error('Funding flow error:', error);
@@ -46,7 +50,7 @@ export function FundWalletButton({ variant = 'full', className = '' }: FundWalle
       <button
         onClick={handleFundWallet}
         disabled={isFunding}
-        className={`p-2 text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+        className={`p-2 text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-default ${className}`}
         aria-label="Fund wallet"
         title="Fund wallet"
       >
@@ -58,26 +62,38 @@ export function FundWalletButton({ variant = 'full', className = '' }: FundWalle
   if (variant === 'compact') {
     return (
       <button
-        onClick={handleFundWallet}
+        onClick={() => handleFundWallet()}
         disabled={isFunding}
-        className={`px-3 py-1.5 text-xs font-medium text-blue-400 border border-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 ${className}`}
-        aria-label="Fund wallet"
+        className={`text-sm font-medium text-gray-400 hover:text-white transition-colors px-3 py-1 rounded-md border border-[#2a2a2a] hover:border-gray-400 disabled:opacity-50 disabled:cursor-default whitespace-nowrap ${className}`}
+        aria-label={`Add ${currency}`}
       >
-        <Wallet className="w-3.5 h-3.5" />
-        {isFunding ? 'Opening...' : 'Fund'}
+        {isFunding ? 'Opening...' : 'Add'}
       </button>
     );
   }
 
   return (
-    <button
-      onClick={handleFundWallet}
-      disabled={isFunding}
-      className={`w-full px-4 py-2.5 bg-[#B9D9EB] hover:bg-[#B9D9EB]/90 text-[#0C1D51] font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${className}`}
-      aria-label="Fund wallet"
-    >
-      <Wallet className="w-4 h-4" />
-      {isFunding ? 'Opening...' : 'Fund Wallet'}
-    </button>
+    <div className={`w-full space-y-2 ${className}`}>
+      <button
+        onClick={() => handleFundWallet('USDC')}
+        disabled={isFunding}
+        className="w-full px-4 py-2.5 bg-[#B9D9EB] hover:bg-[#B9D9EB]/90 text-[#0C1D51] font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-default flex items-center justify-center gap-2"
+        aria-label="Add USDC"
+      >
+        <Wallet className="w-4 h-4 flex-shrink-0" />
+        <span className="flex-1 text-center">{isFunding ? 'Opening...' : 'Add USDC'}</span>
+        <div className="w-4 h-4 flex-shrink-0"></div>
+      </button>
+      <button
+        onClick={() => handleFundWallet('SOL')}
+        disabled={isFunding}
+        className="w-full px-4 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-default flex items-center justify-center gap-2 border border-[#2a2a2a]"
+        aria-label="Add SOL"
+      >
+        <Wallet className="w-4 h-4 flex-shrink-0" />
+        <span className="flex-1 text-center">{isFunding ? 'Opening...' : 'Add SOL'}</span>
+        <div className="w-4 h-4 flex-shrink-0"></div>
+      </button>
+    </div>
   );
 }

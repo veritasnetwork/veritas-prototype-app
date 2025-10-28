@@ -47,3 +47,7 @@ next-env.d.ts
 solana/keys/
 test-ledger/
 .mock-wallet.json
+
+# deployment configs (contain keypair paths and sensitive data)
+scripts/deployment-config.json
+**/deployment-config.json

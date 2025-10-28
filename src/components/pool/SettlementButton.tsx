@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { Connection, Transaction } from '@solana/web3.js';
 import { getRpcEndpoint } from '@/lib/solana/network-config';
 import { Scale, AlertCircle, CheckCircle } from 'lucide-react';
@@ -29,11 +30,16 @@ export function SettlementButton({
 }: SettlementButtonProps) {
   const { getAccessToken } = usePrivy();
   const { wallet, address } = useSolanaWallet();
+  const { requireAuth } = useRequireAuth();
   const [isSettling, setIsSettling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const handleSettle = async () => {
+    // Check auth first
+    const isAuthed = await requireAuth();
+    if (!isAuthed) return;
+
     if (!wallet || !address) {
       setError('Please connect your wallet');
       return;
@@ -88,8 +94,6 @@ export function SettlementButton({
       const signature = await connection.sendRawTransaction(signedTx.serialize());
       await connection.confirmTransaction(signature, 'confirmed');
 
-      console.log(`[SETTLEMENT] Pool ${poolAddress} settled with BD score ${actualBdScore}`);
-      console.log(`[SETTLEMENT] Transaction: ${signature}`);
 
       setSuccess(true);
 
@@ -133,7 +137,7 @@ export function SettlementButton({
       <button
         onClick={handleSettle}
         disabled={isSettling}
-        className="w-full px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-default flex items-center justify-center gap-2"
       >
         {isSettling ? (
           <>
@@ -154,7 +158,7 @@ export function SettlementButton({
       </button>
 
       {error && (
-        <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+        <div className="flex items-start gap-2 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-orange-400 text-sm">
           <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <p>{error}</p>
         </div>

@@ -13,6 +13,7 @@ import {
 } from "@solana/spl-token";
 import { assert } from "chai";
 import { TEST_POOL_AUTHORITY } from "./utils/test-keypairs";
+import { loadProtocolAuthority } from "../scripts/load-authority";
 
 describe("PoolFactory ICBS Tests", () => {
   const provider = anchor.AnchorProvider.env();
@@ -24,8 +25,9 @@ describe("PoolFactory ICBS Tests", () => {
   let usdcMint: PublicKey;
   let factoryPda: PublicKey;
   let custodianPda: PublicKey;
-  let factoryAuthority: PublicKey;
-  let poolAuthority: Keypair;
+  let protocolAuthority: Keypair;
+  let upgradeAuthority: Keypair;
+  let protocolTreasury: Keypair;
   let testUser: Keypair;
 
   // Default ICBS parameters
@@ -52,17 +54,31 @@ describe("PoolFactory ICBS Tests", () => {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Setup authorities
-    factoryAuthority = payer.publicKey; // Use provider wallet as factory authority
-    poolAuthority = TEST_POOL_AUTHORITY;
-    const airdropSig2 = await provider.connection.requestAirdrop(poolAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
-    await provider.connection.confirmTransaction(airdropSig2);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    upgradeAuthority = payer.payer;
 
     // Derive PDAs
     [factoryPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("factory")],
       program.programId
     );
+
+    // Try to load deployed authority from environment
+    try {
+      protocolAuthority = loadProtocolAuthority();
+      protocolTreasury = Keypair.generate();
+      console.log('✅ Using deployed authority from PROTOCOL_AUTHORITY_KEYPAIR');
+      console.log('   Public key:', protocolAuthority.publicKey.toBase58());
+    } catch (e) {
+      // Env var not set, use test authority
+      protocolAuthority = TEST_POOL_AUTHORITY;
+      protocolTreasury = Keypair.generate();
+      const airdropSig2 = await provider.connection.requestAirdrop(protocolAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
+      const airdropSig3 = await provider.connection.requestAirdrop(protocolTreasury.publicKey, 2 * LAMPORTS_PER_SOL);
+      await provider.connection.confirmTransaction(airdropSig2);
+      await provider.connection.confirmTransaction(airdropSig3);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('✅ Using test authority (PROTOCOL_AUTHORITY_KEYPAIR not set):', protocolAuthority.publicKey.toBase58());
+    }
 
     // Initialize custodian
     [custodianPda] = PublicKey.findProgramAddressSync(
@@ -78,8 +94,7 @@ describe("PoolFactory ICBS Tests", () => {
     try {
       await program.methods
         .initializeCustodian(
-          payer.publicKey,  // owner
-          poolAuthority.publicKey  // protocolAuthority
+          protocolAuthority.publicKey  // protocolAuthority (owner removed in refactor)
         )
         .accounts({
           custodian: custodianPda,
@@ -98,18 +113,30 @@ describe("PoolFactory ICBS Tests", () => {
   describe("1. Factory Initialization", () => {
     describe("1.1 Singleton Creation", () => {
       it("initializes factory with correct authorities", async () => {
+        // Derive program data address for upgrade authority validation
+        const [programDataAddress] = PublicKey.findProgramAddressSync(
+          [program.programId.toBuffer()],
+          new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111")
+        );
+
         try {
           await program.methods
             .initializeFactory(
-              factoryAuthority,
-              poolAuthority.publicKey,
-              custodianPda
+              protocolAuthority.publicKey,  // Protocol authority for operations
+              custodianPda,                 // Custodian address
+              50,                          // total_fee_bps (0.5%)
+              5000,                        // creator_split_bps (50% of fees)
+              protocolTreasury.publicKey   // Protocol treasury
             )
             .accounts({
               factory: factoryPda,
+              upgradeAuthority: upgradeAuthority.publicKey,
+              program: program.programId,
+              programData: programDataAddress,
               payer: payer.publicKey,
               systemProgram: SystemProgram.programId,
             })
+            .signers([upgradeAuthority])
             .rpc();
         } catch (e: any) {
           if (!e.toString().includes("already in use")) {
@@ -119,9 +146,11 @@ describe("PoolFactory ICBS Tests", () => {
 
         // Verify factory state
         const factory = await program.account.poolFactory.fetch(factoryPda);
-        assert.equal(factory.factoryAuthority.toBase58(), factoryAuthority.toBase58());
-        assert.equal(factory.poolAuthority.toBase58(), poolAuthority.publicKey.toBase58());
+        assert.equal(factory.protocolAuthority.toBase58(), protocolAuthority.publicKey.toBase58());
         assert.equal(factory.custodian.toBase58(), custodianPda.toBase58());
+        assert.equal(factory.totalFeeBps, 50);
+        assert.equal(factory.creatorSplitBps, 5000);
+        assert.equal(factory.protocolTreasury.toBase58(), protocolTreasury.publicKey.toBase58());
         // Note: totalPools may be > 0 if other tests have already created pools
         assert.ok(factory.totalPools >= 0);
 
@@ -134,18 +163,29 @@ describe("PoolFactory ICBS Tests", () => {
       });
 
       it("prevents duplicate factory initialization", async () => {
+        const [programDataAddress] = PublicKey.findProgramAddressSync(
+          [program.programId.toBuffer()],
+          new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111")
+        );
+
         try {
           await program.methods
             .initializeFactory(
-              factoryAuthority,
-              poolAuthority.publicKey,
-              custodianPda
+              protocolAuthority.publicKey,
+              custodianPda,
+              50,
+              5000,
+              protocolTreasury.publicKey
             )
             .accounts({
               factory: factoryPda,
+              upgradeAuthority: upgradeAuthority.publicKey,
+              program: program.programId,
+              programData: programDataAddress,
               payer: payer.publicKey,
               systemProgram: SystemProgram.programId,
             })
+            .signers([upgradeAuthority])
             .rpc();
           assert.fail("Should have failed with AlreadyInitialized");
         } catch (e: any) {
@@ -195,6 +235,7 @@ describe("PoolFactory ICBS Tests", () => {
             registry: registryPda,
             custodian: custodianPda,
             creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
             payer: payer.publicKey,
             systemProgram: SystemProgram.programId,
           })
@@ -240,6 +281,7 @@ describe("PoolFactory ICBS Tests", () => {
             registry: registryPda,
             custodian: custodianPda,
             creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
             payer: payer.publicKey,
             systemProgram: SystemProgram.programId,
           })
@@ -274,6 +316,7 @@ describe("PoolFactory ICBS Tests", () => {
             registry: registryPda,
             custodian: custodianPda,
             creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
             payer: payer.publicKey,
             systemProgram: SystemProgram.programId,
           })
@@ -310,6 +353,7 @@ describe("PoolFactory ICBS Tests", () => {
             registry: registryPda,
             custodian: custodianPda,
             creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
             payer: payer.publicKey,
             systemProgram: SystemProgram.programId,
           })
@@ -326,6 +370,7 @@ describe("PoolFactory ICBS Tests", () => {
               registry: registryPda,
               custodian: custodianPda,
               creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
               payer: payer.publicKey,
               systemProgram: SystemProgram.programId,
             })
@@ -358,11 +403,14 @@ describe("PoolFactory ICBS Tests", () => {
           .createPool(contentId) // Always uses factory defaults
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
             pool: poolPda,
             registry: registryPda,
             custodian: custodianPda,
             creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
             payer: payer.publicKey,
             systemProgram: SystemProgram.programId,
           })
@@ -401,6 +449,7 @@ describe("PoolFactory ICBS Tests", () => {
             registry: registryPda,
             custodian: custodianPda,
             creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
             payer: payer.publicKey,
             systemProgram: SystemProgram.programId,
           })
@@ -440,22 +489,26 @@ describe("PoolFactory ICBS Tests", () => {
         const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
 
         await program.methods
-          .updatePoolAuthority(newPoolAuthority.publicKey)
+          .updateProtocolAuthority(newPoolAuthority.publicKey)
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc(); // Provider wallet signs by default
 
         const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
-        assert.equal(factoryAfter.poolAuthority.toBase58(), newPoolAuthority.publicKey.toBase58());
+        assert.equal(factoryAfter.protocolAuthority.toBase58(), newPoolAuthority.publicKey.toBase58());
 
         // Restore original for other tests
         await program.methods
-          .updatePoolAuthority(poolAuthority.publicKey)
+          .updateProtocolAuthority(protocolAuthority.publicKey)
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc();
       });
@@ -463,44 +516,50 @@ describe("PoolFactory ICBS Tests", () => {
       it("rejects pool_authority update from unauthorized signer", async () => {
         try {
           await program.methods
-            .updatePoolAuthority(newPoolAuthority.publicKey)
+            .updateProtocolAuthority(newPoolAuthority.publicKey)
             .accounts({
               factory: factoryPda,
-            authority: testUser.publicKey,
+              upgradeAuthority: testUser.publicKey,  // Wrong signer - should fail
+              program: program.programId,
+              programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
             })
             .signers([testUser])
             .rpc();
           assert.fail("Should have failed with Unauthorized");
         } catch (e: any) {
-          // Error code 7020 - Unauthorized (only factory_authority can update)
-          assert.ok(e.toString().includes("7020") || e.toString().includes("Unauthorized"), `Got error: ${e.toString()}`);
+          // Should fail with upgrade authority mismatch
+          assert.ok(e.toString().includes("InvalidUpgradeAuthority") || e.toString().includes("Unauthorized") || e.toString().includes("7020"), `Got error: ${e.toString()}`);
         }
       });
 
-      it("rejects pool_authority update from pool_authority itself", async () => {
+      it("rejects pool_authority update from protocol_authority itself", async () => {
         try {
           await program.methods
-            .updatePoolAuthority(newPoolAuthority.publicKey)
+            .updateProtocolAuthority(newPoolAuthority.publicKey)
             .accounts({
               factory: factoryPda,
-            authority: poolAuthority.publicKey,
+              upgradeAuthority: protocolAuthority.publicKey,  // protocolAuthority is NOT upgrade authority
+              program: program.programId,
+              programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
             })
-            .signers([poolAuthority])
+            .signers([protocolAuthority])
             .rpc();
           assert.fail("Should have failed with Unauthorized");
         } catch (e: any) {
-          // Error code 7020 - Unauthorized (only factory_authority can, not pool_authority)
-          assert.ok(e.toString().includes("7020") || e.toString().includes("Unauthorized"), `Got error: ${e.toString()}`);
+          // Should fail with upgrade authority mismatch
+          assert.ok(e.toString().includes("InvalidUpgradeAuthority") || e.toString().includes("Unauthorized") || e.toString().includes("7020"), `Got error: ${e.toString()}`);
         }
       });
 
       it("validates new pool_authority is not default pubkey", async () => {
         try {
           await program.methods
-            .updatePoolAuthority(PublicKey.default)
+            .updateProtocolAuthority(PublicKey.default)
             .accounts({
               factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
             })
             .rpc();
           assert.fail("Should have failed with InvalidAuthority");
@@ -511,50 +570,12 @@ describe("PoolFactory ICBS Tests", () => {
       });
     });
 
-    describe("3.2 Factory Authority Transfer", () => {
+    describe.skip("3.2 Factory Authority Transfer", () => {
+      // NOTE: updateFactoryAuthority was removed in authority refactor
+      // Factory authority is now the program's upgrade authority
+      // This test is skipped as the function no longer exists
       it("allows factory_authority to transfer ownership", async () => {
-        // This test permanently changes factory authority
-        // Only run if we can restore it
-        const factoryBefore = await program.account.poolFactory.fetch(factoryPda);
-
-        await program.methods
-          .updateFactoryAuthority(newFactoryAuthority.publicKey)
-          .accounts({
-            factory: factoryPda,
-            authority: payer.publicKey,
-          })
-          .rpc();
-
-        const factoryAfter = await program.account.poolFactory.fetch(factoryPda);
-        assert.equal(factoryAfter.factoryAuthority.toBase58(), newFactoryAuthority.publicKey.toBase58());
-
-        // Try to use old authority (should fail)
-        try {
-          await program.methods
-            .updatePoolAuthority(Keypair.generate().publicKey)
-            .accounts({
-              factory: factoryPda,
-            authority: payer.publicKey,
-            })
-            .rpc();
-          assert.fail("Old authority should not work");
-        } catch (e: any) {
-          assert.ok(e.toString().includes("Unauthorized"));
-        }
-
-        // Restore original authority using new authority's signature
-        await program.methods
-          .updateFactoryAuthority(payer.publicKey)
-          .accounts({
-            factory: factoryPda,
-            authority: newFactoryAuthority.publicKey,
-          })
-          .signers([newFactoryAuthority])
-          .rpc();
-
-        // Verify restoration
-        const factoryRestored = await program.account.poolFactory.fetch(factoryPda);
-        assert.equal(factoryRestored.factoryAuthority.toBase58(), payer.publicKey.toBase58());
+        // DEPRECATED: updateFactoryAuthority removed
       });
     });
   });
@@ -570,7 +591,9 @@ describe("PoolFactory ICBS Tests", () => {
           .updateDefaults(3, null, null, null, null, null)
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc();
 
@@ -596,6 +619,7 @@ describe("PoolFactory ICBS Tests", () => {
             registry: newRegistryPda,
             custodian: custodianPda,
             creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
             payer: payer.publicKey,
             systemProgram: SystemProgram.programId,
           })
@@ -610,7 +634,9 @@ describe("PoolFactory ICBS Tests", () => {
           .updateDefaults(oldF, null, null, null, null, null)
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc();
       });
@@ -625,7 +651,9 @@ describe("PoolFactory ICBS Tests", () => {
           .updateDefaults(null, 2, 3, null, null, null)
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc();
 
@@ -638,7 +666,9 @@ describe("PoolFactory ICBS Tests", () => {
           .updateDefaults(null, oldBetaNum, oldBetaDen, null, null, null)
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc();
       });
@@ -650,7 +680,9 @@ describe("PoolFactory ICBS Tests", () => {
             .updateDefaults(11, null, null, null, null, null)
             .accounts({
               factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
             })
             .rpc();
           assert.fail("Should have failed with f = 11");
@@ -668,7 +700,9 @@ describe("PoolFactory ICBS Tests", () => {
             .updateDefaults(null, 95, 100, null, null, null) // 0.95 > 0.9
             .accounts({
               factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
             })
             .rpc();
           assert.fail("Should have failed with beta = 0.95");
@@ -693,7 +727,9 @@ describe("PoolFactory ICBS Tests", () => {
           .updateDefaults(null, null, null, null, new BN(200_000_000), null)
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc();
 
@@ -708,7 +744,9 @@ describe("PoolFactory ICBS Tests", () => {
           .updateDefaults(null, null, null, null, oldMinDeposit, null)
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc();
       });
@@ -722,7 +760,9 @@ describe("PoolFactory ICBS Tests", () => {
           .updateDefaults(null, null, null, null, null, new BN(600))
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc();
 
@@ -737,27 +777,31 @@ describe("PoolFactory ICBS Tests", () => {
           .updateDefaults(null, null, null, null, null, oldMinInterval)
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc();
       });
 
       it("rejects updates from non-factory-authority", async () => {
-        // Try to update as testUser (not factory authority)
+        // Try to update as testUser (not upgrade authority)
         try {
           await program.methods
             .updateDefaults(5, null, null, null, null, null)
             .accounts({
               factory: factoryPda,
-            authority: testUser.publicKey,
+              upgradeAuthority: testUser.publicKey,  // Wrong signer - should fail
+              program: program.programId,
+              programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
             })
             .signers([testUser])
             .rpc();
-          assert.fail("Should have failed from non-factory-authority");
+          assert.fail("Should have failed from non-upgrade-authority");
         } catch (e: any) {
-          // Should fail with Unauthorized (7020) since testUser is not factory_authority
+          // Should fail with InvalidUpgradeAuthority since testUser is not upgrade authority
           assert.ok(
-            e.toString().includes("7020") || e.toString().includes("Unauthorized"),
+            e.toString().includes("InvalidUpgradeAuthority") || e.toString().includes("Unauthorized") || e.toString().includes("7020"),
             `Should fail with unauthorized error, got: ${e.toString()}`
           );
         }
@@ -783,6 +827,7 @@ describe("PoolFactory ICBS Tests", () => {
             registry: pool1RegistryPda,
             custodian: custodianPda,
             creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
             payer: payer.publicKey,
             systemProgram: SystemProgram.programId,
           })
@@ -799,7 +844,9 @@ describe("PoolFactory ICBS Tests", () => {
           .updateDefaults(2, 3, 5, null, null, null) // f=2, beta=3/5=0.6
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc();
 
@@ -822,6 +869,7 @@ describe("PoolFactory ICBS Tests", () => {
             registry: pool2RegistryPda,
             custodian: custodianPda,
             creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
             payer: payer.publicKey,
             systemProgram: SystemProgram.programId,
           })
@@ -845,7 +893,9 @@ describe("PoolFactory ICBS Tests", () => {
           .updateDefaults(DEFAULT_F, DEFAULT_BETA_NUM, DEFAULT_BETA_DEN, null, null, null)
           .accounts({
             factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
           })
           .rpc();
       });
@@ -880,6 +930,7 @@ describe("PoolFactory ICBS Tests", () => {
                 registry: registryPda,
                 custodian: custodianPda,
                 creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
                 payer: payer.publicKey,
                 systemProgram: SystemProgram.programId,
               })
@@ -927,6 +978,7 @@ describe("PoolFactory ICBS Tests", () => {
             registry: expectedRegistry,
             custodian: custodianPda,
             creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
             payer: payer.publicKey,
             systemProgram: SystemProgram.programId,
           })
@@ -959,6 +1011,7 @@ describe("PoolFactory ICBS Tests", () => {
               )[0],
               custodian: custodianPda,
               creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
               payer: payer.publicKey,
               systemProgram: SystemProgram.programId,
             })
@@ -994,6 +1047,7 @@ describe("PoolFactory ICBS Tests", () => {
           registry: eventRegistryPda,
           custodian: custodianPda,
           creator: testUser.publicKey,
+            postCreator: testUser.publicKey,
           payer: payer.publicKey,
           systemProgram: SystemProgram.programId,
         })
@@ -1019,7 +1073,9 @@ describe("PoolFactory ICBS Tests", () => {
         .updateDefaults(5, null, null, null, null, null)
         .accounts({
           factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
         })
         .rpc();
 
@@ -1037,7 +1093,9 @@ describe("PoolFactory ICBS Tests", () => {
         .updateDefaults(oldF, null, null, null, null, null)
         .accounts({
           factory: factoryPda,
-            authority: payer.publicKey,
+            upgradeAuthority: upgradeAuthority.publicKey,
+            program: program.programId,
+            programData: PublicKey.findProgramAddressSync([program.programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0],
         })
         .rpc();
     });

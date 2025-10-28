@@ -9,9 +9,10 @@ interface ImageUploadProps {
   currentUrl: string | null;
   onRemove: () => void;
   disabled?: boolean;
+  displayMode?: 'cover' | 'contain';
 }
 
-export function ImageUpload({ onUpload, currentUrl, onRemove, disabled }: ImageUploadProps) {
+export function ImageUpload({ onUpload, currentUrl, onRemove, disabled, displayMode = 'cover' }: ImageUploadProps) {
   const { getAccessToken } = usePrivy();
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,11 +105,13 @@ export function ImageUpload({ onUpload, currentUrl, onRemove, disabled }: ImageU
   if (currentUrl) {
     return (
       <div className="relative group">
-        <img
-          src={currentUrl}
-          alt="Uploaded image"
-          className="w-full rounded-lg object-cover max-h-96"
-        />
+        <div className={`w-full rounded-lg overflow-hidden ${displayMode === 'contain' ? 'bg-black' : ''}`}>
+          <img
+            src={currentUrl}
+            alt="Uploaded image"
+            className={`w-full rounded-lg max-h-96 ${displayMode === 'contain' ? 'object-contain' : 'object-cover'}`}
+          />
+        </div>
         <button
           type="button"
           onClick={onRemove}
@@ -167,7 +170,7 @@ export function ImageUpload({ onUpload, currentUrl, onRemove, disabled }: ImageU
       </div>
 
       {error && (
-        <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+        <div className="mt-3 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-orange-400 text-sm">
           {error}
         </div>
       )}

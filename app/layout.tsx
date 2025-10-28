@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, Lora, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
+import { MobileBlockModal } from '@/components/common/MobileBlockModal';
 import '@/styles/globals.css';
 
 const inter = Inter({
@@ -37,8 +38,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${lora.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
-      <body className="bg-bg-primary text-text-primary font-sans antialiased">
+    <html lang="en" className={`${inter.variable} ${lora.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning style={{ backgroundColor: '#0f0f0f' }}>
+      <body className="bg-bg-primary text-text-primary font-sans antialiased" style={{ backgroundColor: '#0f0f0f', color: '#ffffff' }}>
         <ThemeProvider>
           <AuthProvider>
             {children}

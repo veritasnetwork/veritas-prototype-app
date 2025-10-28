@@ -14,7 +14,6 @@ import { verifyAuthHeader } from '@/lib/auth/privy-server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
-  console.log('[/api/pools/deploy-market] Validation request received');
   try {
     // Authenticate user
     const authHeader = req.headers.get('authorization');

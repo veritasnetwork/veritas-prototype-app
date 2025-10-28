@@ -39,7 +39,7 @@ pub struct ClosePool<'info> {
     #[account(
         constraint = (
             signer.key() == pool.creator ||
-            signer.key() == factory.pool_authority
+            signer.key() == factory.protocol_authority
         ) @ ContentPoolError::Unauthorized
     )]
     pub signer: Signer<'info>,

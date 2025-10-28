@@ -113,11 +113,8 @@ export function MockPrivyProvider({ children }: { children: ReactNode }) {
   const privyValue: MockPrivyContext = {
     authenticated: true,
     ready: true,
-    login: () => console.log('Mock login'),
-    logout: () => console.log('Mock logout'),
     user: mockUser,
     getAccessToken: async () => 'mock-jwt-token',
-    linkWallet: () => console.log('Mock link wallet'),
   };
 
   const walletsValue: MockWalletsContext = {

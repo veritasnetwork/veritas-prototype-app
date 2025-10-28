@@ -52,7 +52,6 @@ export class PoolStateEnricher {
       if (post.poolLastSyncedAt) {
         const age = now - new Date(post.poolLastSyncedAt).getTime();
         if (age < CACHE_THRESHOLD_MS) {
-          console.log(`[PoolStateEnricher] Skipping ${post.poolAddress.substring(0, 8)}... (${Math.round(age/1000)}s old)`);
           return false;
         }
       }
@@ -60,16 +59,13 @@ export class PoolStateEnricher {
     });
 
     const poolAddresses = poolsNeedingSync.map(p => p.poolAddress!);
-    console.log(`[PoolStateEnricher] Syncing ${poolAddresses.length}/${postsWithPools.length} pools`);
 
     if (poolAddresses.length === 0) {
-      console.log('[PoolStateEnricher] All cached');
       return posts;
     }
 
     try {
       // Batch fetch pool states from chain (with decay)
-      console.log(`[PoolStateEnricher] Fetching ${poolAddresses.length} pool states...`);
       const startTime = Date.now();
 
       const poolStateMap = await fetchMultiplePoolStatesWithDecay(
@@ -78,7 +74,6 @@ export class PoolStateEnricher {
       );
 
       const duration = Date.now() - startTime;
-      console.log(`[PoolStateEnricher] Fetched ${poolStateMap.size}/${poolAddresses.length} pools in ${duration}ms`);
 
       // Enrich posts with pool state
       return posts.map(post => {
@@ -128,9 +123,13 @@ export class PoolStateEnricher {
         decayPending: poolState.decayPending,
         expirationTimestamp: poolState.expirationTimestamp,
         lastDecayUpdate: poolState.lastDecayUpdate,
+        vaultBalance: poolState.rLong + poolState.rShort, // Total USDC in vault
       },
       // Update relevance score with decayed q value (0-100 scale)
       relevanceScore: Math.round(poolState.q * 100),
+      // Token supplies (atomic units)
+      poolSupplyLong: poolState.sLong,
+      poolSupplyShort: poolState.sShort,
       // Keep original pool data for backward compatibility
       poolPriceLong: poolState.priceLong,
       poolPriceShort: poolState.priceShort,

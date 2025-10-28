@@ -16,7 +16,6 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import * as anchor from '@coral-xyz/anchor';
 
 export async function POST(req: NextRequest) {
-  console.log('[/api/pools/recover] Recovery request received');
   try {
     // Authenticate user
     const authHeader = req.headers.get('authorization');
@@ -74,7 +73,6 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (existingPool) {
-      console.log('[/api/pools/recover] Pool already exists in database');
       return NextResponse.json({
         success: true,
         poolAddress: existingPool.pool_address,
@@ -83,7 +81,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch pool data from chain
-    console.log('[/api/pools/recover] Fetching pool data from chain:', poolAddress);
     const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || 'http://127.0.0.1:8899');
 
     const { Keypair } = await import('@solana/web3.js');
@@ -113,13 +110,6 @@ export async function POST(req: NextRequest) {
     const poolPda = new PublicKey(poolAddress);
     const poolData = await program.account.contentPool.fetch(poolPda);
 
-    console.log('[/api/pools/recover] Pool data fetched:', {
-      vault: poolData.vault?.toBase58(),
-      longMint: poolData.longMint?.toBase58(),
-      shortMint: poolData.shortMint?.toBase58(),
-      sLong: poolData.sLong?.toString(),
-      sShort: poolData.sShort?.toString(),
-    });
 
     // Verify pool is actually deployed (has vault)
     if (!poolData.vault || poolData.vault.toBase58() === '11111111111111111111111111111111') {
@@ -149,7 +139,6 @@ export async function POST(req: NextRequest) {
     if (deployError) {
       // Check if already exists (race condition)
       if (deployError.message?.includes('already deployed')) {
-        console.log('[/api/pools/recover] Pool was just recorded by another request');
         return NextResponse.json({
           success: true,
           poolAddress: poolAddress,
@@ -167,7 +156,6 @@ export async function POST(req: NextRequest) {
     // Sync additional state from chain
     await syncPoolFromChain(poolAddress, connection);
 
-    console.log('[/api/pools/recover] ✅ Pool recovered successfully');
     return NextResponse.json({
       success: true,
       poolAddress: poolAddress,

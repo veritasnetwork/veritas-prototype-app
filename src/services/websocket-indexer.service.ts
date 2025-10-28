@@ -35,8 +35,6 @@ export class WebSocketIndexer {
       );
     }
 
-    console.log(`🚀 Starting WebSocket indexer for ${network}...`);
-    console.log(`   Program ID: ${this.program.programId.toString()}`);
 
     // First, sync historical transactions
     await this.syncHistoricalTransactions();
@@ -54,7 +52,6 @@ export class WebSocketIndexer {
       'confirmed'
     );
 
-    console.log(`✅ WebSocket indexer started (subscription ID: ${this.subscriptionId})`);
   }
 
   /**
@@ -63,7 +60,6 @@ export class WebSocketIndexer {
    * Works on all networks (localnet/devnet/mainnet) regardless of tx history
    */
   private async syncHistoricalTransactions() {
-    console.log('🔄 Syncing unindexed pools...');
 
     try {
       const { getSupabaseServiceRole } = await import('@/lib/supabase-server');
@@ -83,18 +79,15 @@ export class WebSocketIndexer {
       }
 
       if (!pools || pools.length === 0) {
-        console.log('   No unindexed pools found');
         return;
       }
 
-      console.log(`   Found ${pools.length} unindexed pool(s)`);
 
       // For each pool, fetch current on-chain state and update database
       const rpcUrl = process.env.SOLANA_RPC_URL || 'http://127.0.0.1:8899';
 
       for (const pool of pools) {
         try {
-          console.log(`   Syncing pool: ${pool.pool_address}`);
 
           const poolData = await fetchPoolData(pool.pool_address, rpcUrl);
 
@@ -126,14 +119,12 @@ export class WebSocketIndexer {
           if (updateError) {
             console.error(`   ❌ Failed to update ${pool.pool_address}:`, updateError);
           } else {
-            console.log(`   ✅ Synced ${pool.pool_address}`);
           }
         } catch (err) {
           console.warn(`   Failed to sync pool ${pool.pool_address}:`, err);
         }
       }
 
-      console.log('✅ Pool sync complete');
     } catch (err) {
       console.error('❌ Failed to sync pools:', err);
     }
@@ -143,7 +134,6 @@ export class WebSocketIndexer {
     if (this.subscriptionId !== null) {
       await this.connection.removeOnLogsListener(this.subscriptionId);
       this.subscriptionId = null;
-      console.log('🛑 WebSocket indexer stopped');
     }
   }
 
@@ -154,7 +144,6 @@ export class WebSocketIndexer {
       return; // No events in this transaction
     }
 
-    console.log(`📦 Found ${events.length} event(s) in tx: ${signature}`);
 
     // Get block time from transaction (if available)
     let blockTime: number | undefined;
@@ -240,15 +229,12 @@ export class WebSocketIndexer {
         break;
 
       case 'PoolInitializedEvent':
-        console.log('ℹ️  Pool initialized:', event.data.pool.toString());
         break;
 
       case 'PoolClosedEvent':
-        console.log('ℹ️  Pool closed:', event.data.pool.toString());
         break;
 
       default:
-        console.log(`ℹ️  Unhandled event type: ${event.name}`);
     }
   }
 

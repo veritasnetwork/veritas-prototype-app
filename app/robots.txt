@@ -1,0 +1,16 @@
+# Veritas Robots.txt
+# https://www.robotstxt.org/
+
+# Production: Allow all bots
+User-agent: *
+Allow: /
+
+# Block admin/API routes
+Disallow: /api/
+Disallow: /admin/
+
+# Block user profile pages (optional - remove if you want profiles indexed)
+# Disallow: /u/
+
+# Sitemap
+Sitemap: https://your-domain.com/sitemap.xml

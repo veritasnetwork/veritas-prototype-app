@@ -1,0 +1,122 @@
+      it("handles very small trades correctly", async () => {
+        // Create a FRESH pool for this test to avoid numerical overflow from heavily-traded pool state
+        const smallTradeContentId = Keypair.generate().publicKey;
+        const [smallTradePoolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("content_pool"), smallTradeContentId.toBuffer()],
+          program.programId
+        );
+        const [smallTradeLongMint] = PublicKey.findProgramAddressSync(
+          [Buffer.from("long_mint"), smallTradeContentId.toBuffer()],
+          program.programId
+        );
+        const [smallTradeVault] = PublicKey.findProgramAddressSync(
+          [Buffer.from("vault"), smallTradeContentId.toBuffer()],
+          program.programId
+        );
+
+        // Create pool
+        await program.methods
+          .createPool(smallTradeContentId)
+          .accounts({
+            factory: factoryPda,
+            pool: smallTradePoolPda,
+            registry: PublicKey.findProgramAddressSync(
+              [Buffer.from("registry"), smallTradeContentId.toBuffer()],
+              program.programId
+            )[0],
+            custodian: custodianPda,
+            creator: testUser1.publicKey,
+            postCreator: testUser1.publicKey,
+            payer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser1])
+          .rpc();
+
+        // Deploy market with moderate initial deposit
+        const deployerUsdcAccount = await getOrCreateAssociatedTokenAccount(
+          provider.connection,
+          payer.payer,
+          usdcMint,
+          testUser1.publicKey
+        );
+
+        await program.methods
+          .deployMarket(new BN(100_000_000), new BN(50_000_000)) // 100 USDC, 50/50
+          .accounts({
+            pool: smallTradePoolPda,
+            factory: factoryPda,
+            longMint: smallTradeLongMint,
+            shortMint: PublicKey.findProgramAddressSync(
+              [Buffer.from("short_mint"), smallTradeContentId.toBuffer()],
+              program.programId
+            )[0],
+            vault: smallTradeVault,
+            stakeVault: stakeVault,
+            deployerUsdc: deployerUsdcAccount.address,
+            usdcMint: usdcMint,
+            deployer: testUser1.publicKey,
+            protocolAuthority: TEST_POOL_AUTHORITY.publicKey,
+            payer: payer.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          })
+          .signers([testUser1, TEST_POOL_AUTHORITY])
+          .rpc();
+
+        // Now test small trade on fresh pool
+        const traderUsdcAccount = await getOrCreateAssociatedTokenAccount(
+          provider.connection,
+          payer.payer,
+          usdcMint,
+          testUser2.publicKey
+        );
+
+        const traderLongAccount = await getOrCreateAssociatedTokenAccount(
+          provider.connection,
+          payer.payer,
+          smallTradeLongMint,
+          testUser2.publicKey
+        );
+
+        // Execute small trade (1 USDC = 1_000_000 micro-units)
+        await program.methods
+          .trade(
+            { long: {} },
+            { buy: {} },
+            new BN(1_000_000), // 1 USDC trade
+            new BN(0),
+            new BN(0),
+            new BN(0)
+          )
+          .accounts({
+            pool: smallTradePoolPda,
+            factory: factoryPda,
+            traderUsdc: traderUsdcAccount.address,
+            vault: smallTradeVault,
+            stakeVault: stakeVault,
+            traderTokens: traderLongAccount.address,
+            tokenMint: smallTradeLongMint,
+            usdcMint: usdcMint,
+            trader: testUser2.publicKey,
+            protocolAuthority: TEST_POOL_AUTHORITY.publicKey,
+            payer: payer.publicKey,
+            postCreatorUsdcAccount: getAssociatedTokenAddressSync(usdcMint, testUser1.publicKey),
+            protocolTreasuryUsdcAccount: getAssociatedTokenAddressSync(usdcMint, protocolTreasury.publicKey),
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([testUser2, TEST_POOL_AUTHORITY])
+          .rpc();
+
+        // Verify trade executed
+        const tokenBalance = (await getAccount(provider.connection, traderLongAccount.address)).amount;
+        assert.ok(tokenBalance > 0n, "Should have minted tokens for minimum trade");
+
+        // Verify pool state updated
+        const pool = await program.account.contentPool.fetch(smallTradePoolPda);
+        assert.ok(pool.sLong.gt(new BN(0)), "Pool supply should be updated");
+      });

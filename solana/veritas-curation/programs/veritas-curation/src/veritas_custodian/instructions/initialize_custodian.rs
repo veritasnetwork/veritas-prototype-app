@@ -6,21 +6,18 @@ use crate::veritas_custodian::state::{VeritasCustodian, CUSTODIAN_SEED};
 use crate::errors::ErrorCode;
 
 /// Creates singleton custodian PDA with pooled USDC vault
+/// Owner field removed - upgrade authority controls governance
 pub fn initialize_custodian(
     ctx: Context<InitializeCustodian>,
-    owner: Pubkey,
     protocol_authority: Pubkey,
 ) -> Result<()> {
     let custodian = &mut ctx.accounts.custodian;
 
-    // Validate authorities
-    require!(owner != Pubkey::default(), ErrorCode::InvalidAuthority);
+    // Validate authority
     require!(protocol_authority != Pubkey::default(), ErrorCode::InvalidAuthority);
-    require!(owner != system_program::ID, ErrorCode::InvalidAuthority);
     require!(protocol_authority != system_program::ID, ErrorCode::InvalidAuthority);
 
-    // Initialize state
-    custodian.owner = owner;
+    // Initialize state (no owner field)
     custodian.protocol_authority = protocol_authority;
     custodian.usdc_vault = ctx.accounts.usdc_vault.key();
     custodian.total_deposits = 0;
@@ -28,8 +25,7 @@ pub fn initialize_custodian(
     custodian.emergency_pause = false;
     custodian.bump = ctx.bumps.custodian;
 
-    msg!("VeritasCustodian initialized with owner={}, protocol_authority={}",
-         owner, protocol_authority);
+    msg!("VeritasCustodian initialized with protocol_authority={}", protocol_authority);
     Ok(())
 }
 
@@ -38,7 +34,7 @@ pub struct InitializeCustodian<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 130,
+        space = 8 + VeritasCustodian::LEN,  // 8 + 98 = 106 bytes
         seeds = [CUSTODIAN_SEED],
         bump
     )]

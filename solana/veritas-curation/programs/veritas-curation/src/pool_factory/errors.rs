@@ -31,4 +31,16 @@ pub enum FactoryError {
     InvalidMinDeposit = 7032,
     #[msg("Invalid settle interval")]
     InvalidSettleInterval = 7033,
+
+    // Upgrade Authority & Governance (7040-7049)
+    #[msg("Invalid upgrade authority")]
+    InvalidUpgradeAuthority = 7040,
+    #[msg("Invalid program data")]
+    InvalidProgramData = 7041,
+    #[msg("Invalid fee configuration")]
+    InvalidFeeConfiguration = 7042,
+    #[msg("Invalid creator split - must be <= 10000 basis points")]
+    InvalidCreatorSplit = 7043,
+    #[msg("Fee calculation overflow")]
+    FeeCalculationOverflow = 7044,
 }

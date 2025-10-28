@@ -72,6 +72,10 @@ export interface SettlementEventData {
   rShortBefore: bigint;
   rLongAfter: bigint;
   rShortAfter: bigint;
+  sScaleLongBefore: bigint;   // NEW
+  sScaleLongAfter: bigint;    // NEW
+  sScaleShortBefore: bigint;  // NEW
+  sScaleShortAfter: bigint;   // NEW
   timestamp: bigint;
 }
 
@@ -139,10 +143,6 @@ export class EventProcessor {
     blockTime?: number,
     slot?: number
   ): Promise<void> {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📥 [EventIndexer] Processing TradeEvent from blockchain');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[EventIndexer] Transaction signature:', signature);
 
     // Extract data from event
     const poolAddress = event.pool.toString();
@@ -150,10 +150,12 @@ export class EventProcessor {
     const side = 'long' in event.side ? 'LONG' : 'SHORT';
     const tradeType = 'buy' in event.tradeType ? 'buy' : 'sell';
 
-    // Convert from lamports to decimal units (6 decimals)
-    const usdcToTrade = Number(event.usdcToTrade) / 1_000_000;
-    const tokensTraded = Number(event.tokensTraded) / 1_000_000;
-    const skimAmount = Number(event.usdcToStake) / 1_000_000;
+    // Keep amounts in micro units for database storage
+    const usdcToTradeMicro = Number(event.usdcToTrade);  // Keep in micro-USDC for DB
+    const usdcToTradeDisplay = usdcToTradeMicro / 1_000_000;  // For display/logging only
+    const tokensTraded = Number(event.tokensTraded) / 1_000_000;  // Convert to display units
+    const skimAmountMicro = Number(event.usdcToStake);  // Keep in micro-USDC
+    const skimAmountDisplay = skimAmountMicro / 1_000_000;  // For display/logging only
 
     // ICBS state snapshots - on-chain stores in DISPLAY units
     const sLongBefore = asDisplay(Number(event.sLongBefore));
@@ -181,19 +183,16 @@ export class EventProcessor {
       .eq('tx_signature', signature)
       .single();
 
-    console.log('[EventIndexer] Checking if trade already exists in database...');
 
     if (existing) {
-      console.log(`[EventIndexer] 🔄 Trade already exists - recorded_by: ${existing.recorded_by}`);
 
       // Validate server data against on-chain event
       const amountsMatch =
-        Math.abs(Number(existing.usdc_amount) - usdcToTrade) < 0.01 && // Allow tiny floating point diff
+        Math.abs(Number(existing.usdc_amount) - usdcToTradeMicro) < 1 && // Allow 1 micro-USDC diff
         Math.abs(Number(existing.token_amount) - tokensTraded) < 0.01;
 
       if (amountsMatch) {
         // Server data correct - just mark as confirmed
-        console.log('[EventIndexer] Server data matches on-chain data - marking as confirmed');
         await this.supabase
           .from('trades')
           .update({
@@ -204,22 +203,21 @@ export class EventProcessor {
           })
           .eq('tx_signature', signature);
 
-        console.log(`[EventIndexer] ✅ Trade confirmed in database: ${signature}`);
 
         // Record the skim as a custodian deposit if there is one
-        if (skimAmount > 0) {
-          await this.recordSkimDeposit(walletAddress, skimAmount, signature, blockTime, slot, Number(event.timestamp));
+        if (skimAmountMicro > 0) {
+          await this.recordSkimDeposit(walletAddress, skimAmountMicro, signature, blockTime, slot, Number(event.timestamp));
         }
       } else {
         // Server data INCORRECT - overwrite with on-chain truth
         console.warn(`⚠️  Server data mismatch for ${signature}:`);
         console.warn(`   Server: usdc=${existing.usdc_amount}, tokens=${existing.token_amount}`);
-        console.warn(`   On-chain: usdc=${usdcToTrade}, tokens=${tokensTraded}`);
+        console.warn(`   On-chain: usdc=${usdcToTradeMicro}, tokens=${tokensTraded}`);
 
         await this.supabase
           .from('trades')
           .update({
-            usdc_amount: usdcToTrade,
+            usdc_amount: usdcToTradeMicro,
             token_amount: tokensTraded,
             server_amount: existing.usdc_amount,
             indexer_corrected: true,
@@ -230,17 +228,14 @@ export class EventProcessor {
           })
           .eq('tx_signature', signature);
 
-        console.log(`🔧 Corrected server record with on-chain data: ${signature}`);
 
         // Record the skim as a custodian deposit if there is one
-        if (skimAmount > 0) {
-          await this.recordSkimDeposit(walletAddress, skimAmount, signature, blockTime, slot, Number(event.timestamp));
+        if (skimAmountMicro > 0) {
+          await this.recordSkimDeposit(walletAddress, skimAmountMicro, signature, blockTime, slot, Number(event.timestamp));
         }
       }
     } else {
       // Server didn't record this (or failed) - insert from indexer
-      console.log(`[EventIndexer] 📝 Trade not found in database - indexer will record it now`);
-      console.log(`[EventIndexer] Signature: ${signature}`);
 
       // Get pool deployment to find post_id and ICBS parameters
       const { data: pool } = await this.supabase
@@ -267,7 +262,6 @@ export class EventProcessor {
       }
 
       // Insert complete trade record with all ICBS fields
-      console.log('[EventIndexer] Inserting trade into database...');
       const { data: insertedTrade, error: insertError } = await this.supabase
         .from('trades')
         .insert({
@@ -279,7 +273,7 @@ export class EventProcessor {
           trade_type: tradeType,
           side: side,  // ✅ NOW INCLUDED
           token_amount: tokensTraded,
-          usdc_amount: usdcToTrade,
+          usdc_amount: usdcToTradeMicro,  // Store in micro-USDC (atomic units)
           // ICBS snapshots BEFORE
           s_long_before: sLongBefore,
           s_short_before: sShortBefore,
@@ -312,16 +306,6 @@ export class EventProcessor {
       if (insertError) {
         console.error('[EventIndexer] ❌ Failed to insert trade:', insertError);
       } else {
-        console.log(`[EventIndexer] ✅ Trade recorded in trades table by indexer`);
-        console.log(`[EventIndexer] Trade details:`, {
-          signature,
-          trade_type: tradeType,
-          side,
-          usdc_amount: usdcToTrade,
-          token_amount: tokensTraded,
-          post_id: pool.post_id,
-          recorded_by: 'indexer'
-        });
       }
 
       // BUG FIX #3: Update user pool balances
@@ -339,8 +323,8 @@ export class EventProcessor {
 
       if (tradeType === 'buy') {
         newBalance = (existingBalance?.token_balance || 0) + tokensTraded;
-        // For buys: set lock to 2% of USDC amount
-        newLock = Math.floor(usdcToTrade * 0.02);
+        // For buys: set lock to 2% of USDC amount (in micro-USDC)
+        newLock = Math.floor(usdcToTradeMicro * 0.02);  // Store in micro-USDC
       } else {
         // Sell
         newBalance = (existingBalance?.token_balance || 0) - tokensTraded;
@@ -348,7 +332,7 @@ export class EventProcessor {
         // BUG FIX #2: Proportionally reduce lock on sells
         if (existingBalance?.token_balance && existingBalance.token_balance > 0) {
           const proportionRemaining = newBalance / existingBalance.token_balance;
-          newLock = Math.floor((existingBalance.belief_lock || 0) * proportionRemaining);
+          newLock = Math.floor((existingBalance.belief_lock || 0) * proportionRemaining);  // Keep in micro-USDC
         } else {
           newLock = 0;
         }
@@ -367,7 +351,27 @@ export class EventProcessor {
           onConflict: 'user_id,pool_address,token_type'
         });
 
-      console.log(`💼 Updated balance: ${newBalance} ${side}, lock: ${newLock}`);
+      // Update agent's total_stake by summing all belief_locks for this user
+      // This keeps agents.total_stake in sync with actual locked stakes (same logic as record_trade_atomic)
+      const { data: totalStakeData } = await this.supabase
+        .from('user_pool_balances')
+        .select('belief_lock')
+        .eq('user_id', user.id);
+
+      const totalStake = totalStakeData?.reduce((sum, row) => sum + (row.belief_lock || 0), 0) || 0;
+
+      const { data: agentForStake } = await this.supabase
+        .from('users')
+        .select('agent_id')
+        .eq('id', user.id)
+        .single();
+
+      if (agentForStake?.agent_id) {
+        await this.supabase
+          .from('agents')
+          .update({ total_stake: totalStake })
+          .eq('id', agentForStake.agent_id);
+      }
 
       // BUG FIX #5: Add belief submission when indexer records trade
       const { data: poolData } = await this.supabase
@@ -396,12 +400,11 @@ export class EventProcessor {
             onConflict: 'belief_id,agent_id'
           });
 
-        console.log(`🧠 Created/updated belief submission for agent ${agentData.agent_id}`);
       }
 
       // Record the skim as a custodian deposit if there is one
-      if (skimAmount > 0) {
-        await this.recordSkimDeposit(walletAddress, skimAmount, signature, blockTime, slot, Number(event.timestamp));
+      if (skimAmountMicro > 0) {
+        await this.recordSkimDeposit(walletAddress, skimAmountMicro, signature, blockTime, slot, Number(event.timestamp));
       }
     }
 
@@ -430,7 +433,6 @@ export class EventProcessor {
       .update(poolUpdate)
       .eq('pool_address', poolAddress);
 
-    console.log(`📊 Updated pool state: s_long=${sLongAfter}, s_short=${sShortAfter}, vault=${vaultBalance}`);
 
     // Update total volume cache on posts table
     const { data: totalVolumeData } = await this.supabase
@@ -439,8 +441,9 @@ export class EventProcessor {
       .eq('pool_address', poolAddress);
 
     if (totalVolumeData) {
+      // usdc_amount is stored in micro-USDC (atomic units)
       const totalVolumeMicro = totalVolumeData.reduce((sum, trade) => sum + Number(trade.usdc_amount || 0), 0);
-      const totalVolume = microToUsdc(totalVolumeMicro as MicroUSDC);
+      const totalVolume = microToUsdc(asMicroUsdc(totalVolumeMicro));
 
       // Get pool to find post_id
       const { data: poolData } = await this.supabase
@@ -455,7 +458,6 @@ export class EventProcessor {
           .update({ total_volume_usdc: totalVolume })
           .eq('id', poolData.post_id);
 
-        console.log(`💰 Updated total volume for post ${poolData.post_id}: $${totalVolume.toFixed(2)}`);
       }
     }
 
@@ -506,32 +508,21 @@ export class EventProcessor {
         return;
       }
 
-      // Upsert implied relevance (indexer can correct server data)
-      const { error } = await this.supabase
-        .from('implied_relevance_history')
-        .upsert(
-          {
-            post_id: pool.post_id,
-            belief_id: pool.belief_id,
-            implied_relevance: impliedRelevance,
-            reserve_long: reserveLong,
-            reserve_short: reserveShort,
-            event_type: eventType,
-            event_reference: eventReference,
-            confirmed: true,
-            recorded_by: 'indexer',
-            recorded_at: blockTime ? new Date(blockTime * 1000).toISOString() : new Date().toISOString(),
-          },
-          {
-            onConflict: 'event_reference',
-            ignoreDuplicates: false, // Update if server already recorded
-          }
-        );
+      // Atomically upsert implied relevance with proper recorded_by handling
+      const { error } = await this.supabase.rpc('upsert_implied_relevance_indexer', {
+        p_post_id: pool.post_id,
+        p_belief_id: pool.belief_id,
+        p_implied_relevance: impliedRelevance,
+        p_reserve_long: reserveLong,
+        p_reserve_short: reserveShort,
+        p_event_type: eventType,
+        p_event_reference: eventReference,
+        p_recorded_at: blockTime ? new Date(blockTime * 1000).toISOString() : new Date().toISOString(),
+      });
 
       if (error) {
         console.error(`❌ Failed to record implied relevance:`, error);
       } else {
-        console.log(`📈 Implied relevance recorded: ${impliedRelevance.toFixed(4)} (${eventType})`);
       }
     } catch (error) {
       console.error(`❌ Error in recordImpliedRelevance:`, error);
@@ -540,10 +531,11 @@ export class EventProcessor {
 
   /**
    * Record a trade skim as a custodian deposit AND update agent total_stake
+   * @param skimAmount - Amount in micro-USDC
    */
   private async recordSkimDeposit(
     walletAddress: string,
-    skimAmount: number,
+    skimAmount: number,  // micro-USDC
     signature: string,
     blockTime: number | undefined,
     slot: number | undefined,
@@ -558,7 +550,6 @@ export class EventProcessor {
       .single();
 
     if (existing) {
-      console.log(`💰 Skim deposit already recorded for ${signature}`);
       return;
     }
 
@@ -622,7 +613,6 @@ export class EventProcessor {
       throw stakeError;
     }
 
-    console.log(`💰 Recorded trade skim deposit: ${skimAmount} USDC from ${walletAddress}, updated total_stake`);
   }
 
   /**
@@ -634,7 +624,6 @@ export class EventProcessor {
     blockTime?: number,
     slot?: number
   ): Promise<void> {
-    console.log('📊 Processing settlement event:', signature);
 
     const poolAddress = event.pool.toString();
     const epoch = Number(event.epoch);
@@ -666,30 +655,32 @@ export class EventProcessor {
         post_id: pool.post_id,
         belief_id: pool.belief_id,
         epoch: epoch,
-        bd_score: bdScore,
-        market_prediction: Number(event.marketPredictionQ) / Number(Q64_ONE),
-        settlement_factor_long: Number(event.fLong) / Number(Q64_ONE),
-        settlement_factor_short: Number(event.fShort) / Number(Q64_ONE),
-        s_long_before: Number(event.rLongBefore),
-        s_short_before: Number(event.rShortBefore),
-        s_long_after: Number(event.rLongAfter),
-        s_short_after: Number(event.rShortAfter),
+        bd_relevance_score: bdScore,  // ✅ FIX: Correct column name
+        market_prediction_q: Number(event.marketPredictionQ) / Number(Q64_ONE),  // ✅ FIX: Correct column name
+        f_long: Number(event.fLong) / Number(Q64_ONE),  // ✅ FIX: Correct column name
+        f_short: Number(event.fShort) / Number(Q64_ONE),  // ✅ FIX: Correct column name
+        reserve_long_before: Number(event.rLongBefore),  // ✅ FIX: Correct column name (stored as bigint lamports in DB)
+        reserve_short_before: Number(event.rShortBefore),  // ✅ FIX: Correct column name (stored as bigint lamports in DB)
+        reserve_long_after: Number(event.rLongAfter),  // ✅ FIX: Correct column name (stored as bigint lamports in DB)
+        reserve_short_after: Number(event.rShortAfter),  // ✅ FIX: Correct column name (stored as bigint lamports in DB)
+        s_scale_long_before: event.sScaleLongBefore.toString(),   // NEW
+        s_scale_long_after: event.sScaleLongAfter.toString(),     // NEW
+        s_scale_short_before: event.sScaleShortBefore.toString(), // NEW
+        s_scale_short_after: event.sScaleShortAfter.toString(),   // NEW
         tx_signature: signature,
-        settled_at: blockTime ? new Date(blockTime * 1000).toISOString() : new Date().toISOString(),
-        event_slot: slot,
-        event_signature: signature,
+        timestamp: blockTime ? new Date(blockTime * 1000).toISOString() : new Date().toISOString(),  // ✅ FIX: Correct column name
+        recorded_by: 'indexer',
+        confirmed: true,
       });
 
     if (settlementError) {
       // Check if it's a duplicate (UNIQUE constraint violation)
       if (settlementError.code === '23505') {
-        console.log(`ℹ️  Settlement already recorded for pool ${poolAddress} epoch ${epoch}`);
       } else {
         console.error('Failed to insert settlement record:', settlementError);
         return; // Don't update pool if settlement insert failed
       }
     } else {
-      console.log(`✅ Recorded settlement for pool ${poolAddress} epoch ${epoch}`);
     }
 
     // 2. Update pool_deployments with new epoch
@@ -706,15 +697,12 @@ export class EventProcessor {
     if (updateError) {
       console.error('Failed to update pool epoch:', updateError);
     } else {
-      console.log(`✅ Updated pool ${poolAddress} to epoch ${epoch}`);
     }
 
     // 2.5. Sync full pool state from chain after settlement
-    console.log(`🔄 Syncing pool state from chain after settlement...`);
     try {
       const synced = await syncPoolFromChain(poolAddress);
       if (synced) {
-        console.log(`✅ Pool state synced successfully after settlement`);
       } else {
         console.warn(`⚠️  Failed to sync pool state after settlement`);
       }
@@ -750,7 +738,6 @@ export class EventProcessor {
       blockTime,
     });
 
-    console.log(`✅ Settlement event processed completely for pool ${poolAddress}`);
   }
 
   /**
@@ -762,7 +749,6 @@ export class EventProcessor {
     blockTime?: number,
     slot?: number
   ): Promise<void> {
-    console.log('🚀 Processing market deployed event:', signature);
 
     const poolAddress = event.pool.toString();
 
@@ -793,13 +779,25 @@ export class EventProcessor {
       }
 
       // Use the same atomic RPC function as the API for idempotency
+      // Pass all required parameters from on-chain data
       const { data: result, error: rpcError } = await this.supabase.rpc('deploy_pool_with_lock', {
         p_post_id: postId,
-        p_pool_address: poolAddress,
         p_belief_id: post.belief_id,
+        p_pool_address: poolAddress,
+        p_token_supply: poolData._raw.vaultBalanceMicro, // Initial deposit
+        p_reserve: poolData._raw.vaultBalanceMicro, // Initial reserve equals initial deposit
+        p_f: poolData.f,
+        p_beta_num: poolData.betaNum,
+        p_beta_den: poolData.betaDen,
         p_long_mint_address: longMint.toString(),
         p_short_mint_address: shortMint.toString(),
+        p_s_long_supply: poolData._raw.sLongAtomic,
+        p_s_short_supply: poolData._raw.sShortAtomic,
+        p_sqrt_price_long_x96: poolData._raw.sqrtPriceLongX96,
+        p_sqrt_price_short_x96: poolData._raw.sqrtPriceShortX96,
+        p_vault_balance: poolData._raw.vaultBalanceMicro,
         p_deployment_tx_signature: signature,
+        p_deployer_user_id: null, // Indexer doesn't know who deployed, leave null
       });
 
       if (rpcError) {
@@ -807,7 +805,6 @@ export class EventProcessor {
         return;
       }
 
-      console.log('✅ Pool deployment recorded, now syncing initial state from chain...');
 
       // Whether it's new or existing, update the pool state with fresh on-chain data
       // This ensures sqrt_price, supplies, and vault_balance are all accurate
@@ -825,8 +822,8 @@ export class EventProcessor {
           f: poolData.f,
           beta_num: poolData.betaNum,
           beta_den: poolData.betaDen,
-          r_long: Number(poolData.marketCapLong * 1_000_000),
-          r_short: Number(poolData.marketCapShort * 1_000_000),
+          r_long: poolData.marketCapLong,  // ✅ FIX: Already in display USDC, don't multiply
+          r_short: poolData.marketCapShort,  // ✅ FIX: Already in display USDC, don't multiply
           market_deployment_tx_signature: signature,
           market_deployed_at: blockTime ? new Date(blockTime * 1000).toISOString() : new Date().toISOString(),
           status: 'market_deployed',
@@ -840,9 +837,7 @@ export class EventProcessor {
       }
 
       if (result?.success) {
-        console.log(`✅ Recorded pool deployment via event: ${poolAddress}`);
       } else if (result?.error === 'EXISTS') {
-        console.log(`ℹ️  Pool ${poolAddress} already recorded, state updated with on-chain data`);
       } else {
         console.error('❌ Failed to record pool deployment:', result?.message);
         return;
@@ -877,9 +872,9 @@ export class EventProcessor {
     blockTime: number | null
   ): Promise<void> {
     const depositorAddress = event.depositor.toBase58();
-    const amountUsdc = Number(event.amount) / 1_000_000; // Convert from lamports to USDC
+    const amountMicro = Number(event.amount); // Keep in micro-USDC for database
+    const amountUsdc = amountMicro / 1_000_000; // Display USDC for logging
 
-    console.log(`💵 Processing direct deposit: ${depositorAddress} deposited ${amountUsdc} USDC`);
 
     // Ensure agent exists and get agent_id
     let agentId: string;
@@ -916,7 +911,6 @@ export class EventProcessor {
       .single();
 
     if (existing) {
-      console.log('Deposit already recorded, updating with blockchain data');
 
       const { error: updateError } = await this.supabase
         .from('custodian_deposits')
@@ -939,7 +933,7 @@ export class EventProcessor {
         .insert({
           tx_signature: txSignature,
           depositor_address: depositorAddress,
-          amount_usdc: amountUsdc,
+          amount_usdc: amountMicro,  // Store in micro-USDC
           deposit_type: 'direct',
           recorded_by: 'indexer',
           confirmed: true,
@@ -958,7 +952,7 @@ export class EventProcessor {
       const { error: stakeError } = await this.supabase
         .rpc('add_agent_stake', {
           p_agent_id: agentId,
-          p_amount: amountUsdc,
+          p_amount: amountMicro,  // Pass micro-USDC
         });
 
       if (stakeError) {
@@ -967,7 +961,6 @@ export class EventProcessor {
       }
     }
 
-    console.log(`✅ Recorded direct custodian deposit: ${amountUsdc} USDC, updated total_stake`);
   }
 
   /**
@@ -981,9 +974,9 @@ export class EventProcessor {
   ): Promise<void> {
     const recipientAddress = event.recipient.toBase58();
     const authorityAddress = event.authority.toBase58();
-    const amountUsdc = Number(event.amount) / 1_000_000; // Convert from lamports to USDC
+    const amountMicro = Number(event.amount); // Keep in micro-USDC for database
+    const amountUsdc = amountMicro / 1_000_000; // Display USDC for logging
 
-    console.log(`💸 Processing withdrawal: ${recipientAddress} withdrew ${amountUsdc} USDC`);
 
     // Ensure agent exists and get agent_id
     let agentId: string;
@@ -1020,7 +1013,6 @@ export class EventProcessor {
       .single();
 
     if (existing) {
-      console.log('Withdrawal already recorded, updating with blockchain data');
 
       const { error: updateError } = await this.supabase
         .from('custodian_withdrawals')
@@ -1044,7 +1036,7 @@ export class EventProcessor {
           tx_signature: txSignature,
           recipient_address: recipientAddress,
           authority_address: authorityAddress,
-          amount_usdc: amountUsdc,
+          amount_usdc: amountMicro,  // Store in micro-USDC
           recorded_by: 'indexer',
           confirmed: true,
           slot,
@@ -1062,7 +1054,7 @@ export class EventProcessor {
       const { error: stakeError } = await this.supabase
         .rpc('add_agent_stake', {
           p_agent_id: agentId,
-          p_amount: -amountUsdc, // Negative to subtract
+          p_amount: -amountMicro, // Negative micro-USDC to subtract
         });
 
       if (stakeError) {
@@ -1071,7 +1063,6 @@ export class EventProcessor {
       }
     }
 
-    console.log(`✅ Recorded custodian withdrawal: ${amountUsdc} USDC, updated total_stake`);
   }
 
   /**
@@ -1084,7 +1075,6 @@ export class EventProcessor {
     blockTime?: number,
     slot?: number
   ): Promise<void> {
-    console.log('💧 Processing liquidity added event:', signature);
 
     const poolAddress = event.pool.toString();
     const walletAddress = event.user.toString();
@@ -1124,7 +1114,6 @@ export class EventProcessor {
       .limit(1);
 
     if (existing && existing.length > 0) {
-      console.log(`🔄 Liquidity provision ${signature} already recorded`);
       return;
     }
 
@@ -1201,7 +1190,5 @@ export class EventProcessor {
       })
       .eq('pool_address', poolAddress);
 
-    console.log(`✅ Recorded bilateral liquidity provision: ${longTokens} LONG + ${shortTokens} SHORT`);
-    console.log(`📊 Updated pool state: supply=${newSLong + newSShort}, reserve=${newRLong + newRShort}`);
   }
 }

@@ -8,22 +8,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const solanaAddress = body.solana_address;
 
-    console.log('[auth/status] Checking auth status');
 
     // Verify authentication using centralized helper
     const authHeader = request.headers.get('Authorization');
     const privyUserId = await verifyAuthHeader(authHeader);
 
     if (!privyUserId) {
-      console.log('[auth/status] Invalid or missing authentication');
       return NextResponse.json(
         { error: 'Invalid or missing authentication' },
         { status: 401 }
       );
     }
 
-    console.log('[auth/status] Auth verified for user:', privyUserId);
-    console.log('[auth/status] Solana address:', solanaAddress);
 
     if (!solanaAddress) {
       return NextResponse.json(
@@ -53,7 +49,6 @@ export async function POST(request: NextRequest) {
       .eq('auth_provider', 'privy')
       .single();
 
-    console.log('[auth/status] Query result:', { user, userError });
 
     if (userError && userError.code !== 'PGRST116') {
       throw userError;
@@ -61,7 +56,6 @@ export async function POST(request: NextRequest) {
 
     // If user doesn't exist, they need onboarding
     if (!user) {
-      console.log('[auth/status] User not found, needs onboarding');
       return NextResponse.json({
         needsOnboarding: true,
         solana_address: solanaAddress,
@@ -69,7 +63,6 @@ export async function POST(request: NextRequest) {
     }
 
     // User exists and is fully set up (username is NOT NULL in schema)
-    console.log('[auth/status] ✅ User found:', user.username);
     return NextResponse.json({
       user,
       agent_id: user.agent_id,

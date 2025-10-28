@@ -5,8 +5,10 @@ use crate::pool_factory::{
     events::DefaultsUpdatedEvent,
     errors::FactoryError,
 };
+use crate::program::VeritasCuration;
 
 /// Update default ICBS parameters and limits for new pools
+/// Only callable by upgrade authority (governance)
 pub fn update_defaults(
     ctx: Context<UpdateDefaults>,
     default_f: Option<u16>,
@@ -16,6 +18,26 @@ pub fn update_defaults(
     min_initial_deposit: Option<u64>,
     min_settle_interval: Option<i64>,
 ) -> Result<()> {
+    // Validate upgrade authority
+    let program_data_bytes = ctx.accounts.program_data.try_borrow_data()?;
+    if program_data_bytes.len() < 45 {
+        return Err(FactoryError::InvalidProgramData.into());
+    }
+
+    // Deserialize: first 4 bytes = discriminator, next 8 = slot, next 1 = Option tag, next 32 = Pubkey
+    let upgrade_authority_option = if program_data_bytes[12] == 0 {
+        None
+    } else {
+        let mut pubkey_bytes = [0u8; 32];
+        pubkey_bytes.copy_from_slice(&program_data_bytes[13..45]);
+        Some(Pubkey::new_from_array(pubkey_bytes))
+    };
+
+    require!(
+        upgrade_authority_option == Some(ctx.accounts.upgrade_authority.key()),
+        FactoryError::InvalidUpgradeAuthority
+    );
+
     let factory = &mut ctx.accounts.factory;
     let clock = Clock::get()?;
 
@@ -78,10 +100,15 @@ pub struct UpdateDefaults<'info> {
     #[account(
         mut,
         seeds = [FACTORY_SEED],
-        bump = factory.bump,
-        constraint = authority.key() == factory.factory_authority @ FactoryError::Unauthorized
+        bump = factory.bump
     )]
     pub factory: Account<'info, PoolFactory>,
 
-    pub authority: Signer<'info>,
+    pub upgrade_authority: Signer<'info>,
+
+    #[account(constraint = program.programdata_address()? == Some(program_data.key()))]
+    pub program: Program<'info, VeritasCuration>,
+
+    /// CHECK: Program data account validated in handler
+    pub program_data: AccountInfo<'info>,
 }

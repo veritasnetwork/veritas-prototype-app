@@ -84,6 +84,10 @@ pub struct SettlementEvent {
     pub r_short_before: u128,
     pub r_long_after: u128,
     pub r_short_after: u128,
+    pub s_scale_long_before: u128,  // NEW: Sigma scale before settlement
+    pub s_scale_long_after: u128,   // NEW: Sigma scale after settlement
+    pub s_scale_short_before: u128, // NEW: Sigma scale before settlement
+    pub s_scale_short_after: u128,  // NEW: Sigma scale after settlement
     pub timestamp: i64,
 }
 
@@ -92,5 +96,19 @@ pub struct PoolClosedEvent {
     pub pool: Pubkey,
     pub creator: Pubkey,
     pub remaining_usdc: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct TradeFeeEvent {
+    pub pool: Pubkey,
+    pub trader: Pubkey,
+    pub side: TokenSide,
+    pub trade_type: TradeType,
+    pub total_fee_micro_usdc: u64,
+    pub creator_fee_micro_usdc: u64,
+    pub protocol_fee_micro_usdc: u64,
+    pub post_creator: Pubkey,
+    pub protocol_treasury: Pubkey,
     pub timestamp: i64,
 }

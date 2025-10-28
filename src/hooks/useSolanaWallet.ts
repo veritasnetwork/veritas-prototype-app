@@ -46,7 +46,6 @@ export function useSolanaWallet() {
 
     if (hasLinkedWallet && !hasUsableWallet && initializationAttempts < 20) {
       const timer = setTimeout(() => {
-        console.log('[useSolanaWallet] Retrying wallet initialization, attempt:', initializationAttempts + 1);
         setInitializationAttempts(prev => prev + 1);
       }, 500);
       return () => clearTimeout(timer);
@@ -55,77 +54,61 @@ export function useSolanaWallet() {
 
   const solanaWallet = useMemo(() => {
     if (!ready || !authenticated) {
-      console.log('[useSolanaWallet] Not ready or not authenticated');
       return undefined;
     }
-
-    // Debug: Log full Privy state
-    console.log('[useSolanaWallet] ═══ FULL DEBUG ═══');
-    console.log('Ready states:', { ready, authenticated, walletsReady, solanaWalletsReady });
-    console.log('LinkedAccounts:', privyUser?.linkedAccounts?.map((a: any) => ({
-      type: a.type,
-      chainType: a.chainType,
-      walletClient: a.walletClient,
-      walletClientType: a.walletClientType,
-      address: a.address,
-    })));
-    console.log('solanaWallets array:', solanaWallets);
-    console.log('allWallets array:', allWallets);
-    console.log('solanaWallets details:', solanaWallets?.map((w: any) => ({
-      address: w.address,
-      chainType: w.chainType,
-      walletClientType: w.walletClientType,
-      hasSignTransaction: !!w.signTransaction,
-      hasSignAllTransactions: !!w.signAllTransactions,
-    })));
-    console.log('allWallets details:', allWallets?.map((w: any) => ({
-      address: w.address,
-      chainType: w.chainType,
-      walletClientType: w.walletClientType,
-      hasSignTransaction: !!w.signTransaction,
-      hasSignAllTransactions: !!w.signAllTransactions,
-    })));
-    console.log('═════════════════════');
 
     // IMPORTANT: Wait for wallets to be ready before checking
     // This prevents false negatives when page first loads
     if (!walletsReady && !solanaWalletsReady) {
-      console.log('[useSolanaWallet] Wallets not ready yet, waiting...');
       return undefined;
     }
 
-    // First try Privy's Solana-specific wallets hook
-    if (solanaWallets && solanaWallets.length > 0) {
-      const wallet = solanaWallets[0];
-      if (isSolanaAddress(wallet.address)) {
-        console.log('[useSolanaWallet] ✅ Found Solana wallet from useSolanaWallets:', wallet.address);
-        return wallet;
-      }
-    }
-
-    // Fallback to general wallets array, but filter for Solana only
-    if (allWallets && allWallets.length > 0) {
-      const solanaWallet = allWallets.find((w: any) =>
-        isSolanaAddress(w.address) || w.chainType === 'solana'
-      );
-      if (solanaWallet && solanaWallet.signTransaction) {
-        console.log('[useSolanaWallet] ✅ Found Solana wallet from useWallets:', solanaWallet.address);
-        return solanaWallet;
-      }
-    }
-
-    // Check if user has a Solana wallet in linkedAccounts but not connected
-    const hasLinkedSolanaWallet = privyUser?.linkedAccounts?.some(
+    // Get the user's linked Solana wallet address from their Privy account
+    const linkedSolanaAccount = privyUser?.linkedAccounts?.find(
       (account: any) =>
         account.type === 'wallet' &&
         account.chainType === 'solana' &&
         isSolanaAddress(account.address)
     );
 
-    if (hasLinkedSolanaWallet) {
-      console.log('[useSolanaWallet] ⚠️  Solana wallet linked but not connected - needs reconnection');
-    } else {
-      console.log('[useSolanaWallet] ⚠️  No Solana wallet found');
+    const expectedWalletAddress = linkedSolanaAccount?.address;
+
+    // CRITICAL: Only return a wallet if it matches the user's linked wallet address
+    // This prevents using an external wallet (like Phantom) when the user has an embedded wallet
+
+    // First try Privy's Solana-specific wallets hook
+    if (solanaWallets && solanaWallets.length > 0) {
+      // If user has a linked wallet, find the matching one
+      if (expectedWalletAddress) {
+        const matchingWallet = solanaWallets.find((w: any) => w.address === expectedWalletAddress);
+        if (matchingWallet) {
+          return matchingWallet;
+        }
+      } else {
+        // No linked wallet yet - return first available
+        const wallet = solanaWallets[0];
+        if (isSolanaAddress(wallet.address)) {
+          return wallet;
+        }
+      }
+    }
+
+    // Fallback to general wallets array, but ONLY return if it matches the linked wallet
+    if (allWallets && allWallets.length > 0) {
+      if (expectedWalletAddress) {
+        const matchingWallet = allWallets.find((w: any) => w.address === expectedWalletAddress);
+        if (matchingWallet && matchingWallet.signTransaction) {
+          return matchingWallet;
+        }
+      } else {
+        // No linked wallet yet - return first Solana wallet
+        const solanaWallet = allWallets.find((w: any) =>
+          isSolanaAddress(w.address) || w.chainType === 'solana'
+        );
+        if (solanaWallet && solanaWallet.signTransaction) {
+          return solanaWallet;
+        }
+      }
     }
 
     return undefined;

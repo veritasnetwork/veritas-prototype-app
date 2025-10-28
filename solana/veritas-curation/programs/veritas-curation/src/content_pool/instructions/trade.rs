@@ -6,10 +6,10 @@ use anchor_spl::{
 use crate::pool_factory::state::PoolFactory;
 use crate::content_pool::{
     state::*,
-    events::TradeEvent,
+    events::{TradeEvent, TradeFeeEvent},
     errors::ContentPoolError,
     curve::{ICBSCurve, Q96},
-    math::mul_div_u128,
+    math::{mul_div_u128, round_to_nearest, renormalize_scales, ceil_div},
 };
 
 // Token has 6 decimals
@@ -46,38 +46,97 @@ fn isqrt_u128(n: u128) -> u128 {
     x
 }
 
-/// Compute current √λ_x96 from pool state (vault_balance and supplies)
-/// This is the source of truth for lambda - we derive it from first principles:
-/// λ = D / ||s|| where D = vault_balance (µUSDC), ||s|| = sqrt(s_L^2 + s_S^2) (display tokens)
+/// Calculate trading fees with overflow protection
+/// Returns (total_fee, creator_fee, protocol_fee) all in µUSDC
 #[inline]
-fn current_sqrt_lambda_x96(pool: &ContentPool) -> Result<u128> {
-    let s_l = pool.s_long as u128;
-    let s_s = pool.s_short as u128;
+fn calc_fees(amount: u64, total_bps: u16, split_bps: u16) -> Result<(u64, u64, u64)> {
+    let total = (amount as u128)
+        .checked_mul(total_bps as u128)
+        .ok_or(ContentPoolError::FeeCalculationOverflow)?
+        .checked_div(10000)
+        .ok_or(ContentPoolError::FeeCalculationOverflow)?
+        as u64;
 
-    // ||s|| = floor(sqrt(s_L^2 + s_S^2)), min 1 to avoid div-by-zero
-    let n2 = s_l.checked_mul(s_l)
-        .and_then(|v| v.checked_add(s_s.checked_mul(s_s)?))
+    let creator = (total as u128)
+        .checked_mul(split_bps as u128)
+        .ok_or(ContentPoolError::FeeCalculationOverflow)?
+        .checked_div(10000)
+        .ok_or(ContentPoolError::FeeCalculationOverflow)?
+        as u64;
+
+    let protocol = total
+        .checked_sub(creator)
+        .ok_or(ContentPoolError::FeeCalculationOverflow)?;
+
+    Ok((total, creator, protocol))
+}
+
+/// Derive lambda from vault balance and virtual supplies
+/// This is the ONLY source of truth for lambda - we NEVER store or multiply it
+#[inline]
+pub(super) fn derive_lambda(vault: &Account<TokenAccount>, pool: &ContentPool) -> Result<u128> {
+    use crate::content_pool::math::ceil_div;
+
+    // 1. Compute virtual supplies with CEILING division to prevent zero
+    let s_long_virtual = if pool.s_long > 0 {
+        ceil_div(pool.s_long as u128 * Q64, pool.s_scale_long_q64).max(1)
+    } else {
+        0
+    };
+
+    let s_short_virtual = if pool.s_short > 0 {
+        ceil_div(pool.s_short as u128 * Q64, pool.s_scale_short_q64).max(1)
+    } else {
+        0
+    };
+
+    // 2. CRITICAL: Virtual supplies must fit u64 for curve
+    require!(
+        s_long_virtual <= u64::MAX as u128,
+        ContentPoolError::VirtualSupplyOverflow
+    );
+    require!(
+        s_short_virtual <= u64::MAX as u128,
+        ContentPoolError::VirtualSupplyOverflow
+    );
+
+    // 3. Compute norm: ||ŝ|| = sqrt(ŝ_L² + ŝ_S²)
+    let norm_sq = s_long_virtual
+        .checked_mul(s_long_virtual)
+        .and_then(|v| v.checked_add(s_short_virtual.checked_mul(s_short_virtual)?))
         .ok_or(ContentPoolError::NumericalOverflow)?;
-    let norm = isqrt_u128(n2).max(1);
+    let norm = isqrt_u128(norm_sq).max(1);  // min 1 to avoid div-by-zero
 
-    // λ_Q96 = (vault_balance * Q96) / norm    [vault_balance is µUSDC BEFORE trade]
-    let lambda_q96 = mul_div_u128(pool.vault_balance as u128, Q96, norm)?;
+    // 4. Derive λ using DIVISION-FIRST to avoid overflow
+    // Instead of: lambda_q96 = (vault * Q96) / norm  (can overflow at multiply)
+    // We do: lambda_q96 = (vault / norm) * Q96 + (vault % norm * Q96) / norm
+    let vault_balance = vault.amount;
+    let a = vault_balance as u128;
+    let d = norm;
+    let q = a / d;
+    let r = a % d;
 
-    // √λ_x96 = sqrt(λ_Q96) << 48
-    let sqrt_lambda_x96 = isqrt_u128(lambda_q96)
-        .checked_shl(48)
+    let term1 = q.checked_mul(Q96)
+        .ok_or(ContentPoolError::NumericalOverflow)?;
+    let term2_num = r.checked_mul(Q96)
+        .ok_or(ContentPoolError::NumericalOverflow)?;
+    let term2 = term2_num / d;
+
+    let lambda_q96 = term1.checked_add(term2)
         .ok_or(ContentPoolError::NumericalOverflow)?;
 
-    // Sanity check: lambda should be in a reasonable range (0.00001 USDC to 100,000 USDC per token)
-    // lambda_usdc = lambda_q96 / Q96 (µUSDC per token)
-    // Allow 10 µUSDC (0.00001 USDC) to 100B µUSDC (100k USDC) to handle edge cases
+    // 5. Sanity check
     let lambda_usdc = lambda_q96 / Q96;
     require!(
         lambda_usdc >= 10 && lambda_usdc <= 100_000_000_000u128,
         ContentPoolError::InvalidParameter
     );
 
-    Ok(sqrt_lambda_x96)
+    // 6. Return lambda_q96 directly (fixes the Q96 squaring bug!)
+    // Previously we returned sqrt(lambda)<<48, but that caused issues when
+    // curve functions squared it back - the mul_shift_right_96 helper assumes
+    // operands <= 2^96, but sqrt(lambda) for large lambda violates this.
+    Ok(lambda_q96)
 }
 
 #[derive(Accounts)]
@@ -124,12 +183,21 @@ pub struct Trade<'info> {
     pub trader: Signer<'info>,
 
     #[account(
-        constraint = protocol_authority.key() == factory.pool_authority @ ContentPoolError::UnauthorizedProtocol
+        constraint = protocol_authority.key() == factory.protocol_authority @ ContentPoolError::UnauthorizedProtocol
     )]
     pub protocol_authority: Signer<'info>,
 
     #[account(mut)]
     pub payer: Signer<'info>,
+
+    // NEW: Fee recipient accounts
+    #[account(mut)]
+    /// CHECK: Post creator's USDC token account (validated in handler)
+    pub post_creator_usdc_account: AccountInfo<'info>,
+
+    #[account(mut)]
+    /// CHECK: Protocol treasury's USDC token account (validated in handler)
+    pub protocol_treasury_usdc_account: AccountInfo<'info>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -149,9 +217,6 @@ pub fn handler(
     let pool_key = pool.key();
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
-
-    // Apply decay if needed (before any trade logic)
-    crate::content_pool::decay::apply_decay_if_needed(pool, pool_key, current_time)?;
 
     // ===== CAPTURE STATE BEFORE TRADE =====
     let s_long_before = pool.s_long;
@@ -185,22 +250,29 @@ pub fn handler(
         ContentPoolError::InvalidMint
     );
 
+    // Copy values needed for seeds to avoid borrow conflicts
+    let content_id = pool.content_id;
+    let bump = pool.bump;
+
     let pool_seeds = &[
         b"content_pool",
-        pool.content_id.as_ref(),
-        &[pool.bump],
+        content_id.as_ref(),
+        &[bump],
     ];
 
     match trade_type {
         TradeType::Buy => {
             // ======== BUY ========
+            // BUY FLOW: Trader → Skim + Fees + Net → Vault
+            // Fees are deducted from USDC BEFORE it goes to the curve
+
             // Validate stake skim (µUSDC throughout)
             require!(
                 stake_skim <= amount,
                 ContentPoolError::InvalidStakeSkim
             );
 
-            let usdc_to_trade = amount
+            let after_skim = amount
                 .checked_sub(stake_skim)
                 .ok_or(ContentPoolError::InvalidStakeSkim)?;
 
@@ -211,7 +283,20 @@ pub fn handler(
                 ContentPoolError::InvalidStakeSkim
             );
 
-            // Transfer skim (µUSDC) first
+            // Calculate fees on after_skim amount
+            let factory = &ctx.accounts.factory;
+            let (total_fee, creator_fee, protocol_fee) = calc_fees(
+                after_skim,
+                factory.total_fee_bps,
+                factory.creator_split_bps,
+            )?;
+
+            // Net amount that goes to the curve
+            let usdc_to_trade = after_skim
+                .checked_sub(total_fee)
+                .ok_or(ContentPoolError::FeeCalculationOverflow)?;
+
+            // Transfer skim (µUSDC) to stake vault
             if stake_skim > 0 {
                 token::transfer(
                     CpiContext::new(
@@ -226,11 +311,37 @@ pub fn handler(
                 )?;
             }
 
-            // Compute √λ from current state BEFORE adding new USDC
-            // This ensures lambda reflects the pool state before this trade
-            let sqrt_lambda_x96 = current_sqrt_lambda_x96(pool)?;
+            // Transfer creator fee (trader → post creator)
+            if creator_fee > 0 {
+                token::transfer(
+                    CpiContext::new(
+                        ctx.accounts.token_program.to_account_info(),
+                        Transfer {
+                            from: ctx.accounts.trader_usdc.to_account_info(),
+                            to: ctx.accounts.post_creator_usdc_account.to_account_info(),
+                            authority: ctx.accounts.trader.to_account_info(),
+                        },
+                    ),
+                    creator_fee,
+                )?;
+            }
 
-            // Transfer trade amount (µUSDC) to vault
+            // Transfer protocol fee (trader → protocol treasury)
+            if protocol_fee > 0 {
+                token::transfer(
+                    CpiContext::new(
+                        ctx.accounts.token_program.to_account_info(),
+                        Transfer {
+                            from: ctx.accounts.trader_usdc.to_account_info(),
+                            to: ctx.accounts.protocol_treasury_usdc_account.to_account_info(),
+                            authority: ctx.accounts.trader.to_account_info(),
+                        },
+                    ),
+                    protocol_fee,
+                )?;
+            }
+
+            // Transfer NET trade amount (µUSDC) to vault (after fees)
             token::transfer(
                 CpiContext::new(
                     ctx.accounts.token_program.to_account_info(),
@@ -243,42 +354,112 @@ pub fn handler(
                 usdc_to_trade,
             )?;
 
-            // Curve math returns Δs in DISPLAY tokens
-            let (delta_display, new_sqrt_price) = match side {
+            // Renormalize sigma scales to keep virtual norm in safe range
+            {
+                let mut sigma_long = pool.s_scale_long_q64;
+                let mut sigma_short = pool.s_scale_short_q64;
+                let s_long = pool.s_long;
+                let s_short = pool.s_short;
+                renormalize_scales(
+                    &mut sigma_long,
+                    &mut sigma_short,
+                    s_long,
+                    s_short,
+                );
+                pool.s_scale_long_q64 = sigma_long;
+                pool.s_scale_short_q64 = sigma_short;
+            }
+
+            // Derive lambda from vault + virtual supplies (now returns lambda_q96 directly!)
+            let lambda_q96 = derive_lambda(&ctx.accounts.vault, pool)?;
+
+            // Compute virtual supplies for curve (with ceiling division)
+            let s_long_virtual = if pool.s_long > 0 {
+                ceil_div(pool.s_long as u128 * Q64, pool.s_scale_long_q64).max(1)
+            } else {
+                0
+            };
+
+            let s_short_virtual = if pool.s_short > 0 {
+                ceil_div(pool.s_short as u128 * Q64, pool.s_scale_short_q64).max(1)
+            } else {
+                0
+            };
+
+            // Run curve on VIRTUAL supplies
+            let (delta_s_virtual, new_sqrt_price) = match side {
                 TokenSide::Long => {
                     ICBSCurve::calculate_buy(
-                        pool.s_long,                // display units
-                        usdc_to_trade,              // µUSDC
-                        sqrt_lambda_x96,            // computed from state
-                        pool.s_short,               // display units
+                        s_long_virtual as u64,   // VIRTUAL units
+                        usdc_to_trade,
+                        lambda_q96,
+                        s_short_virtual as u64,  // Other side virtual
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
                         true,
+                        pool.s_scale_long_q64,
+                        pool.s_scale_short_q64,
                     )?
                 }
                 TokenSide::Short => {
                     ICBSCurve::calculate_buy(
-                        pool.s_short,               // display units
-                        usdc_to_trade,              // µUSDC
-                        sqrt_lambda_x96,            // computed from state
-                        pool.s_long,                // display units
+                        s_short_virtual as u64,
+                        usdc_to_trade,
+                        lambda_q96,
+                        s_long_virtual as u64,
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
                         false,
+                        pool.s_scale_long_q64,
+                        pool.s_scale_short_q64,
                     )?
                 }
             };
 
-            // Convert once: display → atomic for SPL mint
+            // Convert virtual delta → display delta (round-to-nearest)
+            let delta_display = match side {
+                TokenSide::Long => {
+                    round_to_nearest(
+                        delta_s_virtual as u128 * pool.s_scale_long_q64,
+                        Q64
+                    )
+                }
+                TokenSide::Short => {
+                    round_to_nearest(
+                        delta_s_virtual as u128 * pool.s_scale_short_q64,
+                        Q64
+                    )
+                }
+            };
+
+            // GUARDS
+            // 1. Zero-mint protection
+            require!(
+                delta_display > 0 || usdc_to_trade == 0,
+                ContentPoolError::TooSmallAfterRounding
+            );
+
+            // 2. Supply cap protection
+            let new_supply = match side {
+                TokenSide::Long => pool.s_long.checked_add(delta_display),
+                TokenSide::Short => pool.s_short.checked_add(delta_display),
+            }.ok_or(ContentPoolError::NumericalOverflow)?;
+
+            require!(
+                new_supply <= S_DISPLAY_CAP,
+                ContentPoolError::SupplyOverflow
+            );
+
+            // Convert display → atomic for SPL mint
             let delta_atomic = to_atomic(delta_display)?;
             require!(
                 delta_atomic >= min_tokens_out,
                 ContentPoolError::SlippageExceeded
             );
 
-            // Mint atomic to trader
+            // Mint tokens to trader
             token::mint_to(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
@@ -292,73 +473,75 @@ pub fn handler(
                 delta_atomic,
             )?;
 
-            // Update pool STATE in DISPLAY units only
-            match side {
-                TokenSide::Long => {
-                    let new_supply = pool.s_long
-                        .checked_add(delta_display)
-                        .ok_or(ContentPoolError::SupplyOverflow)?;
-
-                    require!(
-                        new_supply <= MAX_SAFE_SUPPLY,
-                        ContentPoolError::SupplyOverflow
-                    );
-
-                    pool.s_long = new_supply;
-                    pool.sqrt_price_long_x96 = new_sqrt_price;
-
-                    // r = s(display) * price(micro/token) → µUSDC
-                    pool.r_long = ICBSCurve::virtual_reserves(pool.s_long, pool.sqrt_price_long_x96)?;
-
-                    // Recouple SHORT price and reserves using the same sqrt_lambda_x96
-                    pool.sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price(
-                        pool.s_long,
-                        pool.s_short,
-                        TokenSide::Short,
-                        sqrt_lambda_x96,
-                        pool.f,
-                        pool.beta_num,
-                        pool.beta_den,
-                    )?;
-                    pool.r_short = ICBSCurve::virtual_reserves(pool.s_short, pool.sqrt_price_short_x96)?;
-                }
-                TokenSide::Short => {
-                    let new_supply = pool.s_short
-                        .checked_add(delta_display)
-                        .ok_or(ContentPoolError::SupplyOverflow)?;
-
-                    require!(
-                        new_supply <= MAX_SAFE_SUPPLY,
-                        ContentPoolError::SupplyOverflow
-                    );
-
-                    pool.s_short = new_supply;
-                    pool.sqrt_price_short_x96 = new_sqrt_price;
-
-                    pool.r_short = ICBSCurve::virtual_reserves(pool.s_short, pool.sqrt_price_short_x96)?;
-
-                    // Recouple LONG price and reserves using the same sqrt_lambda_x96
-                    pool.sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price(
-                        pool.s_long,
-                        pool.s_short,
-                        TokenSide::Long,
-                        sqrt_lambda_x96,
-                        pool.f,
-                        pool.beta_num,
-                        pool.beta_den,
-                    )?;
-                    pool.r_long = ICBSCurve::virtual_reserves(pool.s_long, pool.sqrt_price_long_x96)?;
-                }
-            }
-
-            // Update vault (µUSDC)
+            // Update vault FIRST (µUSDC)
             pool.vault_balance = pool.vault_balance
                 .checked_add(usdc_to_trade)
                 .ok_or(ContentPoolError::NumericalOverflow)?;
 
-            // Persist the computed sqrt_lambda (identical for both sides)
-            pool.sqrt_lambda_long_x96 = sqrt_lambda_x96;
-            pool.sqrt_lambda_short_x96 = sqrt_lambda_x96;
+            // Update pool state with DISPLAY delta and compute reserves from VIRTUAL supplies
+            let (s_long_virtual_after, s_short_virtual_after) = match side {
+                TokenSide::Long => {
+                    pool.s_long += delta_display;
+                    pool.sqrt_price_long_x96 = new_sqrt_price;
+
+                    // Recouple SHORT price using VIRTUAL supplies
+                    let s_long_v_after = s_long_virtual + (delta_s_virtual as u128);
+                    let s_short_v_after = s_short_virtual;
+
+                    pool.sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price_from_virtual(
+                        s_long_v_after as u64,
+                        s_short_v_after as u64,
+                        TokenSide::Short,
+                        lambda_q96,
+                        pool.s_scale_long_q64,
+                        pool.s_scale_short_q64,
+                        pool.f,
+                        pool.beta_num,
+                        pool.beta_den,
+                    )?;
+
+                    (s_long_v_after, s_short_v_after)
+                }
+                TokenSide::Short => {
+                    pool.s_short += delta_display;
+                    pool.sqrt_price_short_x96 = new_sqrt_price;
+
+                    // Recouple LONG price using VIRTUAL supplies
+                    let s_long_v_after = s_long_virtual;
+                    let s_short_v_after = s_short_virtual + (delta_s_virtual as u128);
+
+                    pool.sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price_from_virtual(
+                        s_long_v_after as u64,
+                        s_short_v_after as u64,
+                        TokenSide::Long,
+                        lambda_q96,
+                        pool.s_scale_long_q64,
+                        pool.s_scale_short_q64,
+                        pool.f,
+                        pool.beta_num,
+                        pool.beta_den,
+                    )?;
+
+                    (s_long_v_after, s_short_v_after)
+                }
+            };
+
+            // Calculate reserves directly from lambda and virtual supplies
+            // This avoids unit mixing (display price × virtual supply) and is cheaper
+            let r_long_calc = ICBSCurve::reserve_from_lambda_and_virtual(
+                s_long_virtual_after as u64,
+                s_short_virtual_after as u64,
+                lambda_q96,
+            )?;
+
+            // ENFORCE INVARIANT: r_long + r_short = vault_balance
+            // Calculate r_long from virtual supply, then set r_short as remainder
+            pool.r_long = r_long_calc.min(pool.vault_balance);
+            pool.r_short = pool.vault_balance.saturating_sub(pool.r_long);
+
+            // Persist the computed lambda (identical for both sides)
+            pool.lambda_long_q96 = lambda_q96;
+            pool.lambda_short_q96 = lambda_q96;
 
             // Emit: record tokens_traded in DISPLAY (it reflects state change)
             emit!(TradeEvent {
@@ -386,10 +569,27 @@ pub fn handler(
                 vault_balance_after: pool.vault_balance,
                 timestamp: clock.unix_timestamp,
             });
+
+            // Emit fee event
+            emit!(TradeFeeEvent {
+                pool: pool.key(),
+                trader: ctx.accounts.trader.key(),
+                side,
+                trade_type,
+                total_fee_micro_usdc: total_fee,
+                creator_fee_micro_usdc: creator_fee,
+                protocol_fee_micro_usdc: protocol_fee,
+                post_creator: pool.post_creator,
+                protocol_treasury: factory.protocol_treasury,
+                timestamp: clock.unix_timestamp,
+            });
         }
 
         TradeType::Sell => {
             // ======== SELL ========
+            // SELL FLOW: Vault → Fees → Net → Trader
+            // Fees are deducted from proceeds AFTER curve calculation
+
             // Require sells to be exact multiples of TOKEN_SCALE (so state stays consistent)
             require!(
                 amount % TOKEN_SCALE == 0,
@@ -401,43 +601,102 @@ pub fn handler(
                 ContentPoolError::InvalidTradeAmount
             );
 
-            // Compute √λ from current state BEFORE burning tokens
-            let sqrt_lambda_x96 = current_sqrt_lambda_x96(pool)?;
+            // Renormalize sigma scales to keep virtual norm in safe range
+            {
+                let mut sigma_long = pool.s_scale_long_q64;
+                let mut sigma_short = pool.s_scale_short_q64;
+                let s_long = pool.s_long;
+                let s_short = pool.s_short;
+                renormalize_scales(
+                    &mut sigma_long,
+                    &mut sigma_short,
+                    s_long,
+                    s_short,
+                );
+                pool.s_scale_long_q64 = sigma_long;
+                pool.s_scale_short_q64 = sigma_short;
+            }
 
-            // Curve math (display)
-            let (usdc_out, new_sqrt_price) = match side {
+            // Derive lambda from vault + virtual supplies
+            let lambda_q96 = derive_lambda(&ctx.accounts.vault, pool)?;
+
+            // Compute virtual supplies for curve (with ceiling division)
+            let s_long_virtual = if pool.s_long > 0 {
+                ceil_div(pool.s_long as u128 * Q64, pool.s_scale_long_q64).max(1)
+            } else {
+                0
+            };
+
+            let s_short_virtual = if pool.s_short > 0 {
+                ceil_div(pool.s_short as u128 * Q64, pool.s_scale_short_q64).max(1)
+            } else {
+                0
+            };
+
+            // Convert sell_display to virtual units
+            let sell_virtual = match side {
+                TokenSide::Long => round_to_nearest(sell_display as u128 * Q64, pool.s_scale_long_q64),
+                TokenSide::Short => round_to_nearest(sell_display as u128 * Q64, pool.s_scale_short_q64),
+            };
+
+            // Guard against zero-burn rounding
+            require!(
+                sell_virtual > 0,
+                ContentPoolError::TooSmallAfterRounding
+            );
+
+            // Run curve on VIRTUAL supplies - calculate GROSS proceeds
+            let (gross_usdc_out, new_sqrt_price) = match side {
                 TokenSide::Long => {
                     ICBSCurve::calculate_sell(
-                        pool.s_long,
-                        sell_display,
-                        sqrt_lambda_x96,
-                        pool.s_short,
+                        s_long_virtual as u64,
+                        sell_virtual,
+                        lambda_q96,
+                        s_short_virtual as u64,
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
                         true,
+                        pool.s_scale_long_q64,
+                        pool.s_scale_short_q64,
                     )?
                 }
                 TokenSide::Short => {
                     ICBSCurve::calculate_sell(
-                        pool.s_short,
-                        sell_display,
-                        sqrt_lambda_x96,
-                        pool.s_long,
+                        s_short_virtual as u64,
+                        sell_virtual,
+                        lambda_q96,
+                        s_long_virtual as u64,
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
                         false,
+                        pool.s_scale_long_q64,
+                        pool.s_scale_short_q64,
                     )?
                 }
             };
 
+            // Calculate fees on gross proceeds
+            let factory = &ctx.accounts.factory;
+            let (total_fee, creator_fee, protocol_fee) = calc_fees(
+                gross_usdc_out,
+                factory.total_fee_bps,
+                factory.creator_split_bps,
+            )?;
+
+            // Net proceeds to trader (after fees)
+            let net_usdc_out = gross_usdc_out
+                .checked_sub(total_fee)
+                .ok_or(ContentPoolError::FeeCalculationOverflow)?;
+
+            // Slippage check on NET proceeds (what trader actually receives)
             require!(
-                usdc_out >= min_usdc_out,
+                net_usdc_out >= min_usdc_out,
                 ContentPoolError::SlippageExceeded
             );
 
-            // Burn atomic
+            // Burn atomic tokens from trader
             token::burn(
                 CpiContext::new(
                     ctx.accounts.token_program.to_account_info(),
@@ -450,7 +709,39 @@ pub fn handler(
                 amount,
             )?;
 
-            // Pay out µUSDC
+            // Transfer creator fee (vault → post creator, signed by pool PDA)
+            if creator_fee > 0 {
+                token::transfer(
+                    CpiContext::new_with_signer(
+                        ctx.accounts.token_program.to_account_info(),
+                        Transfer {
+                            from: ctx.accounts.vault.to_account_info(),
+                            to: ctx.accounts.post_creator_usdc_account.to_account_info(),
+                            authority: pool.to_account_info(),
+                        },
+                        &[pool_seeds],
+                    ),
+                    creator_fee,
+                )?;
+            }
+
+            // Transfer protocol fee (vault → protocol treasury, signed by pool PDA)
+            if protocol_fee > 0 {
+                token::transfer(
+                    CpiContext::new_with_signer(
+                        ctx.accounts.token_program.to_account_info(),
+                        Transfer {
+                            from: ctx.accounts.vault.to_account_info(),
+                            to: ctx.accounts.protocol_treasury_usdc_account.to_account_info(),
+                            authority: pool.to_account_info(),
+                        },
+                        &[pool_seeds],
+                    ),
+                    protocol_fee,
+                )?;
+            }
+
+            // Pay out NET µUSDC to trader (vault → trader, signed by pool PDA)
             token::transfer(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
@@ -461,58 +752,91 @@ pub fn handler(
                     },
                     &[pool_seeds],
                 ),
-                usdc_out,
+                net_usdc_out,
             )?;
 
-            // Update state (DISPLAY)
-            match side {
+            // Update vault balance FIRST (deduct GROSS amount including fees)
+            pool.vault_balance = pool.vault_balance
+                .checked_sub(gross_usdc_out)
+                .ok_or(ContentPoolError::InsufficientBalance)?;
+
+            // Update state (DISPLAY) and compute reserves from VIRTUAL supplies
+            let (s_long_virtual_after, s_short_virtual_after) = match side {
                 TokenSide::Long => {
                     pool.s_long = pool.s_long
                         .checked_sub(sell_display)
                         .ok_or(ContentPoolError::InsufficientBalance)?;
                     pool.sqrt_price_long_x96 = new_sqrt_price;
-                    pool.r_long = ICBSCurve::virtual_reserves(pool.s_long, pool.sqrt_price_long_x96)?;
 
-                    // Recouple SHORT price and reserves using the same sqrt_lambda_x96
-                    pool.sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price(
-                        pool.s_long,
-                        pool.s_short,
+                    // Recouple SHORT price using VIRTUAL supplies
+                    let s_long_v_after = (s_long_virtual as u64).checked_sub(sell_virtual)
+                        .ok_or(ContentPoolError::InsufficientBalance)?;
+                    let s_short_v_after = s_short_virtual;
+
+                    pool.sqrt_price_short_x96 = ICBSCurve::sqrt_marginal_price_from_virtual(
+                        s_long_v_after as u64,
+                        s_short_v_after as u64,
                         TokenSide::Short,
-                        sqrt_lambda_x96,
+                        lambda_q96,
+                        pool.s_scale_long_q64,
+                        pool.s_scale_short_q64,
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
                     )?;
-                    pool.r_short = ICBSCurve::virtual_reserves(pool.s_short, pool.sqrt_price_short_x96)?;
+
+                    (s_long_v_after as u128, s_short_v_after as u128)
                 }
                 TokenSide::Short => {
                     pool.s_short = pool.s_short
                         .checked_sub(sell_display)
                         .ok_or(ContentPoolError::InsufficientBalance)?;
                     pool.sqrt_price_short_x96 = new_sqrt_price;
-                    pool.r_short = ICBSCurve::virtual_reserves(pool.s_short, pool.sqrt_price_short_x96)?;
 
-                    // Recouple LONG price and reserves using the same sqrt_lambda_x96
-                    pool.sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price(
-                        pool.s_long,
-                        pool.s_short,
+                    // Recouple LONG price using VIRTUAL supplies
+                    let s_long_v_after = s_long_virtual;
+                    let s_short_v_after = (s_short_virtual as u64).checked_sub(sell_virtual)
+                        .ok_or(ContentPoolError::InsufficientBalance)?;
+
+                    pool.sqrt_price_long_x96 = ICBSCurve::sqrt_marginal_price_from_virtual(
+                        s_long_v_after as u64,
+                        s_short_v_after as u64,
                         TokenSide::Long,
-                        sqrt_lambda_x96,
+                        lambda_q96,
+                        pool.s_scale_long_q64,
+                        pool.s_scale_short_q64,
                         pool.f,
                         pool.beta_num,
                         pool.beta_den,
                     )?;
-                    pool.r_long = ICBSCurve::virtual_reserves(pool.s_long, pool.sqrt_price_long_x96)?;
+
+                    (s_long_v_after as u128, s_short_v_after as u128)
                 }
-            }
+            };
 
-            pool.vault_balance = pool.vault_balance
-                .checked_sub(usdc_out)
-                .ok_or(ContentPoolError::InsufficientBalance)?;
+            // MINIMUM LIQUIDITY PROTECTION: Prevent pool from reaching 0 supply
+            // This ensures the ICBS curve math always has valid inputs
+            const MIN_POOL_LIQUIDITY: u64 = 1_000; // 0.001 tokens (in display units)
+            require!(
+                pool.s_long >= MIN_POOL_LIQUIDITY && pool.s_short >= MIN_POOL_LIQUIDITY,
+                ContentPoolError::NoLiquidity
+            );
 
-            // Persist the computed sqrt_lambda (identical for both sides)
-            pool.sqrt_lambda_long_x96 = sqrt_lambda_x96;
-            pool.sqrt_lambda_short_x96 = sqrt_lambda_x96;
+            // Calculate reserves directly from lambda and virtual supplies
+            // This avoids unit mixing (display price × virtual supply) and is cheaper
+            let r_long_calc = ICBSCurve::reserve_from_lambda_and_virtual(
+                s_long_virtual_after as u64,
+                s_short_virtual_after as u64,
+                lambda_q96,
+            )?;
+
+            // ENFORCE INVARIANT: r_long + r_short = vault_balance
+            pool.r_long = r_long_calc.min(pool.vault_balance);
+            pool.r_short = pool.vault_balance.saturating_sub(pool.r_long);
+
+            // Persist the computed lambda (identical for both sides)
+            pool.lambda_long_q96 = lambda_q96;
+            pool.lambda_short_q96 = lambda_q96;
 
             // Emit: for sells, keep tokens_traded = atomic burned (helps reconcile wallets)
             emit!(TradeEvent {
@@ -520,8 +844,8 @@ pub fn handler(
                 trader: ctx.accounts.trader.key(),
                 side,
                 trade_type,
-                usdc_amount: usdc_out,
-                usdc_to_trade: usdc_out,
+                usdc_amount: net_usdc_out,  // What trader receives
+                usdc_to_trade: net_usdc_out,
                 usdc_to_stake: 0,
                 tokens_traded: amount, // atomic burned (helps reconcile wallets)
                 // BEFORE snapshots
@@ -538,6 +862,20 @@ pub fn handler(
                 r_long_after: pool.r_long,
                 r_short_after: pool.r_short,
                 vault_balance_after: pool.vault_balance,
+                timestamp: clock.unix_timestamp,
+            });
+
+            // Emit fee event
+            emit!(TradeFeeEvent {
+                pool: pool.key(),
+                trader: ctx.accounts.trader.key(),
+                side,
+                trade_type,
+                total_fee_micro_usdc: total_fee,
+                creator_fee_micro_usdc: creator_fee,
+                protocol_fee_micro_usdc: protocol_fee,
+                post_creator: pool.post_creator,
+                protocol_treasury: factory.protocol_treasury,
                 timestamp: clock.unix_timestamp,
             });
         }

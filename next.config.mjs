@@ -1,5 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  webpack: (config, { isServer }) => {
+    // Exclude Node.js built-in modules from client bundle
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        crypto: false,
+      };
+    }
+    return config;
+  },
   images: {
     remotePatterns: [
       // Local development
@@ -16,25 +28,60 @@ const nextConfig = {
         pathname: '/storage/v1/object/public/**',
       },
       // Production Supabase
-      // TODO: Replace with your actual Supabase project URL when deploying
-      // {
-      //   protocol: 'https',
-      //   hostname: '*.supabase.co',
-      //   pathname: '/storage/v1/object/public/**',
-      // },
-      // Production CDN (if using a custom domain)
-      // {
-      //   protocol: 'https',
-      //   hostname: 'cdn.yourdomain.com',
-      //   pathname: '/**',
-      // },
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
     ],
   },
   async rewrites() {
+    // Only enable local Supabase proxy in development
+    if (process.env.NODE_ENV === 'development') {
+      return [
+        {
+          source: '/api/supabase/:path*',
+          destination: 'http://127.0.0.1:54321/:path*',
+        },
+      ];
+    }
+    return [];
+  },
+  async headers() {
     return [
       {
-        source: '/api/supabase/:path*',
-        destination: 'http://127.0.0.1:54321/:path*',
+        // Apply security headers to all routes
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on',
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+        ],
       },
     ];
   },

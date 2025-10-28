@@ -83,4 +83,16 @@ pub enum ContentPoolError {
     PositionsStillOpen,
     #[msg("Vault not empty")]
     VaultNotEmpty,
+
+    // Post Creator & Fees (6090-6099)
+    #[msg("Invalid post creator - does not match pool")]
+    InvalidPostCreator,
+    #[msg("Fee calculation overflow")]
+    FeeCalculationOverflow,
+
+    // Sigma Virtualization (6100-6109)
+    #[msg("Virtual supply exceeds u64::MAX - check sigma scales")]
+    VirtualSupplyOverflow,
+    #[msg("Trade amount too small after rounding - increase trade size")]
+    TooSmallAfterRounding,
 }

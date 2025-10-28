@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
       const { success, headers } = await checkRateLimit(privyUserId, rateLimiters.mediaUpload);
 
       if (!success) {
-        console.log('[/api/media/upload-profile-photo] Rate limit exceeded for user:', privyUserId);
         return NextResponse.json(
           {
             error: 'Rate limit exceeded. You can upload up to 20 files per hour.',

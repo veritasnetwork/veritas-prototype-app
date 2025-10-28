@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
-import { Connection, PublicKey, Transaction } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { VeritasCuration } from '@/lib/solana/target/types/veritas_curation';
 import { loadProtocolAuthority } from '@/lib/solana/load-authority';
@@ -23,6 +23,8 @@ import { asBDScore, bdScoreToMillionths } from '@/lib/units';
 
 const programId = process.env.NEXT_PUBLIC_VERITAS_PROGRAM_ID!;
 const rpcEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || 'http://127.0.0.1:8899';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 interface RebaseResponse {
   success: true;
@@ -42,7 +44,6 @@ interface RebaseResponse {
  * Call Supabase Edge Function
  */
 async function callEdgeFunction(functionName: string, payload: Record<string, unknown>) {
-  console.log(`[rebase] Calling ${functionName}...`);
 
   const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
     method: 'POST',
@@ -69,10 +70,9 @@ async function callEdgeFunction(functionName: string, payload: Record<string, un
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const postId = params.id;
-  console.log('[/api/posts/[id]/rebase] Request received for post:', postId);
+  const { id: postId } = await params;
 
   try {
     // Authenticate user
@@ -80,7 +80,6 @@ export async function POST(
     const privyUserId = await verifyAuthHeader(authHeader);
 
     if (!privyUserId) {
-      console.log('[rebase] Authentication failed');
       return NextResponse.json({ error: 'Invalid or missing authentication' }, { status: 401 });
     }
 
@@ -88,7 +87,6 @@ export async function POST(
     const { walletAddress } = body;
 
     if (!walletAddress) {
-      console.log('[rebase] Missing walletAddress');
       return NextResponse.json({ error: 'walletAddress is required' }, { status: 400 });
     }
 
@@ -103,7 +101,6 @@ export async function POST(
       .single();
 
     if (poolError || !poolDeployment) {
-      console.log('[rebase] Pool not found for post:', postId);
       return NextResponse.json({ error: 'Pool not found for this post' }, { status: 404 });
     }
 
@@ -116,7 +113,6 @@ export async function POST(
     const beliefId = poolDeployment.belief_id;
     const poolAddress = poolDeployment.pool_address;
 
-    console.log('[rebase] Pool found:', { poolAddress, beliefId, currentEpoch: poolDeployment.current_epoch });
 
     // Check settlement cooldown
     const connection = new Connection(rpcEndpoint, 'confirmed');
@@ -150,14 +146,14 @@ export async function POST(
     // Check last settlement time
     const { data: lastSettlement } = await supabase
       .from('settlements')
-      .select('created_at')
+      .select('timestamp')
       .eq('pool_address', poolAddress)
-      .order('created_at', { ascending: false })
+      .order('timestamp', { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (lastSettlement) {
-      const lastSettleTime = new Date(lastSettlement.created_at).getTime();
+      const lastSettleTime = new Date(lastSettlement.timestamp).getTime();
       const now = Date.now();
       const timeSinceLastSettle = (now - lastSettleTime) / 1000;
 
@@ -174,26 +170,30 @@ export async function POST(
       }
     }
 
-    console.log('[rebase] Cooldown check passed');
 
     // Check minimum new submissions threshold
-    // Get last settlement epoch to count new submissions since then
-    const lastSettlementEpoch = lastSettlement
-      ? (await supabase
-          .from('settlements')
-          .select('epoch')
-          .eq('pool_address', poolAddress)
-          .order('epoch', { ascending: false })
-          .limit(1)
-          .maybeSingle()).data?.epoch || 0
-      : 0;
+    // Get pool's current epoch (represents last settlement epoch)
+    // New submissions use current_epoch + 1
+    const { data: poolData, error: poolEpochError } = await supabase
+      .from('pool_deployments')
+      .select('current_epoch')
+      .eq('pool_address', poolAddress)
+      .single();
 
-    // Count unique new submissions since last settlement
+    if (poolEpochError || !poolData) {
+      console.error('[rebase] Failed to get pool epoch:', poolEpochError);
+      return NextResponse.json({ error: 'Failed to get pool data' }, { status: 500 });
+    }
+
+    const lastSettlementEpoch = poolData.current_epoch;
+    const nextEpoch = lastSettlementEpoch + 1;
+
+    // Count unique submissions in the next epoch (submissions since last settlement)
     const { data: newSubmissions, error: submissionsError } = await supabase
       .from('belief_submissions')
       .select('agent_id')
       .eq('belief_id', beliefId)
-      .gt('epoch', lastSettlementEpoch);
+      .eq('epoch', nextEpoch);
 
     if (submissionsError) {
       console.error('[rebase] Failed to count new submissions:', submissionsError);
@@ -218,38 +218,23 @@ export async function POST(
     const minNewSubmissions = parseInt(minSubmissionsConfig?.value || '2');
 
     if (uniqueNewSubmitters < minNewSubmissions) {
-      console.log('[rebase] Insufficient new submissions:', {
-        required: minNewSubmissions,
-        actual: uniqueNewSubmitters,
-        lastSettlementEpoch
-      });
 
       return NextResponse.json({
         error: `Insufficient new activity. Need at least ${minNewSubmissions} new unique belief submissions since last settlement (found ${uniqueNewSubmitters}).`,
         minNewSubmissions,
         currentNewSubmissions: uniqueNewSubmitters,
-        lastSettlementEpoch
+        lastSettlementEpoch,
+        nextEpoch
       }, { status: 400 });
     }
 
-    console.log('[rebase] New submissions check passed:', {
-      uniqueNewSubmitters,
-      minRequired: minNewSubmissions,
-      lastSettlementEpoch
-    });
 
     // Step 1: Call protocol-belief-epoch-process
-    console.log('[rebase] Step 1: Running belief epoch processing...');
 
     const epochProcessResult = await callEdgeFunction('protocol-belief-epoch-process', {
       belief_id: beliefId
     });
 
-    console.log('[rebase] Epoch processing complete:', {
-      aggregate: epochProcessResult.aggregate,
-      certainty: epochProcessResult.certainty,
-      participantCount: epochProcessResult.participant_count
-    });
 
     // Step 2: Get updated belief with new BD score
     const { data: belief, error: beliefError } = await supabase
@@ -271,10 +256,8 @@ export async function POST(
       }, { status: 400 });
     }
 
-    console.log('[rebase] Step 2: BD score updated:', bdScore);
 
     // Step 3: Build settlement transaction
-    console.log('[rebase] Step 3: Building settlement transaction...');
 
     // Convert BD score to millionths format (contract expects 0-1,000,000)
     const bdScoreTyped = asBDScore(bdScore);
@@ -289,9 +272,9 @@ export async function POST(
 
     // Validate authority
     const factory = await program.account.poolFactory.fetch(factoryPda);
-    if (!factory.poolAuthority.equals(protocolAuthority.publicKey)) {
+    if (!factory.protocolAuthority.equals(protocolAuthority.publicKey)) {
       console.error('[rebase] Authority mismatch:', {
-        expected: factory.poolAuthority.toBase58(),
+        expected: factory.protocolAuthority.toBase58(),
         actual: protocolAuthority.publicKey.toBase58(),
       });
       return NextResponse.json({
@@ -303,13 +286,26 @@ export async function POST(
     const settleEpochIx = await program.methods
       .settleEpoch(bdScoreBN)
       .accounts({
-        contentPool: poolPda,
+        pool: poolPda,
+        factory: factoryPda,
         protocolAuthority: protocolAuthority.publicKey,
+        settler: new PublicKey(walletAddress),
+        vault: poolAccount.vault,
       })
       .instruction();
 
-    // Create transaction
+    // Create transaction with increased compute budget
     const transaction = new Transaction();
+
+    // Add compute budget instructions (settle_epoch is computationally expensive)
+    // Request 400,000 CU (2x default) and set priority fee
+    transaction.add(
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+    );
+    transaction.add(
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1 })
+    );
+
     transaction.add(settleEpochIx);
 
     // Set recent blockhash and fee payer
@@ -326,7 +322,6 @@ export async function POST(
       requireAllSignatures: false
     }).toString('base64');
 
-    console.log('[rebase] Transaction built and partially signed');
 
     // Calculate stake changes for response
     const totalRewards = Object.values(epochProcessResult.stake_changes?.individual_rewards || {})
@@ -348,12 +343,6 @@ export async function POST(
       }
     };
 
-    console.log('[rebase] Success:', {
-      bdScore,
-      totalRewards,
-      totalSlashes,
-      participantCount: response.stakeChanges.participantCount
-    });
 
     return NextResponse.json(response);
 

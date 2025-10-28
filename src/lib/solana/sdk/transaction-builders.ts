@@ -223,6 +223,7 @@ export function derivePoolAddresses(postId: string, programId: PublicKey) {
  *
  * @param program - Anchor program instance
  * @param creator - Pool creator (also pays for account creation)
+ * @param postCreator - Post creator's Solana address (validated on-chain)
  * @param contentId - Content ID as PublicKey (derived from post UUID)
  * @param addresses - Protocol addresses (factory, custodian, etc.)
  * @returns Unsigned transaction (ready for signing)
@@ -230,6 +231,7 @@ export function derivePoolAddresses(postId: string, programId: PublicKey) {
 export async function buildCreatePoolTx(
   program: Program<VeritasCuration>,
   creator: PublicKey,
+  postCreator: PublicKey,
   contentId: PublicKey,
   addresses: ProtocolAddresses
 ): Promise<Transaction> {
@@ -250,6 +252,7 @@ export async function buildCreatePoolTx(
       registry: registryPda,
       custodian: custodianPda,
       creator: creator,
+      postCreator: postCreator,
       payer: creator,
       systemProgram: SystemProgram.programId,
     })

@@ -10,22 +10,59 @@ import { EventProcessor } from '@/services/event-processor.service';
 import { BorshCoder, EventParser } from '@coral-xyz/anchor';
 import { PublicKey } from '@solana/web3.js';
 import idl from '@/lib/solana/target/idl/veritas_curation.json';
+import { createHmac } from 'crypto';
 
 const eventProcessor = new EventProcessor();
 
+/**
+ * Verify Helius webhook signature using HMAC-SHA256
+ * See: https://docs.helius.dev/webhooks/webhook-security
+ */
+function verifyWebhookSignature(
+  payload: string,
+  signature: string,
+  secret: string
+): boolean {
+  const hmac = createHmac('sha256', secret);
+  hmac.update(payload);
+  const expectedSignature = hmac.digest('hex');
+
+  // Use timing-safe comparison to prevent timing attacks
+  return signature === expectedSignature;
+}
+
 export async function POST(req: NextRequest) {
-  console.log('📥 Received Helius webhook');
+
+  // Get raw body for signature verification
+  const rawBody = await req.text();
+
+  // Verify webhook signature for security
+  const webhookSecret = process.env.HELIUS_WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const signature = req.headers.get('x-helius-signature');
+    if (!signature) {
+      console.error('❌ Missing webhook signature');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
+      console.error('❌ Invalid webhook signature');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+  } else {
+    console.warn('⚠️  HELIUS_WEBHOOK_SECRET not set - signature verification disabled');
+  }
 
   try {
-    const payload = await req.json();
+    const payload = JSON.parse(rawBody);
     const events = Array.isArray(payload) ? payload : [payload];
 
-    console.log(`Processing ${events.length} event(s) from Helius`);
 
     // Get program ID from environment
-    const programId = process.env.NEXT_PUBLIC_CONTENT_POOL_PROGRAM_ID;
+    const programId = process.env.NEXT_PUBLIC_VERITAS_PROGRAM_ID;
     if (!programId) {
-      throw new Error('NEXT_PUBLIC_CONTENT_POOL_PROGRAM_ID not set');
+      throw new Error('NEXT_PUBLIC_VERITAS_PROGRAM_ID not set');
     }
 
     // Create event parser
@@ -40,18 +77,15 @@ export async function POST(req: NextRequest) {
       const blockTime = heliusEvent.blockTime;
       const slot = heliusEvent.slot;
 
-      console.log(`🔍 Processing Helius event: ${signature}`);
 
       // Parse Anchor events from transaction logs
       const logMessages = heliusEvent.meta?.logMessages || heliusEvent.logs || [];
       const anchorEvents = eventParser.parseLogs(logMessages);
 
       if (anchorEvents.length === 0) {
-        console.log(`   No events found in tx: ${signature}`);
         continue;
       }
 
-      console.log(`   Found ${anchorEvents.length} Anchor event(s)`);
 
       // Process each event
       for (const event of anchorEvents) {
@@ -112,15 +146,12 @@ export async function POST(req: NextRequest) {
               break;
 
             case 'PoolInitializedEvent':
-              console.log('   ℹ️  Pool initialized:', event.data.pool.toString());
               break;
 
             case 'PoolClosedEvent':
-              console.log('   ℹ️  Pool closed:', event.data.pool.toString());
               break;
 
             default:
-              console.log(`   ℹ️  Unhandled event type: ${event.name}`);
           }
         } catch (error) {
           console.error(`   ❌ Failed to process event ${event.name}:`, error);

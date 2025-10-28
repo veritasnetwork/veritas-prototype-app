@@ -1,0 +1,1398 @@
+Starting fresh test validator...
+Waiting for validator to be ready...
+Waiting for fees to stabilize 1...
+Waiting for fees to stabilize 2...
+Waiting for fees to stabilize 3...
+Running tests with fresh validator...
+warning: unexpected `cfg` condition value: `custom-heap`
+  --> programs/veritas-curation/src/lib.rs:24:1
+   |
+24 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `custom-heap` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::custom_heap_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `custom-panic`
+  --> programs/veritas-curation/src/lib.rs:24:1
+   |
+24 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `custom-panic` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::custom_panic_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/content_pool/instructions/deploy_market.rs:31:10
+   |
+31 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused import: `mul_div_u128`
+  --> programs/veritas-curation/src/content_pool/instructions/trade.rs:12:12
+   |
+12 |     math::{mul_div_u128, round_to_nearest, renormalize_scales, ceil_div},
+   |            ^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/veritas-curation/src/content_pool/instructions/trade.rs:143:10
+    |
+143 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/content_pool/instructions/add_liquidity.rs:11:10
+   |
+11 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/content_pool/instructions/settle_epoch.rs:10:10
+   |
+10 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/content_pool/instructions/close_pool.rs:10:10
+   |
+10 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/content_pool/instructions/get_current_state.rs:11:10
+   |
+11 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/veritas-curation/src/pool_factory/instructions/initialize_factory.rs:109:10
+    |
+109 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/veritas-curation/src/pool_factory/instructions/create_pool.rs:121:10
+    |
+121 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/pool_factory/instructions/update_protocol_authority.rs:62:10
+   |
+62 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/pool_factory/instructions/update_defaults.rs:98:10
+   |
+98 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/pool_factory/instructions/update_fee_config.rs:68:10
+   |
+68 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/veritas_custodian/instructions/initialize_custodian.rs:32:10
+   |
+32 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/veritas_custodian/instructions/deposit.rs:47:10
+   |
+47 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/veritas_custodian/instructions/withdraw.rs:70:10
+   |
+70 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/veritas_custodian/instructions/update_protocol_authority.rs:47:10
+   |
+47 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/veritas_custodian/instructions/toggle_emergency_pause.rs:42:10
+   |
+42 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/lib.rs:24:1
+   |
+24 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/veritas-curation/src/lib.rs:24:1
+   |
+24 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: use of deprecated method `anchor_lang::prelude::AccountInfo::<'a>::realloc`: Use AccountInfo::resize() instead
+  --> programs/veritas-curation/src/lib.rs:24:1
+   |
+24 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: function `integer_sqrt` is never used
+   --> programs/veritas-curation/src/content_pool/instructions/settle_epoch.rs:157:4
+    |
+157 | fn integer_sqrt(n: u128) -> Result<u128> {
+    |    ^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `veritas-curation` (lib) generated 28 warnings (5 duplicates) (run `cargo fix --lib -p veritas-curation` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 0.38s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.20s
+     Running unittests src/lib.rs (/Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/target/debug/deps/veritas_curation-ed4d90d9a979a137)
+Deploying cluster: http://127.0.0.1:8899
+Upgrade authority: /Users/josh/.config/solana/id.json
+Deploying program "veritas_curation"...
+Program path: /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/target/deploy/veritas_curation.so...
+Program Id: D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC
+
+Signature: 64heBsqxHYu215CLbdSaASMEMdtUHVkjQdjWK26z1q71RXFVNh8ciFjuNJjB5atAqTMdXE4mG1YUyzt8BgGWt6eB
+
+Deploy success
+
+Found a 'test' script in the Anchor.toml. Running it as a test suite!
+
+Running test suite: "/Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/Anchor.toml"
+
+yarn run v1.22.19
+warning ../../../../package.json: No license field
+$ /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/node_modules/.bin/ts-mocha -p ./tsconfig.json -t 1000000 tests/content-pool-icbs.test.ts tests/fee-calculation.test.ts tests/fee-config.test.ts tests/pool-factory-icbs.test.ts tests/trade-fees.test.ts tests/upgrade-authority-prototype.test.ts
+(node:83070) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+  ContentPool ICBS Tests
+    1. Pool Initialization
+      1.1 Empty Pool Creation
+        ✔ creates empty pool with factory reference (506ms)
+      1.2 Parameter Validation
+        ✔ validates F parameter bounds (1-10)
+        ✔ validates beta coefficient bounds (0.1-0.9) (476ms)
+    2. Market Deployment
+      2.1 First Trader Deployment
+On-manifold deployment results:
+  LONG allocation: 60000000
+  SHORT allocation: 40000000
+  Actual LONG tokens: 60000000
+  Actual SHORT tokens: 49000000
+  Pool s_long: 60
+  Pool s_short: 49
+  λ (derived, Q96): 102893716522055470715455291429299346
+  ||s||: 77
+  C(s) = λ·||s||: 99999998
+  Initial deposit: 100000000
+  Difference: 2
+  r_long: 59990001
+  r_short: 40009998
+  r_long + r_short: 99999999
+  Vault balance: 99999999
+  Reserve sum - vault: 0
+  sqrt_price_long (Q96): 79221560992566900799498415505408
+  Price LONG: 999833
+  Factory p0: 1000000
+  Price difference: 167
+        ✔ allows first trader to deploy market with initial liquidity (490ms)
+        ✔ enforces minimum initial deposit ($100) (497ms)
+        1) prevents duplicate market deployment
+    3. ICBS Mathematics
+      3.1 Cost Function Calculation
+        2) calculates cost function C(s_L, s_S) correctly
+        ✔ calculates marginal prices correctly
+      3.2 Virtual Reserves
+        3) maintains virtual reserves as R = s × p
+        4) calculates market prediction q correctly
+      3.3 Inverse Coupling
+        5) demonstrates inverse coupling on LONG buy
+        6) demonstrates inverse coupling on SHORT buy
+        ✔ maintains price × supply = reserve invariant
+    4. Trading Operations
+      4.1 Buy Operations
+        7) executes LONG buy with correct token output
+        8) applies stake skim on buys
+        9) enforces slippage protection on buys
+      4.2 Sell Operations
+        10) executes LONG sell with correct USDC output
+        11) executes SHORT sell with correct USDC output
+        12) enforces slippage protection on sells
+        13) applies zero skim on sells
+        14) prevents selling more tokens than owned
+        15) handles partial position exit
+        16) auto-creates ATA on buy and uses it on sell
+      4.3 Trade Size Limits
+        17) enforces minimum trade size
+      4.4 SPL Token Operations
+        18) allows token transfers between wallets
+        ✔ allows users to burn tokens directly (422ms)
+    5. Settlement Mechanics
+      5.1 BD Score Settlement
+        19) settles with BD score updating reserves
+        20) enforces settlement cooldown
+        ✔ validates BD score bounds (452ms)
+      5.3 Authority Validation
+        ✔ requires protocol authority for settlement (470ms)
+    7. State Invariants
+      7.1 Supply and Reserve Consistency
+        21) maintains token supply consistency across operations
+        22) maintains R = C(s) relationship
+      7.2 Settlement Invariants
+        23) maintains zero-sum property in settlement
+        24) clamps q to prevent division issues
+    close_pool
+      25) should close pool after all positions are burned
+      26) should fail to close pool with open positions
+      27) should fail to close pool without protocol authority
+    9. Edge Cases
+      9.1 Numerical Stability
+        28) handles very small trades correctly
+        29) handles settlement with extreme BD scores
+        - preserves reserve invariants through multiple settlements
+
+=== Pool State After 5 Trades ===
+  sLong: 141 display tokens
+  sShort: 100 display tokens
+  rLong: 318216 µUSDC
+  rShort: 160262 µUSDC
+  rTotal: 478478 µUSDC
+  norm: 172.86121600868137 display tokens
+  avgPrice: 2767.989321421701 µUSDC per display token
+  avgPrice: 0.0027679893214217007 USDC per display token
+WARNING: Average price seems off. Expected ~1.3 USDC/token, got 0.0027679893214217007
+This might be due to price impact from trades or initial deployment parameters.
+        30) maintains precision in X96 sqrt price calculations
+        31) handles buy-then-sell round-trip correctly
+    9.2 Time-Based Decay
+      32) applies decay after expiration for tier 1 (1% per day)
+
+=== Decay Calculation - Tier 2 ===
+Initial q: 0.6
+Days expired: 10
+Decay rate: 200 bps per day
+Total decay: 2000 bps
+Expected q after decay: 0.4
+      ✔ calculates correct decay for tier 2 (2% per day)
+
+=== Decay Clamping Test ===
+Initial q: 0.3
+Days expired: 100
+Total decay would be: 30000 bps (300%)
+Clamped q after decay: 0.1
+      ✔ clamps decay to minimum q (10%)
+
+=== Decay Tier 3 Test ===
+Initial q: 0.8
+Days expired: 35 (tier 3)
+Decay rate: 300 bps per day
+Expected q after decay: 0.1 (clamped)
+      ✔ uses tier 3 decay rate (3% per day) after 30 days
+
+=== Decay Before Expiration ===
+Current time: 1000000
+Expiration time: 2000000
+Should apply decay: false
+      ✔ does not apply decay before expiration
+
+=== Reserve Invariants After Decay ===
+R_total before: 100000000
+R_total after: 100000000
+q before: 0.6000
+q after: 0.5900
+      ✔ preserves reserve invariants after decay
+    10. Event Emission
+      33) emits TradeExecuted event on buy
+      34) emits TradeExecuted event on sell
+      35) emits PoolSettled event on settlement
+
+  Fee Calculation Tests
+    Standard Fee Scenarios
+      ✔ calculates 0.5% fee (50 bps) correctly
+      ✔ calculates 1% fee (100 bps) correctly
+      ✔ calculates 10% fee (1000 bps) correctly
+    Fee Split Scenarios
+      ✔ splits 100% to creator (10000 bps)
+      ✔ splits 50/50 (5000 bps)
+      ✔ splits 70/30 (7000 bps)
+      ✔ splits 0% to creator (0 bps) - all to protocol
+    Edge Cases
+      ✔ handles zero fee (0 bps)
+      ✔ handles 100% fee (10000 bps)
+      ✔ handles rounding down for small amounts
+      ✔ handles rounding on fee split
+    Large Amount Tests
+      ✔ handles 1M USDC trade
+      ✔ handles max trade size with high fee
+    Invariants
+      ✔ ensures creator_fee + protocol_fee = total_fee
+      ✔ ensures total_fee <= amount
+      ✔ ensures creator_fee <= total_fee
+
+  Fee Configuration Tests
+    1. Authority Validation
+  ⚠️ Test pending: upgrade authority pattern not yet implemented
+  Expected: Upgrade authority can call update_fee_config
+      ✔ allows upgrade authority to update fee config
+  ⚠️ Test pending: upgrade authority pattern not yet implemented
+  Expected: Non-authority cannot call update_fee_config
+      ✔ rejects non-upgrade authority
+  ⚠️ Test pending: upgrade authority pattern not yet implemented
+  Expected: Fails with InvalidUpgradeAuthority if program is immutable
+      ✔ rejects if no upgrade authority set (immutable program)
+    2. Fee Updates
+  ⚠️ Test pending: update_fee_config instruction not yet implemented
+  Expected: total_fee_bps updates from 50 → 100
+      ✔ updates total_fee_bps
+  ⚠️ Test pending: update_fee_config instruction not yet implemented
+  Expected: creator_split_bps updates from 10000 → 7000
+      ✔ updates creator_split_bps
+  ⚠️ Test pending: update_fee_config instruction not yet implemented
+  Expected: protocol_treasury address changes
+      ✔ updates protocol_treasury
+  ⚠️ Test pending: update_fee_config instruction not yet implemented
+  Expected: All specified fields update in one transaction
+      ✔ updates multiple fields atomically
+    3. Validation Rules
+  ⚠️ Test pending: update_fee_config instruction not yet implemented
+  Expected: Fails with InvalidCreatorSplit for split > 10000
+      ✔ rejects creator_split_bps > 10000
+  ⚠️ Test pending: update_fee_config instruction not yet implemented
+  Expected: Allows 0 fee (free trading)
+      ✔ accepts total_fee_bps = 0 (free trades)
+  ⚠️ Test pending: update_fee_config instruction not yet implemented
+  Expected: Allows 100% fee (though not recommended)
+      ✔ accepts total_fee_bps = 10000 (100% fee)
+    4. Event Emission
+  ⚠️ Test pending: update_fee_config instruction not yet implemented
+  Expected: Event contains updated config and timestamp
+      ✔ emits FeeConfigUpdatedEvent
+    5. Authority Transfer Scenarios
+  ⚠️ Test pending: requires solana program set-upgrade-authority
+  Expected:
+    1. Transfer authority via CLI
+    2. New authority can immediately update fee config
+    3. Old authority can no longer update fee config
+      ✔ respects new authority after transfer
+    6. Edge Cases
+  ⚠️ Test pending: update_fee_config instruction not yet implemented
+  Expected: Updates only total_fee_bps, leaves other fields unchanged
+      ✔ handles partial updates (only total_fee_bps)
+  ⚠️ Test pending: update_fee_config instruction not yet implemented
+  Expected: Updates only creator_split_bps, leaves other fields unchanged
+      ✔ handles partial updates (only creator_split_bps)
+  ⚠️ Test pending: update_fee_config instruction not yet implemented
+  Expected: Updates only protocol_treasury, leaves other fields unchanged
+      ✔ handles partial updates (only protocol_treasury)
+
+  PoolFactory ICBS Tests
+    1. Factory Initialization
+      1.1 Singleton Creation
+        36) initializes factory with correct authorities
+        ✔ prevents duplicate factory initialization
+      1.2 Default Parameters
+        37) sets correct default ICBS parameters
+    2. Pool Creation
+      2.1 Permissionless Creation
+        ✔ allows any user to create a pool with protocol validation (376ms)
+        ✔ allows permissionless pool creation (466ms)
+      2.2 Registry Management
+        ✔ creates registry entry for each pool (497ms)
+        38) prevents duplicate pools for same content_id
+      2.3 Parameter Inheritance
+        ✔ creates pool with factory default parameters (486ms)
+        ✔ inherits factory defaults (no custom parameters) (481ms)
+    3. Authority Management
+      3.1 Pool Authority Updates
+        ✔ allows factory_authority to update pool_authority (1021ms)
+        ✔ rejects pool_authority update from unauthorized signer
+        ✔ rejects pool_authority update from protocol_authority itself
+        ✔ validates new pool_authority is not default pubkey
+      3.2 Factory Authority Transfer
+        - allows factory_authority to transfer ownership
+    4. Default Parameter Updates
+      4.1 Update Default ICBS Parameters
+        ✔ allows factory_authority to update default_f (1398ms)
+        ✔ allows factory_authority to update default_beta (984ms)
+        ✔ validates parameter bounds on update
+        ✔ allows update of min_initial_deposit (934ms)
+        ✔ allows update of min_settle_interval (993ms)
+        ✔ rejects updates from non-factory-authority
+        ✔ existing pools retain original parameters after default update (1995ms)
+    5. State Consistency
+      5.1 Pool Counter
+        ✔ increments total_pools atomically (475ms)
+      5.2 PDA Derivation
+        ✔ derives consistent PDAs for factory
+        ✔ derives consistent PDAs for registries (480ms)
+    7. Error Handling
+      7.1 Input Validation
+        ✔ rejects invalid content_id (default pubkey) (505ms)
+    8. Event Emission
+      ✔ emits PoolCreated event on pool creation (539ms)
+      ✔ emits DefaultsUpdated event on parameter change (930ms)
+
+  Trade Fees Integration Tests
+    Setup
+  ⚠️ Test pending: create_pool with post_creator not yet implemented
+  Expected: Pool stores post_creator address
+      ✔ deploys pool with post_creator
+  ⚠️ Test pending: awaiting fee implementation
+  Expected:
+    - Post creator has USDC ATA
+    - Protocol treasury has USDC ATA
+    - Trader has USDC ATA with balance
+      ✔ creates USDC accounts for all parties
+    BUY Trade Fees
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    1. Trader starts with 100 USDC
+    2. Trade 100 USDC with 0.5% fee
+    3. Trader sends 0.50 USDC → creator
+    4. Trader sends 99.50 USDC → vault
+    5. Vault balance increases by 99.50 only
+      ✔ deducts fees from trader wallet (not vault)
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    - Creator receives 0.50 USDC
+    - Protocol treasury receives 0 USDC
+      ✔ splits fees correctly (100% creator)
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    - Creator receives 0.35 USDC (70%)
+    - Protocol treasury receives 0.15 USDC (30%)
+      ✔ splits fees correctly (70/30 split)
+  ⚠️ Test pending: TradeFeeEvent not yet implemented
+  Expected: Event contains total_fee, creator_fee, protocol_fee
+      ✔ emits TradeFeeEvent with correct amounts
+    SELL Trade Fees
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    1. Trader burns tokens
+    2. ICBS calculates proceeds = 100 USDC
+    3. Vault sends 0.50 USDC → creator
+    4. Vault sends 99.50 USDC → trader
+    5. Vault balance decreases by 100 total
+      ✔ deducts fees from vault (after burn)
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected: Pool PDA signs transfers from vault → creator/treasury
+      ✔ uses pool PDA to sign fee transfers
+  ⚠️ Test pending: TradeFeeEvent not yet implemented
+  Expected: Event contains total_fee, creator_fee, protocol_fee
+      ✔ emits TradeFeeEvent with correct amounts
+    Edge Cases
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected: Trade fails with clear error about missing ATA
+      ✔ handles creator with no USDC ATA (should fail gracefully)
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    - No fee transfers attempted
+    - Full amount goes to vault (BUY) or trader (SELL)
+    - Event emitted with 0 fees
+      ✔ handles zero fee configuration
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    - All USDC goes to fees
+    - Net trade amount = 0
+    - Trade likely fails due to MIN_TRADE_SIZE check
+      ✔ handles 100% fee configuration
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    - Trade 0.10 USDC with 0.5% fee
+    - Fee = 0.0005 USDC = 500 micro-USDC
+    - Rounds down to 0 if < 1 micro-USDC
+      ✔ handles very small trades (rounding edge case)
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    - Trade 1M USDC with 5% fee
+    - Fee = 50K USDC
+    - No overflow in checked_mul operations
+      ✔ handles very large trades (overflow protection)
+    Vault Accounting
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    - vault_balance_before + net_trade_amount = vault_balance_after
+    - Does NOT include fees in vault balance
+      ✔ maintains vault balance invariant (BUY)
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    - vault_balance_before - usdc_proceeds = vault_balance_after
+    - usdc_proceeds includes fees + trader payout
+      ✔ maintains vault balance invariant (SELL)
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected: pool.vault_balance == actual vault token account balance
+      ✔ vault balance matches actual token account
+    Concurrency Tests
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    - All trades succeed
+    - All fees collected correctly
+    - No race conditions
+    - Vault balance consistent
+      ✔ handles 10 concurrent BUY trades
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    - All trades succeed
+    - All fees collected correctly
+    - No race conditions
+    - Vault balance consistent
+      ✔ handles 10 concurrent SELL trades
+  ⚠️ Test pending: fee logic in trade instruction not yet implemented
+  Expected:
+    - Interleaved BUY and SELL trades
+    - Fee calculations remain consistent
+    - Vault balance never goes negative
+      ✔ handles mixed BUY/SELL trades
+    End-to-End Scenario
+  ⚠️ Test pending: full refactor not yet implemented
+  Scenario:
+    1. User A creates post → becomes post_creator
+    2. User B deploys pool for post
+    3. User C buys 100 USDC of LONG tokens
+    4. User A receives 0.50 USDC fee
+    5. Pool vault has 99.50 USDC
+    6. User C sells half their tokens
+    7. User A receives additional fee from sell
+    8. Vault balance remains consistent
+      ✔ full lifecycle with fees
+
+  Upgrade Authority Prototype
+Program ID: D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC
+Program Data Address: 2CX6yDGXqpxMBLGM2r6cx6Xwdc4NsyJSPLGfn5kyEKwZ
+    1. Query Upgrade Authority from Chain
+✓ Program data account exists
+  Owner: BPFLoaderUpgradeab1e11111111111111111111111
+  Data length: 733309
+      ✔ retrieves program data account
+  Deployment slot: 43
+  Has upgrade authority: true
+  Upgrade authority: 5Kp53XUxEUeBAGjbwgR8byf5SGhW82L6S1NWtzYrzwqe
+      ✔ deserializes upgrade authority from program data
+    2. Validate Authority in Instruction
+  Signer: 5Kp53XUxEUeBAGjbwgR8byf5SGhW82L6S1NWtzYrzwqe
+  Current authority: 5Kp53XUxEUeBAGjbwgR8byf5SGhW82L6S1NWtzYrzwqe
+  Authorized: true
+      ✔ accepts valid upgrade authority
+  ✓ Correctly rejected unauthorized signer
+      ✔ rejects invalid upgrade authority
+    3. Authority Transfer Simulation
+
+  📝 Authority Transfer Flow:
+  1. Current authority signs transfer
+  2. New authority is set via: solana program set-upgrade-authority
+  3. Program data account is updated on-chain
+  4. New authority can immediately call governance functions
+  5. Old authority can no longer call governance functions
+
+  ⚠️ Actual transfer requires CLI command or program upgrade instruction
+  This test only validates the pattern works for reading current authority
+      ✔ simulates authority transfer
+    4. Anchor Integration Pattern
+
+  📚 Implementation Pattern:
+
+  // In instruction context:
+  #[derive(Accounts)]
+  pub struct GovernanceInstruction<'info> {
+      pub upgrade_authority: Signer<'info>,
+
+      #[account(constraint = program.programdata_address()? == Some(program_data.key()))]
+      pub program: Program<'info, YourProgram>,
+
+      /// CHECK: Program data account
+      pub program_data: AccountInfo<'info>,
+  }
+
+  // In handler:
+  let program_data = ctx.accounts.program_data.try_borrow_data()?;
+
+  let upgrade_authority_address = match UpgradeableLoaderState::try_from_slice(&program_data)? {
+      UpgradeableLoaderState::ProgramData {
+          slot: _,
+          upgrade_authority_address
+      } => upgrade_authority_address,
+      _ => return Err(ErrorCode::InvalidProgramData.into()),
+  };
+
+  require!(
+      upgrade_authority_address == Some(*ctx.accounts.upgrade_authority.key()),
+      ErrorCode::InvalidUpgradeAuthority
+  );
+      
+  ✓ Pattern documented for implementation
+      ✔ documents the pattern for Anchor programs
+    5. Security Considerations
+
+  🔒 Security Notes:
+  • Always validate program_data.key() matches program.programdata_address()
+  • Check discriminator == 3 (ProgramData)
+  • Handle None case (immutable program)
+  • Use require! for authority validation, not assert!
+  • Ensure proper error codes are returned
+  • Test with actual authority transfer on devnet before mainnet
+      ✔ lists security considerations
+
+
+  97 passing (42s)
+  2 pending
+  38 failing
+
+  1) ContentPool ICBS Tests
+       2. Market Deployment
+         2.1 First Trader Deployment
+           prevents duplicate market deployment:
+     ReferenceError: longMint is not defined
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:654:73
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  2) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.1 Cost Function Calculation
+           calculates cost function C(s_L, s_S) correctly:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 170628 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 163758 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  3) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.2 Virtual Reserves
+           maintains virtual reserves as R = s × p:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 164167 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 157297 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  4) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.2 Virtual Reserves
+           calculates market prediction q correctly:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 170628 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 163758 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  5) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.3 Inverse Coupling
+           demonstrates inverse coupling on LONG buy:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 164167 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 157297 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  6) ContentPool ICBS Tests
+       3. ICBS Mathematics
+         3.3 Inverse Coupling
+           demonstrates inverse coupling on SHORT buy:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 170166 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 163296 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  7) ContentPool ICBS Tests
+       4. Trading Operations
+         4.1 Buy Operations
+           executes LONG buy with correct token output:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 170167 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 163297 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  8) ContentPool ICBS Tests
+       4. Trading Operations
+         4.1 Buy Operations
+           applies stake skim on buys:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 168666 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 161796 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  9) ContentPool ICBS Tests
+       4. Trading Operations
+         4.1 Buy Operations
+           enforces slippage protection on buys:
+     AssertionError: Expected SlippageExceeded error, got: Error: Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 177033 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 170163 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:1409:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/content-pool-icbs.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  10) ContentPool ICBS Tests
+       4. Trading Operations
+         4.2 Sell Operations
+           executes LONG sell with correct USDC output:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 170628 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 163758 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  11) ContentPool ICBS Tests
+       4. Trading Operations
+         4.2 Sell Operations
+           executes SHORT sell with correct USDC output:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 170627 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 163757 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  12) ContentPool ICBS Tests
+       4. Trading Operations
+         4.2 Sell Operations
+           enforces slippage protection on sells:
+     Error: AnchorError caused by account: protocol_authority. Error Code: UnauthorizedProtocol. Error Number: 6026. Error Message: Unauthorized protocol authority.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:168:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  13) ContentPool ICBS Tests
+       4. Trading Operations
+         4.2 Sell Operations
+           applies zero skim on sells:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 170627 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 163757 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  14) ContentPool ICBS Tests
+       4. Trading Operations
+         4.2 Sell Operations
+           prevents selling more tokens than owned:
+     AssertionError: Should fail with SPL token error: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:1847:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/content-pool-icbs.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  15) ContentPool ICBS Tests
+       4. Trading Operations
+         4.2 Sell Operations
+           handles partial position exit:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 170167 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 163297 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  16) ContentPool ICBS Tests
+       4. Trading Operations
+         4.2 Sell Operations
+           auto-creates ATA on buy and uses it on sell:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 144608 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 137738 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  17) ContentPool ICBS Tests
+       4. Trading Operations
+         4.3 Trade Size Limits
+           enforces minimum trade size:
+     AssertionError: expected 'AnchorError caused by account: protoc…' to include '6007'
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:2118:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/content-pool-icbs.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  18) ContentPool ICBS Tests
+       4. Trading Operations
+         4.4 SPL Token Operations
+           allows token transfers between wallets:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 170167 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 163297 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  19) ContentPool ICBS Tests
+       5. Settlement Mechanics
+         5.1 BD Score Settlement
+           settles with BD score updating reserves:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC invoke [1]",
+  "Program log: Instruction: SettleEpoch",
+  "Program log: panicked at programs/veritas-curation/src/content_pool/instructions/settle_epoch.rs:100:30:\nattempt to multiply with overflow",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 6938 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: SBF program panicked"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  20) ContentPool ICBS Tests
+       5. Settlement Mechanics
+         5.1 BD Score Settlement
+           enforces settlement cooldown:
+     AssertionError: Expected SettlementCooldown error, got: Error: Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC invoke [1]",
+  "Program log: Instruction: SettleEpoch",
+  "Program log: panicked at programs/veritas-curation/src/content_pool/instructions/settle_epoch.rs:100:30:\nattempt to multiply with overflow",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 6938 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: SBF program panicked"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:2404:18
+      at Generator.throw (<anonymous>)
+      at rejected (tests/content-pool-icbs.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  21) ContentPool ICBS Tests
+       7. State Invariants
+         7.1 Supply and Reserve Consistency
+           maintains token supply consistency across operations:
+
+      Pool s_long should match LONG mint total supply
+      + expected - actual
+
+      -100
+      +100000000
+      
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:2548:16
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  22) ContentPool ICBS Tests
+       7. State Invariants
+         7.1 Supply and Reserve Consistency
+           maintains R = C(s) relationship:
+     Error: AnchorError caused by account: protocol_authority. Error Code: UnauthorizedProtocol. Error Number: 6026. Error Message: Unauthorized protocol authority.
+      at AnchorError.parse (node_modules/@coral-xyz/anchor/src/error.ts:168:14)
+      at translateError (node_modules/@coral-xyz/anchor/src/error.ts:277:35)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:35:29)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  23) ContentPool ICBS Tests
+       7. State Invariants
+         7.2 Settlement Invariants
+           maintains zero-sum property in settlement:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  24) ContentPool ICBS Tests
+       7. State Invariants
+         7.2 Settlement Invariants
+           clamps q to prevent division issues:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  25) ContentPool ICBS Tests
+       close_pool
+         should close pool after all positions are burned:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  26) ContentPool ICBS Tests
+       close_pool
+         should fail to close pool with open positions:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  27) ContentPool ICBS Tests
+       close_pool
+         should fail to close pool without protocol authority:
+     Error: unknown signer: 2pKJS62zuSwyRFN1Snf3ZqDnrZD2oh5X5EgdACfUhKCp
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  28) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           handles very small trades correctly:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 177033 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 170163 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  29) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           handles settlement with extreme BD scores:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC invoke [1]",
+  "Program log: Instruction: SettleEpoch",
+  "Program log: panicked at programs/veritas-curation/src/content_pool/instructions/settle_epoch.rs:101:31:\nattempt to multiply with overflow",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 7173 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: SBF program panicked"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  30) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           maintains precision in X96 sqrt price calculations:
+     AssertionError: Average price should be reasonable: 0.0027679893214217007 USDC per token: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:3669:16
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  31) ContentPool ICBS Tests
+       9. Edge Cases
+         9.1 Numerical Stability
+           handles buy-then-sell round-trip correctly:
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 168662 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: MintTo",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4492 of 33189 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 200000 of 200000 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: exceeded CUs meter at BPF instruction"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  32) ContentPool ICBS Tests
+       9.2 Time-Based Decay
+         applies decay after expiration for tier 1 (1% per day):
+     Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 1: custom program error: 0x1. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 20389 of 1111864 compute units",
+  "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+  "Program log: Instruction: Transfer",
+  "Program log: Error: insufficient funds",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4300 of 1089224 compute units",
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA failed: custom program error: 0x1",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC consumed 114926 of 1199850 compute units",
+  "Program D1tNYkzevBrxRM9XNALUVAHU4Lg7W7YQkK8eFTxuMhRC failed: custom program error: 0x1"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+  
+
+  33) ContentPool ICBS Tests
+       10. Event Emission
+         emits TradeExecuted event on buy:
+     AssertionError: Transaction logs should contain trade event: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:4077:14
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  34) ContentPool ICBS Tests
+       10. Event Emission
+         emits TradeExecuted event on sell:
+     AssertionError: Transaction logs should contain trade event: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:4185:14
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  35) ContentPool ICBS Tests
+       10. Event Emission
+         emits PoolSettled event on settlement:
+     AssertionError: Transaction logs should contain settlement event: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/content-pool-icbs.test.ts:4216:14
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/content-pool-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  36) PoolFactory ICBS Tests
+       1. Factory Initialization
+         1.1 Singleton Creation
+           initializes factory with correct authorities:
+
+      AssertionError: expected 'GouF12SvULVNKjjE5j4xnyfH1BpKxrCU8sVYp…' to equal '4ioWcbMnSetG2aUuibMLJmEsuoqk9nCF5R9Ne…'
+      + expected - actual
+
+      -GouF12SvULVNKjjE5j4xnyfH1BpKxrCU8sVYpxCLDyJK
+      +4ioWcbMnSetG2aUuibMLJmEsuoqk9nCF5R9NePV2f1W6
+      
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/pool-factory-icbs.test.ts:141:16
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/pool-factory-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  37) PoolFactory ICBS Tests
+       1. Factory Initialization
+         1.2 Default Parameters
+           sets correct default ICBS parameters:
+
+      AssertionError: expected '50000000' to equal '100000000'
+      + expected - actual
+
+      -50000000
+      +100000000
+      
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/pool-factory-icbs.test.ts:193:16
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/pool-factory-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  38) PoolFactory ICBS Tests
+       2. Pool Creation
+         2.2 Registry Management
+           prevents duplicate pools for same content_id:
+     AssertionError: expected false to be truthy
+      at /Users/josh/veritas/veritas-prototype-app/solana/veritas-curation/tests/pool-factory-icbs.test.ts:370:18
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/pool-factory-icbs.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+
+
+error Command failed with exit code 38.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.
+Cleaning up validator...

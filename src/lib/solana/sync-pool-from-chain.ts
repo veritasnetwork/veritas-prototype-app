@@ -3,6 +3,9 @@
  * This is a fallback mechanism for when the event indexer misses the initial deployment
  *
  * Uses the units system and formatPoolAccountData to properly convert units.
+ *
+ * @param poolAddress - The pool address to sync
+ * @param forceUpdate - If true, updates all fields regardless of null status (use after settlements)
  */
 
 import { Connection, PublicKey, Keypair } from '@solana/web3.js';
@@ -15,12 +18,14 @@ import idl from './target/idl/veritas_curation.json';
 interface PoolAccountDataForDB {
   sqrtPriceLongX96: string;
   sqrtPriceShortX96: string;
-  sLongSupplyAtomic: number; // Atomic units for database
-  sShortSupplyAtomic: number; // Atomic units for database
+  sLongSupplyDisplay: number; // DISPLAY units for database
+  sShortSupplyDisplay: number; // DISPLAY units for database
   vaultBalanceMicro: number; // Micro-USDC for database
   f: number;
   betaNum: number;
   betaDen: number;
+  sScaleLongQ64: string;  // NEW
+  sScaleShortQ64: string; // NEW
 }
 
 /**
@@ -64,12 +69,14 @@ async function parsePoolAccount(
     return {
       sqrtPriceLongX96: formatted._raw.sqrtPriceLongX96,
       sqrtPriceShortX96: formatted._raw.sqrtPriceShortX96,
-      sLongSupplyAtomic: formatted._raw.sLongAtomic,
-      sShortSupplyAtomic: formatted._raw.sShortAtomic,
+      sLongSupplyDisplay: formatted._raw.sLong,  // Use display units for DB
+      sShortSupplyDisplay: formatted._raw.sShort,  // Use display units for DB
       vaultBalanceMicro: formatted._raw.vaultBalanceMicro,
       f: formatted.f,
       betaNum: formatted.betaNum,
       betaDen: formatted.betaDen,
+      sScaleLongQ64: formatted.sScaleLongQ64,  // NEW
+      sScaleShortQ64: formatted.sScaleShortQ64, // NEW
     };
   } catch (error) {
     console.error('[SyncPool] Error parsing pool account:', error);
@@ -87,11 +94,11 @@ const syncInFlight = new Map<string, Promise<boolean>>();
 export async function syncPoolFromChain(
   poolAddress: string,
   connection?: Connection,
-  timeoutMs: number = 5000 // DEFENSIVE: 5 second timeout
+  timeoutMs: number = 5000, // DEFENSIVE: 5 second timeout
+  forceUpdate: boolean = false // If true, updates all fields regardless of null status
 ): Promise<boolean> {
   // DEFENSIVE: Check if sync already in progress for this pool
   if (syncInFlight.has(poolAddress)) {
-    console.log('[SyncPool] Sync already in progress, waiting for existing sync:', poolAddress);
     return await syncInFlight.get(poolAddress)!;
   }
 
@@ -126,7 +133,6 @@ async function doSyncPoolFromChain(
   connection?: Connection
 ): Promise<boolean> {
   try {
-    console.log('[SyncPool] Syncing pool from chain:', poolAddress);
 
     // Use provided connection or get from pool (reuses connections)
     const conn = connection || getPooledConnection();
@@ -140,7 +146,6 @@ async function doSyncPoolFromChain(
       return false;
     }
 
-    console.log('[SyncPool] Pool account found, size:', poolAccount.data.length);
 
     // Parse actual on-chain data using Anchor IDL
     const poolData = await parsePoolAccount(poolPubkey, conn);
@@ -150,7 +155,6 @@ async function doSyncPoolFromChain(
       return false;
     }
 
-    console.log('[SyncPool] Parsed pool data:', poolData);
 
     // Update database - only update null fields
     const supabase = getSupabaseServiceRole();
@@ -158,7 +162,7 @@ async function doSyncPoolFromChain(
     // First fetch current data to see what's null
     const { data: currentPool, error: fetchError } = await supabase
       .from('pool_deployments')
-      .select('sqrt_price_long_x96, sqrt_price_short_x96, s_long_supply, s_short_supply, vault_balance')
+      .select('sqrt_price_long_x96, sqrt_price_short_x96, s_long_supply, s_short_supply, vault_balance, s_scale_long_q64, s_scale_short_q64')
       .eq('pool_address', poolAddress)
       .single();
 
@@ -167,34 +171,40 @@ async function doSyncPoolFromChain(
       return false;
     }
 
-    // Build update object with only null fields
+    // Build update object with only null fields (or all fields if forceUpdate)
     const updates: any = {
       last_synced_at: new Date().toISOString(),
     };
 
-    if (currentPool.sqrt_price_long_x96 === null) {
+    if (forceUpdate || currentPool.sqrt_price_long_x96 === null) {
       updates.sqrt_price_long_x96 = poolData.sqrtPriceLongX96;
     }
-    if (currentPool.sqrt_price_short_x96 === null) {
+    if (forceUpdate || currentPool.sqrt_price_short_x96 === null) {
       updates.sqrt_price_short_x96 = poolData.sqrtPriceShortX96;
     }
-    if (currentPool.s_long_supply === null) {
-      updates.s_long_supply = poolData.sLongSupplyAtomic;
+    if (forceUpdate || currentPool.s_long_supply === null) {
+      updates.s_long_supply = poolData.sLongSupplyDisplay;
     }
-    if (currentPool.s_short_supply === null) {
-      updates.s_short_supply = poolData.sShortSupplyAtomic;
+    if (forceUpdate || currentPool.s_short_supply === null) {
+      updates.s_short_supply = poolData.sShortSupplyDisplay;
     }
-    if (currentPool.vault_balance === null) {
+    if (forceUpdate || currentPool.vault_balance === null) {
       updates.vault_balance = poolData.vaultBalanceMicro;
     }
-    if (currentPool.f === null) {
+    if (forceUpdate || currentPool.f === null) {
       updates.f = poolData.f;
     }
-    if (currentPool.beta_num === null) {
+    if (forceUpdate || currentPool.beta_num === null) {
       updates.beta_num = poolData.betaNum;
     }
-    if (currentPool.beta_den === null) {
+    if (forceUpdate || currentPool.beta_den === null) {
       updates.beta_den = poolData.betaDen;
+    }
+    if (forceUpdate || currentPool.s_scale_long_q64 === null) {
+      updates.s_scale_long_q64 = poolData.sScaleLongQ64;
+    }
+    if (forceUpdate || currentPool.s_scale_short_q64 === null) {
+      updates.s_scale_short_q64 = poolData.sScaleShortQ64;
     }
 
     // Only update if there are fields to update
@@ -209,9 +219,7 @@ async function doSyncPoolFromChain(
         return false;
       }
 
-      console.log('[SyncPool] Pool synced successfully, updated fields:', Object.keys(updates));
     } else {
-      console.log('[SyncPool] No null fields to update');
     }
 
     return true;

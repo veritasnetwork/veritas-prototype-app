@@ -127,7 +127,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           disabled={disabled || !editor.can().chain().focus().toggleBold().run()}
           className={`p-2 rounded hover:bg-gray-700 transition-colors ${
             editor.isActive('bold') ? 'bg-gray-700 text-blue-400' : 'text-gray-400'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          } disabled:opacity-50 disabled:cursor-default`}
           title="Bold"
         >
           <Bold className="w-4 h-4" />
@@ -139,7 +139,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           disabled={disabled || !editor.can().chain().focus().toggleItalic().run()}
           className={`p-2 rounded hover:bg-gray-700 transition-colors ${
             editor.isActive('italic') ? 'bg-gray-700 text-blue-400' : 'text-gray-400'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          } disabled:opacity-50 disabled:cursor-default`}
           title="Italic"
         >
           <Italic className="w-4 h-4" />
@@ -152,7 +152,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           className={`p-2 rounded hover:bg-gray-700 transition-colors ${
             editor.isActive('heading', { level: 1 }) ? 'bg-gray-700 text-blue-400' : 'text-gray-400'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          } disabled:opacity-50 disabled:cursor-default`}
           disabled={disabled}
           title="Heading 1"
         >
@@ -164,7 +164,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           className={`p-2 rounded hover:bg-gray-700 transition-colors ${
             editor.isActive('heading', { level: 2 }) ? 'bg-gray-700 text-blue-400' : 'text-gray-400'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          } disabled:opacity-50 disabled:cursor-default`}
           disabled={disabled}
           title="Heading 2"
         >
@@ -176,7 +176,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
           className={`p-2 rounded hover:bg-gray-700 transition-colors ${
             editor.isActive('heading', { level: 3 }) ? 'bg-gray-700 text-blue-400' : 'text-gray-400'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          } disabled:opacity-50 disabled:cursor-default`}
           disabled={disabled}
           title="Heading 3"
         >
@@ -188,7 +188,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           onClick={() => editor.chain().focus().setParagraph().run()}
           className={`p-2 rounded hover:bg-gray-700 transition-colors ${
             editor.isActive('paragraph') ? 'bg-gray-700 text-blue-400' : 'text-gray-400'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          } disabled:opacity-50 disabled:cursor-default`}
           disabled={disabled}
           title="Normal Text"
         >
@@ -203,7 +203,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           disabled={disabled || !editor.can().chain().focus().toggleBulletList().run()}
           className={`p-2 rounded hover:bg-gray-700 transition-colors ${
             editor.isActive('bulletList') ? 'bg-gray-700 text-blue-400' : 'text-gray-400'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          } disabled:opacity-50 disabled:cursor-default`}
           title="Bullet List"
         >
           <List className="w-4 h-4" />
@@ -215,7 +215,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           disabled={disabled || !editor.can().chain().focus().toggleOrderedList().run()}
           className={`p-2 rounded hover:bg-gray-700 transition-colors ${
             editor.isActive('orderedList') ? 'bg-gray-700 text-blue-400' : 'text-gray-400'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          } disabled:opacity-50 disabled:cursor-default`}
           title="Numbered List"
         >
           <ListOrdered className="w-4 h-4" />
@@ -227,7 +227,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           disabled={disabled || !editor.can().chain().focus().toggleBlockquote().run()}
           className={`p-2 rounded hover:bg-gray-700 transition-colors ${
             editor.isActive('blockquote') ? 'bg-gray-700 text-blue-400' : 'text-gray-400'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          } disabled:opacity-50 disabled:cursor-default`}
           title="Quote"
         >
           <Quote className="w-4 h-4" />
@@ -240,7 +240,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           type="button"
           onClick={() => imageInputRef.current?.click()}
           disabled={disabled || isUploadingImage}
-          className="p-2 rounded hover:bg-gray-700 transition-colors text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-2 rounded hover:bg-gray-700 transition-colors text-gray-400 disabled:opacity-50 disabled:cursor-default"
           title={isUploadingImage ? 'Uploading...' : 'Add Image'}
         >
           {isUploadingImage ? (
@@ -272,7 +272,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           type="button"
           onClick={() => editor.chain().focus().undo().run()}
           disabled={disabled || !editor.can().chain().focus().undo().run()}
-          className="p-2 rounded hover:bg-gray-700 transition-colors text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-2 rounded hover:bg-gray-700 transition-colors text-gray-400 disabled:opacity-50 disabled:cursor-default"
           title="Undo"
         >
           <Undo className="w-4 h-4" />
@@ -282,7 +282,7 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
           type="button"
           onClick={() => editor.chain().focus().redo().run()}
           disabled={disabled || !editor.can().chain().focus().redo().run()}
-          className="p-2 rounded hover:bg-gray-700 transition-colors text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-2 rounded hover:bg-gray-700 transition-colors text-gray-400 disabled:opacity-50 disabled:cursor-default"
           title="Redo"
         >
           <Redo className="w-4 h-4" />

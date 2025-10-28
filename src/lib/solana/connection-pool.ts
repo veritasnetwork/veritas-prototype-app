@@ -24,7 +24,6 @@ class ConnectionPool {
 
     // If no instance or endpoint changed, create new one
     if (!this.instance || this.instance.rpcEndpoint !== endpoint) {
-      console.log('[ConnectionPool] Creating new RPC connection to:', endpoint);
 
       const config: ConnectionConfig = {
         commitment: 'confirmed',

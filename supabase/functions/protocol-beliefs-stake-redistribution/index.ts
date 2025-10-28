@@ -9,6 +9,7 @@ const corsHeaders = {
 interface Request {
   belief_id: string;
   information_scores: Record<string, number>;
+  current_epoch: number;
 }
 
 function hashPoolAddress(address: string): number {
@@ -24,7 +25,19 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { belief_id, information_scores } = await req.json() as Request;
+    const { belief_id, information_scores, current_epoch } = await req.json() as Request;
+
+    // Validate required parameters
+    if (!belief_id) {
+      throw new Error('belief_id is required');
+    }
+    if (!information_scores) {
+      throw new Error('information_scores is required');
+    }
+    if (current_epoch === undefined || current_epoch === null) {
+      throw new Error('current_epoch is required');
+    }
+
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
     // Fetch pool_address
@@ -43,6 +56,36 @@ serve(async (req) => {
     await supabase.rpc('pg_advisory_lock', { lock_id: lockId });
 
     try {
+      // Idempotency check: Verify redistribution hasn't already occurred for this epoch
+      const { data: existingEvents, error: checkError } = await supabase
+        .from('stake_redistribution_events')
+        .select('agent_id')
+        .eq('belief_id', belief_id)
+        .eq('epoch', current_epoch)
+        .limit(1);
+
+      if (checkError) {
+        console.error('Failed to check existing events:', checkError);
+        // Don't throw - this is a safety check, not critical
+      }
+
+      if (existingEvents && existingEvents.length > 0) {
+        console.log(`⏭️  Redistribution already completed for belief ${belief_id} epoch ${current_epoch}`);
+
+        // Return success with zero changes (idempotent behavior)
+        return new Response(JSON.stringify({
+          redistribution_occurred: false,
+          individual_rewards: {},
+          individual_slashes: {},
+          slashing_pool: 0,
+          lambda: 0,
+          total_delta_micro: 0,
+          skipped: true,
+          reason: 'already_redistributed'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       // Get gross locks (LONG + SHORT) with agent mapping
       const { data: userLocks } = await supabase
         .from('user_pool_balances')
@@ -101,10 +144,81 @@ serve(async (req) => {
         throw new Error(`Zero-sum violated: Σ Δ = ${totalDelta} μUSDC (tolerance: 1 μUSDC)`);
       }
 
-      // Update stakes atomically
+      // Update stakes atomically and record events
+      const totalLocksSum = Array.from(grossLocks.values()).reduce((a, b) => a + b, 0);
+
       for (const { agentId, deltaMicro } of finalDeltas) {
         if (deltaMicro === 0) continue;
-        await supabase.rpc('update_stake_atomic', { p_agent_id: agentId, p_delta_micro: deltaMicro });
+
+        // Get stake BEFORE update
+        const { data: agentBefore, error: beforeError } = await supabase
+          .from('agents')
+          .select('total_stake')
+          .eq('id', agentId)
+          .single();
+
+        if (beforeError || !agentBefore) {
+          throw new Error(`Failed to get agent ${agentId} stake before update: ${beforeError?.message}`);
+        }
+
+        const stakeBeforeMicro = agentBefore.total_stake;
+
+        // Update stake atomically
+        await supabase.rpc('update_stake_atomic', {
+          p_agent_id: agentId,
+          p_delta_micro: deltaMicro
+        });
+
+        // Get stake AFTER update (for verification)
+        const { data: agentAfter, error: afterError } = await supabase
+          .from('agents')
+          .select('total_stake')
+          .eq('id', agentId)
+          .single();
+
+        if (afterError || !agentAfter) {
+          throw new Error(`Failed to get agent ${agentId} stake after update: ${afterError?.message}`);
+        }
+
+        const stakeAfterMicro = agentAfter.total_stake;
+
+        // Verify the update was correct
+        const expectedAfter = Math.max(0, stakeBeforeMicro + deltaMicro);
+        if (stakeAfterMicro !== expectedAfter) {
+          console.error(`⚠️  Stake update mismatch for agent ${agentId}: expected ${expectedAfter}, got ${stakeAfterMicro}`);
+        }
+
+        // Calculate normalized weight
+        const normalizedWeight = totalLocksSum > 0
+          ? (grossLocks.get(agentId) || 0) / totalLocksSum
+          : 0;
+
+        // Record redistribution event
+        const { error: eventError } = await supabase
+          .from('stake_redistribution_events')
+          .insert({
+            belief_id: belief_id,
+            epoch: current_epoch,
+            agent_id: agentId,
+            information_score: information_scores[agentId],
+            belief_weight: grossLocks.get(agentId) || 0,
+            normalized_weight: normalizedWeight,
+            stake_before: stakeBeforeMicro,
+            stake_delta: deltaMicro,
+            stake_after: stakeAfterMicro,
+            recorded_by: 'server'
+          });
+
+        if (eventError) {
+          // If this is a duplicate key error, that's OK (idempotency)
+          if (eventError.code === '23505') { // PostgreSQL unique violation
+            console.log(`⏭️  Event already recorded for agent ${agentId}`);
+          } else {
+            throw new Error(`Failed to record redistribution event for agent ${agentId}: ${eventError.message}`);
+          }
+        }
+
+        console.log(`💰 ${agentId.substring(0, 8)}: ${stakeBeforeMicro} → ${stakeAfterMicro} (Δ${deltaMicro})`);
       }
 
       // Build individual rewards/slashes for reporting

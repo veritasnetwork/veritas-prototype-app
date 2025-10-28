@@ -8,7 +8,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
-import { fetchPoolData } from '@/lib/solana/fetch-pool-data';
+import { batchFetchPoolsData } from '@/lib/solana/fetch-pool-data';
+import { estimateUsdcOut, TokenSide } from '@/lib/solana/icbs-pricing';
 
 export async function GET(
   request: NextRequest,
@@ -23,6 +24,11 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    // Parse pagination parameters
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50); // Max 50
+    const offset = parseInt(searchParams.get('offset') || '0');
 
     const supabase = getSupabaseServiceRole();
 
@@ -40,43 +46,11 @@ export async function GET(
       );
     }
 
-    // Fetch user's holdings with post and pool data
+    // Fetch user's holdings with post and pool data, including entry price calculation
     // NOTE: We don't fetch content_json to improve performance - it's not needed for holdings list
-    const { data: positions, error: holdingsError } = await supabase
-      .from('user_pool_balances')
-      .select(`
-        token_balance,
-        total_usdc_spent,
-        total_bought,
-        total_sold,
-        total_usdc_received,
-        pool_address,
-        post_id,
-        token_type,
-        belief_lock,
-        last_trade_at,
-        posts:post_id (
-          id,
-          post_type,
-          content_text,
-          caption,
-          media_urls,
-          cover_image_url,
-          article_title,
-          user_id,
-          created_at,
-          users:user_id (
-            username,
-            display_name,
-            avatar_url
-          )
-        ),
-        pool_deployments:pool_address (
-          pool_address
-        )
-      `)
-      .eq('user_id', user.id)
-      .gt('token_balance', 0);
+    // Use a raw query to add LIMIT and OFFSET to the RPC call result
+    const { data: allPositions, error: holdingsError } = await supabase
+      .rpc('get_user_holdings_with_entry_price', { p_user_id: user.id });
 
     if (holdingsError) {
       console.error('Holdings fetch error:', holdingsError);
@@ -86,143 +60,222 @@ export async function GET(
       );
     }
 
-    // Aggregate by pool (LONG + SHORT)
-    interface HoldingEntry {
+    // Apply pagination in-memory (since RPC doesn't support .range())
+    // Sort by value first (would need pool data for perfect sort, so we'll do basic sort)
+    const sortedPositions = (allPositions || []).sort((a, b) => {
+      // Sort by token_balance * rough price estimate
+      const aValue = a.token_balance * (a.entry_price || 0);
+      const bValue = b.token_balance * (b.entry_price || 0);
+      return bValue - aValue;
+    });
+
+    const totalCount = sortedPositions.length;
+    const positions = sortedPositions.slice(offset, offset + limit);
+
+    // Keep positions separate - don't aggregate LONG and SHORT together
+    // Each position (LONG or SHORT) will be its own holding entry
+    interface PositionEntry {
       pool_address: string;
       post_id: string;
-      posts: unknown;
-      pool_deployments: unknown;
-      long_balance: number;
-      short_balance: number;
-      long_lock: number;
-      short_lock: number;
-      long_spent: number;
-      short_spent: number;
-      long_received: number;
-      short_received: number;
-      total_lock_usdc: number;
+      posts: any;
+      pool_deployments: any;
+      token_type: 'LONG' | 'SHORT';
+      token_balance: number;
+      belief_lock: number;
+      total_usdc_spent: number;
+      total_usdc_received: number;
       last_trade_at: string;
+      entry_price: number;
     }
 
-    const holdingsMap = new Map<string, HoldingEntry>();
-    for (const pos of positions || []) {
-      if (!holdingsMap.has(pos.pool_address)) {
-        holdingsMap.set(pos.pool_address, {
-          pool_address: pos.pool_address,
-          post_id: pos.post_id,
-          posts: pos.posts,
-          pool_deployments: pos.pool_deployments,
-          long_balance: 0,
-          short_balance: 0,
-          long_lock: 0,
-          short_lock: 0,
-          long_spent: 0,
-          short_spent: 0,
-          long_received: 0,
-          short_received: 0,
-          total_lock_usdc: 0,
-          last_trade_at: pos.last_trade_at,
+    const holdings: PositionEntry[] = (positions || []).map(pos => ({
+      pool_address: pos.pool_address,
+      post_id: pos.post_id,
+      posts: pos.posts,
+      pool_deployments: pos.pool_deployments,
+      token_type: pos.token_type as 'LONG' | 'SHORT',
+      token_balance: pos.token_balance,
+      belief_lock: pos.belief_lock / 1_000_000,
+      total_usdc_spent: pos.total_usdc_spent / 1_000_000,
+      total_usdc_received: pos.total_usdc_received / 1_000_000,
+      last_trade_at: pos.last_trade_at,
+      entry_price: Number(pos.entry_price) || 0,
+    }));
+
+    // Fetch per-token-type volume for all positions in a single query
+    const volumeByPostAndType = new Map<string, number>();
+
+    if (holdings.length > 0) {
+      const postIds = [...new Set(holdings.map(h => h.post_id))];
+
+
+      const { data: volumeData, error: volumeError } = await supabase
+        .from('trades')
+        .select('post_id, side, usdc_amount')
+        .in('post_id', postIds);
+
+
+      // Aggregate volumes by post_id and side
+      (volumeData || []).forEach(trade => {
+        const key = `${trade.post_id}-${trade.side}`;
+        const currentVolume = volumeByPostAndType.get(key) || 0;
+        const newVolume = currentVolume + (Number(trade.usdc_amount) / 1_000_000);
+        volumeByPostAndType.set(key, newVolume);
+      });
+
+    }
+
+    // Separate pools into cached (fresh) and stale (need fetching)
+    const CACHE_MAX_AGE_MS = 60 * 1000; // 60 seconds
+    const now = new Date();
+    const poolsNeedingFetch: string[] = [];
+    const cachedPoolData = new Map<string, { priceLong: number; priceShort: number; supplyLong: number; supplyShort: number }>();
+
+    for (const holding of holdings) {
+      const poolDeployment = holding.pool_deployments;
+      if (!poolDeployment?.pool_address) continue;
+
+      const poolAddress = poolDeployment.pool_address;
+      const pricesUpdatedAt = poolDeployment.prices_last_updated_at
+        ? new Date(poolDeployment.prices_last_updated_at)
+        : null;
+
+      // Check if cached prices are fresh (less than 60 seconds old)
+      const isCacheFresh = pricesUpdatedAt &&
+        (now.getTime() - pricesUpdatedAt.getTime()) < CACHE_MAX_AGE_MS &&
+        poolDeployment.cached_price_long !== null &&
+        poolDeployment.cached_price_short !== null;
+
+      if (isCacheFresh) {
+        // Use cached prices
+        cachedPoolData.set(poolAddress, {
+          priceLong: Number(poolDeployment.cached_price_long),
+          priceShort: Number(poolDeployment.cached_price_short),
+          supplyLong: Number(poolDeployment.s_long_supply || 0) / 1_000_000, // Convert to display units
+          supplyShort: Number(poolDeployment.s_short_supply || 0) / 1_000_000,
         });
-      }
-
-      const entry = holdingsMap.get(pos.pool_address);
-      if (pos.token_type === 'LONG') {
-        entry.long_balance = pos.token_balance;
-        entry.long_lock = pos.belief_lock / 1_000_000;
-        entry.long_spent = pos.total_usdc_spent / 1_000_000;
-        entry.long_received = pos.total_usdc_received / 1_000_000;
       } else {
-        entry.short_balance = pos.token_balance;
-        entry.short_lock = pos.belief_lock / 1_000_000;
-        entry.short_spent = pos.total_usdc_spent / 1_000_000;
-        entry.short_received = pos.total_usdc_received / 1_000_000;
-      }
-      entry.total_lock_usdc = entry.long_lock + entry.short_lock;
-      if (new Date(pos.last_trade_at) > new Date(entry.last_trade_at)) {
-        entry.last_trade_at = pos.last_trade_at;
+        // Mark for on-chain fetch
+        if (!poolsNeedingFetch.includes(poolAddress)) {
+          poolsNeedingFetch.push(poolAddress);
+        }
       }
     }
 
-    const holdings = Array.from(holdingsMap.values());
+    // Batch fetch stale pool data from chain
+    const rpcEndpoint = process.env.SOLANA_RPC_ENDPOINT || 'http://localhost:8899';
+    const fetchedPoolDataMap = poolsNeedingFetch.length > 0
+      ? await batchFetchPoolsData(poolsNeedingFetch, rpcEndpoint)
+      : new Map();
 
-    // Transform and calculate current values - fetch pool data from chain
-    const transformedHoldings = await Promise.all(
-      holdings.map(async (holding: HoldingEntry) => {
-        const post = holding.posts;
-        const poolAddress = holding.pool_deployments?.pool_address;
+    // Combine cached and fetched data
+    const poolDataMap = new Map<string, any>();
 
-        // Fetch current pool data from chain
-        let poolData = null;
-        let currentPrice = 0;
-        let currentValueUsdc = 0;
+    // Add cached data
+    for (const [address, data] of cachedPoolData.entries()) {
+      poolDataMap.set(address, data);
+    }
 
-        if (poolAddress) {
-          try {
-            const rpcEndpoint = process.env.SOLANA_RPC_ENDPOINT || 'http://localhost:8899';
-            poolData = await fetchPoolData(poolAddress, rpcEndpoint);
-            if (poolData) {
-              // Use average of long/short prices for holdings display
-              currentPrice = (poolData.priceLong + poolData.priceShort) / 2;
-              currentValueUsdc = holding.long_balance * poolData.priceLong + holding.short_balance * poolData.priceShort;
-            }
-          } catch (error) {
-            console.warn(`Failed to fetch pool data for ${poolAddress}:`, error);
-          }
-        }
+    // Add fetched data (may override cached if pool was in both sets)
+    for (const [address, data] of fetchedPoolDataMap.entries()) {
+      if (data) {
+        poolDataMap.set(address, data);
+      }
+    }
 
-        return {
-          post: {
-            id: post?.id,
-            post_type: post?.post_type || 'text',
-            content_text: post?.content_text,
-            caption: post?.caption,
-            media_urls: post?.media_urls,
-            cover_image_url: post?.cover_image_url,
-            article_title: post?.article_title,
-            user_id: post?.user_id,
-            created_at: post?.created_at,
-            author: {
-              username: post?.users?.username || 'Unknown',
-              display_name: post?.users?.display_name || post?.users?.username || 'Unknown',
-              avatar_url: post?.users?.avatar_url || null,
-            },
+    // Transform holdings with fetched pool data
+    const transformedHoldings = holdings.map((holding: PositionEntry) => {
+      const post = holding.posts;
+      const poolAddress = holding.pool_deployments?.pool_address;
+      const poolData = poolAddress ? poolDataMap.get(poolAddress) : null;
+
+      // Calculate current price and value (with slippage)
+      let currentPrice = 0;
+      let currentValueUsdc = 0;
+
+      if (poolData) {
+        currentPrice = holding.token_type === 'LONG' ? poolData.priceLong : poolData.priceShort;
+
+        // Calculate actual USDC out if user sold all tokens (accounts for slippage)
+        const side = holding.token_type === 'LONG' ? TokenSide.Long : TokenSide.Short;
+        const currentSupply = holding.token_type === 'LONG' ? poolData.supplyLong : poolData.supplyShort;
+        const otherSupply = holding.token_type === 'LONG' ? poolData.supplyShort : poolData.supplyLong;
+
+        currentValueUsdc = estimateUsdcOut(
+          currentSupply,
+          otherSupply,
+          holding.token_balance,
+          side,
+          1.0 // lambda scale
+        );
+      }
+
+      // Get volume for this specific token type
+      const volumeKey = `${holding.post_id}-${holding.token_type}`;
+      const tokenVolume = volumeByPostAndType.get(volumeKey) || 0;
+
+
+      return {
+        token_type: holding.token_type,
+        post: {
+          id: post?.id,
+          post_type: post?.post_type || 'text',
+          content_text: post?.content_text,
+          caption: post?.caption,
+          media_urls: post?.media_urls,
+          cover_image_url: post?.cover_image_url,
+          article_title: post?.article_title,
+          user_id: post?.user_id,
+          created_at: post?.created_at,
+          total_volume_usdc: post?.total_volume_usdc || 0,
+          token_volume_usdc: tokenVolume,
+          author: {
+            username: post?.users?.username || 'Unknown',
+            display_name: post?.users?.display_name || post?.users?.username || 'Unknown',
+            avatar_url: post?.users?.avatar_url || null,
           },
-          pool: {
-            pool_address: poolAddress,
-            price_long: poolData?.priceLong || 0,
-            price_short: poolData?.priceShort || 0,
-            current_price: currentPrice,
-            supply_long: poolData?.supplyLong || 0, // Supply in display units
-            supply_short: poolData?.supplyShort || 0,
-            total_supply: poolData?.totalSupply || 0,
-            vault_balance: poolData?.vaultBalance || 0,
-            // ICBS parameters for trade simulation
-            f: poolData?.f || 1,
-            beta_num: poolData?.betaNum || 1,
-            beta_den: poolData?.betaDen || 2,
-          },
-          balance: {
-            long_balance: holding.long_balance,
-            short_balance: holding.short_balance,
-            total_lock_usdc: holding.total_lock_usdc,
-            total_usdc_spent: holding.long_spent + holding.short_spent,
-            total_usdc_received: holding.long_received + holding.short_received,
-            current_value_usdc: currentValueUsdc,
-            price_long: poolData?.priceLong || 0,
-            price_short: poolData?.priceShort || 0,
-          },
-        };
-      })
-    );
+        },
+        pool: {
+          pool_address: poolAddress,
+          supply_long: poolData?.supplyLong || 0,
+          supply_short: poolData?.supplyShort || 0,
+          price_long: poolData?.priceLong || 0,
+          price_short: poolData?.priceShort || 0,
+        },
+        holdings: {
+          token_balance: holding.token_balance,
+          current_value_usdc: currentValueUsdc,
+          total_usdc_spent: holding.total_usdc_spent,
+          total_usdc_received: holding.total_usdc_received,
+          belief_lock: holding.belief_lock,
+          current_price: currentPrice,
+          entry_price: holding.entry_price,
+        },
+      };
+    });
 
     // Sort by current value (highest first)
     transformedHoldings.sort((a, b) =>
-      b.balance.current_value_usdc - a.balance.current_value_usdc
+      b.holdings.current_value_usdc - a.holdings.current_value_usdc
     );
 
-    return NextResponse.json({
-      holdings: transformedHoldings,
-    });
+    return NextResponse.json(
+      {
+        holdings: transformedHoldings,
+        pagination: {
+          total: totalCount,
+          limit,
+          offset,
+          hasMore: offset + limit < totalCount
+        }
+      },
+      {
+        headers: {
+          // Cache for 10 seconds, allow stale content for up to 30 seconds while revalidating
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        },
+      }
+    );
 
   } catch (error) {
     console.error('Holdings API error:', error);

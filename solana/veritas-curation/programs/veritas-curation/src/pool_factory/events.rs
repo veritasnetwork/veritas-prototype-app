@@ -3,9 +3,11 @@ use anchor_lang::prelude::*;
 #[event]
 pub struct FactoryInitializedEvent {
     pub factory: Pubkey,
-    pub factory_authority: Pubkey,
-    pub pool_authority: Pubkey,
+    pub protocol_authority: Pubkey,
     pub custodian: Pubkey,
+    pub total_fee_bps: u16,
+    pub creator_split_bps: u16,
+    pub protocol_treasury: Pubkey,
     pub timestamp: i64,
 }
 
@@ -14,6 +16,7 @@ pub struct PoolCreatedEvent {
     pub pool: Pubkey,
     pub content_id: Pubkey,
     pub creator: Pubkey,
+    pub post_creator: Pubkey,  // NEW
     pub f: u16,
     pub beta_num: u16,
     pub beta_den: u16,
@@ -22,7 +25,7 @@ pub struct PoolCreatedEvent {
 }
 
 #[event]
-pub struct PoolAuthorityUpdatedEvent {
+pub struct ProtocolAuthorityUpdatedEvent {
     pub factory: Pubkey,
     pub old_authority: Pubkey,
     pub new_authority: Pubkey,
@@ -30,10 +33,12 @@ pub struct PoolAuthorityUpdatedEvent {
 }
 
 #[event]
-pub struct FactoryAuthorityUpdatedEvent {
+pub struct FeeConfigUpdatedEvent {
     pub factory: Pubkey,
-    pub old_authority: Pubkey,
-    pub new_authority: Pubkey,
+    pub total_fee_bps: u16,
+    pub creator_split_bps: u16,
+    pub protocol_treasury: Pubkey,
+    pub updated_by: Pubkey,
     pub timestamp: i64,
 }
 

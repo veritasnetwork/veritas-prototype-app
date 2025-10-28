@@ -11,13 +11,10 @@ use crate::content_pool::{
     state::*,
     events::MarketDeployedEvent,
     errors::ContentPoolError,
-    curve::{ICBSCurve, Q96},
+    curve::Q96,
     math::{mul_div_u128, mul_shift_right_96},
 };
 use crate::pool_factory::state::PoolFactory;
-
-/// USDC precision (10^6 for 6 decimals)
-const USDC_PRECISION: u64 = 1_000_000;
 
 /// Helper to decode SPL token account
 fn read_token_account(ai: &AccountInfo) -> Result<SplAccount> {
@@ -240,8 +237,7 @@ pub fn handler(
     struct Candidate {
         s_long: u64,
         s_short: u64,
-        lambda_x96: u128,
-        sqrt_lambda_x96: u128,
+        lambda_q96: u128,  // λ in Q96 format (NOT sqrt!)
         sqrt_price_long_x96: u128,
         sqrt_price_short_x96: u128,
         r_long: u64,
@@ -300,15 +296,17 @@ pub fn handler(
         // We compute ||s|| as integer sqrt (same as the runtime curve will do).
         let s_norm_int = integer_sqrt(n2)?.max(1);
 
+        msg!("DEBUG: s_norm_int={}, s_l_cand={}, s_s_cand={}", s_norm_int, s_l_cand, s_s_cand);
+        msg!("DEBUG: p_long_q96={}, p_short_q96={}", p_long_q96, p_short_q96);
+
         // λ in Q96 from each side, then take max to cover any ulp asymmetry.
         let lambda_q96_from_long  = mul_div_u128(p_long_q96,  s_norm_int, s_l_cand)?;
         let lambda_q96_from_short = mul_div_u128(p_short_q96, s_norm_int, s_s_cand)?;
         let lambda_x96 = lambda_q96_from_long.max(lambda_q96_from_short);
 
-        // √λ in x96: sqrt_lambda_x96 = sqrt(λ_q96) << 48
-        let sqrt_lambda_x96 = integer_sqrt(lambda_x96)?
-            .checked_shl(48)
-            .ok_or(ContentPoolError::NumericalOverflow)?;
+        msg!("DEBUG: lambda_q96_from_long={}", lambda_q96_from_long);
+        msg!("DEBUG: lambda_q96_from_short={}", lambda_q96_from_short);
+        msg!("DEBUG: lambda_x96={}", lambda_x96);
 
         // Reserves: r_i = (p_i_q96 * s_i) >> 96
         let r_long  = mul_shift_right_96(p_long_q96,  s_l_cand)?  as u64;
@@ -329,8 +327,7 @@ pub fn handler(
         let candidate = Candidate {
             s_long: s_l_u64,
             s_short: s_s_u64,
-            lambda_x96,
-            sqrt_lambda_x96,
+            lambda_q96: lambda_x96,
             sqrt_price_long_x96,
             sqrt_price_short_x96,
             r_long,
@@ -397,7 +394,7 @@ pub fn handler(
     let s_short = chosen.s_short;
     let r_long = chosen.r_long;
     let r_short = chosen.r_short;
-    let sqrt_lambda_x96 = chosen.sqrt_lambda_x96;
+    let lambda_q96 = chosen.lambda_q96;
     let sqrt_price_long_x96 = chosen.sqrt_price_long_x96;
     let sqrt_price_short_x96 = chosen.sqrt_price_short_x96;
 
@@ -435,9 +432,13 @@ pub fn handler(
     pool.r_long = r_long;
     pool.r_short = r_short;
 
-    // Store √λ (both fields identical; λ is global)
-    pool.sqrt_lambda_long_x96 = sqrt_lambda_x96; // <-- FIXED (was λ)
-    pool.sqrt_lambda_short_x96 = sqrt_lambda_x96; // <-- FIXED (was λ)
+    // Initialize sigma scales to 1.0 (Q64)
+    pool.s_scale_long_q64 = Q64;
+    pool.s_scale_short_q64 = Q64;
+
+    // Store λ (both fields identical; λ is global) - DEPRECATED: telemetry only
+    pool.lambda_long_q96 = lambda_q96;
+    pool.lambda_short_q96 = lambda_q96;
 
     pool.sqrt_price_long_x96 = sqrt_price_long_x96;
     pool.sqrt_price_short_x96 = sqrt_price_short_x96;

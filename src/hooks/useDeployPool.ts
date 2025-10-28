@@ -42,59 +42,93 @@ export function useDeployPool() {
 
   const deployPool = useCallback(
     async (params: DeployPoolParams): Promise<DeployPoolResult | null> => {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🚀 [DEPLOY POOL] Starting deployment flow');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       setIsDeploying(true);
       setError(null);
 
       try {
-        console.log('[STEP 1/7] 📋 Deployment parameters:', {
-          postId: params.postId,
-          initialDeposit: params.initialDeposit,
-          longAllocationPercent: params.longAllocationPercent,
-        });
 
-        console.log('[STEP 2/7] 🔐 Getting authentication token...');
         const jwt = await getAccessToken();
-        console.log('[STEP 2/7] ✅ Access token obtained:', jwt ? 'YES' : 'NO');
 
         if (!jwt) {
           throw new Error('Authentication required');
         }
 
-        console.log('[STEP 3/7] 👛 Checking wallet status...');
-        console.log('[STEP 3/7] Wallet details:', {
-          isConnected,
-          hasWallet: !!wallet,
-          address: wallet?.address,
-          chainType: wallet?.chainType,
-          walletClientType: wallet?.walletClientType,
-          hasSignTransaction: wallet ? typeof wallet.signTransaction : 'no wallet',
-          hasSignAllTransactions: wallet ? typeof wallet.signAllTransactions : 'no wallet',
-        });
 
         if (!wallet || !isConnected) {
           throw new Error('No wallet connected. Please refresh the page and try again.');
         }
 
         const walletAddress = wallet.address;
-        console.log('[STEP 3/7] ✅ Wallet ready:', walletAddress);
 
-        console.log('[STEP 4/7] 🌐 Setting up Solana connection...');
         const connection = new Connection(getRpcEndpoint(), 'confirmed');
+
+        console.log('━━━━━━━━━━━━━━━���━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🚀 [DEPLOY POOL] Starting deployment');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('📍 Post ID:', params.postId);
+        console.log('💰 Initial Deposit:', params.initialDeposit, 'USDC');
+        console.log('📊 LONG Allocation:', params.longAllocationPercent, '%');
+        console.log('👛 Wallet Address:', walletAddress);
+        console.log('🔗 Wallet Type:', wallet.walletClientType || 'unknown');
+
+        // Check wallet SOL and USDC balance
+        const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+        const usdcMintPubkey = getUsdcMint();
+
+        let solBalance = 0;
+        let usdcBalance = 0;
+
+        try {
+          solBalance = await connection.getBalance(new PublicKey(walletAddress));
+          console.log('💵 SOL Balance:', (solBalance / 1e9).toFixed(4), 'SOL');
+
+          const usdcAta = await getAssociatedTokenAddress(usdcMintPubkey, new PublicKey(walletAddress));
+
+          try {
+            const tokenBalance = await connection.getTokenAccountBalance(usdcAta);
+            usdcBalance = tokenBalance.value.uiAmount || 0;
+            console.log('💵 USDC Balance:', usdcBalance, 'USDC');
+          } catch (e) {
+            console.log('💵 USDC Balance: 0 USDC (no token account)');
+            usdcBalance = 0;
+          }
+        } catch (balanceError) {
+          console.warn('⚠️  Could not fetch wallet balances:', balanceError);
+          throw new Error('Unable to check wallet balance. Please try again.');
+        }
+
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+        // Validate sufficient balances BEFORE building transaction
+        const solBalanceInSol = solBalance / 1e9;
+        const minSolRequired = 0.01; // Minimum SOL needed for transaction fees
+
+        const hasInsufficientSol = solBalanceInSol < minSolRequired;
+        const hasInsufficientUsdc = usdcBalance < params.initialDeposit;
+
+        if (hasInsufficientSol && hasInsufficientUsdc) {
+          throw new Error(
+            `You need ${minSolRequired} SOL and ${params.initialDeposit} USDC to deploy this pool. ` +
+            `Please fund your wallet and try again.`
+          );
+        }
+
+        if (hasInsufficientSol) {
+          throw new Error(
+            `You need at least ${minSolRequired} SOL for transaction fees. Please add SOL to your wallet and try again.`
+          );
+        }
+
+        if (hasInsufficientUsdc) {
+          throw new Error(
+            `You need ${params.initialDeposit} USDC to deploy this pool. Please add USDC to your wallet and try again.`
+          );
+        }
+
         const programId = new PublicKey(process.env.NEXT_PUBLIC_VERITAS_PROGRAM_ID!);
-        const usdcMint = getUsdcMint();
-        console.log('[STEP 4/7] Connection details:', {
-          rpc: getRpcEndpoint(),
-          programId: programId.toBase58(),
-          usdcMint: usdcMint.toBase58(),
-        });
 
         // Step 1: Validate with backend
-        console.log('[STEP 4/7] 📡 Validating deployment with backend...');
-        console.log('[STEP 4/7] Request:', { postId: params.postId });
 
         const validateRes = await fetch('/api/pools/deploy', {
           method: 'POST',
@@ -105,7 +139,6 @@ export function useDeployPool() {
           body: JSON.stringify({ postId: params.postId }),
         });
 
-        console.log('[STEP 4/7] Response status:', validateRes.status);
 
         if (!validateRes.ok) {
           const errorData = await validateRes.json();
@@ -113,8 +146,6 @@ export function useDeployPool() {
 
           // Check if this is a recoverable situation (pool exists on-chain but not in DB)
           if (validateRes.status === 409 && errorData.canRecover && errorData.existingPoolAddress) {
-            console.log('[STEP 4/7] 🔄 Pool exists on-chain but not in DB. Attempting recovery...');
-            console.log('[STEP 4/7] Pool address:', errorData.existingPoolAddress);
 
             // Attempt to recover the pool
             const recoverRes = await fetch('/api/pools/recover', {
@@ -131,7 +162,6 @@ export function useDeployPool() {
 
             if (recoverRes.ok) {
               const recoverData = await recoverRes.json();
-              console.log('[STEP 4/7] ✅ Pool recovered successfully:', recoverData);
 
               // Trigger a refresh of the UI
               if (params.onSuccess) {
@@ -154,25 +184,21 @@ export function useDeployPool() {
         }
 
         const validationData = await validateRes.json();
-        console.log('[STEP 4/7] ✅ Validation response:', {
-          success: validationData.success,
-          poolExists: validationData.poolExists,
-          isOrphaned: validationData.isOrphaned,
-          postId: validationData.postId,
-        });
+
+        // Extract post creator's Solana address from validation response
+        const postCreatorSolanaAddress = validationData.postCreatorSolanaAddress;
+        if (!postCreatorSolanaAddress) {
+          throw new Error('Post creator Solana address not found in validation response');
+        }
 
         // Check if pool is orphaned (created but not deployed)
         const isOrphaned = validationData.poolExists && validationData.isOrphaned;
         if (isOrphaned) {
-          console.log('[STEP 4/7] ⚠️  Pool is orphaned - will skip create_pool and only execute deploy_market');
         } else if (validationData.poolExists) {
-          console.log('[STEP 4/7] Pool exists and is fully deployed');
         } else {
-          console.log('[STEP 4/7] New pool - will execute both create_pool and deploy_market');
         }
 
         // Step 2: Build transaction instructions (create_pool + deploy_market, or just deploy_market if orphaned)
-        console.log('[STEP 5/7] 🔨 Building transaction instructions...');
 
         const pdaHelper = new PDAHelper(programId);
         const contentId = uuidToContentId(params.postId);
@@ -196,7 +222,7 @@ export function useDeployPool() {
           configPda: pdaHelper.getConfigPda()[0],
           factoryPda,
           treasuryPda: pdaHelper.getTreasuryPda()[0],
-          usdcMint,
+          usdcMint: usdcMintPubkey,
           protocolAuthority: poolAuthority,
         };
 
@@ -206,6 +232,7 @@ export function useDeployPool() {
           createPoolTx = await buildCreatePoolTx(
             program,
             new PublicKey(walletAddress),
+            new PublicKey(postCreatorSolanaAddress),
             contentId,
             protocolAddresses
           );
@@ -215,30 +242,17 @@ export function useDeployPool() {
         const initialDepositLamports = new BN(params.initialDeposit * 1_000_000); // Convert to micro-USDC
         const longAllocationLamports = initialDepositLamports.muln(params.longAllocationPercent).divn(100);
 
-        console.log('[STEP 5/7] Calculated amounts:', {
-          initialDeposit: params.initialDeposit + ' USDC',
-          initialDepositLamports: initialDepositLamports.toString() + ' lamports',
-          longAllocationPercent: params.longAllocationPercent + '%',
-          longAllocationLamports: longAllocationLamports.toString() + ' lamports',
-          shortAllocationLamports: initialDepositLamports.sub(longAllocationLamports).toString() + ' lamports',
-        });
 
         const deployMarketTx = await buildDeployMarketTx(program, {
           deployer: new PublicKey(walletAddress),
           contentId: contentId,
           initialDeposit: initialDepositLamports,
           longAllocation: longAllocationLamports,
-          usdcMint,
+          usdcMint: usdcMintPubkey,
         });
 
-        console.log('[STEP 5/7] Transaction details:', {
-          createPoolInstructions: createPoolTx?.instructions.length || 0,
-          deployMarketInstructions: deployMarketTx.instructions.length,
-          isOrphaned,
-        });
 
         // Combine instructions into a single atomic transaction
-        console.log('[STEP 5/7] Combining instructions into one atomic transaction...');
         const combinedTx = new Transaction();
 
         // Remove compute budget instructions from individual transactions to avoid duplicates
@@ -263,45 +277,37 @@ export function useDeployPool() {
         combinedTx.add(...deployMarketInstructions);
 
         // Set transaction metadata
-        console.log('[STEP 5/7] Preparing combined transaction...');
         let blockhashData = await connection.getLatestBlockhash();
         combinedTx.recentBlockhash = blockhashData.blockhash;
         combinedTx.lastValidBlockHeight = blockhashData.lastValidBlockHeight;
         combinedTx.feePayer = new PublicKey(walletAddress);
 
-        console.log('[STEP 5/7] ✅ Combined transaction prepared with', combinedTx.instructions.length, 'instructions');
 
         // Step 3: Sign and send ONE atomic transaction
-        console.log('[STEP 6/7] ✍️  Requesting wallet signature...');
-        console.log('[STEP 6/7] Wallet interface check:', {
-          address: wallet.address,
-          chainType: wallet.chainType,
-          walletClientType: wallet.walletClientType,
-          hasSignTransaction: typeof wallet.signTransaction === 'function',
-        });
 
         if (!wallet.signTransaction) {
           console.error('[STEP 6/7] ❌ Wallet missing signTransaction method!');
           throw new Error('Wallet does not support signing transactions. Please reconnect your wallet.');
         }
 
+        console.log('🔐 [SIGNING] About to sign transaction...');
+        console.log('🔐 Wallet type:', wallet.walletClientType);
+        console.log('🔐 Wallet address:', walletAddress);
+        console.log('🔐 Fee payer:', combinedTx.feePayer?.toBase58());
+
         let txSignature: string;
 
         try {
-          console.log('[STEP 6/7] 🔐 Signing transaction...');
+          console.log('🔐 [SIGNING] Calling wallet.signTransaction()...');
           const signedTx = await wallet.signTransaction(combinedTx);
+          console.log('✅ [SIGNING] Transaction signed successfully!');
 
-          console.log('[STEP 6/7] ✅ Transaction signed!');
 
           // Send the transaction
-          console.log('[STEP 6/7] 📤 Sending transaction...');
           txSignature = await connection.sendRawTransaction(signedTx.serialize());
-          console.log('[STEP 6/7] ✅ Transaction sent! Signature:', txSignature);
 
           // Wait for confirmation
-          console.log('[STEP 6/7] ⏳ Waiting for confirmation...');
           await connection.confirmTransaction(txSignature, 'confirmed');
-          console.log('[STEP 6/7] ✅ Transaction confirmed!');
         } catch (signError: any) {
           console.error('[STEP 6/7] ❌ Signing/sending failed!');
           console.error('[STEP 6/7] Error details:', {
@@ -313,14 +319,11 @@ export function useDeployPool() {
           throw new Error(`Failed to sign/send transaction: ${signError?.message || 'Unknown error'}. Make sure Phantom is unlocked and try again.`);
         }
 
-        console.log('[STEP 7/7] ⏳ Transaction confirmed!');
 
         const poolPda = pdaHelper.getContentPoolPda(contentId)[0];
         const poolAddress = poolPda.toBase58();
 
         // Fetch pool state to get ICBS parameters and mint addresses
-        console.log('[STEP 7/7] 📊 Fetching pool state from chain...');
-        console.log('[STEP 7/7] Pool PDA:', poolAddress);
 
         let poolAccount;
         let retries = 3;
@@ -339,11 +342,6 @@ export function useDeployPool() {
           }
         }
 
-        console.log('[useDeployPool] Pool account data:', {
-          longMint: poolAccount.longMint?.toString(),
-          shortMint: poolAccount.shortMint?.toString(),
-          vault: poolAccount.vault?.toString(),
-        });
 
         if (!poolAccount.longMint || !poolAccount.shortMint || !poolAccount.vault) {
           throw new Error('Pool state not fully initialized - mints or vault missing');
@@ -354,11 +352,6 @@ export function useDeployPool() {
         const usdcVaultAddress = poolAccount.vault.toBase58();
 
         // Step 4: Record in database
-        console.log('[useDeployPool] Recording deployment...');
-        console.log('[useDeployPool] Token supplies from on-chain:', {
-          sLong: poolAccount.sLong?.toString(),
-          sShort: poolAccount.sShort?.toString(),
-        });
 
         const recordResponse = await fetch('/api/pools/record', {
           method: 'POST',
@@ -381,6 +374,8 @@ export function useDeployPool() {
             betaNum: poolAccount.betaNum,
             betaDen: poolAccount.betaDen,
             sqrtLambdaX96: poolAccount.sqrtLambdaLongX96?.toString(), // Use sqrt_lambda_long (same as short)
+            sScaleLongQ64: poolAccount.sScaleLongQ64?.toString(),      // NEW
+            sScaleShortQ64: poolAccount.sScaleShortQ64?.toString(),    // NEW
             sqrtPriceLongX96: poolAccount.sqrtPriceLongX96?.toString(),
             sqrtPriceShortX96: poolAccount.sqrtPriceShortX96?.toString(),
           }),
@@ -393,15 +388,7 @@ export function useDeployPool() {
         }
 
         const recordData = await recordResponse.json();
-        console.log('[useDeployPool] Recording successful:', recordData);
 
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('✅ [DEPLOY POOL] SUCCESS!');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('Pool Address:', poolAddress);
-        console.log('Transaction Signature:', txSignature);
-        console.log('Record ID:', recordData.recordId);
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
         return {
           poolAddress,

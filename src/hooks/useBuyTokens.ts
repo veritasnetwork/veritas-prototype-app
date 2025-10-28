@@ -21,8 +21,6 @@ export function useBuyTokens(onSuccess?: () => void) {
     initialBelief?: number,
     metaBelief?: number
   ) => {
-    console.log('🔵 [useBuyTokens] Starting buy transaction');
-    console.log('[useBuyTokens] Parameters:', { postId, poolAddress, usdcAmount, side, initialBelief, metaBelief });
 
     if (!wallet || !address) {
       throw new Error('Wallet not connected');
@@ -48,7 +46,40 @@ export function useBuyTokens(onSuccess?: () => void) {
         throw new Error('Authentication required');
       }
 
-      console.log('[useBuyTokens] Step 1/6: Preparing transaction...');
+      // Validate balances BEFORE preparing transaction
+      const { PublicKey } = await import('@solana/web3.js');
+      const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+      const { getUsdcMint } = await import('@/lib/solana/network-config');
+
+      const solBalance = await connection.getBalance(new PublicKey(address));
+      const solBalanceInSol = solBalance / 1e9;
+      const minSolRequired = 0.005; // Minimum SOL for transaction fees
+
+      if (solBalanceInSol < minSolRequired) {
+        throw new Error(
+          `You need at least ${minSolRequired} SOL for transaction fees. Please add SOL to your wallet and try again.`
+        );
+      }
+
+      const usdcMint = getUsdcMint();
+      const usdcAta = await getAssociatedTokenAddress(usdcMint, new PublicKey(address));
+
+      let usdcBalance = 0;
+      try {
+        const tokenBalance = await connection.getTokenAccountBalance(usdcAta);
+        usdcBalance = (tokenBalance.value.uiAmount || 0) * 1_000_000; // Convert to micro-USDC
+      } catch (e) {
+        // No token account = 0 balance
+        usdcBalance = 0;
+      }
+
+      const usdcNeeded = usdcAmount / 1_000_000; // Convert micro-USDC to display USDC
+      if (usdcBalance < usdcAmount) {
+        throw new Error(
+          `You need ${usdcNeeded.toFixed(2)} USDC to buy ${side} tokens. Please add USDC to your wallet and try again.`
+        );
+      }
+
       // Step 1: Prepare transaction with stake skim via backend
       const prepareResponse = await fetch('/api/trades/prepare', {
         method: 'POST',
@@ -65,6 +96,19 @@ export function useBuyTokens(onSuccess?: () => void) {
         }),
       });
 
+      // Handle underwater warning (202 status)
+      if (prepareResponse.status === 202) {
+        const warningData = await prepareResponse.json();
+        console.warn('[useBuyTokens] ⚠️  Excessive skim warning:', warningData);
+
+        // Return warning data for UI to handle
+        setIsLoading(false);
+        return {
+          requiresConfirmation: true,
+          warning: warningData,
+        };
+      }
+
       if (!prepareResponse.ok) {
         const errorData = await prepareResponse.json();
         console.error('[useBuyTokens] ❌ Step 1 failed:', errorData);
@@ -72,46 +116,148 @@ export function useBuyTokens(onSuccess?: () => void) {
       }
 
       const { transaction: serializedTx, skimAmount, expectedTokensOut } = await prepareResponse.json();
-      console.log('[useBuyTokens] ✅ Step 1 complete:', { skimAmount, expectedTokensOut });
 
-      console.log('[useBuyTokens] Step 2/6: Deserializing transaction...');
       // Step 2: Deserialize transaction
       const txBuffer = Buffer.from(serializedTx, 'base64');
       const transaction = Transaction.from(txBuffer);
-      console.log('[useBuyTokens] ✅ Step 2 complete');
 
-      console.log('[useBuyTokens] Step 3/6: Signing transaction...');
       // Step 3: Sign the transaction
       // @ts-ignore - Privy wallet has signTransaction method
       const signedTx = await wallet.signTransaction(transaction);
-      console.log('[useBuyTokens] ✅ Step 3 complete');
 
-      console.log('[useBuyTokens] Step 4/6: Sending transaction...');
       // Step 4: Send and confirm transaction
       const signature = await connection.sendRawTransaction(signedTx.serialize());
-      console.log('[useBuyTokens] Transaction sent, signature:', signature);
-      console.log('[useBuyTokens] Waiting for confirmation...');
       await connection.confirmTransaction(signature, 'confirmed');
-      console.log('[useBuyTokens] ✅ Step 4 complete - transaction confirmed');
 
-      console.log('[useBuyTokens] Step 5/6: Fetching updated pool state...');
-      // Step 5: Fetch updated pool state for complete ICBS data
+      // Step 5: Parse transaction to get ACTUAL amounts transferred
+      let actualTokensReceived = expectedTokensOut || 0; // Fallback to expected amount
+      let actualUsdcSpent = usdcAmount / 1_000_000; // Fallback to requested amount
+
+      try {
+        const txDetails = await connection.getTransaction(signature, {
+          maxSupportedTransactionVersion: 0,
+          commitment: 'confirmed'
+        });
+
+        if (txDetails?.meta?.postTokenBalances && txDetails?.meta?.preTokenBalances) {
+          // Find user's token balance changes
+          const { PublicKey } = await import('@solana/web3.js');
+          const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+          const { getUsdcMint } = await import('@/lib/solana/network-config');
+          const { createClient } = await import('@supabase/supabase-js');
+
+          // Get mint addresses
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          );
+          const { data: poolDeployment } = await supabase
+            .from('pool_deployments')
+            .select('long_mint_address, short_mint_address')
+            .eq('pool_address', poolAddress)
+            .single();
+
+          if (!poolDeployment) {
+            console.warn('[useBuyTokens] ⚠️  Could not find pool deployment for parsing');
+          } else {
+            const tokenMintAddress = side === 'LONG'
+              ? poolDeployment.long_mint_address
+              : poolDeployment.short_mint_address;
+            const usdcMint = getUsdcMint();
+
+            console.log('[useBuyTokens] 🔍 Looking for token changes:', {
+              tokenMint: tokenMintAddress,
+              usdcMint: usdcMint.toBase58(),
+              userAddress: address,
+              side
+            });
+
+            let foundTokenChange = false;
+            let foundUsdcChange = false;
+
+            // Parse token balances - match by accountIndex, not array position
+            for (const postBalance of txDetails.meta.postTokenBalances) {
+              // Find matching pre-balance by accountIndex
+              const preBalance = txDetails.meta.preTokenBalances.find(
+                pre => pre.accountIndex === postBalance.accountIndex
+              );
+
+              if (postBalance.mint === tokenMintAddress && postBalance.owner === address) {
+                // Token account balance change (should be positive for buy)
+                const preBal = preBalance?.uiTokenAmount?.uiAmount || 0;
+                const postBal = postBalance.uiTokenAmount?.uiAmount || 0;
+                const tokensReceived = postBal - preBal;
+
+                console.log('[useBuyTokens] 📊 Token balance change:', {
+                  pre: preBal,
+                  post: postBal,
+                  diff: tokensReceived
+                });
+
+                // Only update if we got a valid positive amount
+                if (tokensReceived > 0) {
+                  actualTokensReceived = tokensReceived;
+                  foundTokenChange = true;
+                  console.log('[useBuyTokens] ✅ Actual tokens received from tx:', actualTokensReceived);
+                }
+              }
+
+              if (postBalance.mint === usdcMint.toBase58() && postBalance.owner === address) {
+                // USDC account balance change (should be negative for buy)
+                const preBal = preBalance?.uiTokenAmount?.uiAmount || 0;
+                const postBal = postBalance.uiTokenAmount?.uiAmount || 0;
+                const usdcSpent = Math.abs(preBal - postBal);
+
+                console.log('[useBuyTokens] 💰 USDC balance change:', {
+                  pre: preBal,
+                  post: postBal,
+                  diff: preBal - postBal,
+                  abs: usdcSpent
+                });
+
+                // Only update if we got a valid positive amount
+                if (usdcSpent > 0) {
+                  actualUsdcSpent = usdcSpent;
+                  foundUsdcChange = true;
+                  console.log('[useBuyTokens] ✅ Actual USDC spent from tx:', actualUsdcSpent);
+                }
+              }
+            }
+
+            if (!foundTokenChange) {
+              console.warn('[useBuyTokens] ⚠️  Did not find token balance change in transaction');
+            }
+            if (!foundUsdcChange) {
+              console.warn('[useBuyTokens] ⚠️  Did not find USDC balance change in transaction');
+            }
+          }
+        } else {
+          console.warn('[useBuyTokens] ⚠️  Transaction details missing token balances');
+        }
+      } catch (parseError) {
+        console.warn('[useBuyTokens] ⚠️  Could not parse transaction amounts, using estimates:', parseError);
+      }
+
+      // CRITICAL: Ensure we never send 0 amounts to the database
+      if (actualTokensReceived <= 0) {
+        console.warn('[useBuyTokens] ⚠️  Token amount is 0, using expected amount:', expectedTokensOut);
+        actualTokensReceived = expectedTokensOut || 0.000001; // Use minimum value if expected is also 0
+      }
+      if (actualUsdcSpent <= 0) {
+        console.warn('[useBuyTokens] ⚠️  USDC amount is 0, using requested amount:', usdcAmount / 1_000_000);
+        actualUsdcSpent = usdcAmount / 1_000_000;
+      }
+
+      // Step 6: Fetch updated pool state for complete ICBS data
       let poolData: any = null;
       try {
         const { fetchPoolData } = await import('@/lib/solana/fetch-pool-data');
         poolData = await fetchPoolData(poolAddress, rpcEndpoint);
-        console.log('[useBuyTokens] ✅ Step 5 complete - pool data fetched:', {
-          priceLong: poolData?.priceLong,
-          priceShort: poolData?.priceShort,
-          supplyLong: poolData?.supplyLong,
-          supplyShort: poolData?.supplyShort
-        });
       } catch (fetchError) {
-        console.warn('[useBuyTokens] ⚠️  Step 5 - Could not fetch pool data:', fetchError);
+        console.warn('[useBuyTokens] ⚠️  Step 6 - Could not fetch pool data:', fetchError);
       }
 
-      console.log('[useBuyTokens] Step 6/6: Recording trade...');
-      // Step 6: Record trade with complete ICBS data
+      // Step 7: Record trade with ACTUAL on-chain amounts
       try {
         const recordResponse = await fetch('/api/trades/record', {
           method: 'POST',
@@ -126,8 +272,9 @@ export function useBuyTokens(onSuccess?: () => void) {
             user_id: user.id,
             side,
             trade_type: 'buy',
-            usdc_amount: String(usdcAmount),
-            token_amount: expectedTokensOut ? String(expectedTokensOut) : (poolData ? String((usdcAmount / (side === 'LONG' ? poolData.priceLong : poolData.priceShort)) * 1_000_000) : String(usdcAmount * 1_000_000)),
+            // Use ACTUAL amounts from transaction parsing
+            usdc_amount: String(actualUsdcSpent),
+            token_amount: String(actualTokensReceived),
             tx_signature: signature,
             // ICBS state snapshots (if available)
             s_long_after: poolData?.supplyLong,
@@ -138,9 +285,12 @@ export function useBuyTokens(onSuccess?: () => void) {
             price_short: poolData?.priceShort,
             r_long_after: poolData?.marketCapLong,
             r_short_after: poolData?.marketCapShort,
+            vault_balance_after: poolData?._raw?.vaultBalanceMicro, // Micro-USDC
             // Belief submission
             initial_belief: initialBelief,
             meta_belief: metaBelief,
+            // Skim amount for custodian accounting
+            skim_amount: skimAmount ? skimAmount / 1_000_000 : 0,  // Convert micro-USDC to display USDC
           }),
         });
 
@@ -149,25 +299,35 @@ export function useBuyTokens(onSuccess?: () => void) {
           console.error('[useBuyTokens] ❌ Step 6 failed - record API error:', errorText);
         } else {
           const recordResult = await recordResponse.json();
-          console.log('[useBuyTokens] ✅ Step 6 complete - trade recorded:', recordResult);
         }
       } catch (recordError) {
         console.error('[useBuyTokens] ❌ Step 6 exception:', recordError);
         // Don't fail the whole transaction if recording fails
       }
 
-      console.log('✅ [useBuyTokens] Buy transaction complete!');
 
       // Invalidate pool data cache to trigger immediate refresh
       invalidatePoolData(postId);
 
+      // Prepare trade completion details
+      const tradeDetails = {
+        tradeType: 'buy' as const,
+        side: side.toUpperCase() as 'LONG' | 'SHORT',
+        tokenAmount: expectedTokensOut || 0,
+        usdcAmount: usdcAmount / 1_000_000, // Convert micro-USDC to display USDC
+        price: expectedTokensOut ? (usdcAmount / 1_000_000) / expectedTokensOut : 0,
+        skimAmount: skimAmount ? skimAmount / 1_000_000 : 0,
+        txSignature: signature,
+        poolAddress,
+        postId,
+      };
+
       // Call success callback to trigger UI refresh
       if (onSuccess) {
-        console.log('[useBuyTokens] Calling success callback');
         onSuccess();
       }
 
-      return signature;
+      return { signature, tradeDetails };
     } catch (err) {
       console.error('Buy tokens error:', err);
 

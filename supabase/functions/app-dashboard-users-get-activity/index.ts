@@ -89,7 +89,7 @@ serve(async (req) => {
     // 2. Get users with agent mapping
     let usersQuery = supabaseClient
       .from('users')
-      .select('id, username, display_name, avatar_url, agent_id, total_stake, beliefs_created, beliefs_participated, created_at')
+      .select('id, username, display_name, avatar_url, agent_id, beliefs_created, beliefs_participated, created_at')
       .order('created_at', { ascending: false })
 
     if (user_ids && user_ids.length > 0) {

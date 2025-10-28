@@ -10,11 +10,13 @@ interface BeliefHistoryItem {
 interface ImpliedHistoryItem {
   implied_relevance: number;
   recorded_at: string;
+  event_type: string;
 }
 
 interface RelevanceHistoryData {
   actualRelevance: ChartDataPoint[];
   impliedRelevance: ChartDataPoint[];
+  rebaseEvents: ChartDataPoint[];  // Settlement/rebase timestamps
 }
 
 const fetcher = async (url: string): Promise<RelevanceHistoryData> => {
@@ -42,9 +44,18 @@ const fetcher = async (url: string): Promise<RelevanceHistoryData> => {
     value: item.implied_relevance, // Market-implied relevance (0-1)
   }));
 
+  // Extract rebase events (for visual markers)
+  const rebaseEvents = impliedHistory
+    .filter(item => item.event_type === 'rebase')
+    .map(item => ({
+      time: Math.floor(new Date(item.recorded_at).getTime() / 1000),
+      value: item.implied_relevance,
+    }));
+
   return {
     actualRelevance,
     impliedRelevance,
+    rebaseEvents,
   };
 };
 
@@ -72,7 +83,7 @@ export function useRelevanceHistory(postId: string | undefined) {
   );
 
   return {
-    data: data || { actualRelevance: [], impliedRelevance: [] },
+    data: data || { actualRelevance: [], impliedRelevance: [], rebaseEvents: [] },
     isLoading,
     error,
     refetch: mutate,

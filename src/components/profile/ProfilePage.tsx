@@ -6,16 +6,22 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
 import { useProfile } from '@/hooks/useProfile';
+import { useWalletBalances } from '@/hooks/useWalletBalances';
 import { CompactProfilePostCard } from '@/components/profile/CompactProfilePostCard';
 import { HoldingCard } from '@/components/profile/HoldingCard';
 import { FundWalletButton } from '@/components/wallet/FundWalletButton';
 import { EditProfileModal } from '@/components/profile/EditProfileModal';
 import { WithdrawModal } from '@/components/profile/WithdrawModal';
+import { TransferFundsModal } from '@/components/wallet/TransferFundsModal';
+import { ManageWalletButton } from '@/components/wallet/ManageWalletButton';
+import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { truncateAddress, formatCurrency } from '@/utils/formatters';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Edit2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ProfilePageProps {
   username: string;
@@ -25,7 +31,8 @@ type TabType = 'posts' | 'holdings';
 
 export function ProfilePage({ username }: ProfilePageProps) {
   const router = useRouter();
-  const { user: currentUser, logout, refreshUser } = useAuth();
+  const { authenticated } = usePrivy();
+  const { user: currentUser, logout, refreshUser, needsOnboarding, isLoading: authLoading } = useAuth();
   const { data: profileData, isLoading, error, mutate } = useProfile(username);
   const [copiedWallet, setCopiedWallet] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('posts');
@@ -33,23 +40,41 @@ export function ProfilePage({ username }: ProfilePageProps) {
   const [holdingsLoading, setHoldingsLoading] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [totalLocked, setTotalLocked] = useState(0);
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const isOwnProfile = currentUser?.username === username;
 
-  // Fetch holdings when Holdings tab is clicked OR when on own profile (for locked calculation)
+  // Use the wallet balances hook for environment-aware balance fetching
+  const {
+    sol: solBalance,
+    usdc: usdcBalance,
+    loading: balancesLoading,
+    refresh: refreshBalances
+  } = useWalletBalances(isOwnProfile ? profileData?.user?.solana_address : null);
+
+  // Track if user was logged in on mount
+  const wasLoggedInRef = useRef(!!currentUser);
+
+  // Redirect to feed if user logs out
+  useEffect(() => {
+    if (wasLoggedInRef.current && !currentUser) {
+      router.push('/feed');
+    }
+  }, [currentUser, router]);
+
+  // Redirect to feed if unauthenticated user tries to view a profile that doesn't exist
+  useEffect(() => {
+    if (!authenticated && !authLoading && error) {
+      router.push('/feed');
+    }
+  }, [authenticated, authLoading, error, router]);
+
+  // Fetch holdings when Holdings tab is clicked
   useEffect(() => {
     if (activeTab === 'holdings' && holdings.length === 0) {
       fetchHoldings();
     }
   }, [activeTab]);
-
-  // Fetch holdings on mount if own profile to calculate locked stake
-  useEffect(() => {
-    if (isOwnProfile && holdings.length === 0 && !holdingsLoading) {
-      fetchHoldings();
-    }
-  }, [isOwnProfile]);
 
   const fetchHoldings = async () => {
     setHoldingsLoading(true);
@@ -58,13 +83,6 @@ export function ProfilePage({ username }: ProfilePageProps) {
       if (response.ok) {
         const data = await response.json();
         setHoldings(data.holdings || []);
-
-        // Calculate total locked from holdings
-        const locked = (data.holdings || []).reduce(
-          (sum: number, h: any) => sum + (h.balance?.total_lock_usdc || 0),
-          0
-        );
-        setTotalLocked(locked);
       }
     } catch (err) {
       console.error('Failed to fetch holdings:', err);
@@ -74,10 +92,8 @@ export function ProfilePage({ username }: ProfilePageProps) {
   };
 
   const handleLogout = () => {
-    if (confirm('Are you sure you want to logout?')) {
-      logout();
-      router.push('/feed');
-    }
+    logout();
+    router.push('/feed');
   };
 
   // Loading state
@@ -155,132 +171,164 @@ export function ProfilePage({ username }: ProfilePageProps) {
             <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6 sticky top-6">
               {/* Avatar */}
               <div className="flex justify-center mb-4">
-                <div className="w-24 h-24 rounded-full border-3 border-[#B9D9EB] bg-gradient-to-br from-[#B9D9EB] to-[#0C1D51] flex items-center justify-center shadow-lg">
-                  {user.avatar_url ? (
-                    <img
-                      src={user.avatar_url}
-                      alt={user.username}
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-white text-3xl font-bold">
-                      {user.username?.charAt(0).toUpperCase() || 'U'}
-                    </span>
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full border-3 border-[#B9D9EB] bg-[#F5F5DC] flex items-center justify-center shadow-lg">
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={user.username}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-[#0C1D51] text-3xl font-bold">
+                        {user.username?.charAt(0).toUpperCase() || 'U'}
+                      </span>
+                    )}
+                  </div>
+                  {/* Edit Profile Button - Only show on own profile */}
+                  {isOwnProfile && (
+                    <button
+                      onClick={() => setShowEditModal(true)}
+                      className="absolute top-0 right-0 w-6 h-6 bg-[#B9D9EB] hover:bg-[#a3cfe3] text-[#0C1D51] rounded-full flex items-center justify-center shadow-lg transition-colors"
+                      aria-label="Edit profile"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
                   )}
                 </div>
               </div>
 
-              {/* Display Name */}
-              <h1 className="text-2xl font-bold text-white text-center mb-1">
-                {user.display_name || user.username}
-              </h1>
-
-              {/* Username */}
-              <p className="text-sm font-medium text-gray-400 text-center mb-3">
-                @{user.username}
-              </p>
-
-              {/* Wallet Address - Only show on own profile */}
-              {isOwnProfile && user.solana_address && (
-                <button
-                  onClick={handleCopyWallet}
-                  className="w-full font-mono text-xs text-gray-500 hover:text-gray-300 transition-colors relative mb-4 py-2 px-3 bg-[#0f0f0f] rounded-lg border border-[#2a2a2a] hover:border-[#3a3a3a]"
-                  aria-label="Copy wallet address"
-                >
-                  {truncateAddress(user.solana_address)}
-                  {copiedWallet && (
-                    <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-[#2a2a2a] text-white text-xs py-1 px-3 rounded-lg shadow-lg whitespace-nowrap border border-[#3a3a3a]">
-                      Address copied!
-                    </span>
-                  )}
-                </button>
-              )}
-
-              {/* Action Buttons - Only show on own profile */}
-              {isOwnProfile && (
-                <div className="space-y-2 mb-4">
-                  <button
-                    onClick={() => setShowEditModal(true)}
-                    className="w-full px-4 py-2.5 text-sm font-medium text-white bg-[#B9D9EB]/10 hover:bg-[#B9D9EB]/20 border border-[#B9D9EB]/30 rounded-lg transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                    Edit Profile
-                  </button>
-                  <FundWalletButton variant="full" />
+              {/* Display Name and Username */}
+              <div className="text-center mb-4">
+                <div className="flex items-baseline justify-center gap-2">
+                  <h1 className="text-2xl font-bold text-white">
+                    {user.display_name || user.username}
+                  </h1>
+                  <span className="text-sm font-medium text-gray-400">
+                    @{user.username}
+                  </span>
                 </div>
-              )}
+              </div>
 
               {/* Divider */}
               <div className="border-t border-[#2a2a2a] my-4" />
 
-              {/* Stats Cards (Stacked Vertically) */}
-              <div className="space-y-3">
-                {/* Total Stake - Only show on own profile */}
-                {isOwnProfile && (
-                  <>
-                    <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl p-4">
-                      <p className="text-xs font-medium text-gray-400 mb-1">
-                        Total Locked Stake
+              {/* Balances - Compact List */}
+              {isOwnProfile && (
+                <div className="space-y-3">
+                  {/* USDC Balance */}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-gray-400">USDC</p>
+                      <p className="text-lg font-bold text-white">
+                        {balancesLoading ? '...' : formatCurrency(usdcBalance)}
                       </p>
-                      <p className="text-2xl font-bold text-white">
+                    </div>
+                    <div className="mt-5">
+                      <FundWalletButton variant="compact" currency="USDC" />
+                    </div>
+                  </div>
+
+                  {/* SOL Balance */}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-gray-400">SOL</p>
+                      <p className="text-lg font-bold text-white">
+                        {balancesLoading ? '...' : solBalance.toFixed(4)}
+                      </p>
+                    </div>
+                    <div className="mt-5">
+                      <FundWalletButton variant="compact" currency="SOL" />
+                    </div>
+                  </div>
+
+                  {/* Total Stake */}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-gray-400">Total Stake</p>
+                      <p className="text-lg font-bold text-white">
                         {formatCurrency(stats.total_stake)}
                       </p>
                     </div>
                     <button
                       onClick={() => setShowWithdrawModal(true)}
-                      className="w-full px-4 py-2.5 text-sm font-medium bg-[#F5F5DC] hover:bg-[#F5F5DC]/90 text-[#0f0f0f] rounded-lg transition-colors flex items-center justify-center gap-2"
+                      className="text-sm font-medium text-gray-400 hover:text-white transition-colors mt-5 px-3 py-1 rounded-md border border-[#2a2a2a] hover:border-gray-400"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
                       Withdraw
                     </button>
-                  </>
-                )}
-              </div>
+                  </div>
+
+                  {/* Send & Settings Buttons */}
+                  <div className="border-t border-[#2a2a2a] pt-3 mt-1">
+                    <div className="relative flex items-center -mt-3 pt-3 pb-3">
+                      <button
+                        onClick={() => setShowTransferModal(true)}
+                        className="absolute inset-0 text-sm font-medium text-gray-400 hover:text-[#B9D9EB] transition-colors flex items-center justify-center gap-1.5 border-t border-transparent hover:border-[#B9D9EB]"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                        </svg>
+                        Send
+                      </button>
+                      <div className="ml-auto relative z-10 flex items-center gap-2">
+                        <div className="h-4 w-px bg-[#2a2a2a]" />
+                        <ManageWalletButton variant="icon" className="!p-0 !hover:bg-transparent" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Logout Button */}
               {isOwnProfile && (
-                <>
-                  <div className="border-t border-[#2a2a2a] my-4" />
+                <div className="border-t border-[#2a2a2a] pt-3 mt-1">
                   <button
                     onClick={handleLogout}
-                    className="w-full px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-red-400 hover:bg-red-400/5 border border-[#2a2a2a] hover:border-red-400/30 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="w-full text-sm font-medium text-gray-400 hover:text-orange-400 transition-colors text-center flex items-center justify-center gap-1.5 -mt-3 pt-3 border-t border-transparent hover:border-orange-400"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
                     Logout
                   </button>
-                </>
+                </div>
               )}
             </div>
           </div>
 
           {/* RIGHT COLUMN - Content Area */}
           <div>
-            {/* Tab Navigation */}
-            <div className="border-b border-[#2a2a2a] mb-6">
-              <div className="flex gap-1">
+            {/* Tab Navigation - Sliding Toggle */}
+            <div className="mb-6">
+              <div className="relative flex gap-2 p-1 bg-[#0f0f0f] rounded-lg border border-[#2a2a2a]">
+                {/* Animated background slider */}
+                <div
+                  className={cn(
+                    "absolute top-1 bottom-1 rounded-md transition-all duration-300 ease-in-out",
+                    activeTab === 'posts' ? "left-1 right-[calc(50%+4px)] bg-[#B9D9EB]" : "left-[calc(50%+4px)] right-1 bg-[#B9D9EB]"
+                  )}
+                />
                 <button
                   onClick={() => setActiveTab('posts')}
-                  className={`px-6 py-3 font-medium text-[15px] transition-colors rounded-t-lg ${
+                  className={cn(
+                    "flex-1 py-2 px-4 rounded-md font-medium transition-colors duration-300 text-sm relative z-10",
                     activeTab === 'posts'
-                      ? 'text-white border-b-2 border-[#B9D9EB]'
-                      : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
-                  }`}
+                      ? "text-black"
+                      : "text-gray-400 hover:text-white"
+                  )}
                 >
-                  Posts ({stats.total_posts})
+                  Posts
                 </button>
                 <button
                   onClick={() => setActiveTab('holdings')}
-                  className={`px-6 py-3 font-medium text-[15px] transition-colors rounded-t-lg ${
+                  className={cn(
+                    "flex-1 py-2 px-4 rounded-md font-medium transition-colors duration-300 text-sm relative z-10",
                     activeTab === 'holdings'
-                      ? 'text-white border-b-2 border-[#B9D9EB]'
-                      : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
-                  }`}
+                      ? "text-black"
+                      : "text-gray-400 hover:text-white"
+                  )}
                 >
-                  Holdings {holdings.length > 0 ? `(${holdings.length})` : ''}
+                  Holdings
                 </button>
               </div>
             </div>
@@ -326,36 +374,41 @@ export function ProfilePage({ username }: ProfilePageProps) {
                     </div>
                   ) : holdings.length > 0 ? (
                     <div className="flex flex-col gap-3">
-                      {holdings.map((holding) => (
+                      {holdings.map((holding, index) => (
                         <HoldingCard
-                          key={holding.post.id}
+                          key={`${holding.post?.id}-${holding.token_type}-${index}`}
+                          tokenType={holding.token_type}
                           post={{
-                            id: holding.post.id,
-                            post_type: holding.post.post_type,
-                            content_text: holding.post.content_text,
-                            caption: holding.post.caption,
-                            media_urls: holding.post.media_urls,
-                            cover_image: holding.post.cover_image,
-                            title: holding.post.title,
+                            id: holding.post?.id,
+                            post_type: holding.post?.post_type,
+                            content_text: holding.post?.content_text,
+                            caption: holding.post?.caption,
+                            media_urls: holding.post?.media_urls,
+                            cover_image: holding.post?.cover_image,
+                            title: holding.post?.title,
                             author: {
-                              username: holding.post.author.username,
-                              display_name: holding.post.author.display_name,
+                              username: holding.post?.author?.username || 'unknown',
+                              display_name: holding.post?.author?.display_name,
                             },
-                            timestamp: holding.post.created_at,
-                            poolAddress: holding.pool.pool_address,
-                            poolLongTokenSupply: holding.pool.supply_long,
-                            poolShortTokenSupply: holding.pool.supply_short,
+                            timestamp: holding.post?.created_at,
+                            poolAddress: holding.pool?.pool_address,
+                            poolLongTokenSupply: holding.pool?.supply_long ?? 0,
+                            poolShortTokenSupply: holding.pool?.supply_short ?? 0,
                           }}
                           holdings={{
-                            long_balance: holding.balance.long_balance,
-                            short_balance: holding.balance.short_balance,
-                            token_balance: holding.balance.long_balance + holding.balance.short_balance,
-                            current_value_usdc: holding.balance.current_value_usdc,
-                            total_usdc_spent: holding.balance.total_usdc_spent,
-                            total_usdc_received: holding.balance.total_usdc_received,
-                            total_lock_usdc: holding.balance.total_lock_usdc,
-                            price_long: holding.balance.price_long,
-                            price_short: holding.balance.price_short,
+                            token_balance: holding.holdings?.token_balance ?? 0,
+                            current_value_usdc: holding.holdings?.current_value_usdc ?? 0,
+                            total_usdc_spent: holding.holdings?.total_usdc_spent ?? 0,
+                            total_usdc_received: holding.holdings?.total_usdc_received ?? 0,
+                            belief_lock: holding.holdings?.belief_lock ?? 0,
+                            current_price: holding.holdings?.current_price ?? 0,
+                            entry_price: holding.holdings?.entry_price,
+                          }}
+                          pool={{
+                            supply_long: holding.pool?.supply_long ?? 0,
+                            supply_short: holding.pool?.supply_short ?? 0,
+                            price_long: holding.pool?.price_long ?? 0,
+                            price_short: holding.pool?.price_short ?? 0,
                           }}
                         />
                       ))}
@@ -402,17 +455,32 @@ export function ProfilePage({ username }: ProfilePageProps) {
         {showWithdrawModal && (
           <WithdrawModal
             totalStake={stats.total_stake}
-            totalLocked={totalLocked}
+            totalLocked={stats.total_locked || 0}
             onClose={() => setShowWithdrawModal(false)}
             onSuccess={async () => {
               // Refresh profile data after withdrawal
               mutate();
-              // Re-fetch holdings to update locked amount
-              if (holdings.length > 0) {
-                fetchHoldings();
-              }
             }}
           />
+        )}
+
+        {/* Transfer Funds Modal */}
+        {showTransferModal && (
+          <TransferFundsModal
+            isOpen={showTransferModal}
+            onClose={() => setShowTransferModal(false)}
+            solBalance={solBalance}
+            usdcBalance={usdcBalance}
+            onSuccess={() => {
+              // Refresh balances after transfer
+              refreshBalances();
+            }}
+          />
+        )}
+
+        {/* Onboarding Modal - Show if user needs onboarding */}
+        {authenticated && needsOnboarding && !authLoading && (
+          <OnboardingModal isOpen={true} />
         )}
       </div>
     </main>
@@ -478,11 +546,8 @@ function ProfileSkeleton() {
         {/* RIGHT COLUMN - Content Skeleton */}
         <div>
           {/* Tab navigation skeleton */}
-          <div className="border-b border-[#2a2a2a] mb-6">
-            <div className="flex gap-1">
-              <div className="h-12 w-24 bg-[#1a1a1a] rounded-t-lg" />
-              <div className="h-12 w-28 bg-[#1a1a1a] rounded-t-lg" />
-            </div>
+          <div className="mb-6">
+            <div className="h-11 bg-[#1a1a1a] rounded-lg border border-[#2a2a2a]" />
           </div>
 
           {/* Content skeleton */}

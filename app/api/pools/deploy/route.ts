@@ -17,17 +17,14 @@ import * as anchor from '@coral-xyz/anchor';
 import { Keypair } from '@solana/web3.js';
 
 export async function POST(req: NextRequest) {
-  console.log('[/api/pools/deploy] Validation request received');
   try {
     // Authenticate user
     const authHeader = req.headers.get('authorization');
-    console.log('[/api/pools/deploy] Auth header present:', !!authHeader);
 
     const privyUserId = await verifyAuthHeader(authHeader);
-    console.log('[/api/pools/deploy] Privy user ID:', privyUserId);
+    console.log('[/api/pools/deploy] Auth check:', { privyUserId });
 
     if (!privyUserId) {
-      console.log('[/api/pools/deploy] Authentication failed');
       return NextResponse.json({ error: 'Invalid or missing authentication' }, { status: 401 });
     }
 
@@ -36,7 +33,6 @@ export async function POST(req: NextRequest) {
       const { success, headers } = await checkRateLimit(privyUserId, rateLimiters.poolDeploy);
 
       if (!success) {
-        console.log('[/api/pools/deploy] Rate limit exceeded for user:', privyUserId);
         return NextResponse.json(
           {
             error: 'Rate limit exceeded. You can deploy up to 30 pools per hour.',
@@ -66,7 +62,6 @@ export async function POST(req: NextRequest) {
     const isMockAuth = privyUserId.startsWith('mock-user-');
     const authProvider = isMockAuth ? 'mock' : 'privy';
 
-    console.log('[/api/pools/deploy] Querying user with auth_id:', privyUserId, 'auth_provider:', authProvider);
 
     const { data: user, error: userError } = await supabase
       .from('users')
@@ -75,10 +70,16 @@ export async function POST(req: NextRequest) {
       .eq('auth_provider', authProvider)
       .single();
 
-    console.log('[/api/pools/deploy] User query result:', { user, userError });
+    console.log('[/api/pools/deploy] User lookup:', {
+      user: user?.id,
+      username: user?.username,
+      userError: userError?.message,
+      userErrorCode: userError?.code,
+      userErrorDetails: userError?.details,
+      searchCriteria: { privyUserId, authProvider, isMockAuth }
+    });
 
     if (userError || !user) {
-      console.log('[/api/pools/deploy] User not found. Error:', userError);
 
       // Debug: Check if any users exist with similar auth_id
       const { data: similarUsers } = await supabase
@@ -86,7 +87,14 @@ export async function POST(req: NextRequest) {
         .select('auth_id, auth_provider, username')
         .ilike('auth_id', `%${privyUserId.slice(-20)}%`);
 
-      console.log('[/api/pools/deploy] Similar users found:', similarUsers);
+      // Debug: Get all users to see what's in the database
+      const { data: allUsers } = await supabase
+        .from('users')
+        .select('id, auth_id, auth_provider, username')
+        .limit(10);
+
+      console.log('[/api/pools/deploy] ❌ User not found. All users in DB:', allUsers);
+
 
       return NextResponse.json({
         error: 'You need to complete onboarding first. Please refresh the page to set up your profile.',
@@ -99,34 +107,59 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    // Verify post exists and user owns it
-    console.log('[/api/pools/deploy] Querying post:', postId);
-
+    // Verify post exists (anyone can deploy a pool for any post)
     const { data: post, error: postError } = await supabase
       .from('posts')
       .select('id, user_id')
       .eq('id', postId)
       .single();
 
-    console.log('[/api/pools/deploy] Post query result:', { post, postError });
+    console.log('[/api/pools/deploy] Post lookup:', { postId, post: post?.id, postUserId: post?.user_id, postError: postError?.message });
 
     if (postError || !post) {
-      console.log('[/api/pools/deploy] Post not found. Error:', postError);
       return NextResponse.json({
         error: 'Post not found',
         debug: { postId, postError: postError?.message }
       }, { status: 404 });
     }
 
-    console.log('[/api/pools/deploy] Checking ownership. Post user_id:', post.user_id, 'Current user_id:', user.id);
+    // Get post creator's agent_id
+    const { data: postCreatorUser, error: postCreatorError } = await supabase
+      .from('users')
+      .select('agent_id')
+      .eq('id', post.user_id)
+      .single();
 
-    if (post.user_id !== user.id) {
-      console.log('[/api/pools/deploy] User does not own this post');
-      return NextResponse.json({ error: 'Not authorized to deploy pool for this post' }, { status: 403 });
+    if (postCreatorError || !postCreatorUser) {
+      return NextResponse.json({
+        error: 'Post creator not found',
+        debug: { postId, postUserId: post.user_id, error: postCreatorError?.message }
+      }, { status: 404 });
+    }
+
+    // Get post creator's Solana address from agents table
+    const { data: postCreatorAgent, error: agentError } = await supabase
+      .from('agents')
+      .select('solana_address')
+      .eq('id', postCreatorUser.agent_id)
+      .single();
+
+    if (agentError || !postCreatorAgent) {
+      return NextResponse.json({
+        error: 'Post creator agent not found',
+        debug: { postId, agentId: postCreatorUser.agent_id, error: agentError?.message }
+      }, { status: 404 });
+    }
+
+    const postCreatorSolanaAddress = postCreatorAgent.solana_address;
+    if (!postCreatorSolanaAddress) {
+      return NextResponse.json({
+        error: 'Post creator Solana address not found',
+        debug: { postId, agentId: postCreatorUser.agent_id }
+      }, { status: 404 });
     }
 
     // Check if pool already deployed in database
-    console.log('[/api/pools/deploy] Checking for existing pool deployment');
 
     const { data: existingPool } = await supabase
       .from('pool_deployments')
@@ -135,7 +168,6 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (existingPool) {
-      console.log('[/api/pools/deploy] Pool already deployed in DB:', existingPool.pool_address);
       return NextResponse.json(
         {
           error: 'Pool already deployed for this post',
@@ -162,21 +194,13 @@ export async function POST(req: NextRequest) {
     );
 
     const poolAccountInfo = await connection.getAccountInfo(poolPda);
-    console.log('[/api/pools/deploy] Pool account check:', {
-      poolPda: poolPda.toBase58(),
-      exists: !!poolAccountInfo,
-      owner: poolAccountInfo?.owner?.toBase58(),
-      dataLength: poolAccountInfo?.data?.length,
-    });
 
     if (poolAccountInfo) {
-      console.log('[/api/pools/deploy] Pool account exists on-chain:', poolPda.toBase58());
 
       // Check if this is an orphaned pool (created but never deployed with liquidity)
       // An orphaned pool will have minimal data (just the created account with default values)
       // A properly deployed pool will have vault, mints, and other data initialized
       try {
-        console.log('[/api/pools/deploy] Attempting to fetch pool data...');
 
         // Create a dummy wallet for the provider (manual implementation to avoid Wallet constructor issues)
         const dummyKeypair = Keypair.generate();
@@ -204,17 +228,9 @@ export async function POST(req: NextRequest) {
 
         const poolData = await program.account.contentPool.fetch(poolPda);
 
-        console.log('[/api/pools/deploy] Pool data fetched successfully:', {
-          vault: poolData.vault?.toBase58(),
-          longMint: poolData.longMint?.toBase58(),
-          shortMint: poolData.shortMint?.toBase58(),
-          sLong: poolData.sLong?.toString(),
-          sShort: poolData.sShort?.toString(),
-        });
 
         // Check if pool is properly deployed (has vault initialized)
         if (poolData.vault && poolData.vault.toBase58() !== '11111111111111111111111111111111') {
-          console.log('[/api/pools/deploy] ❌ Pool fully deployed with vault:', poolData.vault.toBase58());
           return NextResponse.json(
             {
               error: 'Pool already exists and is fully deployed for this post.',
@@ -226,7 +242,6 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        console.log('[/api/pools/deploy] ⚠️  Pool exists but is orphaned (no vault). Allowing redeployment with deploy_market only.');
         // Return orphaned status so client knows to skip create_pool instruction
         return NextResponse.json({
           success: true,
@@ -234,6 +249,7 @@ export async function POST(req: NextRequest) {
           userId: user.id,
           poolExists: true,
           isOrphaned: true,
+          postCreatorSolanaAddress,
         });
       } catch (fetchError) {
         console.error('[/api/pools/deploy] ❌ Could not fetch pool data:', {
@@ -243,25 +259,25 @@ export async function POST(req: NextRequest) {
         });
         // If pool account exists but we can't deserialize it, treat as orphaned
         // This means the account was created but deploy_market never ran successfully
-        console.log('[/api/pools/deploy] ⚠️  Pool account exists but cannot fetch data - treating as orphaned');
         return NextResponse.json({
           success: true,
           postId,
           userId: user.id,
           poolExists: true,
           isOrphaned: true,
+          postCreatorSolanaAddress,
         });
       }
     }
 
     // Validation passed - client can proceed with transaction
-    console.log('[/api/pools/deploy] ✅ Validation passed. User can proceed with transaction');
     return NextResponse.json({
       success: true,
       postId,
       userId: user.id,
       poolExists: false,
       isOrphaned: false,
+      postCreatorSolanaAddress,
     });
   } catch (error) {
     console.error('[/api/pools/deploy] Error:', error);

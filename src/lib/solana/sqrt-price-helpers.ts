@@ -22,7 +22,6 @@ const USDC_PRECISION = 10 ** USDC_DECIMALS;
  *
  * @example
  * const price = sqrtPriceX96ToPrice(pool.sqrtPriceLongX96);
- * console.log(`Long token price: $${price.toFixed(4)}`);
  */
 export function sqrtPriceX96ToPrice(sqrtPriceX96: bigint | string | number): number {
   const sqrtPrice = BigInt(sqrtPriceX96);
@@ -91,7 +90,6 @@ export function priceToSqrtPriceX96(priceUsdc: number): bigint {
  * @example
  * const poolAccount = await program.account.contentPool.fetch(poolAddress);
  * const formatted = formatPoolAccountData(poolAccount);
- * console.log(`Long Price: $${formatted.priceLong.toFixed(4)}`);
  */
 /**
  * Parse a value that might be a BN object (from Anchor) or a number
@@ -197,8 +195,10 @@ export function formatPoolAccountData(pool: any) {
     f: Number(pool.f || 1),
     betaNum: Number(pool.betaNum || 1),
     betaDen: Number(pool.betaDen || 2),
-    sqrtLambdaLongX96: pool.sqrtLambdaLongX96?.toString() || '0',
-    sqrtLambdaShortX96: pool.sqrtLambdaShortX96?.toString() || '0',
+    sScaleLongQ64: pool.sScaleLongQ64?.toString() || '0',        // NEW
+    sScaleShortQ64: pool.sScaleShortQ64?.toString() || '0',      // NEW
+    sqrtLambdaLongX96: pool.sqrtLambdaLongX96?.toString() || '0',  // DEPRECATED
+    sqrtLambdaShortX96: pool.sqrtLambdaShortX96?.toString() || '0', // DEPRECATED
 
     // Add contentId and mints for event indexer
     contentId,

@@ -47,13 +47,24 @@ export class PostsService {
         .limit(1)
         .single();
 
+      // Calculate total volume from trades
+      const { data: volumeData } = await supabase
+        .from('trades')
+        .select('usdc_amount')
+        .eq('post_id', postId);
+
+      let totalVolume = 0;
+      if (volumeData) {
+        totalVolume = volumeData.reduce((sum, trade) => sum + (Number(trade.usdc_amount) / 1_000_000), 0);
+      }
+
       const poolData = Array.isArray(post.pool_deployments)
         ? post.pool_deployments[0]
         : post.pool_deployments;
 
       const metrics: Partial<Post> & { marketImpliedRelevance?: number } = {
         id: post.id,
-        totalVolumeUsdc: post.total_volume_usdc ? Number(post.total_volume_usdc) : undefined,
+        totalVolumeUsdc: totalVolume > 0 ? totalVolume : undefined,
       };
 
       // Add pool data if available
@@ -123,15 +134,31 @@ export class PostsService {
         }
       }
 
+      // Calculate total volume from trades for all posts
+      const { data: volumeData } = await supabase
+        .from('trades')
+        .select('post_id, usdc_amount')
+        .in('post_id', postIds);
+
+      const volumeMap = new Map<string, number>();
+      if (volumeData) {
+        for (const trade of volumeData) {
+          const currentVolume = volumeMap.get(trade.post_id) || 0;
+          volumeMap.set(trade.post_id, currentVolume + (Number(trade.usdc_amount) / 1_000_000));
+        }
+      }
+
       // Transform to partial post updates
       return (posts || []).map(dbPost => {
         const poolData = Array.isArray(dbPost.pool_deployments)
           ? dbPost.pool_deployments[0]
           : dbPost.pool_deployments;
 
+        const totalVolume = volumeMap.get(dbPost.id);
+
         const metrics: Partial<Post> & { marketImpliedRelevance?: number } = {
           id: dbPost.id,
-          totalVolumeUsdc: dbPost.total_volume_usdc ? Number(dbPost.total_volume_usdc) : undefined,
+          totalVolumeUsdc: totalVolume || undefined,
         };
 
         // Add pool data if available
@@ -206,12 +233,17 @@ export class PostsService {
         .range(options?.offset ?? 0, (options?.offset ?? 0) + (options?.limit ?? 15) - 1);
 
       if (error) {
+        console.error('[PostsService] Error fetching posts:', error);
         throw new Error(error.message || 'Unable to load posts. Please try again.');
       }
 
       if (!posts || !Array.isArray(posts)) {
+        console.log('[PostsService] No posts returned');
         return [];
       }
+
+      console.log('[PostsService] Fetched posts:', posts.length, 'posts');
+      console.log('[PostsService] Post types:', posts.map(p => ({ id: p.id, type: p.post_type, title: p.article_title })));
 
       // Fetch latest implied relevance for all posts in one query
       const postIds = posts.map(p => p.id);
@@ -231,14 +263,36 @@ export class PostsService {
         }
       }
 
-      // Transform database posts to frontend posts with implied relevance
+      // Fetch total volume for all posts from trades table
+      const { data: volumeData } = await supabase
+        .from('trades')
+        .select('post_id, usdc_amount')
+        .in('post_id', postIds);
+
+      // Create a map of post_id -> total volume (sum trades, convert from micro-USDC to USDC)
+      const volumeMap = new Map<string, number>();
+      if (volumeData) {
+        for (const trade of volumeData) {
+          const currentVolume = volumeMap.get(trade.post_id) || 0;
+          // usdc_amount is in micro-USDC, divide by 1M to get USDC
+          volumeMap.set(trade.post_id, currentVolume + (Number(trade.usdc_amount) / 1_000_000));
+        }
+      }
+
+      // Transform database posts to frontend posts with implied relevance and volume
       const transformedPosts = posts.map(dbPost => {
         const post = this.transformDbPost(dbPost);
         const impliedRelevance = impliedRelevanceMap.get(post.id);
+        const totalVolume = volumeMap.get(post.id);
 
         // Attach implied relevance as marketImpliedRelevance
         if (impliedRelevance !== undefined) {
           (post as any).marketImpliedRelevance = impliedRelevance;
+        }
+
+        // Override totalVolumeUsdc with calculated value from trades
+        if (totalVolume !== undefined) {
+          post.totalVolumeUsdc = totalVolume;
         }
 
         return post;
@@ -249,6 +303,14 @@ export class PostsService {
         strategy: new ImpliedRelevanceFirstRanking(),
         enrichWithPoolState: false,  // Use database instead of on-chain
       });
+
+      console.log('[PostsService] Returning ranked posts:', rankedPosts.length, 'posts');
+      console.log('[PostsService] Post types after ranking:', rankedPosts.map(p => ({
+        id: p.id.substring(0, 8),
+        type: p.post_type,
+        hasPool: !!p.poolAddress,
+        impliedRelevance: (p as any).marketImpliedRelevance
+      })));
 
       return rankedPosts;
     } catch (error) {
@@ -315,6 +377,7 @@ export class PostsService {
       // ARTICLE-SPECIFIC FIELDS
       article_title: dbPost.article_title,
       cover_image_url: dbPost.cover_image_url,
+      image_display_mode: dbPost.image_display_mode,
 
       author: {
         username: userData?.username || 'anonymous',

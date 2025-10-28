@@ -4,7 +4,6 @@ pub mod events;
 pub mod errors;
 pub mod math;
 pub mod curve;
-pub mod decay;
 
 pub use state::*;
 pub use instructions::*;

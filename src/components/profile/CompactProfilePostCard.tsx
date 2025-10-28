@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { formatRelativeTime } from '@/utils/formatters';
 import { getPostTitle, type Post } from '@/types/post.types';
 import { PostPreviewThumbnail } from './PostPreviewThumbnail';
+import { formatPoolDataFromDb } from '@/lib/solana/sqrt-price-helpers';
 
 interface CompactProfilePostCardProps {
   post: Post;
@@ -21,7 +22,7 @@ export function CompactProfilePostCard({ post }: CompactProfilePostCardProps) {
   const title = getPostTitle(post);
 
   const handleClick = () => {
-    router.push(`/post/${post.id}?mode=trade`);
+    router.push(`/post/${post.id}`);
   };
 
   const handleUsernameClick = (e: React.MouseEvent) => {
@@ -31,68 +32,119 @@ export function CompactProfilePostCard({ post }: CompactProfilePostCardProps) {
     }
   };
 
+  // Calculate pool metrics from cached ICBS data
+  const poolData = post.poolSupplyLong !== undefined &&
+                    post.poolSupplyShort !== undefined &&
+                    post.poolSqrtPriceLongX96 &&
+                    post.poolSqrtPriceShortX96 &&
+                    post.poolVaultBalance !== undefined
+    ? formatPoolDataFromDb(
+        post.poolSupplyLong,
+        post.poolSupplyShort,
+        post.poolSqrtPriceLongX96,
+        post.poolSqrtPriceShortX96,
+        post.poolVaultBalance
+      )
+    : null;
+
+  // Use market implied relevance from database (if available)
+  const marketImpliedRelevance = (post as any).marketImpliedRelevance ??
+    (poolData && poolData.totalMarketCap > 0
+      ? poolData.marketCapLong / (poolData.marketCapLong + poolData.marketCapShort)
+      : null);
+
   return (
     <article
       onClick={handleClick}
-      className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden hover:border-[#3a3a3a] hover:shadow-lg transition-all duration-200 cursor-pointer group"
+      className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(185,217,235,0.15)] hover:border-[#B9D9EB]/30 transition-all duration-200 cursor-pointer group"
     >
       <div className="flex gap-4 p-4">
-        {/* Left: Post Preview Thumbnail (96x96) */}
-        <div className="flex-shrink-0">
-          <PostPreviewThumbnail post={post} />
-        </div>
+        {/* Left: Post Preview Thumbnail (96x96) - Only for media posts and articles with covers */}
+        {(post.post_type === 'image' ||
+          post.post_type === 'video' ||
+          (post.post_type === 'blog' && post.cover_image_url)) && (
+          <div className="flex-shrink-0">
+            <PostPreviewThumbnail post={post} />
+          </div>
+        )}
 
-        {/* Right: Post Info */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between">
-          {/* Header: Title + Timestamp */}
-          <div className="mb-2">
-            <h3 className="font-semibold text-white text-sm line-clamp-2 mb-1 group-hover:text-[#B9D9EB] transition-colors">
-              {title}
-            </h3>
-            <div className="flex items-center gap-2 text-xs text-gray-400">
-              {post.author && (
-                <>
-                  <button
-                    onClick={handleUsernameClick}
-                    className="hover:text-[#B9D9EB] hover:underline transition-colors"
-                  >
-                    @{post.author.username}
-                  </button>
-                  <span>•</span>
-                </>
-              )}
-              <span>{formatRelativeTime(post.created_at || post.timestamp)}</span>
+        {/* Post Info & Metrics */}
+        <div className="flex-1 min-w-0 flex flex-col gap-3">
+          {/* Header Row: Title */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="relative max-h-[2.8rem] mb-1">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-shrink min-w-0">
+                    <h3 className="font-semibold text-sm group-hover:text-[#B9D9EB] transition-colors truncate bg-[linear-gradient(to_right,white_300px,white_300px,rgba(255,255,255,0.6)_350px,rgba(255,255,255,0.2)_400px)] bg-clip-text text-transparent">
+                      {title.length > 50 ? title.slice(0, 50) : title}
+                    </h3>
+                  </div>
+                  <span className="flex-shrink-0 text-xs text-gray-400 hover:text-[#B9D9EB] transition-colors cursor-pointer">
+                    Read more
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                {post.author && (
+                  <>
+                    <button
+                      onClick={handleUsernameClick}
+                      className="hover:text-[#B9D9EB] hover:underline transition-colors"
+                    >
+                      @{post.author.username}
+                    </button>
+                    <span>•</span>
+                  </>
+                )}
+                <span>{formatRelativeTime(post.created_at || post.timestamp)}</span>
+              </div>
             </div>
           </div>
 
-          {/* Pool Status Badge (if deployed) */}
-          {post.poolAddress && (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded">
-                <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-                <span className="text-[10px] font-medium text-blue-400">Market Active</span>
-              </div>
+          {/* Metrics Row */}
+          <div className="flex items-center justify-between">
+            {/* Left: Metrics with dividers */}
+            <div className="flex items-center divide-x divide-[#2a2a2a]">
+              {/* LONG Price */}
+              {poolData && (
+                <div className="pr-4">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Long Price</div>
+                  <div className="text-sm font-semibold text-white">${poolData.priceLong.toFixed(4)}</div>
+                </div>
+              )}
 
-              {/* Quick metrics if available */}
-              {post.poolLongTokenSupply && post.poolShortTokenSupply && (
-                <div className="text-[10px] text-gray-500">
-                  {(post.poolLongTokenSupply + post.poolShortTokenSupply).toLocaleString(undefined, { maximumFractionDigits: 0 })} tokens
+              {/* SHORT Price */}
+              {poolData && (
+                <div className="px-4">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Short Price</div>
+                  <div className="text-sm font-semibold text-white">${poolData.priceShort.toFixed(4)}</div>
+                </div>
+              )}
+
+              {/* Total Volume */}
+              {post.totalVolumeUsdc !== undefined && post.totalVolumeUsdc > 0 && (
+                <div className="px-4">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Volume</div>
+                  <div className="text-sm font-semibold text-white">
+                    ${post.totalVolumeUsdc >= 1000
+                      ? (post.totalVolumeUsdc / 1000).toFixed(1) + 'k'
+                      : post.totalVolumeUsdc.toFixed(0)}
+                  </div>
+                </div>
+              )}
+
+              {/* Relevance */}
+              {marketImpliedRelevance !== null && !isNaN(marketImpliedRelevance) && (
+                <div className="pl-4">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Relevance</div>
+                  <div className="text-sm font-semibold text-white">
+                    {(marketImpliedRelevance * 100).toFixed(1)}%
+                  </div>
                 </div>
               )}
             </div>
-          )}
-
-          {/* No Pool Badge */}
-          {!post.poolAddress && (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-500/10 border border-gray-500/20 rounded w-fit">
-              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-[10px] font-medium text-gray-400">Pending Deployment</span>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </article>

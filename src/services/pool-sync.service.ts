@@ -57,7 +57,6 @@ export class PoolSyncService {
       }
 
       const result = await response.json();
-      console.log('[PoolSyncService] Pool synced successfully:', poolAddress);
 
       return {
         success: true,
@@ -108,7 +107,6 @@ export class PoolSyncService {
     let lastError: string | undefined;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      console.log(`[PoolSyncService] Sync attempt ${attempt}/${maxRetries} for ${poolAddress}`);
 
       const result = await this.syncPool(poolAddress, { throwOnError: false });
 
@@ -174,7 +172,6 @@ export class PoolSyncService {
       }
 
       const result = await response.json();
-      console.log('[PoolSyncService] All pools synced:', result);
 
       return { success: true };
 

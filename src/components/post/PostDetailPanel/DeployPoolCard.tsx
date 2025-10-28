@@ -7,23 +7,34 @@
 'use client';
 
 import { useState } from 'react';
+import { Connection } from '@solana/web3.js';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
 import { useDeployPool } from '@/hooks/useDeployPool';
 import { useConnectWallet } from '@/hooks/usePrivyHooks';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { useSwapBalances } from '@/hooks/useSwapBalances';
 import { Rocket, AlertCircle, Info } from 'lucide-react';
+import { FundWalletButton } from '@/components/wallet/FundWalletButton';
+import { FundingPromptModal } from '@/components/wallet/FundingPromptModal';
+import { getRpcEndpoint } from '@/lib/solana/network-config';
 
 interface DeployPoolCardProps {
   postId: string;
-  onDeploySuccess?: () => void;
+  onDeploySuccess?: (poolAddress: string) => void;
 }
 
 export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps) {
   const { address, isConnected, isLoading: walletLoading, needsReconnection } = useSolanaWallet();
   const { deployPool, isDeploying, error: deployError } = useDeployPool();
   const { connectWallet } = useConnectWallet();
+  const { requireAuth } = useRequireAuth();
+  const { usdcBalance } = useSwapBalances('', postId); // Just need USDC balance
 
   const [error, setError] = useState<string | null>(null);
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+  const [showFundingPrompt, setShowFundingPrompt] = useState(false);
+  const [fundingType, setFundingType] = useState<'SOL' | 'USDC' | 'BOTH'>('USDC');
+  const [solBalance, setSolBalance] = useState<number>(0);
 
   // Form state
   const initialDeposit = 50; // Hardcoded to $50
@@ -34,9 +45,7 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
     setIsConnectingWallet(true);
     setError(null);
     try {
-      console.log('[DeployPoolCard] Opening Privy wallet modal...');
       await connectWallet();
-      console.log('[DeployPoolCard] Wallet connection flow completed');
       // useSolanaWallet hook will automatically detect the connected wallet
     } catch (err: any) {
       console.error('[DeployPoolCard] Wallet connection error:', err);
@@ -52,6 +61,13 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
 
   const handleDeployPool = async (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // Check auth first
+    const isAuthed = await requireAuth();
+    if (!isAuthed) {
+      return;
+    }
+
     if (needsReconnection || !address || !isConnected) {
       setError('Wallet not connected. Click "Connect Wallet" below.');
       return;
@@ -67,6 +83,36 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
       return;
     }
 
+    // Check USDC balance
+    if (usdcBalance < initialDeposit) {
+      setFundingType('USDC');
+      setShowFundingPrompt(true);
+      return;
+    }
+
+    // Check SOL balance for transaction fees
+    if (address) {
+      try {
+        const rpcEndpoint = getRpcEndpoint();
+        const connection = new Connection(rpcEndpoint, 'confirmed');
+        const { PublicKey } = await import('@solana/web3.js');
+        const pubkey = new PublicKey(address);
+        const balance = await connection.getBalance(pubkey);
+        const currentSolBalance = balance / 1e9;
+        setSolBalance(currentSolBalance);
+
+        // Need at least 0.02 SOL for deployment (higher than trades)
+        if (currentSolBalance < 0.02) {
+          setFundingType(usdcBalance < initialDeposit ? 'BOTH' : 'SOL');
+          setShowFundingPrompt(true);
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking SOL balance:', error);
+        // Continue anyway, let the transaction fail with proper error
+      }
+    }
+
     setError(null);
 
     try {
@@ -77,9 +123,8 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
       });
 
       if (result) {
-        console.log('[DeployPoolCard] Pool deployed successfully:', result);
         if (onDeploySuccess) {
-          onDeploySuccess();
+          onDeploySuccess(result.poolAddress);
         }
       } else if (deployError) {
         setError(deployError);
@@ -132,7 +177,7 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
             <button
               onClick={handleConnectWallet}
               disabled={isConnectingWallet}
-              className="w-full px-4 py-2.5 bg-[#B9D9EB] text-[#0C1D51] rounded-lg font-medium hover:bg-[#D0E7F4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+              className="w-full px-4 py-2.5 bg-[#B9D9EB] text-[#0C1D51] rounded-lg font-medium hover:bg-[#D0E7F4] transition-colors disabled:opacity-50 disabled:cursor-default flex items-center justify-center gap-2 text-sm"
             >
               {isConnectingWallet ? (
                 <>
@@ -151,7 +196,7 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
           <button
             onClick={handleDeployPool}
             disabled={isDeploying || !isConnected || walletLoading}
-            className="w-full px-4 py-2.5 bg-[#B9D9EB] text-[#0C1D51] rounded-lg font-medium hover:bg-[#D0E7F4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+            className="w-full px-4 py-2.5 bg-[#B9D9EB] text-[#0C1D51] rounded-lg font-medium hover:bg-[#D0E7F4] transition-colors disabled:opacity-50 disabled:cursor-default flex items-center justify-center gap-2 text-sm"
           >
             {isDeploying ? (
               <>
@@ -185,14 +230,33 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
 
         {/* Error Message */}
         {(error || deployError) && (
-          <div className="flex items-start gap-2 p-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs">
-            <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <p>{error || deployError}</p>
+          <div className="space-y-2">
+            <div className="flex items-start gap-2 p-2.5 bg-orange-500/10 border border-orange-500/20 rounded-lg text-orange-400 text-xs">
+              <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p>{error || deployError}</p>
+              </div>
             </div>
+
+            {/* Fund Wallet Button - show if error mentions "need" or "Insufficient" */}
+            {((error || deployError || '').toLowerCase().includes('need') ||
+              (error || deployError || '').toLowerCase().includes('insufficient')) && (
+              <FundWalletButton variant="full" />
+            )}
           </div>
         )}
       </div>
+
+      {/* Funding Prompt Modal */}
+      <FundingPromptModal
+        isOpen={showFundingPrompt}
+        onClose={() => setShowFundingPrompt(false)}
+        type={fundingType}
+        requiredAmount={initialDeposit}
+        currentBalance={usdcBalance}
+        currentSolBalance={solBalance}
+        requiredSolAmount={0.02}
+      />
     </div>
   );
 }

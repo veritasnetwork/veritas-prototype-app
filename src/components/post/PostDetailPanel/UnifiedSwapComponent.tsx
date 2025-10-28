@@ -8,11 +8,17 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { ArrowDownUp, AlertCircle, ChevronDown, Wallet } from 'lucide-react';
+import { Connection } from '@solana/web3.js';
 import { useBuyTokens } from '@/hooks/useBuyTokens';
 import { useSellTokens } from '@/hooks/useSellTokens';
 import { useSwapBalances } from '@/hooks/useSwapBalances';
 import { useFundWallet } from '@privy-io/react-auth/solana';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { FundingPromptModal } from '@/components/wallet/FundingPromptModal';
+import { FundWalletButton } from '@/components/wallet/FundWalletButton';
+import { TradeCompletedModal } from '@/components/trading/TradeCompletedModal';
+import { getRpcEndpoint } from '@/lib/solana/network-config';
 import { usdcToMicro, displayToAtomic, asDisplay, DisplayUnits, AtomicUnits, MicroUSDC } from '@/lib/units';
 import {
   estimateTokensOut,
@@ -73,13 +79,17 @@ export function UnifiedSwapComponent({
   const [slippage, setSlippage] = useState('0.5'); // 0.5% default
   const [showPreview, setShowPreview] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
+  const [showFundingPrompt, setShowFundingPrompt] = useState(false);
+  const [fundingType, setFundingType] = useState<'SOL' | 'USDC' | 'BOTH'>('USDC');
+  const [solBalance, setSolBalance] = useState<number>(0);
+  const [completedTrade, setCompletedTrade] = useState<any>(null);
 
   // Belief submission state
   const [initialBelief, setInitialBelief] = useState<number>(0.5);
   const [metaBelief, setMetaBelief] = useState<number>(0.5);
 
   // Hooks
-  const { usdcBalance, shareBalance, loading: balancesLoading, refresh: refreshBalances } = useSwapBalances(poolAddress, postId);
+  const { usdcBalance, longBalance, shortBalance, loading: balancesLoading, refresh: refreshBalances } = useSwapBalances(poolAddress, postId);
   const { fundWallet } = useFundWallet();
   const { address } = useSolanaWallet();
 
@@ -94,9 +104,12 @@ export function UnifiedSwapComponent({
 
   const { buyTokens, isLoading: buyLoading, error: buyError } = useBuyTokens(handleTradeSuccess);
   const { sellTokens, isLoading: sellLoading, error: sellError } = useSellTokens(handleTradeSuccess);
+  const { requireAuth } = useRequireAuth();
 
-  // Get the relevant balance based on mode
-  const currentBalance = mode === 'buy' ? usdcBalance : shareBalance;
+  // Get the relevant balance based on mode and side
+  const currentBalance = mode === 'buy'
+    ? usdcBalance
+    : (side === 'LONG' ? longBalance : shortBalance);
 
   // Calculate values based on input amount
   useEffect(() => {
@@ -111,16 +124,6 @@ export function UnifiedSwapComponent({
       return;
     }
 
-    console.log('[SWAP] useEffect triggered:', {
-      mode,
-      side,
-      inputAmount: input,
-      supplyLong,
-      supplyShort,
-      f,
-      betaNum,
-      betaDen
-    });
 
     try {
       // Map UI side to ICBS TokenSide
@@ -139,12 +142,6 @@ export function UnifiedSwapComponent({
         ? (currentPrice * norm) / currentSupplyForLambda
         : 1.0;
 
-      console.log('[SWAP] Lambda calculation:', {
-        norm,
-        currentPrice,
-        currentSupply: currentSupplyForLambda,
-        lambdaScale
-      });
 
       if (mode === 'buy') {
         // Calculate tokens received for USDC input
@@ -159,11 +156,6 @@ export function UnifiedSwapComponent({
           betaDen
         );
 
-        console.log('[SWAP] Buy calculation:', {
-          input,
-          tokensOut,
-          tokensOutFixed: tokensOut.toFixed(2)
-        });
 
         setOutputAmountRaw(tokensOut);
         setOutputAmount(tokensOut.toFixed(2));
@@ -180,11 +172,6 @@ export function UnifiedSwapComponent({
           betaDen
         );
 
-        console.log('[SWAP] Sell calculation:', {
-          input,
-          usdcOut,
-          usdcOutFixed: usdcOut.toFixed(2)
-        });
 
         setOutputAmountRaw(usdcOut);
         setOutputAmount(usdcOut.toFixed(2));
@@ -257,24 +244,11 @@ export function UnifiedSwapComponent({
 
   // Toggle between buy and sell - swap the input/output amounts
   const toggleMode = () => {
-    console.log('[SWAP] Toggle START:', {
-      currentMode: mode,
-      inputAmount,
-      outputAmount,
-      outputAmountRaw,
-      willSwitchTo: mode === 'buy' ? 'sell' : 'buy'
-    });
 
     setMode(prev => prev === 'buy' ? 'sell' : 'buy');
     // Use the raw value if available to avoid rounding loss
     const newInput = outputAmountRaw > 0 ? outputAmountRaw.toString() : outputAmount;
 
-    console.log('[SWAP] Toggle - using as new input:', {
-      outputAmountRaw,
-      outputAmount,
-      newInput,
-      willUseRaw: outputAmountRaw > 0
-    });
 
     setInputAmount(newInput);
     setOutputAmount(''); // Clear output, it will be recalculated
@@ -285,7 +259,9 @@ export function UnifiedSwapComponent({
   // Handle MAX button click
   const handleMaxClick = () => {
     if (currentBalance > 0) {
-      setInputAmount(currentBalance.toFixed(mode === 'buy' ? 2 : 0));
+      // For sells, use full precision to ensure we sell ALL tokens
+      // For buys, use 2 decimals for USDC amounts
+      setInputAmount(currentBalance.toFixed(mode === 'buy' ? 2 : 6));
     }
   };
 
@@ -301,61 +277,94 @@ export function UnifiedSwapComponent({
     }
   };
 
+  // Check balances before showing preview
+  const handleShowPreview = async () => {
+    const amount = parseFloat(inputAmount);
+    if (!amount || amount <= 0) return;
+
+    let needsUSDC = false;
+    let needsSOL = false;
+
+    // Check USDC balance for buy trades
+    if (mode === 'buy' && amount > usdcBalance) {
+      needsUSDC = true;
+    }
+
+    // Check token balance for sell trades
+    if (mode === 'sell') {
+      const tokenBalance = side === 'LONG' ? longBalance : shortBalance;
+      if (amount > tokenBalance) {
+        setTradeError(`Insufficient ${side} tokens`);
+        return;
+      }
+    }
+
+    // Check SOL balance for transaction fees
+    if (address) {
+      try {
+        const rpcEndpoint = getRpcEndpoint();
+        const connection = new Connection(rpcEndpoint, 'confirmed');
+        const { PublicKey } = await import('@solana/web3.js');
+        const pubkey = new PublicKey(address);
+        const balance = await connection.getBalance(pubkey);
+        const currentSolBalance = balance / 1e9;
+        setSolBalance(currentSolBalance);
+
+        // Need at least 0.01 SOL for transaction fees
+        if (currentSolBalance < 0.01) {
+          needsSOL = true;
+        }
+      } catch (error) {
+        console.error('Error checking SOL balance:', error);
+        // Continue anyway, let the transaction fail with proper error
+      }
+    }
+
+    // Show funding prompt if either is needed
+    if (needsUSDC || needsSOL) {
+      const fundType = needsUSDC && needsSOL ? 'BOTH' : needsUSDC ? 'USDC' : 'SOL';
+      console.log('[UnifiedSwap] Showing funding prompt:', { needsUSDC, needsSOL, fundType, usdcBalance, amount });
+      setFundingType(fundType);
+      setShowFundingPrompt(true);
+      return;
+    }
+
+    // All checks passed, show preview
+    setShowPreview(true);
+  };
+
   // Handle swap execution with type-safe units
   const handleSwap = async () => {
     const amount = parseFloat(inputAmount);
+    if (!amount || amount <= 0) return;
 
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🟢 [UnifiedSwapComponent] Swap initiated');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[SWAP] Parameters:', {
-      mode,
-      side,
-      inputAmount,
-      amount,
-      postId,
-      poolAddress,
-      initialBelief,
-      metaBelief
-    });
-
-    if (!amount || amount <= 0) {
-      console.log('[SWAP] ❌ Invalid amount');
+    // Check auth first
+    const isAuthed = await requireAuth();
+    if (!isAuthed) {
+      // Privy login modal already shown
+      // If authenticated but no profile, OnboardingModal shows automatically
       return;
     }
 
     setTradeError(null); // Clear previous errors
 
     try {
+      let result;
       if (mode === 'buy') {
         // Convert USDC to micro-USDC with type safety
         const microUsdc = usdcToMicro(amount);
-        console.log('[SWAP] 💰 Buying tokens:', {
-          displayAmount: amount,
-          microUsdc,
-          side,
-          postId,
-          poolAddress
-        });
-        await buyTokens(postId, poolAddress, microUsdc, side, initialBelief, metaBelief);
-        console.log('[SWAP] ✅ Buy completed successfully');
+        result = await buyTokens(postId, poolAddress, microUsdc, side, initialBelief, metaBelief);
       } else {
         // Convert display tokens to atomic units with type safety
         const displayUnits = asDisplay(amount);
         const tokensAtomic = displayToAtomic(displayUnits);
-        console.log('[SWAP] 💸 Selling tokens:', {
-          displayAmount: amount,
-          displayUnits,
-          tokensAtomic,
-          side,
-          postId,
-          poolAddress
-        });
-        await sellTokens(postId, poolAddress, tokensAtomic, side, initialBelief, metaBelief);
-        console.log('[SWAP] ✅ Sell completed successfully');
+        result = await sellTokens(postId, poolAddress, tokensAtomic, side, initialBelief, metaBelief);
       }
 
-      console.log('[SWAP] 🎉 Trade successful, resetting form');
+      // Check if trade completed successfully (has tradeDetails)
+      if (result && 'tradeDetails' in result) {
+        setCompletedTrade(result.tradeDetails);
+      }
 
       // Reset after successful transaction
       setInputAmount('');
@@ -497,10 +506,10 @@ export function UnifiedSwapComponent({
 
       {/* Swap Button */}
       <button
-        onClick={() => canSwap && setShowPreview(true)}
+        onClick={handleShowPreview}
         disabled={!canSwap}
         className={cn(
-          "w-full py-3 md:py-2.5 font-medium rounded-lg transition-all text-base md:text-sm min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed",
+          "w-full py-3 md:py-2.5 font-medium rounded-lg transition-all text-base md:text-sm min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-default",
           mode === 'buy'
             ? side === 'LONG'
               ? "bg-[#B9D9EB] hover:bg-[#a3cfe3] text-black"
@@ -513,23 +522,21 @@ export function UnifiedSwapComponent({
         {isLoading ? 'Processing...' : `${mode === 'buy' ? 'Buy' : 'Sell'} ${side}`}
       </button>
 
-      {/* Error Message with Deposit Funds Button */}
+      {/* Error Message with Fund Wallet Buttons */}
       {errorMessage && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-          <div className="flex items-start gap-2 mb-2">
-            <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-red-400">
-              {errorMessage}
-            </p>
+        <div className="space-y-2">
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-orange-400">
+                {errorMessage}
+              </p>
+            </div>
           </div>
-          {isInsufficientFunds && (
-            <button
-              onClick={handleFundWallet}
-              className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              <Wallet className="w-4 h-4" />
-              Deposit Funds
-            </button>
+          {/* Only show fund wallet button for USDC/SOL issues, not token balance issues */}
+          {(errorMessage.toLowerCase().includes('usdc') ||
+            errorMessage.toLowerCase().includes('sol')) && (
+            <FundWalletButton variant="full" />
           )}
         </div>
       )}
@@ -639,6 +646,23 @@ export function UnifiedSwapComponent({
           </div>
         </div>
       )}
+
+      {/* Funding Prompt Modal */}
+      <FundingPromptModal
+        isOpen={showFundingPrompt}
+        onClose={() => setShowFundingPrompt(false)}
+        type={fundingType}
+        requiredAmount={mode === 'buy' ? parseFloat(inputAmount) || 0 : 0}
+        currentBalance={usdcBalance}
+        currentSolBalance={solBalance}
+      />
+
+      {/* Trade Completed Modal */}
+      <TradeCompletedModal
+        isOpen={!!completedTrade}
+        onClose={() => setCompletedTrade(null)}
+        details={completedTrade}
+      />
     </div>
   );
 }

@@ -1,17 +1,19 @@
 use anchor_lang::prelude::*;
 
 /// Primary account structure for ContentPool
-/// Total size: 432 bytes + 8 discriminator = 440 bytes
+/// Total size: 496 bytes + 8 discriminator = 504 bytes
 #[account]
 #[derive(Debug)]
 pub struct ContentPool {
-    // Identity (96 bytes)
+    // Identity (128 bytes) - CHANGED: added post_creator
     /// Post/belief identifier (32 bytes)
     pub content_id: Pubkey,
-    /// Pool creator (32 bytes)
+    /// Pool creator (who called create_pool) (32 bytes)
     pub creator: Pubkey,
     /// First trader who deployed market (32 bytes)
     pub market_deployer: Pubkey,
+    /// Post/content author (receives trading fees) (32 bytes) - NEW
+    pub post_creator: Pubkey,
 
     // Mints (64 bytes)
     /// SPL token mint for LONG side (32 bytes)
@@ -36,13 +38,13 @@ pub struct ContentPool {
     pub _padding1: [u8; 10],
 
     // Token Supplies - Integer (16 bytes)
-    /// LONG token supply in DISPLAY units (e.g., 25 = 0.000025 tokens)
-    /// For SPL minting/burning, multiply by 1,000,000 to get atomic units
-    /// Database stores atomic units; on-chain stores display units
+    /// LONG token supply in WHOLE TOKENS (e.g., 25 = 25 tokens)
+    /// For SPL minting/burning, multiply by 1,000,000 to get atomic SPL units
+    /// Database stores whole tokens; on-chain stores whole tokens
     pub s_long: u64,
-    /// SHORT token supply in DISPLAY units (e.g., 25 = 0.000025 tokens)
-    /// For SPL minting/burning, multiply by 1,000,000 to get atomic units
-    /// Database stores atomic units; on-chain stores display units
+    /// SHORT token supply in WHOLE TOKENS (e.g., 25 = 25 tokens)
+    /// For SPL minting/burning, multiply by 1,000,000 to get atomic SPL units
+    /// Database stores whole tokens; on-chain stores whole tokens
     pub s_short: u64,
 
     // Virtual Reserves - Integer (16 bytes) - ESSENTIAL FOR SETTLEMENT
@@ -57,11 +59,19 @@ pub struct ContentPool {
     /// sqrt(price_short) * 2^96
     pub sqrt_price_short_x96: u128,
 
-    // Square Root Lambda Scale - X96 (32 bytes)
-    /// sqrt(λ_L) * 2^96
-    pub sqrt_lambda_long_x96: u128,
-    /// sqrt(λ_S) * 2^96
-    pub sqrt_lambda_short_x96: u128,
+    // Virtualization scales (Q64 fixed-point) (32 bytes)
+    /// σ_L in Q64.64 - virtualizes LONG token supply
+    pub s_scale_long_q64: u128,
+    /// σ_S in Q64.64 - virtualizes SHORT token supply
+    pub s_scale_short_q64: u128,
+
+    // Lambda Scale - Q96 (32 bytes)
+    /// DEPRECATED: Telemetry only. Lambda is now derived from vault + sigma scales.
+    /// λ_L in Q96 format (NOT sqrt!)
+    pub lambda_long_q96: u128,
+    /// DEPRECATED: Telemetry only. Lambda is now derived from vault + sigma scales.
+    /// λ_S in Q96 format (NOT sqrt!)
+    pub lambda_short_q96: u128,
 
     // Settlement (40 bytes)
     /// Last settlement timestamp (8 bytes)
@@ -93,7 +103,7 @@ pub struct ContentPool {
 }
 
 impl ContentPool {
-    pub const LEN: usize = 432;
+    pub const LEN: usize = 496; // Updated from 464 (+32 for sigma scales: 2 x u128)
 
     /// Seeds for PDA derivation
     pub fn seeds(&self) -> Vec<Vec<u8>> {
@@ -159,11 +169,18 @@ pub const DEFAULT_F: u16 = 2;  // Growth exponent (changed from 3 to reduce slip
 pub const DEFAULT_BETA_NUM: u16 = 1;
 pub const DEFAULT_BETA_DEN: u16 = 2;  // β = 0.5
 
-// Time-Based Decay Constants
-// Decay rates are in basis points per day (10000 = 100%)
-pub const DECAY_TIER_1_BPS: u64 = 100;     // 1% per day (days 0-7)
-pub const DECAY_TIER_2_BPS: u64 = 200;     // 2% per day (days 7-30)
-pub const DECAY_TIER_3_BPS: u64 = 300;     // 3% per day (days 30+)
-pub const DECAY_MIN_Q_BPS: u64 = 1000;     // Minimum q after decay: 10% (don't let pools die completely)
-pub const SECONDS_PER_DAY: i64 = 86400;    // 24 * 60 * 60
-pub const BELIEF_DURATION_HOURS: u32 = 720; // 30 days (30 * 24)
+// Sigma virtualization constants
+pub const F_MIN: u64 = 10_000;              // 0.01 in micro-units
+pub const F_MAX: u64 = 100_000_000;         // 100.0 in micro-units
+pub const S_DISPLAY_CAP: u64 = 1_000_000_000_000;  // 1e12
+
+// Sigma scale bounds
+pub const SIGMA_MIN: u128 = 1u128 << 48;    // 2^48
+pub const SIGMA_MAX: u128 = 1u128 << 96;    // 2^96
+pub const Q64: u128 = 1u128 << 64;          // 1.0 in Q64.64
+
+// Virtual norm bounds (prevents lambda overflow)
+// With vault cap 1e12 and VIRTUAL_NORM_MIN=2^16:
+//   max lambda = 1e12 / 2^16 ≈ 1.5e7 µUSDC (safe)
+pub const VIRTUAL_NORM_MIN: u128 = 1u128 << 16;  // 65,536
+pub const VIRTUAL_NORM_MAX: u128 = 1u128 << 31;  // 2,147,483,648

@@ -2,12 +2,17 @@ use anchor_lang::prelude::*;
 
 #[account]
 pub struct PoolFactory {
-    // Authority (64 bytes)
-    pub factory_authority: Pubkey,    // Can update both authorities (32 bytes)
-    pub pool_authority: Pubkey,       // Authority for pool operations (32 bytes)
+    // Authority (32 bytes) - CHANGED: removed factory_authority, renamed pool_authority
+    pub protocol_authority: Pubkey,   // Authority for pool operations and governance (32 bytes)
 
     // Stats (8 bytes)
     pub total_pools: u64,             // Total pools created (8 bytes)
+
+    // Fee Configuration (38 bytes) - NEW
+    pub total_fee_bps: u16,           // Total trading fee in basis points (2 bytes)
+    pub creator_split_bps: u16,       // % of fees to creator in basis points (2 bytes)
+    pub protocol_treasury: Pubkey,    // Protocol treasury address (32 bytes)
+    pub _padding_fee: [u8; 2],        // Alignment padding (2 bytes)
 
     // Default ICBS Parameters (14 bytes)
     pub default_f: u16,               // Default growth exponent (2 bytes)
@@ -27,7 +32,11 @@ pub struct PoolFactory {
 }
 
 impl PoolFactory {
-    pub const LEN: usize = 32 + 32 + 8 + 2 + 2 + 2 + 8 + 8 + 8 + 32 + 1; // 135 bytes
+    // protocol_authority(32) + total_pools(8) + total_fee_bps(2) + creator_split_bps(2) +
+    // protocol_treasury(32) + _padding_fee(2) + default_f(2) + default_beta_num(2) +
+    // default_beta_den(2) + default_p0(8) + min_initial_deposit(8) + min_settle_interval(8) +
+    // custodian(32) + bump(1)
+    pub const LEN: usize = 32 + 8 + 2 + 2 + 32 + 2 + 2 + 2 + 2 + 8 + 8 + 8 + 32 + 1; // 141 bytes
 }
 
 #[account]

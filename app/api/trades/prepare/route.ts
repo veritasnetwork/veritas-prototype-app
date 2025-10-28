@@ -11,6 +11,7 @@ import * as anchor from '@coral-xyz/anchor';
 import { AnchorProvider, Program } from '@coral-xyz/anchor';
 import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { verifyAuthHeader } from '@/lib/auth/privy-server';
 import { VeritasCuration } from '@/lib/solana/target/types/veritas_curation';
 import { PDAHelper } from '@/lib/solana/sdk/transaction-builders';
 import { getUsdcMint, getRpcEndpoint, getProgramId } from '@/lib/solana/network-config';
@@ -32,28 +33,30 @@ interface PrepareTradeRequest {
 }
 
 export async function POST(req: NextRequest) {
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('🔵 [/api/trades/prepare] Trade preparation request received');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
   try {
     const body: PrepareTradeRequest = await req.json();
 
-    console.log('[PREPARE] Raw request body:', body);
+    // Auth check
+    const authHeader = req.headers.get('Authorization');
+    const privyUserId = await verifyAuthHeader(authHeader);
+
+    if (!privyUserId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const supabase = getSupabaseServiceRole();
 
     // Normalize field names and values
     const tradeType = (body.tradeType?.toLowerCase() || '') as 'buy' | 'sell';
     const side = (body.side?.toLowerCase() || '') as 'long' | 'short';
-
-    // Handle different field names for amount
     const rawAmount = body.amount || body.usdcAmount || body.tokenAmount || 0;
 
     // Validate and convert to type-safe units
     let amount: number;
     try {
       if (tradeType === 'buy') {
-        // For buys, amount should be micro-USDC (already atomic)
-        amount = asMicroUsdc(Math.floor(rawAmount)); // Ensure integer micro-USDC
+        // For buys, rawAmount is already micro-USDC from the hook
+        amount = asMicroUsdc(Math.floor(rawAmount)); // Validate as micro-USDC
       } else {
         // For sells, amount should be atomic tokens
         amount = asAtomic(Math.floor(rawAmount)); // Ensure integer atomic tokens
@@ -66,14 +69,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('[PREPARE] Normalized parameters:', {
-      tradeType,
-      side,
-      amount,
-      rawAmount,
-      postId: body.postId,
-      walletAddress: body.walletAddress
-    });
 
     // Validate request
     if (!body.postId || !tradeType || !side || !amount || !body.walletAddress) {
@@ -84,14 +79,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('[PREPARE] ✅ Validation passed');
+
+    // Verify wallet ownership
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, agent_id')
+      .eq('auth_id', privyUserId)
+      .single();
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Get user's Solana address
+    const { data: agent, error: agentError } = await supabase
+      .from('agents')
+      .select('solana_address')
+      .eq('id', user.agent_id)
+      .single();
+
+    if (agentError || !agent || !agent.solana_address) {
+      return NextResponse.json({ error: 'User has no Solana wallet' }, { status: 400 });
+    }
+
+    const userWalletAddress = agent.solana_address;
+
+    if (userWalletAddress !== body.walletAddress) {
+      return NextResponse.json({ error: 'Wallet does not belong to authenticated user' }, { status: 403 });
+    }
 
     // Check rate limit (50 trades per hour)
     try {
       const { success, headers } = await checkRateLimit(body.walletAddress, rateLimiters.trade);
 
       if (!success) {
-        console.log('[/api/trades/prepare] Rate limit exceeded for wallet:', body.walletAddress);
         return NextResponse.json(
           {
             error: 'Rate limit exceeded. You can make up to 50 trades per hour.',
@@ -106,19 +127,60 @@ export async function POST(req: NextRequest) {
       // Continue with request - fail open for availability
     }
 
-    // Get user from Privy token (if you're using auth)
-    // For now, we'll use wallet address to lookup user
-    const supabase = getSupabaseServiceRole();
-
-    // Get pool address if not provided
+    // Get pool address and post creator info
     let poolAddress = body.poolAddress;
-    if (!poolAddress) {
-      const { data: poolDeployment } = await supabase
-        .from('pool_deployments')
-        .select('pool_address')
-        .eq('post_id', body.postId)
-        .single();
+    let postCreatorWallet: string;
 
+    // Batch database queries
+    const [postResult, poolResult, slippageConfig] = await Promise.all([
+      // Fetch post with creator info
+      supabase
+        .from('posts')
+        .select(`
+          id,
+          user_id,
+          users!inner(agent_id, agents!inner(solana_address))
+        `)
+        .eq('id', body.postId)
+        .single(),
+      // Fetch pool deployment (if poolAddress not provided)
+      !body.poolAddress
+        ? supabase
+            .from('pool_deployments')
+            .select('pool_address, status')
+            .eq('post_id', body.postId)
+            .single()
+        : Promise.resolve({ data: null, error: null }),
+      // Fetch slippage config
+      supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'default_slippage_bps')
+        .single()
+    ]);
+
+    // Handle post result
+    const { data: post, error: postError } = postResult;
+    if (postError || !post) {
+      return NextResponse.json(
+        { error: 'Post not found' },
+        { status: 404 }
+      );
+    }
+
+    // Extract creator's Solana wallet address
+    const creatorAgent = (post.users as any)?.agents;
+    if (!creatorAgent || !creatorAgent.solana_address) {
+      return NextResponse.json(
+        { error: 'Post creator has no Solana wallet' },
+        { status: 400 }
+      );
+    }
+    postCreatorWallet = creatorAgent.solana_address;
+
+    // Handle pool address result
+    if (!poolAddress) {
+      const { data: poolDeployment } = poolResult;
       if (!poolDeployment) {
         return NextResponse.json(
           { error: 'Pool not found for this post' },
@@ -126,37 +188,29 @@ export async function POST(req: NextRequest) {
         );
       }
       poolAddress = poolDeployment.pool_address;
+
+      // ✅ RECTIFY STATUS: If pool has status 'pool_created' but trade is being prepared,
+      // update it to 'market_deployed' (market must be deployed if trades are being prepared)
+      if (poolDeployment.status === 'pool_created') {
+        console.warn('[PREPARE] ⚠️  Pool has status "pool_created" but trade is being prepared - updating to "market_deployed"');
+        const { error: statusUpdateError } = await supabase
+          .from('pool_deployments')
+          .update({
+            status: 'market_deployed',
+            market_deployed_at: new Date().toISOString(),
+          })
+          .eq('pool_address', poolAddress);
+
+        if (statusUpdateError) {
+          console.error('[PREPARE] ⚠️  Failed to update pool status:', statusUpdateError);
+          // Don't fail the trade - just log the warning
+        } else {
+          console.log('[PREPARE] ✅ Pool status updated to "market_deployed"');
+        }
+      }
     }
 
-    // Get user ID from wallet address (via agents table)
-    const { data: agent } = await supabase
-      .from('agents')
-      .select('id')
-      .eq('solana_address', body.walletAddress)
-      .single();
-
-    if (!agent) {
-      return NextResponse.json(
-        { error: 'User not found. Please ensure you have a Veritas account.' },
-        { status: 404 }
-      );
-    }
-
-    // Get user record from agent
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('agent_id', agent.id)
-      .single();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found. Please ensure you have a Veritas account.' },
-        { status: 404 }
-      );
-    }
-
-    // Calculate stake skim
+    // Calculate stake skim with UX check
     // Note: amount is already in µUSDC for buys, calculateStakeSkim expects and returns µUSDC
     const stakeSkim = await calculateStakeSkim({
       userId: user.id,
@@ -167,14 +221,53 @@ export async function POST(req: NextRequest) {
       side: side.toUpperCase() as 'LONG' | 'SHORT',
     });
 
-    // Validate sufficient balance
+    // Check if skim is excessive (> 20% of trade)
+    // This indicates underwater positions that should be closed first
+    if (tradeType === 'buy' && stakeSkim > 0) {
+      const skimPercentage = (stakeSkim / amount) * 100;
+
+      if (skimPercentage > 20) {
+        // Import the underwater check function
+        const { checkUnderwaterPositions } = await import('@/lib/stake/check-underwater-positions');
+        const underwaterCheck = await checkUnderwaterPositions(user.id, user.agent_id);
+
+        // Return warning (not error) with helpful information
+        return NextResponse.json({
+          warning: 'excessive_skim',
+          skimAmount: stakeSkim,
+          skimPercentage: Math.round(skimPercentage),
+          tradeAmount: amount,
+          message: `This trade requires ${Math.round(skimPercentage)}% skim (${(stakeSkim / 1_000_000).toFixed(2)} USDC). This is unusually high and indicates you have underwater positions.`,
+          underwaterInfo: {
+            isUnderwater: underwaterCheck.isUnderwater,
+            currentStake: underwaterCheck.currentStake / 1_000_000,
+            totalLocks: underwaterCheck.totalLocks / 1_000_000,
+            deficit: underwaterCheck.deficit / 1_000_000,
+            positions: underwaterCheck.positions.map((p) => ({
+              poolAddress: p.poolAddress,
+              postId: p.postId,
+              side: p.tokenType,
+              lock: p.beliefLock / 1_000_000,
+              balance: p.tokenBalance,
+            })),
+          },
+          recommendation: underwaterCheck.isUnderwater
+            ? 'Close some of your positions to reduce your locks. This will enable normal trading with lower skim.'
+            : 'Consider trading in pools where you already have positions to replace locks instead of adding new ones.',
+          canProceed: true, // User CAN proceed but we warn them
+        }, { status: 202 }); // 202 Accepted (warning, not error)
+      }
+    }
+
+
+    // Prepare connection and accounts for later use
     const connection = new Connection(getRpcEndpoint(), 'confirmed');
     const walletPubkey = new PublicKey(body.walletAddress);
     const usdcMint = getUsdcMint();
+    const userUsdcAccount = await getAssociatedTokenAddress(usdcMint, walletPubkey);
 
+    // Validate sufficient balance (for buys only)
     if (tradeType === 'buy') {
-      const userUsdcAccount = await getAssociatedTokenAddress(usdcMint, walletPubkey);
-
       try {
         const usdcBalance = await connection.getTokenAccountBalance(userUsdcAccount);
         const available = parseInt(usdcBalance.value.amount);
@@ -196,16 +289,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Extract slippage tolerance (already fetched above)
+    const slippageBps = slippageConfig?.data?.value ? parseInt(slippageConfig.data.value) : 100;
+
     // Build transaction (already signed by protocol authority inside buildTradeTransaction)
     const transaction = await buildTradeTransaction({
       connection,
       walletAddress: body.walletAddress,
       postId: body.postId,
       poolAddress: poolAddress,
+      postCreatorWallet,
       side: side,
       tradeType: tradeType,
       amount: amount,
       stakeSkim,
+      slippageBps,
     });
 
     // Serialize and return
@@ -232,6 +330,7 @@ export async function POST(req: NextRequest) {
       // Expected trade outputs
       expectedTokensOut: tradeOutputs.tokensOut,
       expectedUsdcOut: tradeOutputs.usdcOut,
+      slippageBps,
     });
 
   } catch (error) {
@@ -303,17 +402,19 @@ async function calculateTradeOutputs(params: {
 }
 
 /**
- * Build a trade transaction with stake skim
+ * Build a trade transaction with stake skim and slippage protection
  */
 async function buildTradeTransaction(params: {
   connection: Connection;
   walletAddress: string;
   postId: string;
   poolAddress: string;
+  postCreatorWallet: string;
   side: 'long' | 'short';
   tradeType: 'buy' | 'sell';
   amount: number;
   stakeSkim: number;
+  slippageBps: number;
 }): Promise<Transaction> {
   const programId = getProgramId();
   const programPubkey = new PublicKey(programId);
@@ -358,16 +459,48 @@ async function buildTradeTransaction(params: {
   const traderUsdcAccount = await getAssociatedTokenAddress(usdcMint, walletPubkey);
   const traderTokenAccount = await getAssociatedTokenAddress(tokenMintPda, walletPubkey);
 
-  // Fetch custodian to get stake vault address
-  const custodian = await program.account.veritasCustodian.fetch(custodianPda);
-  const stakeVault = custodian.usdcVault;
+  // Get post creator's USDC account
+  const postCreatorPubkey = new PublicKey(params.postCreatorWallet);
+  const postCreatorUsdcAccount = await getAssociatedTokenAddress(usdcMint, postCreatorPubkey);
 
-  // Get pool authority from factory
-  const factory = await program.account.poolFactory.fetch(factoryPda);
-  const expectedAuthority = factory.poolAuthority;
+  // Fetch custodian and factory in parallel
+  const [custodian, factory] = await Promise.all([
+    program.account.veritasCustodian.fetch(custodianPda),
+    program.account.poolFactory.fetch(factoryPda)
+  ]);
+
+  const stakeVault = custodian.usdcVault;
+  const protocolTreasuryPubkey = factory.protocolTreasury;
+  const protocolTreasuryUsdcAccount = await getAssociatedTokenAddress(usdcMint, protocolTreasuryPubkey);
+  console.log('[TRADE] Factory data:', {
+    keys: Object.keys(factory || {}),
+    poolAuthority: factory.poolAuthority,
+    protocolAuthority: (factory as any).protocolAuthority,
+  });
+  const expectedAuthority = factory.poolAuthority || (factory as any).protocolAuthority;
 
   // Load protocol authority keypair
+  console.log('[TRADE] About to load protocol authority...');
   const authorityKeypair = loadProtocolAuthority();
+  console.log('[TRADE] Loaded keypair:', {
+    type: typeof authorityKeypair,
+    keys: Object.keys(authorityKeypair || {}),
+    hasPublicKey: !!(authorityKeypair as any)?.publicKey,
+    publicKeyType: typeof (authorityKeypair as any)?.publicKey,
+  });
+
+  // Debug: verify we got a valid keypair
+  if (!authorityKeypair) {
+    throw new Error('loadProtocolAuthority returned undefined');
+  }
+  if (!authorityKeypair.publicKey) {
+    console.error('[TRADE] authorityKeypair:', authorityKeypair);
+    console.error('[TRADE] authorityKeypair.publicKey:', (authorityKeypair as any).publicKey);
+    throw new Error('authorityKeypair.publicKey is undefined');
+  }
+
+  console.log('[TRADE] Authority public key:', authorityKeypair.publicKey.toBase58());
+  console.log('[TRADE] Expected authority:', expectedAuthority.toBase58());
 
   // Verify the loaded keypair matches the factory's expected authority
   if (!authorityKeypair.publicKey.equals(expectedAuthority)) {
@@ -376,9 +509,26 @@ async function buildTradeTransaction(params: {
     );
   }
 
-  // Amounts are already validated before this function is called
-  // params.amount is micro-USDC for buys, atomic tokens for sells
-  // params.stakeSkim is micro-USDC
+  // Calculate slippage-protected minimum outputs
+  const tradeOutputs = await calculateTradeOutputs({
+    connection: params.connection,
+    poolAddress: params.poolAddress,
+    side: params.side,
+    tradeType: params.tradeType,
+    amount: params.amount,
+    stakeSkim: params.stakeSkim,
+  });
+
+  // Apply slippage tolerance to expected outputs
+  // For BUY: minTokensOut = expectedTokensOut * (1 - slippage%)
+  // For SELL: minUsdcOut = expectedUsdcOut * (1 - slippage%)
+  const minTokensOut = params.tradeType === 'buy'
+    ? Math.floor(tradeOutputs.tokensOut * (10000 - params.slippageBps) / 10000)
+    : 0;
+
+  const minUsdcOut = params.tradeType === 'sell'
+    ? Math.floor(tradeOutputs.usdcOut * (10000 - params.slippageBps) / 10000)
+    : 0;
 
   // Build transaction using Anchor's transaction builder (includes signers)
   const tx = await program.methods
@@ -387,8 +537,8 @@ async function buildTradeTransaction(params: {
       params.tradeType === 'buy' ? { buy: {} } : { sell: {} },
       new anchor.BN(params.amount),
       new anchor.BN(params.stakeSkim),
-      new anchor.BN(0), // minTokensOut - client can calculate slippage
-      new anchor.BN(0)  // minUsdcOut - client can calculate slippage
+      new anchor.BN(minTokensOut), // Slippage-protected minimum tokens for BUY
+      new anchor.BN(minUsdcOut)     // Slippage-protected minimum USDC for SELL
     )
     .accounts({
       pool: poolPubkey,
@@ -403,26 +553,66 @@ async function buildTradeTransaction(params: {
       protocolAuthority: authorityKeypair.publicKey,
       payer: walletPubkey,
       tokenProgram: TOKEN_PROGRAM_ID,
+      postCreatorUsdcAccount: postCreatorUsdcAccount,
+      protocolTreasuryUsdcAccount: protocolTreasuryUsdcAccount,
     })
     .preInstructions([
       // Add compute budget
-      (await import('@solana/web3.js')).ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 })
+      (await import('@solana/web3.js')).ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
     ])
     .transaction();
 
+  // Check all accounts in parallel (batched RPC call)
+  const accountsToCheck = [
+    postCreatorUsdcAccount,
+    protocolTreasuryUsdcAccount,
+    ...(params.tradeType === 'buy' ? [traderTokenAccount] : [])
+  ];
+
+  const accountInfos = await params.connection.getMultipleAccountsInfo(accountsToCheck);
+
+  // Map results back to account types
+  const postCreatorAccountInfo = accountInfos[0];
+  const protocolTreasuryAccountInfo = accountInfos[1];
+  const tokenAccountInfo = params.tradeType === 'buy' ? accountInfos[2] : null;
+
+  // Create missing ATAs
+  let insertIndex = 1; // Start after compute budget instruction
+
   // Create token ATA if it doesn't exist (needed for receiving tokens on buy)
-  if (params.tradeType === 'buy') {
-    const tokenAccountInfo = await params.connection.getAccountInfo(traderTokenAccount);
-    if (!tokenAccountInfo) {
-      const createAtaIx = createAssociatedTokenAccountInstruction(
-        walletPubkey, // payer
-        traderTokenAccount, // ata
-        walletPubkey, // owner
-        tokenMintPda // mint
-      );
-      // Insert ATA creation before trade instruction but after compute budget
-      tx.instructions.splice(1, 0, createAtaIx);
-    }
+  if (params.tradeType === 'buy' && !tokenAccountInfo) {
+    const createAtaIx = createAssociatedTokenAccountInstruction(
+      walletPubkey, // payer
+      traderTokenAccount, // ata
+      walletPubkey, // owner
+      tokenMintPda // mint
+    );
+    tx.instructions.splice(insertIndex, 0, createAtaIx);
+    insertIndex++;
+  }
+
+  // Create post creator's USDC ATA if it doesn't exist (needed for fee distribution)
+  if (!postCreatorAccountInfo) {
+    const createCreatorAtaIx = createAssociatedTokenAccountInstruction(
+      walletPubkey, // payer (trader pays for account creation)
+      postCreatorUsdcAccount, // ata
+      postCreatorPubkey, // owner
+      usdcMint // mint
+    );
+    tx.instructions.splice(insertIndex, 0, createCreatorAtaIx);
+    insertIndex++;
+  }
+
+  // Create protocol treasury's USDC ATA if it doesn't exist (needed for fee distribution)
+  if (!protocolTreasuryAccountInfo) {
+    const createTreasuryAtaIx = createAssociatedTokenAccountInstruction(
+      walletPubkey, // payer (trader pays for account creation)
+      protocolTreasuryUsdcAccount, // ata
+      protocolTreasuryPubkey, // owner
+      usdcMint // mint
+    );
+    tx.instructions.splice(insertIndex, 0, createTreasuryAtaIx);
+    insertIndex++;
   }
 
   // Set recent blockhash and fee payer

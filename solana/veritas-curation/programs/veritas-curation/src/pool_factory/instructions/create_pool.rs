@@ -4,7 +4,7 @@ use crate::content_pool::{
     events::PoolInitializedEvent,
 };
 use crate::pool_factory::{
-    state::{PoolFactory, PoolRegistry, REGISTRY_SEED, MIN_F, MAX_F, MIN_BETA, MAX_BETA},
+    state::{PoolFactory, PoolRegistry, REGISTRY_SEED},
     events::PoolCreatedEvent,
     errors::FactoryError,
 };
@@ -30,6 +30,7 @@ pub fn create_pool(
     pool.content_id = content_id;
     pool.creator = ctx.accounts.creator.key();
     pool.market_deployer = Pubkey::default(); // Not yet deployed
+    pool.post_creator = ctx.accounts.post_creator.key(); // NEW: Post author who receives trading fees
 
     // Mints will be set during deploy_market
     pool.long_mint = Pubkey::default();
@@ -54,18 +55,18 @@ pub fn create_pool(
     // Sqrt prices and lambdas will be set during deploy_market
     pool.sqrt_price_long_x96 = 0;
     pool.sqrt_price_short_x96 = 0;
-    pool.sqrt_lambda_long_x96 = 0;
-    pool.sqrt_lambda_short_x96 = 0;
+    pool.lambda_long_q96 = 0;
+    pool.lambda_short_q96 = 0;
 
     // Settlement parameters
     pool.last_settle_ts = 0;
     pool.min_settle_interval = factory.min_settle_interval;
     pool.current_epoch = 0;
 
-    // Decay parameters
+    // Decay fields (unused but required for account layout)
     let current_time = clock.unix_timestamp;
-    pool.expiration_timestamp = current_time + (crate::content_pool::state::BELIEF_DURATION_HOURS as i64 * 3600);
-    pool.last_decay_update = pool.expiration_timestamp; // Start tracking from expiration
+    pool.expiration_timestamp = 0;  // Unused
+    pool.last_decay_update = current_time;
 
     // Stats
     pool.vault_balance = 0;
@@ -106,6 +107,7 @@ pub fn create_pool(
         pool: pool.key(),
         content_id,
         creator: ctx.accounts.creator.key(),
+        post_creator: pool.post_creator,  // NEW
         f,
         beta_num,
         beta_den,
@@ -122,9 +124,9 @@ pub struct CreatePool<'info> {
     #[account(mut)]
     pub factory: Account<'info, PoolFactory>,
 
-    /// The pool to be created (init_if_needed allows reinitialization of orphaned pools)
+    /// The pool to be created
     #[account(
-        init_if_needed,
+        init,
         payer = payer,
         space = 8 + ContentPool::LEN,
         seeds = [b"content_pool", content_id.as_ref()],
@@ -132,9 +134,9 @@ pub struct CreatePool<'info> {
     )]
     pub pool: Account<'info, ContentPool>,
 
-    /// Registry entry for this pool (init_if_needed allows reinitialization of orphaned pools)
+    /// Registry entry for this pool
     #[account(
-        init_if_needed,
+        init,
         payer = payer,
         space = 8 + PoolRegistry::LEN,
         seeds = [REGISTRY_SEED, content_id.as_ref()],
@@ -145,13 +147,16 @@ pub struct CreatePool<'info> {
     /// VeritasCustodian (for stake vault reference)
     pub custodian: Account<'info, VeritasCustodian>,
 
-    /// Pool creator
+    /// Pool creator (who initiates pool creation)
     pub creator: Signer<'info>,
+
+    /// CHECK: Post creator (content author who receives fees) - does NOT sign
+    /// Passed from API, validated against post ownership in backend
+    pub post_creator: UncheckedAccount<'info>,
 
     /// Payer for account creation
     #[account(mut)]
     pub payer: Signer<'info>,
-
 
     /// System program for account creation
     pub system_program: Program<'info, System>,

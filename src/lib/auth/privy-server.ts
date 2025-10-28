@@ -22,7 +22,6 @@ export async function verifyPrivyToken(token: string): Promise<string | null> {
         process.env.NEXT_PUBLIC_MOCK_WALLET_ADDRESS ||
         'Gv9DB9frBw9XgVeThDvCALwHuvnYDopZ12Jt4rquqBhi';
       const mockUserId = 'mock-user-' + mockWalletAddress;
-      console.log('[verifyPrivyToken] 🔓 Mock JWT accepted, returning mock user ID:', mockUserId);
       return mockUserId;
     }
 
@@ -37,7 +36,6 @@ export async function verifyPrivyToken(token: string): Promise<string | null> {
     // Try JWKS verification first (faster)
     try {
       const JWKS_URL = `https://auth.privy.io/api/v1/apps/${PRIVY_APP_ID}/jwks.json`;
-      console.log('[verifyPrivyToken] Fetching JWKS from:', JWKS_URL);
 
       const JWKS = createRemoteJWKSet(new URL(JWKS_URL), {
         timeoutDuration: 5000, // 5 second timeout
@@ -56,14 +54,12 @@ export async function verifyPrivyToken(token: string): Promise<string | null> {
         return null;
       }
 
-      console.log('[verifyPrivyToken] ✅ Token verified via JWKS, user ID:', userId);
       return userId;
     } catch (jwksError: any) {
       console.error('[verifyPrivyToken] JWKS verification failed:', jwksError.message);
 
       // Fallback: Try Privy API verification with app secret
       if (PRIVY_APP_SECRET) {
-        console.log('[verifyPrivyToken] Trying fallback verification via Privy API...');
         try {
           const response = await fetch('https://auth.privy.io/api/v1/verification/verify', {
             method: 'POST',
@@ -82,7 +78,6 @@ export async function verifyPrivyToken(token: string): Promise<string | null> {
           }
 
           const data = await response.json();
-          console.log('[verifyPrivyToken] ✅ Token verified via Privy API, user ID:', data.userId);
           return data.userId;
         } catch (apiError: any) {
           console.error('[verifyPrivyToken] Privy API verification error:', apiError.message);

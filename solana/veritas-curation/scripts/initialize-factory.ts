@@ -17,6 +17,7 @@ import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { VeritasCuration } from "../target/types/veritas_curation";
 import fs from "fs";
 import path from "path";
+import { loadProtocolAuthority } from "./load-authority";
 
 async function main() {
   console.log("🚀 Initializing PoolFactory...\n");
@@ -60,10 +61,12 @@ async function main() {
   try {
     const factoryAccount = await program.account.poolFactory.fetch(factoryPda);
     console.log("⚠️  Factory already initialized!");
-    console.log("   Factory Authority:", factoryAccount.factoryAuthority.toString());
-    console.log("   Pool Authority:", factoryAccount.poolAuthority.toString());
+    console.log("   Protocol Authority:", factoryAccount.protocolAuthority.toString());
+    console.log("   Protocol Treasury:", factoryAccount.protocolTreasury.toString());
     console.log("   Custodian:", factoryAccount.custodian.toString());
     console.log("   Total Pools:", factoryAccount.totalPools.toString());
+    console.log("   Total Fee:", `${factoryAccount.totalFeeBps} bps`);
+    console.log("   Creator Split:", `${factoryAccount.creatorSplitBps} bps`);
     console.log("   Default F:", factoryAccount.defaultF);
     console.log("   Default β:", `${factoryAccount.defaultBetaNum}/${factoryAccount.defaultBetaDen}`);
     console.log("");
@@ -77,19 +80,33 @@ async function main() {
   // Initialize factory
   console.log("⚙️  Sending initialize transaction...");
 
-  // For local/devnet: use same wallet for both authorities
-  // For mainnet: would use different keys (cold wallet vs hot wallet)
-  const factoryAuthority = wallet.publicKey;
-  const poolAuthority = wallet.publicKey;
+  // Load protocol authority from environment variable
+  const protocolAuthorityKeypair = loadProtocolAuthority();
+  const protocolAuthority = protocolAuthorityKeypair.publicKey;
+  const protocolTreasury = protocolAuthority; // Use same for treasury
+
+  // Fee configuration: 3% total fee (300 bps), 50% to creator (5000 bps of 10000)
+  const totalFeeBps = 300;
+  const creatorSplitBps = 5000;
+
+  // Get program data PDA
+  const [programDataAddress] = PublicKey.findProgramAddressSync(
+    [program.programId.toBuffer()],
+    new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111")
+  );
 
   try {
     const tx = await program.methods
       .initializeFactory(
-        factoryAuthority,
-        poolAuthority,
-        custodianPda
+        protocolAuthority,
+        custodianPda,
+        totalFeeBps,
+        creatorSplitBps,
+        protocolTreasury
       )
       .accounts({
+        upgradeAuthority: wallet.publicKey,
+        programData: programDataAddress,
         payer: wallet.publicKey,
       })
       .rpc();
@@ -104,10 +121,12 @@ async function main() {
     console.log("");
     console.log("📊 Factory Details:");
     console.log("   Address:", factoryPda.toString());
-    console.log("   Factory Authority:", factoryAccount.factoryAuthority.toString());
-    console.log("   Pool Authority:", factoryAccount.poolAuthority.toString());
+    console.log("   Protocol Authority:", factoryAccount.protocolAuthority.toString());
+    console.log("   Protocol Treasury:", factoryAccount.protocolTreasury.toString());
     console.log("   Custodian:", factoryAccount.custodian.toString());
     console.log("   Total Pools:", factoryAccount.totalPools.toString());
+    console.log("   Total Fee:", `${factoryAccount.totalFeeBps} bps`);
+    console.log("   Creator Split:", `${factoryAccount.creatorSplitBps} bps`);
     console.log("");
     console.log("📐 Default ICBS Parameters:");
     console.log("   F (growth exponent):", factoryAccount.defaultF);
@@ -126,9 +145,11 @@ async function main() {
 
     deploymentData.factory = {
       address: factoryPda.toString(),
-      factoryAuthority: factoryAccount.factoryAuthority.toString(),
-      poolAuthority: factoryAccount.poolAuthority.toString(),
+      protocolAuthority: factoryAccount.protocolAuthority.toString(),
+      protocolTreasury: factoryAccount.protocolTreasury.toString(),
       custodian: factoryAccount.custodian.toString(),
+      totalFeeBps: factoryAccount.totalFeeBps,
+      creatorSplitBps: factoryAccount.creatorSplitBps,
       defaultF: factoryAccount.defaultF,
       defaultBetaNum: factoryAccount.defaultBetaNum,
       defaultBetaDen: factoryAccount.defaultBetaDen,

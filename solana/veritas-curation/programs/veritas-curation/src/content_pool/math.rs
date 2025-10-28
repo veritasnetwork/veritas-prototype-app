@@ -323,3 +323,105 @@ mod tests {
         assert!((result_f64 - 1.414).abs() < 0.001);
     }
 }
+
+/// Round to nearest (banker's rounding)
+/// Used to convert virtual→display tokens without cumulative bias
+#[inline]
+pub fn round_to_nearest(value: u128, divisor: u128) -> u64 {
+    let quotient = value / divisor;
+    let remainder = value % divisor;
+    let half = divisor / 2;
+
+    if remainder > half || (remainder == half && quotient % 2 == 1) {
+        (quotient + 1) as u64
+    } else {
+        quotient as u64
+    }
+}
+
+/// Ceiling division: ⌈a/b⌉
+/// Used to prevent virtual supplies from rounding to zero
+#[inline]
+pub fn ceil_div(a: u128, b: u128) -> u128 {
+    if b == 0 {
+        return 0;
+    }
+    (a + b - 1) / b
+}
+
+/// Helper: compute bit length of u128 (position of highest set bit)
+#[inline]
+fn bitlen_u128(x: u128) -> u32 {
+    if x == 0 { 0 } else { 128 - x.leading_zeros() }
+}
+
+/// Renormalize sigma scales to keep both sigma and virtual norm in safe ranges
+/// Power-of-2 shifts preserve exact price ratios (gauge transformation)
+/// O(1) complexity - no loops, no sqrt!
+#[inline]
+pub fn renormalize_scales(
+    sigma_long: &mut u128,
+    sigma_short: &mut u128,
+    s_long_display: u64,
+    s_short_display: u64,
+) {
+    use crate::content_pool::state::{SIGMA_MIN, SIGMA_MAX, VIRTUAL_NORM_MIN, VIRTUAL_NORM_MAX, Q64};
+
+    // Precomputed squared bounds for O(1) norm check
+    const VIRTUAL_NORM_MIN_SQ: u128 = (VIRTUAL_NORM_MIN as u128) * (VIRTUAL_NORM_MIN as u128);
+    const VIRTUAL_NORM_MAX_SQ: u128 = (VIRTUAL_NORM_MAX as u128) * (VIRTUAL_NORM_MAX as u128);
+
+    // First enforce sigma bounds [2^48, 2^96] - power-of-two clamp
+    let max_sigma = (*sigma_long).max(*sigma_short);
+    if max_sigma > SIGMA_MAX {
+        let excess_bits = bitlen_u128(max_sigma) - bitlen_u128(SIGMA_MAX);
+        *sigma_long >>= excess_bits;
+        *sigma_short >>= excess_bits;
+    }
+
+    let min_sigma = (*sigma_long).min(*sigma_short);
+    if min_sigma < SIGMA_MIN {
+        let deficit_bits = bitlen_u128(SIGMA_MIN) - bitlen_u128(min_sigma);
+        *sigma_long <<= deficit_bits;
+        *sigma_short <<= deficit_bits;
+    }
+
+    // Compute virtual supplies with ceil-division ONCE
+    let s_long_virtual = if s_long_display > 0 {
+        ceil_div(s_long_display as u128 * Q64, *sigma_long).max(1)
+    } else {
+        0
+    };
+
+    let s_short_virtual = if s_short_display > 0 {
+        ceil_div(s_short_display as u128 * Q64, *sigma_short).max(1)
+    } else {
+        0
+    };
+
+    // Compute norm_sq (NO sqrt needed!)
+    let norm_sq = s_long_virtual
+        .saturating_mul(s_long_virtual)
+        .saturating_add(s_short_virtual.saturating_mul(s_short_virtual));
+
+    if norm_sq == 0 {
+        return; // Both supplies are zero, nothing to normalize
+    }
+
+    // ONE-SHOT adjustment based on squared bounds
+    if norm_sq < VIRTUAL_NORM_MIN_SQ {
+        // Need norm' >= MIN ⇒ multiply norm by 2^k ⇒ norm_sq by 2^(2k)
+        // k = ceil((log2(MIN_SQ) - log2(norm_sq)) / 2)
+        let need_bits = (bitlen_u128(VIRTUAL_NORM_MIN_SQ) as i32) - (bitlen_u128(norm_sq) as i32);
+        let k = ((need_bits + 1) / 2).max(0) as u32;
+        *sigma_long >>= k;  // Decreasing σ increases virtuals
+        *sigma_short >>= k;
+    } else if norm_sq > VIRTUAL_NORM_MAX_SQ {
+        // Need norm' <= MAX ⇒ divide norm by 2^k ⇒ norm_sq by 2^(2k)
+        let need_bits = (bitlen_u128(norm_sq) as i32) - (bitlen_u128(VIRTUAL_NORM_MAX_SQ) as i32);
+        let k = ((need_bits + 1) / 2).max(0) as u32;
+        *sigma_long <<= k;  // Increasing σ reduces virtuals
+        *sigma_short <<= k;
+    }
+    // Within bounds - no adjustment needed
+}

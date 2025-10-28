@@ -7,12 +7,14 @@ import { ChartDataPoint } from '@/types/api';
 interface RelevanceHistoryChartProps {
   actualRelevance: ChartDataPoint[]; // BD relevance scores (ground truth)
   impliedRelevance: ChartDataPoint[]; // Market-implied relevance (predictions)
+  rebaseEvents?: ChartDataPoint[]; // Settlement/rebase markers
   height?: number;
 }
 
 export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
   actualRelevance,
   impliedRelevance,
+  rebaseEvents = [],
   height = 400,
 }: RelevanceHistoryChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -39,6 +41,18 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
       },
       rightPriceScale: {
         borderColor: 'transparent',
+        formatter: (price: number) => {
+          // Format as percentage (0-1 range becomes 0-100%)
+          if (price < 0 || !Number.isFinite(price)) return '0%';
+          return `${(price * 100).toFixed(1)}%`;
+        },
+      },
+      localization: {
+        priceFormatter: (price: number) => {
+          // Format as percentage (0-1 range becomes 0-100%)
+          if (price < 0 || !Number.isFinite(price)) return '0%';
+          return `${(price * 100).toFixed(1)}%`;
+        },
       },
       crosshair: {
         vertLine: {
@@ -83,6 +97,16 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
       title: 'Actual Relevance',
     });
 
+    // Add rebase markers (vertical lines at settlement times)
+    const rebaseMarkerSeries = chart.addLineSeries({
+      color: '#F0EAD6',  // Cream color for rebases
+      lineWidth: 2,
+      lineStyle: 0,  // Solid line
+      priceScaleId: 'right',
+      title: 'Rebases',
+      visible: false, // Don't show in legend, just use for markers
+    });
+
     // Deduplicate and sort data by time (lightweight-charts requires strictly ascending timestamps)
     const deduplicateAndSort = (data: ChartDataPoint[]): ChartDataPoint[] => {
       // Group by timestamp and take the last value for each timestamp
@@ -105,6 +129,22 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
     if (actualRelevance.length > 0) {
       const cleanedActual = deduplicateAndSort(actualRelevance);
       actualSeries.setData(cleanedActual);
+    }
+
+    // Add rebase event markers
+    if (rebaseEvents.length > 0) {
+      rebaseEvents.forEach(event => {
+        actualSeries.setMarkers([
+          ...actualSeries.markers?.() || [],
+          {
+            time: event.time,
+            position: 'inBar',
+            color: '#F0EAD6',
+            shape: 'circle',
+            text: 'R',
+          },
+        ]);
+      });
     }
 
     // Fit content if we have any data
@@ -131,7 +171,7 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
         chartRef.current = null;
       }
     };
-  }, [height, actualRelevance, impliedRelevance]);
+  }, [height, actualRelevance, impliedRelevance, rebaseEvents]);
 
   return (
     <div

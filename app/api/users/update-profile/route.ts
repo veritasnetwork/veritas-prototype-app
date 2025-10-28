@@ -23,7 +23,6 @@ export async function POST(req: NextRequest) {
       const { success, headers } = await checkRateLimit(privyUserId, rateLimiters.profileUpdate);
 
       if (!success) {
-        console.log('[/api/users/update-profile] Rate limit exceeded for user:', privyUserId);
         return NextResponse.json(
           {
             error: 'Rate limit exceeded. You can update your profile up to 50 times per hour.',

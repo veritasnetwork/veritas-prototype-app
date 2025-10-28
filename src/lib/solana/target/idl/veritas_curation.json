@@ -1,5 +1,5 @@
 {
-  "address": "EXJvhoCsYc4tntxffGJhCyTzv6e2EDp9gqiFK17qhC4v",
+  "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2",
   "metadata": {
     "name": "veritas_curation",
     "version": "0.1.0",
@@ -255,7 +255,7 @@
         {
           "name": "pool",
           "docs": [
-            "The pool to be created (init_if_needed allows reinitialization of orphaned pools)"
+            "The pool to be created"
           ],
           "writable": true,
           "pda": {
@@ -287,7 +287,7 @@
         {
           "name": "registry",
           "docs": [
-            "Registry entry for this pool (init_if_needed allows reinitialization of orphaned pools)"
+            "Registry entry for this pool"
           ],
           "writable": true,
           "pda": {
@@ -321,9 +321,15 @@
         {
           "name": "creator",
           "docs": [
-            "Pool creator"
+            "Pool creator (who initiates pool creation)"
           ],
           "signer": true
+        },
+        {
+          "name": "post_creator",
+          "docs": [
+            "Passed from API, validated against post ownership in backend"
+          ]
         },
         {
           "name": "payer",
@@ -686,10 +692,6 @@
       ],
       "args": [
         {
-          "name": "owner",
-          "type": "pubkey"
-        },
-        {
           "name": "protocol_authority",
           "type": "pubkey"
         }
@@ -729,6 +731,17 @@
           }
         },
         {
+          "name": "upgrade_authority",
+          "signer": true
+        },
+        {
+          "name": "program",
+          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+        },
+        {
+          "name": "program_data"
+        },
+        {
           "name": "payer",
           "writable": true,
           "signer": true
@@ -740,15 +753,23 @@
       ],
       "args": [
         {
-          "name": "factory_authority",
-          "type": "pubkey"
-        },
-        {
-          "name": "pool_authority",
+          "name": "protocol_authority",
           "type": "pubkey"
         },
         {
           "name": "custodian",
+          "type": "pubkey"
+        },
+        {
+          "name": "total_fee_bps",
+          "type": "u16"
+        },
+        {
+          "name": "creator_split_bps",
+          "type": "u16"
+        },
+        {
+          "name": "protocol_treasury",
           "type": "pubkey"
         }
       ]
@@ -809,6 +830,12 @@
         {
           "name": "settler",
           "signer": true
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "Vault token account (needed for λ derivation to update prices)"
+          ]
         }
       ],
       "args": [
@@ -854,8 +881,15 @@
           }
         },
         {
-          "name": "authority",
+          "name": "upgrade_authority",
           "signer": true
+        },
+        {
+          "name": "program",
+          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+        },
+        {
+          "name": "program_data"
         }
       ],
       "args": [
@@ -1038,6 +1072,14 @@
           "signer": true
         },
         {
+          "name": "post_creator_usdc_account",
+          "writable": true
+        },
+        {
+          "name": "protocol_treasury_usdc_account",
+          "writable": true
+        },
+        {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
@@ -1086,6 +1128,60 @@
       ]
     },
     {
+      "name": "update_custodian_protocol_authority",
+      "discriminator": [
+        170,
+        202,
+        254,
+        232,
+        156,
+        18,
+        187,
+        113
+      ],
+      "accounts": [
+        {
+          "name": "custodian",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  117,
+                  115,
+                  116,
+                  111,
+                  100,
+                  105,
+                  97,
+                  110
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "upgrade_authority",
+          "signer": true
+        },
+        {
+          "name": "program",
+          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+        },
+        {
+          "name": "program_data"
+        }
+      ],
+      "args": [
+        {
+          "name": "new_protocol_authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
       "name": "update_defaults",
       "discriminator": [
         117,
@@ -1119,8 +1215,15 @@
           }
         },
         {
-          "name": "authority",
+          "name": "upgrade_authority",
           "signer": true
+        },
+        {
+          "name": "program",
+          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+        },
+        {
+          "name": "program_data"
         }
       ],
       "args": [
@@ -1163,16 +1266,16 @@
       ]
     },
     {
-      "name": "update_factory_authority",
+      "name": "update_fee_config",
       "discriminator": [
-        149,
-        240,
-        149,
-        218,
-        216,
-        125,
-        187,
-        110
+        104,
+        184,
+        103,
+        242,
+        88,
+        151,
+        107,
+        20
       ],
       "accounts": [
         {
@@ -1196,106 +1299,36 @@
           }
         },
         {
-          "name": "authority",
+          "name": "upgrade_authority",
           "signer": true
+        },
+        {
+          "name": "program",
+          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+        },
+        {
+          "name": "program_data"
+        },
+        {
+          "name": "new_protocol_treasury"
         }
       ],
       "args": [
         {
-          "name": "new_authority",
-          "type": "pubkey"
-        }
-      ]
-    },
-    {
-      "name": "update_owner",
-      "discriminator": [
-        164,
-        188,
-        124,
-        254,
-        132,
-        26,
-        198,
-        178
-      ],
-      "accounts": [
-        {
-          "name": "custodian",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  117,
-                  115,
-                  116,
-                  111,
-                  100,
-                  105,
-                  97,
-                  110
-                ]
-              }
-            ]
+          "name": "new_total_fee_bps",
+          "type": {
+            "option": "u16"
           }
         },
         {
-          "name": "authority",
-          "signer": true
-        }
-      ],
-      "args": [
-        {
-          "name": "new_owner",
-          "type": "pubkey"
-        }
-      ]
-    },
-    {
-      "name": "update_pool_authority",
-      "discriminator": [
-        160,
-        162,
-        113,
-        9,
-        99,
-        187,
-        23,
-        239
-      ],
-      "accounts": [
-        {
-          "name": "factory",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  97,
-                  99,
-                  116,
-                  111,
-                  114,
-                  121
-                ]
-              }
-            ]
+          "name": "new_creator_split_bps",
+          "type": {
+            "option": "u16"
           }
         },
         {
-          "name": "authority",
-          "signer": true
-        }
-      ],
-      "args": [
-        {
-          "name": "new_authority",
-          "type": "pubkey"
+          "name": "update_treasury",
+          "type": "bool"
         }
       ]
     },
@@ -1313,35 +1346,40 @@
       ],
       "accounts": [
         {
-          "name": "custodian",
+          "name": "factory",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
+                  102,
+                  97,
                   99,
-                  117,
-                  115,
                   116,
                   111,
-                  100,
-                  105,
-                  97,
-                  110
+                  114,
+                  121
                 ]
               }
             ]
           }
         },
         {
-          "name": "authority",
+          "name": "upgrade_authority",
           "signer": true
+        },
+        {
+          "name": "program",
+          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+        },
+        {
+          "name": "program_data"
         }
       ],
       "args": [
         {
-          "name": "new_protocol_authority",
+          "name": "new_authority",
           "type": "pubkey"
         }
       ]
@@ -1466,19 +1504,6 @@
   ],
   "events": [
     {
-      "name": "DecayAppliedEvent",
-      "discriminator": [
-        32,
-        12,
-        233,
-        113,
-        233,
-        94,
-        42,
-        216
-      ]
-    },
-    {
       "name": "DefaultsUpdatedEvent",
       "discriminator": [
         182,
@@ -1505,19 +1530,6 @@
       ]
     },
     {
-      "name": "FactoryAuthorityUpdatedEvent",
-      "discriminator": [
-        128,
-        144,
-        61,
-        121,
-        30,
-        178,
-        211,
-        177
-      ]
-    },
-    {
       "name": "FactoryInitializedEvent",
       "discriminator": [
         242,
@@ -1528,6 +1540,19 @@
         226,
         221,
         64
+      ]
+    },
+    {
+      "name": "FeeConfigUpdatedEvent",
+      "discriminator": [
+        139,
+        188,
+        235,
+        116,
+        222,
+        55,
+        95,
+        201
       ]
     },
     {
@@ -1554,19 +1579,6 @@
         115,
         66,
         175
-      ]
-    },
-    {
-      "name": "PoolAuthorityUpdatedEvent",
-      "discriminator": [
-        213,
-        47,
-        117,
-        236,
-        89,
-        192,
-        242,
-        67
       ]
     },
     {
@@ -1609,6 +1621,19 @@
       ]
     },
     {
+      "name": "ProtocolAuthorityUpdatedEvent",
+      "discriminator": [
+        242,
+        5,
+        28,
+        106,
+        123,
+        134,
+        225,
+        75
+      ]
+    },
+    {
       "name": "SettlementEvent",
       "discriminator": [
         48,
@@ -1632,6 +1657,19 @@
         230,
         97,
         238
+      ]
+    },
+    {
+      "name": "TradeFeeEvent",
+      "discriminator": [
+        76,
+        150,
+        37,
+        106,
+        19,
+        136,
+        145,
+        232
       ]
     },
     {
@@ -1703,6 +1741,31 @@
       "code": 13033,
       "name": "InvalidSettleInterval",
       "msg": "Invalid settle interval"
+    },
+    {
+      "code": 13040,
+      "name": "InvalidUpgradeAuthority",
+      "msg": "Invalid upgrade authority"
+    },
+    {
+      "code": 13041,
+      "name": "InvalidProgramData",
+      "msg": "Invalid program data"
+    },
+    {
+      "code": 13042,
+      "name": "InvalidFeeConfiguration",
+      "msg": "Invalid fee configuration"
+    },
+    {
+      "code": 13043,
+      "name": "InvalidCreatorSplit",
+      "msg": "Invalid creator split - must be <= 10000 basis points"
+    },
+    {
+      "code": 13044,
+      "name": "FeeCalculationOverflow",
+      "msg": "Fee calculation overflow"
     }
   ],
   "types": [
@@ -1710,7 +1773,7 @@
       "name": "ContentPool",
       "docs": [
         "Primary account structure for ContentPool",
-        "Total size: 432 bytes + 8 discriminator = 440 bytes"
+        "Total size: 496 bytes + 8 discriminator = 504 bytes"
       ],
       "type": {
         "kind": "struct",
@@ -1725,7 +1788,7 @@
           {
             "name": "creator",
             "docs": [
-              "Pool creator (32 bytes)"
+              "Pool creator (who called create_pool) (32 bytes)"
             ],
             "type": "pubkey"
           },
@@ -1733,6 +1796,13 @@
             "name": "market_deployer",
             "docs": [
               "First trader who deployed market (32 bytes)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "post_creator",
+            "docs": [
+              "Post/content author (receives trading fees) (32 bytes) - NEW"
             ],
             "type": "pubkey"
           },
@@ -1800,18 +1870,18 @@
           {
             "name": "s_long",
             "docs": [
-              "LONG token supply in DISPLAY units (e.g., 25 = 0.000025 tokens)",
-              "For SPL minting/burning, multiply by 1,000,000 to get atomic units",
-              "Database stores atomic units; on-chain stores display units"
+              "LONG token supply in WHOLE TOKENS (e.g., 25 = 25 tokens)",
+              "For SPL minting/burning, multiply by 1,000,000 to get atomic SPL units",
+              "Database stores whole tokens; on-chain stores whole tokens"
             ],
             "type": "u64"
           },
           {
             "name": "s_short",
             "docs": [
-              "SHORT token supply in DISPLAY units (e.g., 25 = 0.000025 tokens)",
-              "For SPL minting/burning, multiply by 1,000,000 to get atomic units",
-              "Database stores atomic units; on-chain stores display units"
+              "SHORT token supply in WHOLE TOKENS (e.g., 25 = 25 tokens)",
+              "For SPL minting/burning, multiply by 1,000,000 to get atomic SPL units",
+              "Database stores whole tokens; on-chain stores whole tokens"
             ],
             "type": "u64"
           },
@@ -1844,16 +1914,32 @@
             "type": "u128"
           },
           {
-            "name": "sqrt_lambda_long_x96",
+            "name": "s_scale_long_q64",
             "docs": [
-              "sqrt(λ_L) * 2^96"
+              "σ_L in Q64.64 - virtualizes LONG token supply"
             ],
             "type": "u128"
           },
           {
-            "name": "sqrt_lambda_short_x96",
+            "name": "s_scale_short_q64",
             "docs": [
-              "sqrt(λ_S) * 2^96"
+              "σ_S in Q64.64 - virtualizes SHORT token supply"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "lambda_long_q96",
+            "docs": [
+              "DEPRECATED: Telemetry only. Lambda is now derived from vault + sigma scales.",
+              "λ_L in Q96 format (NOT sqrt!)"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "lambda_short_q96",
+            "docs": [
+              "DEPRECATED: Telemetry only. Lambda is now derived from vault + sigma scales.",
+              "λ_S in Q96 format (NOT sqrt!)"
             ],
             "type": "u128"
           },
@@ -2045,45 +2131,6 @@
       }
     },
     {
-      "name": "DecayAppliedEvent",
-      "docs": [
-        "Event emitted when decay is applied on-chain"
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "days_applied",
-            "type": "i64"
-          },
-          {
-            "name": "r_long_before",
-            "type": "u64"
-          },
-          {
-            "name": "r_short_before",
-            "type": "u64"
-          },
-          {
-            "name": "r_long_after",
-            "type": "u64"
-          },
-          {
-            "name": "r_short_after",
-            "type": "u64"
-          },
-          {
-            "name": "timestamp",
-            "type": "i64"
-          }
-        ]
-      }
-    },
-    {
       "name": "DefaultsUpdatedEvent",
       "type": {
         "kind": "struct",
@@ -2144,7 +2191,7 @@
       }
     },
     {
-      "name": "FactoryAuthorityUpdatedEvent",
+      "name": "FactoryInitializedEvent",
       "type": {
         "kind": "struct",
         "fields": [
@@ -2153,11 +2200,23 @@
             "type": "pubkey"
           },
           {
-            "name": "old_authority",
+            "name": "protocol_authority",
             "type": "pubkey"
           },
           {
-            "name": "new_authority",
+            "name": "custodian",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "creator_split_bps",
+            "type": "u16"
+          },
+          {
+            "name": "protocol_treasury",
             "type": "pubkey"
           },
           {
@@ -2168,7 +2227,7 @@
       }
     },
     {
-      "name": "FactoryInitializedEvent",
+      "name": "FeeConfigUpdatedEvent",
       "type": {
         "kind": "struct",
         "fields": [
@@ -2177,15 +2236,19 @@
             "type": "pubkey"
           },
           {
-            "name": "factory_authority",
+            "name": "total_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "creator_split_bps",
+            "type": "u16"
+          },
+          {
+            "name": "protocol_treasury",
             "type": "pubkey"
           },
           {
-            "name": "pool_authority",
-            "type": "pubkey"
-          },
-          {
-            "name": "custodian",
+            "name": "updated_by",
             "type": "pubkey"
           },
           {
@@ -2284,30 +2347,6 @@
       }
     },
     {
-      "name": "PoolAuthorityUpdatedEvent",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "factory",
-            "type": "pubkey"
-          },
-          {
-            "name": "old_authority",
-            "type": "pubkey"
-          },
-          {
-            "name": "new_authority",
-            "type": "pubkey"
-          },
-          {
-            "name": "timestamp",
-            "type": "i64"
-          }
-        ]
-      }
-    },
-    {
       "name": "PoolClosedEvent",
       "type": {
         "kind": "struct",
@@ -2349,6 +2388,10 @@
             "type": "pubkey"
           },
           {
+            "name": "post_creator",
+            "type": "pubkey"
+          },
+          {
             "name": "f",
             "type": "u16"
           },
@@ -2377,16 +2420,33 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "factory_authority",
-            "type": "pubkey"
-          },
-          {
-            "name": "pool_authority",
+            "name": "protocol_authority",
             "type": "pubkey"
           },
           {
             "name": "total_pools",
             "type": "u64"
+          },
+          {
+            "name": "total_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "creator_split_bps",
+            "type": "u16"
+          },
+          {
+            "name": "protocol_treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "_padding_fee",
+            "type": {
+              "array": [
+                "u8",
+                2
+              ]
+            }
           },
           {
             "name": "default_f",
@@ -2488,6 +2548,30 @@
       }
     },
     {
+      "name": "ProtocolAuthorityUpdatedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "factory",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "SettlementEvent",
       "type": {
         "kind": "struct",
@@ -2534,6 +2618,22 @@
           },
           {
             "name": "r_short_after",
+            "type": "u128"
+          },
+          {
+            "name": "s_scale_long_before",
+            "type": "u128"
+          },
+          {
+            "name": "s_scale_long_after",
+            "type": "u128"
+          },
+          {
+            "name": "s_scale_short_before",
+            "type": "u128"
+          },
+          {
+            "name": "s_scale_short_after",
             "type": "u128"
           },
           {
@@ -2657,6 +2757,62 @@
       }
     },
     {
+      "name": "TradeFeeEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "trader",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": {
+              "defined": {
+                "name": "TokenSide"
+              }
+            }
+          },
+          {
+            "name": "trade_type",
+            "type": {
+              "defined": {
+                "name": "TradeType"
+              }
+            }
+          },
+          {
+            "name": "total_fee_micro_usdc",
+            "type": "u64"
+          },
+          {
+            "name": "creator_fee_micro_usdc",
+            "type": "u64"
+          },
+          {
+            "name": "protocol_fee_micro_usdc",
+            "type": "u64"
+          },
+          {
+            "name": "post_creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "protocol_treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "TradeType",
       "docs": [
         "Trade type"
@@ -2678,10 +2834,6 @@
       "type": {
         "kind": "struct",
         "fields": [
-          {
-            "name": "owner",
-            "type": "pubkey"
-          },
           {
             "name": "protocol_authority",
             "type": "pubkey"

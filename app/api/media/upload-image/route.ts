@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
       const { success, headers } = await checkRateLimit(privyUserId, rateLimiters.mediaUpload);
 
       if (!success) {
-        console.log('[/api/media/upload-image] Rate limit exceeded for user:', privyUserId);
         return NextResponse.json(
           {
             error: 'Rate limit exceeded. You can upload up to 20 files per hour.',
@@ -64,7 +63,6 @@ export async function POST(request: NextRequest) {
 
     if (userError || !userData) {
       console.error('User lookup error:', userError);
-      console.log('Looking for user with auth_provider=privy and auth_id=', privyUserId);
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }

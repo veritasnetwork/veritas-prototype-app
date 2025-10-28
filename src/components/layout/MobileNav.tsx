@@ -26,7 +26,7 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         <Link
           href="/feed"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
-            isActive('/feed') ? 'text-blue-400' : 'text-gray-400'
+            isActive('/feed') ? 'text-[#B9D9EB]' : 'text-gray-400'
           }`}
         >
           <svg
@@ -49,7 +49,7 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         <Link
           href="/explore"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
-            isActive('/explore') ? 'text-blue-400' : 'text-gray-400'
+            isActive('/explore') ? 'text-[#B9D9EB]' : 'text-gray-400'
           }`}
         >
           <svg
@@ -67,10 +67,10 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         {/* Create Post */}
         <button
           onClick={onCreatePost}
-          className="flex flex-col items-center justify-center w-full h-full text-blue-400 relative"
+          className="flex flex-col items-center justify-center w-full h-full text-[#B9D9EB] relative"
         >
-          {/* Blue circle background */}
-          <div className="absolute top-1/2 -translate-y-1/2 w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+          {/* Light blue circle background */}
+          <div className="absolute top-1/2 -translate-y-1/2 w-12 h-12 bg-[#B9D9EB] rounded-full flex items-center justify-center">
             <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
@@ -82,7 +82,7 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
           <Link
             href={`/profile/${user.username}`}
             className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
-              isActive('/profile') ? 'text-blue-400' : 'text-gray-400'
+              isActive('/profile') ? 'text-[#B9D9EB]' : 'text-gray-400'
             }`}
           >
             <svg

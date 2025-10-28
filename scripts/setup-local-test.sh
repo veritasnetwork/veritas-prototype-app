@@ -53,17 +53,12 @@ rm -rf ~/.cache/solana 2>/dev/null || true
 find "$ROOT_DIR/solana/veritas-curation" -name "._*" -delete 2>/dev/null || true
 find ~/.local/share/solana/install -name "._*" -delete 2>/dev/null || true
 
-# Clean Anchor build artifacts (preserve keypair to avoid ID mismatch)
-echo -e "${YELLOW}🗑️  Cleaning Anchor build cache...${NC}"
-if [ -f "$ROOT_DIR/solana/veritas-curation/target/deploy/veritas_curation-keypair.json" ]; then
-    cp "$ROOT_DIR/solana/veritas-curation/target/deploy/veritas_curation-keypair.json" /tmp/veritas_curation-keypair.json.bak
-fi
-rm -rf "$ROOT_DIR/solana/veritas-curation/target" 2>/dev/null || true
-rm -rf "$ROOT_DIR/solana/veritas-curation/.anchor" 2>/dev/null || true
-if [ -f /tmp/veritas_curation-keypair.json.bak ]; then
-    mkdir -p "$ROOT_DIR/solana/veritas-curation/target/deploy"
-    mv /tmp/veritas_curation-keypair.json.bak "$ROOT_DIR/solana/veritas-curation/target/deploy/veritas_curation-keypair.json"
-fi
+# Clean only deployed binaries (preserve build cache for fast rebuilds)
+echo -e "${YELLOW}🗑️  Cleaning deployed binaries...${NC}"
+# Only remove .so files to force redeployment, keep all build artifacts for speed
+rm -f "$ROOT_DIR/solana/veritas-curation/target/deploy/*.so" 2>/dev/null || true
+# Preserve keypair - no need to backup/restore since we're not deleting target/
+# Note: Keeping target/ and .anchor/ for incremental builds (5-10x faster)
 
 # Check for default keypair
 if [ ! -f ~/.config/solana/id.json ]; then
@@ -74,11 +69,23 @@ fi
 DEFAULT_WALLET=$(solana address)
 echo -e "${GREEN}✅ Default wallet: $DEFAULT_WALLET${NC}"
 
-# Get test wallet address from argument
-TEST_WALLET=""
+# Always fund these specific test wallets
+TEST_WALLETS=(
+    "7gZWQiUr4bfJMHCSyXGfExQMsjVuy4bgHJowhgxwhkz9"
+    "9yvSFEYs1PiPuW8Su21YTEht2gQTCs7y9D2upZWscfij"
+    "HqsRQ7naSq6xLhEt8HvPvKS6EuQkzLa6SwpAA3jgKHiQ"
+    "91VEPRK7U2ccmLG1DMoNfcq4rdTmoLPhn1sVdsXs71xr"
+)
+
+echo -e "${GREEN}✅ Test wallets to fund:${NC}"
+for wallet in "${TEST_WALLETS[@]}"; do
+    echo -e "${GREEN}   - $wallet${NC}"
+done
+
+# Allow override from command line argument if provided
 if [ -n "$1" ]; then
-    TEST_WALLET="$1"
-    echo -e "${GREEN}✅ Test wallet to fund: $TEST_WALLET${NC}"
+    TEST_WALLETS=("$1")
+    echo -e "${YELLOW}   (Overridden by argument: $1)${NC}"
 fi
 
 echo -e "${GREEN}✅ Cleanup complete${NC}"
@@ -114,10 +121,25 @@ echo -e "${GREEN}✅ Database migrations applied${NC}"
 echo ""
 
 # ============================================================================
-# STEP 3: START VALIDATOR
+# STEP 3: INSTALL PLATFORM TOOLS
 # ============================================================================
 
-echo -e "${BLUE}━━━ STEP 3/7: Start Solana Validator ━━━${NC}"
+echo -e "${BLUE}━━━ STEP 3/7: Install Platform Tools ━━━${NC}"
+
+# Install/verify platform-tools to ensure fresh genesis
+echo -e "${YELLOW}🔧 Installing Solana platform tools...${NC}"
+cargo-build-sbf --version || {
+    echo -e "${RED}❌ Failed to install platform tools${NC}"
+    exit 1
+}
+echo -e "${GREEN}✅ Platform tools installed${NC}"
+echo ""
+
+# ============================================================================
+# STEP 4: START VALIDATOR
+# ============================================================================
+
+echo -e "${BLUE}━━━ STEP 4/7: Start Solana Validator ━━━${NC}"
 
 # Set Solana to localhost
 echo -e "${YELLOW}📡 Configuring Solana CLI for localhost...${NC}"
@@ -129,10 +151,12 @@ cd "$ROOT_DIR/solana/veritas-curation"
 find ~/.local/share/solana -name "._*" -delete 2>/dev/null || true
 
 # Start validator in background with WebSocket enabled
+# IMPORTANT: --bind-address 0.0.0.0 allows Docker containers (edge functions) to reach the RPC
 echo -e "${YELLOW}🔧 Starting validator with WebSocket enabled...${NC}"
 COPYFILE_DISABLE=1 solana-test-validator \
   --ledger test-ledger \
   --rpc-port 8899 \
+  --bind-address 0.0.0.0 \
   --rpc-pubsub-enable-block-subscription \
   --quiet \
   --reset &
@@ -157,34 +181,12 @@ done
 echo ""
 
 # ============================================================================
-# STEP 4: FUND WALLETS WITH SOL
+# STEP 5: FUND WALLETS WITH SOL
 # ============================================================================
 
-echo -e "${BLUE}━━━ STEP 4/7: Fund Wallets with SOL ━━━${NC}"
+echo -e "${BLUE}━━━ STEP 5/8: Fund Wallets with SOL ━━━${NC}"
 
-# Get authority wallet address
-AUTHORITY_WALLET=$(solana address -k "$ROOT_DIR/solana/veritas-curation/keys/authority.json")
-
-# Airdrop to authority wallet (used for deployment)
-echo -e "${YELLOW}💰 Airdropping 500 SOL to authority wallet...${NC}"
-solana airdrop 100 "$AUTHORITY_WALLET" || {
-    echo -e "${RED}❌ Failed to airdrop to authority wallet${NC}"
-    exit 1
-}
-sleep 1
-solana airdrop 100 "$AUTHORITY_WALLET" 2>/dev/null || true
-sleep 1
-solana airdrop 100 "$AUTHORITY_WALLET" 2>/dev/null || true
-sleep 1
-solana airdrop 100 "$AUTHORITY_WALLET" 2>/dev/null || true
-sleep 1
-solana airdrop 100 "$AUTHORITY_WALLET" 2>/dev/null || true
-
-AUTHORITY_SOL_BALANCE=$(solana balance "$AUTHORITY_WALLET" 2>/dev/null || echo "0 SOL")
-echo -e "${GREEN}✅ Authority wallet balance: $AUTHORITY_SOL_BALANCE${NC}"
-echo -e "${GREEN}   Address: $AUTHORITY_WALLET${NC}"
-
-# Airdrop to default wallet
+# Airdrop to default wallet (used for paying transaction fees)
 echo -e "${YELLOW}💰 Airdropping 100 SOL to default wallet...${NC}"
 solana airdrop 100 "$DEFAULT_WALLET" || {
     echo -e "${RED}❌ Failed to airdrop to default wallet${NC}"
@@ -195,27 +197,36 @@ sleep 2
 DEFAULT_SOL_BALANCE=$(solana balance "$DEFAULT_WALLET" 2>/dev/null || echo "0 SOL")
 echo -e "${GREEN}✅ Default wallet balance: $DEFAULT_SOL_BALANCE${NC}"
 
-# Airdrop to test wallet if provided
-if [ -n "$TEST_WALLET" ]; then
-    echo -e "${YELLOW}💰 Airdropping 100 SOL to test wallet...${NC}"
+# Airdrop to all test wallets
+for TEST_WALLET in "${TEST_WALLETS[@]}"; do
+    echo -e "${YELLOW}💰 Airdropping 100 SOL to $TEST_WALLET...${NC}"
     solana airdrop 100 "$TEST_WALLET" || {
         echo -e "${YELLOW}⚠️  Failed to airdrop to test wallet (continuing anyway)${NC}"
     }
     sleep 2
     TEST_SOL_BALANCE=$(solana balance "$TEST_WALLET" 2>/dev/null || echo "0 SOL")
     echo -e "${GREEN}✅ Test wallet balance: $TEST_SOL_BALANCE${NC}"
-fi
+done
 echo ""
 
 # ============================================================================
-# STEP 5: BUILD & DEPLOY SMART CONTRACT
+# STEP 6: BUILD & DEPLOY SMART CONTRACT
 # ============================================================================
 
-echo -e "${BLUE}━━━ STEP 5/7: Build & Deploy Smart Contract ━━━${NC}"
+echo -e "${BLUE}━━━ STEP 6/8: Build & Deploy Smart Contract ━━━${NC}"
 
 cd "$ROOT_DIR/solana/veritas-curation"
 
-# Get program ID from keypair (preserved from previous runs)
+# Ensure target/deploy directory exists
+mkdir -p target/deploy
+
+# Create program keypair if it doesn't exist
+if [ ! -f target/deploy/veritas_curation-keypair.json ]; then
+    echo -e "${YELLOW}🔑 Creating program keypair...${NC}"
+    solana-keygen new -o target/deploy/veritas_curation-keypair.json --no-bip39-passphrase --force
+fi
+
+# Get program ID from keypair
 PROGRAM_ID=$(solana address -k target/deploy/veritas_curation-keypair.json)
 echo -e "${YELLOW}📋 Program ID from keypair: $PROGRAM_ID${NC}"
 
@@ -232,7 +243,7 @@ if [ "$CURRENT_LIB_ID" != "$PROGRAM_ID" ] || [ "$CURRENT_TOML_ID" != "$PROGRAM_I
     echo -e "${GREEN}✅ Program ID synced${NC}"
 fi
 
-# Build once (only if needed)
+# Build using Anchor (fast incremental builds)
 echo -e "${YELLOW}🔨 Building Anchor project...${NC}"
 anchor build || {
     echo -e "${RED}❌ Build failed${NC}"
@@ -261,7 +272,7 @@ echo ""
 # STEP 6: CREATE USDC & FUND WALLETS
 # ============================================================================
 
-echo -e "${BLUE}━━━ STEP 6/7: Create Mock USDC & Fund Wallets ━━━${NC}"
+echo -e "${BLUE}━━━ STEP 7/8: Create Mock USDC & Fund Wallets ━━━${NC}"
 
 # Create mock USDC token (using original Token Program, not Token-2022)
 echo -e "${YELLOW}💰 Creating mock USDC token...${NC}"
@@ -296,9 +307,9 @@ DEFAULT_USDC_BALANCE=$(spl-token balance $USDC_MINT 2>/dev/null || echo "0")
 echo -e "${GREEN}✅ Default wallet funded with 1,000 USDC${NC}"
 echo -e "${GREEN}   Balance: $DEFAULT_USDC_BALANCE USDC${NC}"
 
-# Fund test wallet with USDC if provided
-if [ -n "$TEST_WALLET" ]; then
-    echo -e "${YELLOW}💵 Funding test wallet with USDC...${NC}"
+# Fund all test wallets with USDC
+for TEST_WALLET in "${TEST_WALLETS[@]}"; do
+    echo -e "${YELLOW}💵 Funding test wallet $TEST_WALLET with USDC...${NC}"
     TEST_USDC_ACCOUNT=$(spl-token create-account $USDC_MINT --owner $TEST_WALLET --fee-payer ~/.config/solana/id.json 2>&1 | grep "Creating account" | awk '{print $3}')
 
     if [ -z "$TEST_USDC_ACCOUNT" ]; then
@@ -316,19 +327,32 @@ if [ -n "$TEST_WALLET" ]; then
     else
         echo -e "${YELLOW}⚠️  Could not create USDC token account for test wallet${NC}"
     fi
-fi
+done
 echo ""
 
 # ============================================================================
 # STEP 7: INITIALIZE PROTOCOL & UPDATE ENV
 # ============================================================================
 
-echo -e "${BLUE}━━━ STEP 7/7: Initialize Protocol & Update Environment ━━━${NC}"
+echo -e "${BLUE}━━━ STEP 8/8: Initialize Protocol & Update Environment ━━━${NC}"
+
+# Load PROTOCOL_AUTHORITY_KEYPAIR from .env.local
+if [ -f "$ROOT_DIR/.env.local" ]; then
+    export $(grep "^PROTOCOL_AUTHORITY_KEYPAIR=" "$ROOT_DIR/.env.local" | xargs)
+fi
+
+if [ -z "$PROTOCOL_AUTHORITY_KEYPAIR" ]; then
+    echo -e "${RED}❌ PROTOCOL_AUTHORITY_KEYPAIR not found in .env.local${NC}"
+    echo -e "${YELLOW}Please ensure PROTOCOL_AUTHORITY_KEYPAIR is set in .env.local${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Loaded PROTOCOL_AUTHORITY_KEYPAIR from .env.local${NC}"
 
 # Initialize VeritasCustodian
 echo -e "${YELLOW}🏛️  Initializing VeritasCustodian...${NC}"
 cd "$ROOT_DIR/solana/veritas-curation"
-USDC_MINT_LOCALNET=$USDC_MINT ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 ANCHOR_WALLET=$ROOT_DIR/solana/veritas-curation/keys/authority.json npx ts-node scripts/initialize-custodian.ts || {
+USDC_MINT_LOCALNET=$USDC_MINT PROTOCOL_AUTHORITY_KEYPAIR=$PROTOCOL_AUTHORITY_KEYPAIR ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 ANCHOR_WALLET=~/.config/solana/id.json npx ts-node scripts/initialize-custodian.ts || {
     echo -e "${RED}❌ Failed to initialize custodian${NC}"
     exit 1
 }
@@ -336,7 +360,7 @@ echo -e "${GREEN}✅ Custodian initialized!${NC}"
 
 # Initialize PoolFactory
 echo -e "${YELLOW}🏭 Initializing PoolFactory...${NC}"
-ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 ANCHOR_WALLET=$ROOT_DIR/solana/veritas-curation/keys/authority.json npx ts-node scripts/initialize-factory.ts || {
+PROTOCOL_AUTHORITY_KEYPAIR=$PROTOCOL_AUTHORITY_KEYPAIR ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 ANCHOR_WALLET=~/.config/solana/id.json npx ts-node scripts/initialize-factory.ts || {
     echo -e "${RED}❌ Failed to initialize factory${NC}"
     exit 1
 }
@@ -360,6 +384,12 @@ if [ -f .env.local ]; then
     cp .env.local .env.local.backup
 fi
 
+# Preserve existing PROTOCOL_AUTHORITY_KEYPAIR if it exists
+EXISTING_PROTOCOL_AUTHORITY=""
+if [ -f .env.local ]; then
+    EXISTING_PROTOCOL_AUTHORITY=$(grep "^PROTOCOL_AUTHORITY_KEYPAIR=" .env.local | cut -d'=' -f2-)
+fi
+
 # Create or update .env.local with all required variables
 cat > .env.local.new << EOF
 # Local Supabase Configuration
@@ -377,8 +407,19 @@ NEXT_PUBLIC_SOLANA_NETWORK=localnet
 NEXT_PUBLIC_SOLANA_RPC_ENDPOINT=http://127.0.0.1:8899
 NEXT_PUBLIC_VERITAS_PROGRAM_ID=$PROGRAM_ID
 NEXT_PUBLIC_USDC_MINT_LOCALNET=$USDC_MINT
-PROTOCOL_AUTHORITY_KEY_PATH=solana/veritas-curation/keys/authority.json
 EOF
+
+# Append PROTOCOL_AUTHORITY_KEYPAIR (preserve existing or require manual setup)
+if [ -n "$EXISTING_PROTOCOL_AUTHORITY" ]; then
+    echo "" >> .env.local.new
+    echo "# Protocol Authority (auto-generated from existing .env.local)" >> .env.local.new
+    echo "PROTOCOL_AUTHORITY_KEYPAIR=$EXISTING_PROTOCOL_AUTHORITY" >> .env.local.new
+else
+    echo "" >> .env.local.new
+    echo "# Protocol Authority (REQUIRED - must be set manually)" >> .env.local.new
+    echo "# Generate with: solana-keygen new --outfile auth.json && cat auth.json | base64" >> .env.local.new
+    echo "# PROTOCOL_AUTHORITY_KEYPAIR=" >> .env.local.new
+fi
 
 mv .env.local.new .env.local
 
@@ -456,13 +497,15 @@ echo -e "   Address: ${GREEN}$DEFAULT_WALLET${NC}"
 echo -e "   SOL Balance: ${GREEN}$DEFAULT_SOL_BALANCE${NC}"
 echo -e "   USDC Balance: ${GREEN}$DEFAULT_USDC_BALANCE USDC${NC}"
 echo ""
-if [ -n "$TEST_WALLET" ]; then
-echo -e "${YELLOW}Test Wallet (For UI Testing):${NC}"
-echo -e "   Address: ${GREEN}$TEST_WALLET${NC}"
-echo -e "   SOL Balance: ${GREEN}$TEST_SOL_BALANCE${NC}"
-echo -e "   USDC Balance: ${GREEN}$TEST_USDC_BALANCE USDC${NC}"
-echo ""
-fi
+echo -e "${YELLOW}Test Wallets (For UI Testing):${NC}"
+for TEST_WALLET in "${TEST_WALLETS[@]}"; do
+    TEST_SOL_BALANCE=$(solana balance "$TEST_WALLET" 2>/dev/null || echo "0 SOL")
+    TEST_USDC_BALANCE=$(spl-token accounts $USDC_MINT --owner $TEST_WALLET 2>/dev/null | grep "Balance:" | awk '{print $2}' || echo "0")
+    echo -e "   Address: ${GREEN}$TEST_WALLET${NC}"
+    echo -e "   SOL Balance: ${GREEN}$TEST_SOL_BALANCE${NC}"
+    echo -e "   USDC Balance: ${GREEN}$TEST_USDC_BALANCE USDC${NC}"
+    echo ""
+done
 echo -e "${YELLOW}✅ Environment verified:${NC}"
 echo -e "   ✓ Database reset"
 echo -e "   ✓ Program deployed and on-chain"
@@ -475,7 +518,7 @@ echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
 echo -e "   1. Restart Supabase to load new env: ${BLUE}npx supabase stop && npx supabase start${NC}"
 echo -e "   2. Start Next.js dev server: ${BLUE}npm run dev${NC}"
-echo -e "   3. Login with Privy using wallet ${GREEN}$TEST_WALLET${NC}"
+echo -e "   3. Login with Privy using one of the funded test wallets above"
 echo -e "   4. Create a post and test buying tokens!"
 echo ""
 echo -e "${YELLOW}Process Management:${NC}"

@@ -70,6 +70,7 @@ export interface Post {
   // === ARTICLE-SPECIFIC FIELDS (optional for text posts) ===
   article_title?: string; // Optional dedicated title for articles
   cover_image_url?: string; // Optional cover/hero image for articles (requires article_title)
+  image_display_mode?: 'cover' | 'contain'; // How to display image posts
 
   // === COMMON FIELDS ===
   author: Author;
@@ -94,6 +95,7 @@ export interface Post {
   poolVaultBalance?: number; // USDC vault balance (micro-USDC)
   poolLastSyncedAt?: string; // Last sync timestamp
   totalVolumeUsdc?: number; // All-time total trading volume in USDC (cached)
+  token_volume_usdc?: number; // Volume for specific token type (LONG or SHORT)
   // Decayed pool state (enriched from on-chain)
   decayedPoolState?: DecayedPoolState | null;
 }
@@ -119,6 +121,8 @@ export interface DecayedPoolState {
   expirationTimestamp: number;
   /** Unix timestamp of last on-chain decay execution */
   lastDecayUpdate: number;
+  /** Total USDC vault balance (micro-USDC) */
+  vaultBalance: number;
 }
 
 /**
@@ -216,5 +220,23 @@ export function isShortFormPost(post: Post): boolean {
   // If content is short enough, it's a tweet-like post
   const textLength = post.content_text?.length || 0;
   return textLength > 0 && textLength <= 500; // ~500 char threshold
+}
+
+/**
+ * Helper: Determine if a post should navigate to a dedicated article page on mobile
+ * Articles with substantial text should open in read mode for better UX
+ */
+export function shouldNavigateToArticlePage(post: Post): boolean {
+  if (post.post_type !== 'text') return false;
+
+  // If it's a short-form post, keep it in the feed
+  if (isShortFormPost(post)) return false;
+
+  // If has title or cover, it's an article that should have dedicated page
+  if (post.article_title || post.cover_image_url) return true;
+
+  // If content is longer than threshold, treat as article
+  const textLength = post.content_text?.length || 0;
+  return textLength > 800; // ~800 char threshold for article page
 }
 

@@ -269,6 +269,10 @@ class PoolDataService {
         poolPriceShort: data.poolPriceShort,
         poolSupplyLong: data.poolSupplyLong,
         poolSupplyShort: data.poolSupplyShort,
+        poolVaultBalance: data.poolVaultBalance,
+        poolF: data.poolF,
+        poolBetaNum: data.poolBetaNum,
+        poolBetaDen: data.poolBetaDen,
       });
 
       // If no pool deployed, return early

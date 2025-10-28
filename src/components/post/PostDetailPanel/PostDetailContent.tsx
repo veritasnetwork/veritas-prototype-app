@@ -43,14 +43,16 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
   // Lifted state: which side is selected in the swap component
   const [selectedSide, setSelectedSide] = useState<'LONG' | 'SHORT'>('LONG');
 
+  // Track pool address separately to allow updates without full post reload
+  const [poolAddress, setPoolAddress] = useState<string | null>(null);
+
   // Fetch pool data from chain
-  const { poolData, loading: poolLoading, error: poolError } = usePoolData(post?.poolAddress || undefined, postId);
-  const { data: tradeHistory } = useTradeHistory(post?.poolAddress || undefined);
+  const { poolData, loading: poolLoading, error: poolError } = usePoolData(poolAddress || undefined, postId);
+  const { data: tradeHistory } = useTradeHistory(poolAddress || undefined);
 
   // Callback to refresh chart and pool data after trade
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleTradeSuccess = () => {
-    console.log('[PostDetailContent] Trade completed, triggering refresh');
     setRefreshTrigger(prev => prev + 1);
 
     // Invalidate pool data cache to fetch fresh metrics
@@ -59,14 +61,6 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
 
   // Debug: Log pool data state
   useEffect(() => {
-    console.log('🔍 [PostDetailContent] Pool data state:', {
-      postId,
-      poolAddress: post?.poolAddress,
-      poolData,
-      poolLoading,
-      poolError: poolError?.message,
-      hasPoolData: !!poolData
-    });
   }, [postId, post?.poolAddress, poolData, poolLoading, poolError]);
 
   // Fetch post data
@@ -83,6 +77,7 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
 
         const data = await response.json();
         setPost(data);
+        setPoolAddress(data.poolAddress || null);
       } catch (err) {
         console.error('[PostDetailContent] Error fetching post:', err);
         setError(err instanceof Error ? err.message : 'Failed to load post');
@@ -113,8 +108,8 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
     return (
       <div className="flex items-center justify-center p-6">
         <div className="text-center">
-          <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-red-500 text-xl">!</span>
+          <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-orange-500 text-xl">!</span>
           </div>
           <p className="text-gray-400">Unable to load post. Please try again.</p>
         </div>
@@ -188,12 +183,14 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
       <div className="mt-8 border-t border-[#2a2a2a] pt-6">
         <h2 className="text-lg font-semibold text-white mb-4">Market</h2>
 
-        {!post?.poolAddress ? (
+        {!poolAddress ? (
           <DeployPoolCard
             postId={postId}
-            onDeploySuccess={() => {
-              // Refresh to show the newly deployed pool
-              window.location.reload();
+            onDeploySuccess={(newPoolAddress) => {
+              // Update pool address state to trigger pool data fetch
+              setPoolAddress(newPoolAddress);
+              // Invalidate pool data cache to force immediate fetch
+              invalidatePoolData(postId);
             }}
           />
         ) : (
@@ -206,15 +203,17 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
 
             {/* Pool Metrics */}
             {poolLoading ? (
-              <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
-                  <div className="h-6 bg-gray-700 rounded w-1/2"></div>
+              <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-4 py-3">
+                <div className="animate-pulse flex items-center gap-4">
+                  <div className="h-3 bg-gray-700 rounded w-16"></div>
+                  <div className="h-3 bg-gray-700 rounded w-20"></div>
+                  <div className="h-3 bg-gray-700 rounded w-24"></div>
+                  <div className="h-3 bg-gray-700 rounded w-20"></div>
                 </div>
               </div>
             ) : poolError ? (
               <div className="bg-[#1a1a1a] border border-red-900/50 rounded-lg p-4">
-                <p className="text-red-400 text-sm">Failed to load pool metrics: {poolError.message}</p>
+                <p className="text-orange-400 text-sm">Failed to load pool metrics: {poolError.message}</p>
               </div>
             ) : poolData ? (
               <PoolMetricsCard
@@ -231,19 +230,23 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
             {/* Swap Component */}
             {poolLoading ? (
               <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
-                <div className="animate-pulse">
-                  <div className="h-10 bg-gray-700 rounded mb-4"></div>
-                  <div className="h-20 bg-gray-700 rounded"></div>
+                <div className="animate-pulse space-y-3">
+                  <div className="flex gap-2">
+                    <div className="h-9 bg-gray-700 rounded flex-1"></div>
+                    <div className="h-9 bg-gray-700 rounded flex-1"></div>
+                  </div>
+                  <div className="h-16 bg-gray-700 rounded"></div>
+                  <div className="h-12 bg-gray-700 rounded"></div>
                 </div>
               </div>
             ) : poolError ? (
               <div className="bg-[#1a1a1a] border border-red-900/50 rounded-lg p-4">
-                <p className="text-red-400 text-sm">Trading unavailable: {poolError.message}</p>
+                <p className="text-orange-400 text-sm">Trading unavailable: {poolError.message}</p>
               </div>
             ) : poolData ? (
               <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
                 <UnifiedSwapComponent
-                  poolAddress={post.poolAddress}
+                  poolAddress={poolAddress}
                   postId={postId}
                   priceLong={poolData.priceLong}
                   priceShort={poolData.priceShort}
@@ -264,10 +267,10 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
             )}
 
             {/* Settlement Button - only show if BD score is available */}
-            {post?.belief?.previous_aggregate !== undefined && post?.poolAddress && (
+            {post?.belief?.previous_aggregate !== undefined && poolAddress && (
               <SettlementButton
                 postId={postId}
-                poolAddress={post.poolAddress}
+                poolAddress={poolAddress}
                 bdScore={post.belief.previous_aggregate}
                 onSettlementSuccess={handleTradeSuccess}
               />

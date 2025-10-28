@@ -186,7 +186,7 @@ export function VideoUpload({ onUpload, currentUrl, onRemove, disabled }: VideoU
           type="button"
           onClick={onRemove}
           disabled={disabled}
-          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
+          className="absolute top-2 right-2 bg-orange-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
           title="Remove video"
         >
           <X className="w-5 h-5" />
@@ -230,7 +230,7 @@ export function VideoUpload({ onUpload, currentUrl, onRemove, disabled }: VideoU
       </div>
 
       {error && (
-        <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+        <div className="mt-3 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-orange-400 text-sm">
           {error}
         </div>
       )}

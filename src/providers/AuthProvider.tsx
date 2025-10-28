@@ -57,10 +57,9 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const [lastCheckTime, setLastCheckTime] = useState<number>(0);
   const [hasCheckedOnMount, setHasCheckedOnMount] = useState(false);
 
-  const checkUserStatus = async () => {
+  const checkUserStatus = async (retryCount = 0) => {
     if (!ready || !authenticated) {
       setIsLoading(false);
       return;
@@ -84,7 +83,13 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       const solanaAddress = solanaWallet?.address as string | undefined;
 
       if (!solanaAddress) {
-        console.error('No Solana wallet found for user');
+        // Wallet might still be creating, retry up to 5 times with 500ms delay
+        if (retryCount < 5) {
+          console.log(`Waiting for Solana wallet creation... (attempt ${retryCount + 1}/5)`);
+          setTimeout(() => checkUserStatus(retryCount + 1), 500);
+          return;
+        }
+        console.error('No Solana wallet found for user after retries');
         setIsLoading(false);
         return;
       }
@@ -142,34 +147,22 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   };
 
   useEffect(() => {
-    if (ready) {
-      if (authenticated) {
-        // Always check on first mount, then debounce subsequent checks
-        if (!hasCheckedOnMount) {
-          setHasCheckedOnMount(true);
-          setLastCheckTime(Date.now());
-          checkUserStatus();
-        } else {
-          // Debounce auth checks - only check once per 5 seconds after initial mount
-          const now = Date.now();
-          if (now - lastCheckTime > 5000) {
-            setLastCheckTime(now);
-            checkUserStatus();
-          } else {
-            // If we're within the debounce window but loading, stop loading
-            // This prevents hanging on the loading screen when auth was recently checked
-            if (isLoading) {
-              setIsLoading(false);
-            }
-          }
-        }
-      } else {
-        setIsLoading(false);
-        setUser(null);
-        setNeedsOnboarding(false);
-      }
+    if (!ready) {
+      return; // Wait for Privy to be ready
     }
-  }, [authenticated, ready]);
+
+    if (authenticated && !hasCheckedOnMount) {
+      // Only check once on mount when authenticated
+      setHasCheckedOnMount(true);
+      checkUserStatus();
+    } else if (!authenticated) {
+      // Not authenticated - clear state
+      setIsLoading(false);
+      setUser(null);
+      setNeedsOnboarding(false);
+      setHasCheckedOnMount(false); // Reset for next auth
+    }
+  }, [authenticated, ready, hasCheckedOnMount]);
 
   const authValue: AuthContextValue = {
     user,
@@ -189,7 +182,6 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 export function AuthProvider({ children }: AuthProviderProps) {
   // Use mock auth if enabled (for when Privy is down)
   if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
-    console.log('🔓 Mock auth mode enabled');
     return (
       <MockPrivyProvider>
         <AuthProviderInner>{children}</AuthProviderInner>
@@ -210,11 +202,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // But we'll use the actual localnet RPC endpoint
   const privyNetworkName = networkName === 'localnet' ? 'devnet' : networkName;
 
-  console.log('[AuthProvider] Configuring Privy:', {
-    actualNetwork: networkName,
-    privyNetwork: privyNetworkName,
-    rpc: rpcEndpoint
-  });
 
   return (
     <PrivyErrorBoundary>
@@ -222,7 +209,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ''}
         config={{
           appearance: {
-            theme: 'dark',
+            theme: 'light',
             accentColor: '#676FFF',
             walletChainType: 'solana-only',
             showWalletLoginFirst: false,

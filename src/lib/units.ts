@@ -4,13 +4,15 @@
  * CRITICAL: This module enforces correct unit conversions throughout the codebase.
  *
  * Unit Conventions:
- * - On-chain (Solana): Token supplies stored in DISPLAY units
- * - Database (Supabase): Token supplies stored in ATOMIC units
- * - SPL Token Mints: Always ATOMIC units (6 decimals)
- * - USDC amounts: Always ATOMIC units (micro-USDC)
+ * - On-chain (Solana): Token supplies stored as WHOLE TOKENS (e.g., 25 = 25 tokens)
+ * - Database (Supabase): Token supplies stored as WHOLE TOKENS (e.g., 25 = 25 tokens)
+ * - Database (Supabase): USDC amounts stored in micro-USDC (e.g., 50000000 = $50.00)
+ * - SPL Token Mints: Always micro-tokens with 6 decimals (e.g., 25000000 = 25 tokens)
  *
- * Display unit: The human-readable amount (e.g., 0.000025 tokens)
- * Atomic unit: The raw integer amount (e.g., 25 = 0.000025 * 1,000,000)
+ * IMPORTANT: The naming "Display" vs "Atomic" in this file is LEGACY and CONFUSING:
+ * - "DisplayUnits" = whole tokens (25 = 25 tokens)
+ * - "AtomicUnits" = micro-tokens used ONLY for SPL minting (25000000 = 25 tokens)
+ * - Micro-USDC: USDC in atomic units (e.g., 10000000 = $10.00)
  */
 
 // Branded types to prevent mixing units at compile time
@@ -67,10 +69,16 @@ export function microToUsdc(micro: MicroUSDC): number {
 /**
  * Safe cast from number to DisplayUnits (use when reading from on-chain)
  * Validates that the number is within safe bounds
+ * Note: Chart libraries may pass negative values during axis calculations - we clamp to 0
  */
 export function asDisplay(value: number): DisplayUnits {
-  if (!Number.isFinite(value) || value < 0) {
-    throw new Error(`Invalid display unit value: ${value}`);
+  if (!Number.isFinite(value)) {
+    console.warn(`Invalid display unit value (not finite): ${value}, using 0`);
+    return 0 as DisplayUnits;
+  }
+  // Clamp negative values to 0 (can happen during chart axis calculations)
+  if (value < 0) {
+    return 0 as DisplayUnits;
   }
   // Max safe supply: 1 trillion tokens in display units
   if (value > 1_000_000_000_000) {
