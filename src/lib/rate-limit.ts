@@ -68,6 +68,7 @@ function createRateLimiters() {
       mediaUpload: null,
       profileUpdate: null,
       withdraw: null,
+      deposit: null,
     };
   }
 
@@ -149,6 +150,18 @@ function createActiveLimiters(redisClient: Redis) {
     analytics: true,
   });
 
+  /**
+   * Deposit Rate Limiter
+   * Limit: 20 deposits per hour per user
+   * Prevents deposit spam while allowing funding flexibility
+   */
+  const deposit = new Ratelimit({
+    redis: redisClient,
+    limiter: Ratelimit.slidingWindow(20, '1h'),
+    prefix: `${ENV_PREFIX}:ratelimit:deposit`,
+    analytics: true,
+  });
+
   return {
     poolDeploy,
     trade,
@@ -156,6 +169,7 @@ function createActiveLimiters(redisClient: Redis) {
     mediaUpload,
     profileUpdate,
     withdraw,
+    deposit,
   };
 }
 

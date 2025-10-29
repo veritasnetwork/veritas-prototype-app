@@ -68,45 +68,22 @@ export function PoolMetricsCard({
   }
 
   // Extract values from poolData
-  const { priceLong, priceShort, supplyLong, supplyShort, reserveBalance } = poolData;
+  const { priceLong, priceShort, supplyLong, supplyShort, rLong, rShort } = poolData;
 
   // Calculate side-specific market caps
   // Note: When supply is 0, price calculation may be undefined/zero but market cap should be 0
   const marketCapLong = (supplyLong > 0 && priceLong > 0) ? supplyLong * priceLong : 0;
   const marketCapShort = (supplyShort > 0 && priceShort > 0) ? supplyShort * priceShort : 0;
 
-  // Calculate reserves based on ICBS virtual reserves (r = s × p)
-  // When both supplies are 0, pool has no tokens and reserves should be 0
-  // When only one supply is 0, that side has no reserves
-  const totalMarketCap = marketCapLong + marketCapShort;
-  let reserveLong = 0;
-  let reserveShort = 0;
+  // Use actual ICBS virtual reserves (r_long, r_short) from database
+  // These are already in USDC display units (r = s × p, where p is in USDC)
+  // The reserves represent the USDC-equivalent value of each side
+  const reserveLongUSDC = rLong;
+  const reserveShortUSDC = rShort;
 
-  if (totalMarketCap > 0) {
-    // Normal case: distribute vault balance proportionally to market caps
-    reserveLong = (reserveBalance * marketCapLong) / totalMarketCap;
-    reserveShort = (reserveBalance * marketCapShort) / totalMarketCap;
-  } else if (supplyLong === 0 && supplyShort === 0) {
-    // Both supplies are 0: no reserves (pool is empty)
-    reserveLong = 0;
-    reserveShort = 0;
-  } else {
-    // Edge case: shouldn't happen in practice but split equally as fallback
-    reserveLong = reserveBalance / 2;
-    reserveShort = reserveBalance / 2;
-  }
-
-  // Debug logging
-  console.log('[PoolMetricsCard] Reserve calculation:', {
-    reserveBalance,
-    marketCapLong,
-    marketCapShort,
-    totalMarketCap,
-    reserveLong,
-    reserveShort,
-    side,
-    sideReserve: side === 'LONG' ? reserveLong : reserveShort,
-  });
+  // Calculate implied relevance from reserves (same formula as settlement)
+  const totalReserve = reserveLongUSDC + reserveShortUSDC;
+  const impliedRelevance = totalReserve > 0 ? (reserveLongUSDC / totalReserve) * 100 : 50;
 
   // Get stats values (with fallbacks)
   const priceChangeLong24h = stats?.priceChangePercentLong24h;
@@ -118,7 +95,7 @@ export function PoolMetricsCard({
   const currentPrice = side === 'LONG' ? priceLong : priceShort;
   const marketCap = side === 'LONG' ? marketCapLong : marketCapShort;
   const totalSupply = side === 'LONG' ? supplyLong : supplyShort;
-  const sideReserve = side === 'LONG' ? reserveLong : reserveShort;
+  const sideReserve = side === 'LONG' ? reserveLongUSDC : reserveShortUSDC;
   const priceChangePercent24h = side === 'LONG' ? priceChangeLong24h : priceChangeShort24h;
   const totalVolume = side === 'LONG' ? volumeLong : volumeShort;
   const sideColor = side === 'LONG' ? 'text-[#B9D9EB]' : 'text-orange-400';
@@ -164,7 +141,7 @@ export function PoolMetricsCard({
           <p className="text-sm font-semibold text-white tabular-nums">{formatCompactNumber(totalSupply)}</p>
         </div>
 
-        {/* Reserve */}
+        {/* Reserve (ICBS virtual reserve in USDC) */}
         <div className="flex items-baseline gap-1.5 shrink-0">
           <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Reserve</span>
           <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve)}</p>
@@ -221,7 +198,7 @@ export function PoolMetricsCard({
           <p className="text-sm font-semibold text-white tabular-nums">{formatCompactNumber(totalSupply)}</p>
         </div>
 
-        {/* Reserve */}
+        {/* Reserve (ICBS virtual reserve in USDC) */}
         <div className="flex items-baseline gap-1 shrink-0">
           <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Reserve</span>
           <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve)}</p>

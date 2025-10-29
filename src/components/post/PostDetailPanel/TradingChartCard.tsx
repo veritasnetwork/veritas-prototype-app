@@ -14,25 +14,39 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
 import { FundingPromptModal } from '@/components/wallet/FundingPromptModal';
 import { getRpcEndpoint } from '@/lib/solana/network-config';
+import { mutate } from 'swr';
+import { useTradeHistory } from '@/hooks/api/useTradeHistory';
+import { useRelevanceHistory } from '@/hooks/api/useRelevanceHistory';
 
 const TradingHistoryChart = lazy(() =>
   import('@/components/charts/TradingHistoryChart').then(m => ({ default: m.TradingHistoryChart }))
 );
-import { useTradeHistory, TimeRange } from '@/hooks/api/useTradeHistory';
-import { useRelevanceHistory } from '@/hooks/api/useRelevanceHistory';
+import { TimeRange, TradeHistoryData } from '@/hooks/api/useTradeHistory';
 import { useRebasePool } from '@/hooks/useRebasePool';
-import { usePoolData } from '@/hooks/usePoolData';
-import { useRebaseStatus } from '@/hooks/api/useRebaseStatus';
 import { RebaseConfirmationModal } from '@/components/pool/RebaseConfirmationModal';
+import { RebaseSuccessModal } from '@/components/pool/RebaseSuccessModal';
+import type { PoolData } from '@/hooks/usePoolData';
+import type { RebaseStatus } from '@/hooks/api/useRebaseStatus';
 
 type ChartType = 'price' | 'relevance';
 
-interface TradingChartCardProps {
-  postId: string;
-  refreshTrigger?: number; // Increment this to trigger chart refresh
+interface RelevanceHistoryData {
+  actualRelevance: Array<{ time: number; value: number }>;
+  impliedRelevance: Array<{ time: number; value: number }>;
+  rebaseEvents: Array<{ time: number; value: number }>;
 }
 
-export function TradingChartCard({ postId, refreshTrigger }: TradingChartCardProps) {
+interface TradingChartCardProps {
+  postId: string;
+  poolData: PoolData | null;
+  rebaseStatus?: RebaseStatus;
+}
+
+export function TradingChartCard({
+  postId,
+  poolData,
+  rebaseStatus,
+}: TradingChartCardProps) {
   // Randomly choose initial chart type: 50% price, 50% relevance
   const [chartType, setChartType] = useState<ChartType>(() => Math.random() < 0.5 ? 'price' : 'relevance');
   const [timeRange, setTimeRange] = useState<TimeRange>('24H');
@@ -41,6 +55,18 @@ export function TradingChartCard({ postId, refreshTrigger }: TradingChartCardPro
   const { address } = useSolanaWallet();
   const [showFundingPrompt, setShowFundingPrompt] = useState(false);
   const [showRebaseModal, setShowRebaseModal] = useState(false);
+  const [showRebaseSuccess, setShowRebaseSuccess] = useState(false);
+  const [rebaseDetails, setRebaseDetails] = useState<{
+    bdScore: number;
+    txSignature: string;
+    poolAddress: string;
+    currentEpoch: number;
+    stakeChanges?: {
+      totalRewards: number;
+      totalSlashes: number;
+      participantCount: number;
+    };
+  } | null>(null);
   const [solBalance, setSolBalance] = useState<number>(0);
 
   // Refs for measuring button positions
@@ -51,23 +77,19 @@ export function TradingChartCard({ postId, refreshTrigger }: TradingChartCardPro
   const [timeRangeSliderStyle, setTimeRangeSliderStyle] = useState<React.CSSProperties>({});
   const [relevanceTimeRangeSliderStyle, setRelevanceTimeRangeSliderStyle] = useState<React.CSSProperties>({});
 
-  const { data: tradeHistory, isLoading: historyLoading, refresh: refreshTradeHistory } = useTradeHistory(postId, timeRange);
-
-  // ✅ OPTIMIZATION: Only fetch relevance when chart type is 'relevance'
-  const { data: relevanceData, isLoading: relevanceLoading, error: relevanceError, refetch: refetchRelevance } = useRelevanceHistory(
-    chartType === 'relevance' ? postId : undefined
+  // IMPORTANT: Fetch BOTH chart types' data regardless of which is currently visible
+  // This ensures that when a trade happens, both charts get updated in their SWR cache
+  // even if the user is only looking at one of them
+  const { data: tradeHistory, isLoading: tradeHistoryLoading } = useTradeHistory(
+    postId, // Always fetch, don't conditionally skip
+    timeRange
   );
 
-  const { poolData } = usePoolData(undefined, postId);
-  const { rebasePool, isRebasing, error: rebaseError } = useRebasePool();
-  const { data: rebaseStatus } = useRebaseStatus(postId);
+  const { data: relevanceHistory, isLoading: relevanceLoading, error: relevanceError } = useRelevanceHistory(
+    postId  // Always fetch, don't conditionally skip
+  );
 
-  // Listen for refreshTrigger changes and refresh trade history
-  useEffect(() => {
-    if (refreshTrigger !== undefined && refreshTrigger > 0) {
-      refreshTradeHistory();
-    }
-  }, [refreshTrigger, refreshTradeHistory]);
+  const { rebasePool, isRebasing, error: rebaseError } = useRebasePool();
 
   const handleRebaseClick = async () => {
     // Check auth first
@@ -101,14 +123,33 @@ export function TradingChartCard({ postId, refreshTrigger }: TradingChartCardPro
   };
 
   const handleRebaseConfirm = async () => {
-    const result = await rebasePool(postId);
+    const cooldownRemaining = rebaseStatus?.cooldownRemaining ?? 0;
+    const result = await rebasePool(postId, cooldownRemaining);
 
-    if (result.success) {
-      // Close modal and refresh all chart data after successful rebase
+    if (result.success && result.txSignature && result.bdScore !== undefined) {
+      // Close confirmation modal
       setShowRebaseModal(false);
+
+      // Prepare success details
+      setRebaseDetails({
+        bdScore: result.bdScore,
+        txSignature: result.txSignature,
+        poolAddress: poolData?.poolAddress || '',
+        currentEpoch: poolData?.currentEpoch || 0,
+        stakeChanges: result.stakeChanges,
+      });
+
+      // Show success modal
+      setShowRebaseSuccess(true);
+
+      // Refresh all chart data via SWR mutate to update both cached and visible charts
       await Promise.all([
-        refetchRelevance(),     // Refresh relevance chart
-        refreshTradeHistory(),  // Refresh price chart (settlement may affect prices)
+        mutate(`/api/posts/${postId}/history`),      // Relevance data
+        mutate(`/api/posts/${postId}/trades?range=1H`),   // Price data - all time ranges
+        mutate(`/api/posts/${postId}/trades?range=24H`),
+        mutate(`/api/posts/${postId}/trades?range=7D`),
+        mutate(`/api/posts/${postId}/trades?range=ALL`),
+        mutate(`/api/posts/${postId}`),              // Pool state
       ]);
     }
     // If failed, modal stays open to show error
@@ -189,16 +230,6 @@ export function TradingChartCard({ postId, refreshTrigger }: TradingChartCardPro
       return () => clearTimeout(timer);
     }
   }, []);
-
-  // Refresh chart when trade completes
-  useEffect(() => {
-    if (refreshTrigger && refreshTrigger > 0) {
-      refreshTradeHistory();
-      if (chartType === 'relevance') {
-        refetchRelevance();
-      }
-    }
-  }, [refreshTrigger, refreshTradeHistory, refetchRelevance, chartType]);
 
   return (
     <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-2xl overflow-hidden">
@@ -290,7 +321,7 @@ export function TradingChartCard({ postId, refreshTrigger }: TradingChartCardPro
       <div className="p-4 pt-2">
         {chartType === 'price' ? (
           // Price Chart - show data if available (even while loading fresh data in background)
-          tradeHistory && tradeHistory.priceLongData && tradeHistory.priceShortData && (tradeHistory.priceLongData.length > 0 || tradeHistory.priceShortData.length > 0) ? (
+          tradeHistory?.priceLongData && tradeHistory.priceLongData.length > 0 ? (
             <Suspense fallback={
               <div className="w-full h-[400px] bg-[#0a0a0a] rounded-lg flex items-center justify-center">
                 <div className="flex flex-col items-center gap-3">
@@ -306,7 +337,7 @@ export function TradingChartCard({ postId, refreshTrigger }: TradingChartCardPro
                 height={400}
               />
             </Suspense>
-          ) : historyLoading ? (
+          ) : tradeHistoryLoading ? (
             // Only show loading if we have no data and are actually fetching
             <div className="h-[400px] flex items-center justify-center">
               <div className="text-center">
@@ -326,11 +357,11 @@ export function TradingChartCard({ postId, refreshTrigger }: TradingChartCardPro
         ) : (
           // Relevance Chart
           // Show data if available (even while loading fresh data in background)
-          relevanceData && (relevanceData.actualRelevance.length > 0 || relevanceData.impliedRelevance.length > 0) ? (
+          relevanceHistory?.impliedRelevance && relevanceHistory.impliedRelevance.length > 0 ? (
             <RelevanceHistoryChart
-              actualRelevance={relevanceData.actualRelevance}
-              impliedRelevance={relevanceData.impliedRelevance}
-              rebaseEvents={relevanceData.rebaseEvents}
+              actualRelevance={relevanceHistory.actualRelevance}
+              impliedRelevance={relevanceHistory.impliedRelevance}
+              rebaseEvents={relevanceHistory.rebaseEvents}
               height={400}
             />
           ) : relevanceLoading && !relevanceError ? (
@@ -373,6 +404,15 @@ export function TradingChartCard({ postId, refreshTrigger }: TradingChartCardPro
         minRequiredSubmissions={rebaseStatus?.minRequiredSubmissions}
         cooldownRemaining={rebaseStatus?.cooldownRemaining}
       />
+
+      {/* Rebase Success Modal */}
+      {rebaseDetails && (
+        <RebaseSuccessModal
+          isOpen={showRebaseSuccess}
+          onClose={() => setShowRebaseSuccess(false)}
+          details={rebaseDetails}
+        />
+      )}
     </div>
   );
 }

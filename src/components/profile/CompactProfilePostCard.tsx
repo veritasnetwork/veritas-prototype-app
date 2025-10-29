@@ -50,7 +50,9 @@ export function CompactProfilePostCard({ post }: CompactProfilePostCardProps) {
   // Use market implied relevance from database (if available)
   const marketImpliedRelevance = (post as any).marketImpliedRelevance ??
     (poolData && poolData.totalMarketCap > 0
-      ? poolData.marketCapLong / (poolData.marketCapLong + poolData.marketCapShort)
+      ? (poolData.rLong !== undefined && poolData.rShort !== undefined
+          ? poolData.rLong / (poolData.rLong + poolData.rShort)
+          : 0.5)
       : null);
 
   return (

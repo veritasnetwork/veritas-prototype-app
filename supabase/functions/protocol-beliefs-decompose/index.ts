@@ -14,6 +14,7 @@ const BOUNDARY_SAFE_MAX = 0.99; // Must match protocol-beliefs-submit
 interface DecompositionInput {
   belief_id: string;
   weights: Record<string, number>;
+  epoch?: number; // Optional: if provided, use this epoch instead of system current_epoch
 }
 
 interface DecompositionOutput {
@@ -241,7 +242,8 @@ async function performDecomposition(
   supabase: any,
   belief_id: string,
   weights: Record<string, number>,
-  excludeAgentId?: string
+  excludeAgentId?: string,
+  providedEpoch?: number
 ): Promise<DecompositionOutput | LeaveOneOutOutput> {
   // Validate and normalize weights internally
   const weightSum = Object.values(weights).reduce((sum, w) => sum + w, 0);
@@ -274,29 +276,24 @@ async function performDecomposition(
     }
   }
 
-  // Get current epoch
-  const { data: configData, error: configError } = await supabase
-    .from("system_config")
-    .select("value")
-    .eq("key", "current_epoch")
-    .single();
-
-  if (configError || !configData) {
+  // Epoch parameter is now REQUIRED - no fallback to system epoch
+  if (providedEpoch === undefined) {
     throw new DecompositionError(
-      500,
-      `Failed to get current epoch: ${configError?.message || 'No data returned'}`,
-      { db_error: configError }
+      400,
+      `epoch parameter is required. Each belief/pool tracks its own epoch independently.`,
+      { belief_id }
     );
   }
 
-  const currentEpoch = parseInt(configData.value);
+  const queryEpoch = providedEpoch;
+  console.log(`Decomposing belief ${belief_id} for epoch ${queryEpoch}`);
 
-  // Load submissions
+  // Load submissions for the specific epoch
   let submissionsQuery = supabase
     .from("belief_submissions")
     .select("agent_id, belief, meta_prediction, is_active")
     .eq("belief_id", belief_id)
-    .eq("epoch", currentEpoch);
+    .eq("epoch", queryEpoch);
 
   if (excludeAgentId) {
     submissionsQuery = submissionsQuery.neq("agent_id", excludeAgentId);
@@ -308,27 +305,65 @@ async function performDecomposition(
     throw new DecompositionError(
       500,
       `Failed to load submissions: ${submissionsError.message}`,
-      { db_error: submissionsError, belief_id, epoch: currentEpoch }
+      { db_error: submissionsError, belief_id, epoch: queryEpoch }
     );
   }
 
   if (!submissions || submissions.length === 0) {
     throw new DecompositionError(
       404,
-      `No submissions found for belief_id ${belief_id} in epoch ${currentEpoch}`,
-      { belief_id, epoch: currentEpoch }
+      `No submissions found for belief_id ${belief_id} in epoch ${queryEpoch}`,
+      { belief_id, epoch: queryEpoch }
     );
   }
 
   if (submissions.length < MIN_PARTICIPANTS) {
-    // Return defaults for insufficient participants in leave-one-out
+    // For leave-one-out with insufficient participants, call aggregate function as fallback
     if (excludeAgentId) {
-      console.log(`Leave-one-out: Insufficient participants after exclusion (${submissions.length} < ${MIN_PARTICIPANTS}). Returning defaults.`);
-      return {
-        leave_one_out_aggregate: 0.5,
-        leave_one_out_prior: 0.5,
-        leave_one_out_meta_aggregate: 0.5,
-      };
+      console.log(`Leave-one-out: Insufficient participants after exclusion (${submissions.length} < ${MIN_PARTICIPANTS}). Calling aggregate function.`);
+
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+      const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
+      try {
+        const aggregateResponse = await fetch(`${SUPABASE_URL}/functions/v1/protocol-beliefs-aggregate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            belief_id: belief_id,
+            weights: weights,
+            epoch: queryEpoch
+          })
+        });
+
+        if (!aggregateResponse.ok) {
+          const errorData = await aggregateResponse.json();
+          console.error('Aggregate function failed:', errorData);
+          throw new DecompositionError(
+            503,
+            `Fallback aggregate function failed: ${JSON.stringify(errorData)}`,
+            { belief_id, epoch: queryEpoch }
+          );
+        }
+
+        const aggregateData = await aggregateResponse.json();
+
+        return {
+          leave_one_out_aggregate: aggregateData.aggregate,
+          leave_one_out_prior: aggregateData.aggregate, // Prior = aggregate when no decomposition possible
+          leave_one_out_meta_aggregate: aggregateData.aggregate, // Use belief aggregate as fallback
+        };
+      } catch (error) {
+        console.error('Failed to call aggregate function for leave-one-out fallback:', error);
+        throw new DecompositionError(
+          503,
+          `Leave-one-out fallback failed: ${error.message}`,
+          { belief_id, epoch: queryEpoch, excluded_agent: excludeAgentId }
+        );
+      }
     }
     throw new DecompositionError(
       409,
@@ -772,7 +807,13 @@ Deno.serve(async (req) => {
       }
 
       // Weight validation is now handled inside performDecomposition
-      const result = await performDecomposition(supabase, input.belief_id, input.weights);
+      const result = await performDecomposition(
+        supabase,
+        input.belief_id,
+        input.weights,
+        undefined, // excludeAgentId
+        input.epoch // providedEpoch
+      );
 
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -792,6 +833,10 @@ Deno.serve(async (req) => {
 
       if (!input.weights || typeof input.weights !== "object" || Array.isArray(input.weights)) {
         throw new DecompositionError(422, "weights must be an object mapping agent_id to numeric weight");
+      }
+
+      if (typeof input.epoch !== "number" || !Number.isInteger(input.epoch) || input.epoch < 0) {
+        throw new DecompositionError(422, "epoch must be a non-negative integer");
       }
 
       // Verify excluded agent not in weights
@@ -819,7 +864,8 @@ Deno.serve(async (req) => {
         supabase,
         input.belief_id,
         normalizedWeights,
-        input.exclude_agent_id
+        input.exclude_agent_id,
+        input.epoch
       ) as LeaveOneOutOutput;
 
       return new Response(JSON.stringify(result), {

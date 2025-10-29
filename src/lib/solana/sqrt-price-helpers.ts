@@ -156,6 +156,28 @@ export function formatPoolAccountData(pool: any) {
   const marketCapShort = sShortDisplay * priceShort;
   const totalMarketCap = marketCapLong + marketCapShort;
 
+  // Parse actual reserves from the pool account
+  // IMPORTANT: Use the on-chain reserves directly, don't calculate from price × supply
+  // The on-chain reserves are the source of truth, especially after settlements
+  const rLongMicro = parseAnchorNumber(pool.r_long ?? pool.rLong);
+  const rShortMicro = parseAnchorNumber(pool.r_short ?? pool.rShort);
+
+  // Debug log to diagnose zero reserve issue
+  if (rLongMicro === 0 && rShortMicro === 0) {
+    console.warn('[formatPoolAccountData] WARNING: Both reserves are zero!', {
+      pool_r_long: pool.r_long,
+      pool_rLong: pool.rLong,
+      pool_r_short: pool.r_short,
+      pool_rShort: pool.rShort,
+      rLongMicro,
+      rShortMicro
+    });
+  }
+
+  // Convert from micro-USDC to display USDC
+  const rLongDisplay = rLongMicro / USDC_PRECISION;
+  const rShortDisplay = rShortMicro / USDC_PRECISION;
+
   // Also need to parse other addresses/mints that might be needed
   const contentId = pool.contentId?.toString() || '';
   const longMint = pool.longMint;
@@ -180,6 +202,12 @@ export function formatPoolAccountData(pool: any) {
     // Vault balance (in USDC for UI)
     vaultBalance: vaultBalanceMicro / USDC_PRECISION,
 
+    // Actual on-chain reserves (for implied relevance calculation)
+    // NOTE: These are the source of truth, directly from the pool account
+    // After settlements, these reflect the BD score, NOT the market caps
+    rLong: rLongDisplay,
+    rShort: rShortDisplay,
+
     // Raw values for debugging and database storage
     _raw: {
       sqrtPriceLongX96: sqrtPriceLongX96.toString(),
@@ -189,6 +217,8 @@ export function formatPoolAccountData(pool: any) {
       sLongAtomic: displayToAtomic(sLongDisplay), // Convert to atomic for DB
       sShortAtomic: displayToAtomic(sShortDisplay), // Convert to atomic for DB
       vaultBalanceMicro: vaultBalanceMicro, // Atomic units (micro-USDC)
+      rLong: rLongDisplay, // Display USDC units
+      rShort: rShortDisplay, // Display USDC units
     },
 
     // ICBS parameters (for trade simulation)

@@ -6,8 +6,9 @@ import { usePrivy } from '@/hooks/usePrivyHooks';
 import { getRpcEndpoint } from '@/lib/solana/network-config';
 import { invalidatePoolData } from '@/services/PoolDataService';
 import { atomicToDisplay, asAtomic, microToUsdc } from '@/lib/units';
+import { mutate } from 'swr';
 
-export function useSellTokens(onSuccess?: () => void) {
+export function useSellTokens() {
   const { wallet, address } = useSolanaWallet();
   const { user } = useAuth();
   const { getAccessToken } = usePrivy();
@@ -253,8 +254,8 @@ export function useSellTokens(onSuccess?: () => void) {
             sqrt_price_short_x96: poolData?._raw?.sqrtPriceShortX96,
             price_long: poolData?.priceLong,
             price_short: poolData?.priceShort,
-            r_long_after: poolData?.marketCapLong,
-            r_short_after: poolData?.marketCapShort,
+            r_long_after: poolData?.rLong,
+            r_short_after: poolData?.rShort,
             vault_balance_after: poolData?._raw?.vaultBalanceMicro, // Micro-USDC
             // Belief submission
             initial_belief: initialBelief,
@@ -277,6 +278,22 @@ export function useSellTokens(onSuccess?: () => void) {
       // Invalidate pool data cache to trigger immediate refresh
       invalidatePoolData(postId);
 
+      // Add a small delay to ensure database writes (especially implied_relevance_history) are complete
+      // This prevents race conditions where SWR fetches before the data is written
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Trigger SWR to refetch all relevant data immediately
+      // This ensures all components using these hooks get fresh data
+      // Note: keepPreviousData in hook configs prevents loading flicker
+      await Promise.all([
+        mutate(`/api/posts/${postId}/trades?range=1H`),
+        mutate(`/api/posts/${postId}/trades?range=24H`),
+        mutate(`/api/posts/${postId}/trades?range=7D`),
+        mutate(`/api/posts/${postId}/trades?range=ALL`),
+        mutate(`/api/posts/${postId}/history`),
+        mutate(`/api/posts/${postId}`),
+      ]);
+
       // Prepare trade completion details
       const tradeDetails = {
         tradeType: 'sell' as const,
@@ -289,10 +306,7 @@ export function useSellTokens(onSuccess?: () => void) {
         postId,
       };
 
-      // Call success callback to trigger UI refresh
-      if (onSuccess) {
-        onSuccess();
-      }
+      // Note: We removed onSuccess callback - SWR mutate handles all refreshing now
 
       return { signature, tradeDetails };
     } catch (err) {

@@ -238,9 +238,9 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
               </div>
             </div>
 
-            {/* Fund Wallet Button - show if error mentions "need" or "Insufficient" */}
-            {((error || deployError || '').toLowerCase().includes('need') ||
-              (error || deployError || '').toLowerCase().includes('insufficient')) && (
+            {/* Fund Wallet Button - show only for insufficient funds errors */}
+            {((error || deployError || '').toLowerCase().includes('insufficient') ||
+              (error || deployError || '').toLowerCase().includes('not enough')) && (
               <FundWalletButton variant="full" />
             )}
           </div>

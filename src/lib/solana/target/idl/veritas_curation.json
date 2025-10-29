@@ -1,5 +1,5 @@
 {
-  "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2",
+  "address": "GUUnua8NmaJQKvseg1oGXcZn3Ddh1RGrDnaiXRzQUvew",
   "metadata": {
     "name": "veritas_curation",
     "version": "0.1.0",
@@ -736,7 +736,7 @@
         },
         {
           "name": "program",
-          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+          "address": "GUUnua8NmaJQKvseg1oGXcZn3Ddh1RGrDnaiXRzQUvew"
         },
         {
           "name": "program_data"
@@ -886,7 +886,7 @@
         },
         {
           "name": "program",
-          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+          "address": "GUUnua8NmaJQKvseg1oGXcZn3Ddh1RGrDnaiXRzQUvew"
         },
         {
           "name": "program_data"
@@ -1168,7 +1168,7 @@
         },
         {
           "name": "program",
-          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+          "address": "GUUnua8NmaJQKvseg1oGXcZn3Ddh1RGrDnaiXRzQUvew"
         },
         {
           "name": "program_data"
@@ -1220,7 +1220,7 @@
         },
         {
           "name": "program",
-          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+          "address": "GUUnua8NmaJQKvseg1oGXcZn3Ddh1RGrDnaiXRzQUvew"
         },
         {
           "name": "program_data"
@@ -1304,7 +1304,7 @@
         },
         {
           "name": "program",
-          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+          "address": "GUUnua8NmaJQKvseg1oGXcZn3Ddh1RGrDnaiXRzQUvew"
         },
         {
           "name": "program_data"
@@ -1371,7 +1371,7 @@
         },
         {
           "name": "program",
-          "address": "7ggXQcLpcjLDQEAZvfXicxTD3KCbvfZMnA1KVGd6ivF2"
+          "address": "GUUnua8NmaJQKvseg1oGXcZn3Ddh1RGrDnaiXRzQUvew"
         },
         {
           "name": "program_data"
@@ -1688,84 +1688,109 @@
   ],
   "errors": [
     {
-      "code": 13000,
-      "name": "AlreadyInitialized",
-      "msg": "Factory already initialized"
+      "code": 6000,
+      "name": "InvalidParameters",
+      "msg": "Invalid parameters"
     },
     {
-      "code": 13001,
+      "code": 6001,
+      "name": "Unauthorized",
+      "msg": "Unauthorized access"
+    },
+    {
+      "code": 6002,
+      "name": "InsufficientBalance",
+      "msg": "Insufficient balance"
+    },
+    {
+      "code": 6003,
+      "name": "InsufficientReserve",
+      "msg": "Insufficient pool reserve"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidAmount",
+      "msg": "Invalid amount"
+    },
+    {
+      "code": 6005,
+      "name": "NumericalOverflow",
+      "msg": "Numerical overflow"
+    },
+    {
+      "code": 6006,
+      "name": "TransferFailed",
+      "msg": "Transfer failed"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidFactory",
+      "msg": "Invalid factory reference"
+    },
+    {
+      "code": 6008,
       "name": "InvalidAuthority",
       "msg": "Invalid authority address"
     },
     {
-      "code": 13010,
+      "code": 6009,
+      "name": "InvalidPostId",
+      "msg": "Invalid post ID"
+    },
+    {
+      "code": 6010,
+      "name": "BelowMinimum",
+      "msg": "Below minimum amount"
+    },
+    {
+      "code": 6011,
+      "name": "InsufficientVaultBalance",
+      "msg": "Insufficient vault balance"
+    },
+    {
+      "code": 6012,
+      "name": "AlreadyInitialized",
+      "msg": "Account already initialized"
+    },
+    {
+      "code": 6013,
       "name": "PoolAlreadyExists",
-      "msg": "Pool already exists for content_id"
+      "msg": "Pool already exists for post_id"
     },
     {
-      "code": 13011,
-      "name": "InvalidContentId",
-      "msg": "Invalid content_id"
+      "code": 6014,
+      "name": "InvalidVault",
+      "msg": "Invalid vault"
     },
     {
-      "code": 13012,
-      "name": "InvalidParameters",
-      "msg": "Invalid ICBS parameters"
+      "code": 6015,
+      "name": "InvalidRecipient",
+      "msg": "Invalid recipient"
     },
     {
-      "code": 13020,
-      "name": "Unauthorized",
-      "msg": "Unauthorized (not factory authority)"
+      "code": 6016,
+      "name": "InvalidMint",
+      "msg": "Invalid mint"
     },
     {
-      "code": 13021,
-      "name": "UnauthorizedProtocol",
-      "msg": "Unauthorized protocol authority"
+      "code": 6017,
+      "name": "InvalidAccountingState",
+      "msg": "Invalid accounting state"
     },
     {
-      "code": 13030,
-      "name": "InvalidF",
-      "msg": "Invalid growth exponent F"
+      "code": 6018,
+      "name": "SystemPaused",
+      "msg": "System paused"
     },
     {
-      "code": 13031,
-      "name": "InvalidBeta",
-      "msg": "Invalid coupling coefficient β"
+      "code": 6019,
+      "name": "InvalidProgramData",
+      "msg": "Invalid program data account"
     },
     {
-      "code": 13032,
-      "name": "InvalidMinDeposit",
-      "msg": "Invalid minimum deposit"
-    },
-    {
-      "code": 13033,
-      "name": "InvalidSettleInterval",
-      "msg": "Invalid settle interval"
-    },
-    {
-      "code": 13040,
+      "code": 6020,
       "name": "InvalidUpgradeAuthority",
       "msg": "Invalid upgrade authority"
-    },
-    {
-      "code": 13041,
-      "name": "InvalidProgramData",
-      "msg": "Invalid program data"
-    },
-    {
-      "code": 13042,
-      "name": "InvalidFeeConfiguration",
-      "msg": "Invalid fee configuration"
-    },
-    {
-      "code": 13043,
-      "name": "InvalidCreatorSplit",
-      "msg": "Invalid creator split - must be <= 10000 basis points"
-    },
-    {
-      "code": 13044,
-      "name": "FeeCalculationOverflow",
-      "msg": "Fee calculation overflow"
     }
   ],
   "types": [

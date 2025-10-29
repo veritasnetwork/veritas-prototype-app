@@ -1,11 +1,11 @@
 # Stake Mechanics: How It Actually Works
 
-**Date:** 2025-01-22
-**Status:** ✅ Final Design (Ready to Implement)
+**Date:** 2025-01-28
+**Status:** ✅ Final Design - P90-Scaled Redistribution
 **Purpose:** Single source of truth for stake/lock mechanics
 
 **See also:**
-- [BTS-REDISTRIBUTION-DESIGN-QUESTIONS.md](./BTS-REDISTRIBUTION-DESIGN-QUESTIONS.md) - λ-scaled redistribution design
+- [07-stake-redistribution.md](../edge-function-specs/low-level-protocol-specs/07-stake-redistribution.md) - Complete P90-scaled redistribution spec
 - [OPEN-IMPLEMENTATION-QUESTIONS.md](./OPEN-IMPLEMENTATION-QUESTIONS.md) - All implementation decisions
 
 ---
@@ -176,36 +176,15 @@ WHERE user_id = ? AND pool_address = ? AND token_type = ?
 
 **File:** [protocol-beliefs-stake-redistribution](../../supabase/functions/protocol-beliefs-stake-redistribution/index.ts)
 
-### Current Implementation (BROKEN)
+**See:** [Complete specification](../edge-function-specs/low-level-protocol-specs/07-stake-redistribution.md)
 
-```typescript
-// Calculate BTS scores (how informative was each belief?)
-score = -1 to +1
-
-// Calculate stake changes (NORMALIZED WEIGHTS - BROKEN)
-stake_change = score × (your_lock / total_locks)
-
-// Update stakes
-agents.total_stake += stake_change
-
-// Locks unchanged
-```
-
-**The Bug:** Normalized weights divide losses across everyone:
-```
-Your lock: 10M μUSDC
-Your max loss: 10M ÷ 50 = 200k μUSDC ($0.20)
-Gap: 9.8M unaccounted for → insolvency
-```
-
----
-
-### The Fix: λ-Scaled Redistribution
+### P90-Scaled Redistribution (Current Design)
 
 **Required inputs:**
 - `belief_id` → look up `pool_address` via `pool_deployments.belief_id`
-- `information_scores` (map of agent_id → BTS score)
-- **Remove** `belief_weights` parameter (compute from DB locks instead)
+- `bts_scores` (map of agent_id → raw BTS score, unbounded)
+- `certainty` ∈ [0, 1] from BD aggregate
+- `current_epoch` for idempotency
 
 ```typescript
 // ALL VALUES IN MICRO-USDC (integers)
@@ -224,81 +203,187 @@ try {
   if (!pool) throw new Error(`No pool found for belief ${beliefId}`)
   const poolAddress = pool.pool_address
 
-  // 2. Get gross lock per user (sum LONG + SHORT) - micro-USDC
+  // 2. Get gross locks per agent (sum LONG + SHORT) - micro-USDC
   const { data: userLocks } = await supabase
     .from('user_pool_balances')
-    .select('user_id, belief_lock, token_type')
+    .select('user_id, belief_lock, users!inner(agent_id)')
     .eq('pool_address', poolAddress)
     .gt('token_balance', 0)
 
-  const grossLocksMicro = new Map<string, number>()
+  const grossLocksMicro = new Map<string, number>()  // agentId → lock
   for (const row of userLocks) {
-    const current = grossLocksMicro.get(row.user_id) || 0
-    grossLocksMicro.set(row.user_id, current + row.belief_lock)  // Sum LONG + SHORT
+    const agentId = row.users.agent_id
+    const current = grossLocksMicro.get(agentId) || 0
+    grossLocksMicro.set(agentId, current + row.belief_lock)  // Sum LONG + SHORT
   }
 
-  // 3. Calculate raw deltas (absolute weights, not normalized) - micro-USDC
-  const agentDeltas = agentIds.map(id => ({
-    agentId: id,
-    score: informationScores[id],
-    lockMicro: grossLocksMicro.get(id) || 0,
-    rawMicro: Math.floor(informationScores[id] * (grossLocksMicro.get(id) || 0))
-  }))
+  // 3. Compute P90 adaptive scale
+  const agents = Array.from(grossLocksMicro.keys())
+  const absScores = agents.map(id => Math.abs(btsScores[id]))
+  absScores.sort((a, b) => a - b)  // Ascending
+  const N = absScores.length
+  const r = Math.ceil(0.90 * N)
+  const k_raw = absScores[r - 1]
+  const k_floor = 0.1
+  const k = Math.max(k_raw, k_floor)
 
-  // 4. Separate winners and losers - micro-USDC
-  const lossesMicro = sum(agentDeltas.filter(d => d.rawMicro < 0).map(d => Math.abs(d.rawMicro)))
-  const gainsMicro = sum(agentDeltas.filter(d => d.rawMicro > 0).map(d => d.rawMicro))
-
-  // 5. Calculate scaling factor
-  const lambda = gainsMicro > 0 ? lossesMicro / gainsMicro : 0
-
-  // 6. Apply scaled deltas - micro-USDC
-  const finalDeltas = agentDeltas.map(d => ({
-    agentId: d.agentId,
-    deltaMicro: d.rawMicro > 0 ? Math.floor(d.rawMicro * lambda) : d.rawMicro
-  }))
-
-  // 7. HARD-ENFORCE zero-sum (fail if violated)
-  const totalDeltaMicro = sum(finalDeltas.map(d => d.deltaMicro))
-  if (Math.abs(totalDeltaMicro) > 1) {  // Tolerance: 1 micro-USDC
-    throw new Error(`Zero-sum violated: Σ Δ = ${totalDeltaMicro} μUSDC`)
+  // 4. Clamp scores to [-1, 1]
+  const clampedScores = new Map<string, number>()
+  for (const agentId of agents) {
+    const clamped = Math.min(Math.max(btsScores[agentId] / k, -1), 1)
+    clampedScores.set(agentId, clamped)
   }
 
-  // 8. Update stakes ATOMICALLY (prevents concurrent epoch races)
-  for (const {agentId, deltaMicro} of finalDeltas) {
+  // 5. Compute noise and signal magnitudes
+  const noiseMicro = new Map<string, number>()  // losers
+  const signalMicro = new Map<string, number>()  // winners
+
+  for (const agentId of agents) {
+    const s_clamped = clampedScores.get(agentId)!
+    const w_micro = grossLocksMicro.get(agentId)!
+
+    // Noise (losers)
+    noiseMicro.set(agentId, Math.max(0, -s_clamped) * w_micro)
+
+    // Signal (winners)
+    signalMicro.set(agentId, Math.max(0, s_clamped) * w_micro)
+  }
+
+  // 6. Calculate loser slashes (certainty-scaled)
+  const slashesMicro = new Map<string, number>()
+  let poolSlashMicro = 0
+
+  for (const agentId of agents) {
+    const n_micro = noiseMicro.get(agentId)!
+    const n_usdc = n_micro / 1_000_000
+    const slash_usdc = certainty * n_usdc
+    const slash_micro = Math.floor(slash_usdc * 1_000_000)
+
+    slashesMicro.set(agentId, slash_micro)
+    poolSlashMicro += slash_micro
+  }
+
+  // 7. Distribute to winners (largest-remainders for exact zero-sum)
+  const rewardsMicro = new Map<string, number>()
+  const totalSignalMicro = Array.from(signalMicro.values()).reduce((a, b) => a + b, 0)
+
+  if (totalSignalMicro === 0) {
+    // No winners - skip redistribution
+    return { redistribution_occurred: false, ... }
+  }
+
+  // First pass: floor allocation
+  for (const agentId of agents) {
+    const p_micro = signalMicro.get(agentId)!
+    const reward_base = Math.floor((poolSlashMicro * p_micro) / totalSignalMicro)
+    rewardsMicro.set(agentId, reward_base)
+  }
+
+  // Compute remainder
+  const allocated = Array.from(rewardsMicro.values()).reduce((a, b) => a + b, 0)
+  const remainder = poolSlashMicro - allocated
+
+  // Largest-remainders: distribute remainder micro-units
+  if (remainder > 0) {
+    const residuals = agents
+      .filter(id => signalMicro.get(id)! > 0)
+      .map(id => ({
+        agentId: id,
+        residual: (poolSlashMicro * signalMicro.get(id)!) % totalSignalMicro
+      }))
+      .sort((a, b) => {
+        if (b.residual !== a.residual) return b.residual - a.residual
+        return a.agentId.localeCompare(b.agentId)  // Deterministic tie-break
+      })
+
+    for (let i = 0; i < remainder; i++) {
+      const agentId = residuals[i].agentId
+      rewardsMicro.set(agentId, rewardsMicro.get(agentId)! + 1)
+    }
+  }
+
+  // 8. HARD-ENFORCE zero-sum (exact micro-unit equality)
+  let totalDeltaMicro = 0
+  for (const agentId of agents) {
+    const delta = rewardsMicro.get(agentId)! - slashesMicro.get(agentId)!
+    totalDeltaMicro += delta
+  }
+
+  if (totalDeltaMicro !== 0) {
+    throw new Error(`Zero-sum violated: Σ Δ = ${totalDeltaMicro} μUSDC (expected exactly 0)`)
+  }
+
+  // 9. Update stakes ATOMICALLY
+  for (const agentId of agents) {
+    const deltaMicro = rewardsMicro.get(agentId)! - slashesMicro.get(agentId)!
     if (deltaMicro === 0) continue
 
+    // Get stake before
+    const { data: agentBefore } = await supabase
+      .from('agents')
+      .select('total_stake')
+      .eq('id', agentId)
+      .single()
+
+    // Update atomically
     await supabase.rpc('update_stake_atomic', {
       p_agent_id: agentId,
       p_delta_micro: deltaMicro
     })
-    // SQL: UPDATE agents SET total_stake = GREATEST(0, total_stake + p_delta_micro)
+
+    // Get stake after for audit trail
+    const { data: agentAfter } = await supabase
+      .from('agents')
+      .select('total_stake')
+      .eq('id', agentId)
+      .single()
+
+    // Record event
+    await supabase.from('stake_redistribution_events').insert({
+      belief_id: beliefId,
+      epoch: currentEpoch,
+      agent_id: agentId,
+      information_score: btsScores[agentId],  // Raw unbounded score
+      belief_weight: grossLocksMicro.get(agentId)!,
+      normalized_weight: grossLocksMicro.get(agentId)! / Array.from(grossLocksMicro.values()).reduce((a,b) => a+b, 0),
+      stake_before: agentBefore.total_stake,
+      stake_delta: deltaMicro,
+      stake_after: agentAfter.total_stake,
+      recorded_by: 'server'
+    })
   }
 
-  // 9. Locks stay unchanged (no clearing/re-locking!)
+  // 10. Locks stay unchanged (only change on buy trades)
 
 } finally {
-  // Release advisory lock
   await supabase.rpc('pg_advisory_unlock', { lock_id: hashPoolAddress(poolAddress) })
 }
 ```
 
-**Result:**
-- Losers pay full: `delta = score × lock` (max loss = lock when score = -1)
-- Winners share pot: `delta = (score × lock) × λ` (scaled down to match total losses)
-- Zero-sum enforced: `Σ finalDeltas = 0` (hard-fail if |Σ| > 1 μUSDC)
-- Locks unchanged: only change on buy trades
-- Solvency guaranteed: `stake ≥ 0` always (max loss = Σ locks)
-- Atomic updates: prevents lost updates from concurrent epochs
-- Advisory lock: only one redistribution per pool at a time
+**Key Properties:**
+- **Single weighting:** Score weighted exactly once by gross lock
+- **Bounded risk:** Max loss per belief = `c · w_i ≤ w_i` (your lock in this pool)
+- **Adaptive scaling:** P90 prevents outliers, preserves relative magnitudes
+- **Certainty control:** `c ∈ [0, 1]` scales impact (high c → larger movements)
+- **Exact zero-sum:** Integer micro-unit accounting with largest-remainders
+- **Solvency guaranteed:** Slashes respect lock constraints
+- **Atomic updates:** No lost updates from concurrent epochs
+- **Locks unchanged:** Only change on buy trades
 
 **Edge cases:**
-- All winners (G>0, L=0): λ=0, no redistribution
-- All losers (L>0, G=0): λ=0, no redistribution
-- No participants: Skip redistribution, log `info: "BTS skip – no active locks"`
-- Zero-sum violation: **ABORT** entire redistribution (fail-safe)
+- No winners (`P = 0`): Skip redistribution (no slashes)
+- No losers (`PoolSlash = 0`): Skip redistribution (no rewards)
+- Zero certainty (`c = 0`): All slashes = 0, no redistribution
+- Tiny scores (`|s_i| < 0.1`): k_floor prevents division issues
+- All identical scores: P90 = max score, normalized to [-1, 1]
 
-See [BTS-REDISTRIBUTION-DESIGN-QUESTIONS.md](./BTS-REDISTRIBUTION-DESIGN-QUESTIONS.md) for full design rationale.
+**Differences from old λ-scaled model:**
+- ~~Lambda scaling~~ → **P90 adaptive scaling** (no lambda needed)
+- ~~Unbounded deltas~~ → **Bounded by certainty × lock**
+- ~~Post-hoc scaling~~ → **Pre-scaled via clamped scores**
+- ~~Risk of exceeding stake~~ → **Guaranteed ≤ c · w_i**
+
+See [07-stake-redistribution.md](../edge-function-specs/low-level-protocol-specs/07-stake-redistribution.md) for complete algorithm with examples.
 
 ---
 
@@ -356,8 +441,8 @@ T2: Close Pool B (sell all)
 T0: Position
   stake: 100M μUSDC, locks: {A: 10M}
 
-T1: BTS worst case (σ = -1.0)
-  Max loss: 10M (= lock amount, after λ-fix)
+T1: BTS worst case (clamped score = -1.0, certainty = 1.0)
+  Max loss: c · w_i = 1.0 · 10M = 10M μUSDC
   After: stake: 90M, locks: {A: 10M}
   Still solvent: 90M ≥ 10M ✅
 
@@ -366,7 +451,10 @@ T2: Close position
   Withdrawable: 90M ✅
 ```
 
-**Solvency guarantee:** After closing all positions, stake ≥ 0 (even if all beliefs score -1.0).
+**Solvency guarantee:**
+- Max loss per pool = `c · w_i ≤ w_i` (bounded by your lock)
+- After closing all positions, `stake ≥ 0` always (P90 scaling ensures this)
+- With `c < 1`, losses are dampened further (e.g., `c = 0.5` → max loss = 50% of lock)
 
 ---
 
@@ -487,7 +575,7 @@ require(amountMicro <= withdrawableMicro, "Exceeds withdrawable")
 
 ## Related Docs
 
-- [BTS-REDISTRIBUTION-DESIGN-QUESTIONS.md](./BTS-REDISTRIBUTION-DESIGN-QUESTIONS.md) - λ-scaled redistribution design
+- [07-stake-redistribution.md](../edge-function-specs/low-level-protocol-specs/07-stake-redistribution.md) - Complete P90-scaled redistribution spec
 - [OPEN-IMPLEMENTATION-QUESTIONS.md](./OPEN-IMPLEMENTATION-QUESTIONS.md) - All implementation decisions
 - [INCENTIVE-STRUCTURE.md](./INCENTIVE-STRUCTURE.md) - Economic theory, game theory proofs
 - [STAKE-SYSTEM-AUDIT.md](./STAKE-SYSTEM-AUDIT.md) - Original bug discovery
@@ -497,19 +585,27 @@ require(amountMicro <= withdrawableMicro, "Exceeds withdrawable")
 
 ## Implementation Checklist
 
-### Core λ-Scaled Redistribution
-- [ ] Update `protocol-beliefs-stake-redistribution/index.ts` with λ-scaled formula
+### Core P90-Scaled Redistribution
+- [ ] Update `protocol-beliefs-stake-redistribution/index.ts` with P90-scaled formula
 - [ ] Add `pool_address` lookup from `belief_id` via `pool_deployments`
-- [ ] Remove `belief_weights` parameter (compute from DB locks instead)
-- [ ] Aggregate LONG + SHORT locks per user (gross, not net)
+- [ ] Add `certainty` parameter from BD aggregate
+- [ ] Aggregate LONG + SHORT locks per agent (gross, not net)
+- [ ] Implement P90 adaptive scaling (k = max(P90({|s_i|}), 0.1))
+- [ ] Clamp BTS scores to [-1, 1] using k
+- [ ] Apply certainty scaling to slashes: `slash = floor(c · n_i)`
+- [ ] Implement largest-remainders for exact zero-sum
 - [ ] Remove any clearing/re-locking logic (locks only change on buy)
-- [ ] Implement atomic stake updates: `total_stake = total_stake + Δ`
+- [ ] Implement atomic stake updates: `total_stake = GREATEST(0, total_stake + Δ)`
 - [ ] Wrap redistribution in `pg_advisory_lock(pool_id)` / `unlock`
-- [ ] HARD-ENFORCE zero-sum: throw error if `|Σ Δ| > 1 μUSDC`
+- [ ] HARD-ENFORCE zero-sum: throw error if `Σ Δ ≠ 0` (exact)
 - [ ] Store all values in micro-USDC (integers)
+- [ ] Remove database constraint on `information_score` (allow unbounded)
+- [ ] Change `information_score` column from `numeric(10,8)` to `numeric`
 - [ ] Test: zero-sum property (Σ finalDeltas = 0, exact)
-- [ ] Test: max loss = lock (when score = -1)
+- [ ] Test: max loss = c · lock (when clamped score = -1)
 - [ ] Test: concurrent epochs don't corrupt stakes
+- [ ] Test: P90 scaling with outliers
+- [ ] Test: largest-remainders distributes remainder exactly
 
 ### Skim Calculation Fix
 - [ ] Add `token_type` column to `user_pool_balances`

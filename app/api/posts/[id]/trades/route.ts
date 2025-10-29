@@ -57,17 +57,32 @@ export async function GET(
     }
 
     // Fetch trades with sqrt prices from database
-    let query = supabase
+    let tradesQuery = supabase
       .from('trades')
       .select('recorded_at, price_long, price_short, usdc_amount, token_amount, trade_type, side')
       .eq('pool_address', poolData.pool_address)
       .order('recorded_at', { ascending: true });
 
     if (timeFilter) {
-      query = query.gte('recorded_at', timeFilter);
+      tradesQuery = tradesQuery.gte('recorded_at', timeFilter);
     }
 
-    const { data: tradesData, error: tradesError } = await query;
+    // Fetch settlement prices for the same time range
+    let settlementsQuery = supabase
+      .from('settlements')
+      .select('timestamp, price_long_after, price_short_after, epoch')
+      .eq('pool_address', poolData.pool_address)
+      .eq('confirmed', true)
+      .order('timestamp', { ascending: true });
+
+    if (timeFilter) {
+      settlementsQuery = settlementsQuery.gte('timestamp', timeFilter);
+    }
+
+    const [
+      { data: tradesData, error: tradesError },
+      { data: settlementsData, error: settlementsError }
+    ] = await Promise.all([tradesQuery, settlementsQuery]);
 
     if (tradesError) {
       console.error('Error fetching trades:', tradesError);
@@ -77,7 +92,18 @@ export async function GET(
       );
     }
 
+    if (settlementsError) {
+      console.error('Error fetching settlements:', settlementsError);
+      // Non-fatal - continue with just trades
+    }
+
     const trades = tradesData as Trade[] | null;
+    const settlements = settlementsData as Array<{
+      timestamp: string;
+      price_long_after: number | null;
+      price_short_after: number | null;
+      epoch: number;
+    }> | null;
 
     if (!trades || trades.length === 0) {
       return NextResponse.json({
@@ -119,9 +145,16 @@ export async function GET(
       return hasValidPrice;
     });
 
+    // Combine trades and settlements for price history
+    // Settlements represent price changes due to rebases
+    const validSettlements = (settlements || []).filter((s) =>
+      s.price_long_after !== null && s.price_short_after !== null &&
+      s.price_long_after > 0 && s.price_short_after > 0
+    );
+
     // Separate price series for LONG and SHORT tokens
     // Prices are stored in USDC (display units) as per spec
-    const priceLongData = validTrades.map((trade, index) => {
+    const tradePriceLongData = validTrades.map((trade, index) => {
       const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
       const uniqueTime = baseTime + index * 0.001; // Add small offset for duplicates
       return {
@@ -130,7 +163,16 @@ export async function GET(
       };
     });
 
-    const priceShortData = validTrades.map((trade, index) => {
+    const settlementPriceLongData = validSettlements.map((settlement, index) => {
+      const baseTime = Math.floor(new Date(settlement.timestamp).getTime() / 1000);
+      const uniqueTime = baseTime + index * 0.001;
+      return {
+        time: uniqueTime,
+        value: settlement.price_long_after!,
+      };
+    });
+
+    const tradePriceShortData = validTrades.map((trade, index) => {
       const baseTime = Math.floor(new Date(trade.recorded_at).getTime() / 1000);
       const uniqueTime = baseTime + index * 0.001;
       return {
@@ -138,6 +180,22 @@ export async function GET(
         value: trade.price_short!,
       };
     });
+
+    const settlementPriceShortData = validSettlements.map((settlement, index) => {
+      const baseTime = Math.floor(new Date(settlement.timestamp).getTime() / 1000);
+      const uniqueTime = baseTime + index * 0.001;
+      return {
+        time: uniqueTime,
+        value: settlement.price_short_after!,
+      };
+    });
+
+    // Merge and sort by time
+    const priceLongData = [...tradePriceLongData, ...settlementPriceLongData]
+      .sort((a, b) => a.time - b.time);
+
+    const priceShortData = [...tradePriceShortData, ...settlementPriceShortData]
+      .sort((a, b) => a.time - b.time);
 
     // Volume data split by side (LONG vs SHORT)
     const volumeData = trades

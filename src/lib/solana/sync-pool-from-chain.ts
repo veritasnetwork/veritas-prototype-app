@@ -21,11 +21,13 @@ interface PoolAccountDataForDB {
   sLongSupplyDisplay: number; // DISPLAY units for database
   sShortSupplyDisplay: number; // DISPLAY units for database
   vaultBalanceMicro: number; // Micro-USDC for database
+  rLong: number; // Display USDC units
+  rShort: number; // Display USDC units
   f: number;
   betaNum: number;
   betaDen: number;
-  sScaleLongQ64: string;  // NEW
-  sScaleShortQ64: string; // NEW
+  sScaleLongQ64: string;
+  sScaleShortQ64: string;
 }
 
 /**
@@ -66,17 +68,28 @@ async function parsePoolAccount(
     // Use formatPoolAccountData to handle hex parsing and unit conversion
     const formatted = formatPoolAccountData(poolData);
 
+    console.log('[SyncPool] Parsed pool data:', {
+      rLong: formatted._raw.rLong,
+      rShort: formatted._raw.rShort,
+      poolData_r_long: poolData.r_long,
+      poolData_r_short: poolData.r_short,
+      poolData_rLong: poolData.rLong,
+      poolData_rShort: poolData.rShort
+    });
+
     return {
       sqrtPriceLongX96: formatted._raw.sqrtPriceLongX96,
       sqrtPriceShortX96: formatted._raw.sqrtPriceShortX96,
       sLongSupplyDisplay: formatted._raw.sLong,  // Use display units for DB
       sShortSupplyDisplay: formatted._raw.sShort,  // Use display units for DB
       vaultBalanceMicro: formatted._raw.vaultBalanceMicro,
+      rLong: formatted._raw.rLong,  // Display USDC units
+      rShort: formatted._raw.rShort,  // Display USDC units
       f: formatted.f,
       betaNum: formatted.betaNum,
       betaDen: formatted.betaDen,
-      sScaleLongQ64: formatted.sScaleLongQ64,  // NEW
-      sScaleShortQ64: formatted.sScaleShortQ64, // NEW
+      sScaleLongQ64: formatted.sScaleLongQ64,
+      sScaleShortQ64: formatted.sScaleShortQ64,
     };
   } catch (error) {
     console.error('[SyncPool] Error parsing pool account:', error);
@@ -89,14 +102,14 @@ async function parsePoolAccount(
  * Only updates null fields, preserves existing data
  */
 // In-flight sync tracker to prevent duplicate syncs
-const syncInFlight = new Map<string, Promise<boolean>>();
+const syncInFlight = new Map<string, Promise<{ r_long: number; r_short: number } | null>>();
 
 export async function syncPoolFromChain(
   poolAddress: string,
   connection?: Connection,
   timeoutMs: number = 5000, // DEFENSIVE: 5 second timeout
   forceUpdate: boolean = false // If true, updates all fields regardless of null status
-): Promise<boolean> {
+): Promise<{ r_long: number; r_short: number } | null> {
   // DEFENSIVE: Check if sync already in progress for this pool
   if (syncInFlight.has(poolAddress)) {
     return await syncInFlight.get(poolAddress)!;
@@ -104,14 +117,14 @@ export async function syncPoolFromChain(
 
   // Create sync promise with timeout protection
   const syncPromise = Promise.race([
-    doSyncPoolFromChain(poolAddress, connection),
-    new Promise<boolean>((_, reject) =>
+    doSyncPoolFromChain(poolAddress, connection, forceUpdate),
+    new Promise<{ r_long: number; r_short: number } | null>((_, reject) =>
       setTimeout(() => reject(new Error('Pool sync timeout')), timeoutMs)
     )
   ]).catch((error) => {
-    // DEFENSIVE: Log error but don't throw - return false so callers can handle gracefully
+    // DEFENSIVE: Log error but don't throw - return null so callers can handle gracefully
     console.error('[SyncPool] Sync failed or timed out:', error.message);
-    return false;
+    return null;
   });
 
   syncInFlight.set(poolAddress, syncPromise);
@@ -130,8 +143,9 @@ export async function syncPoolFromChain(
  */
 async function doSyncPoolFromChain(
   poolAddress: string,
-  connection?: Connection
-): Promise<boolean> {
+  connection?: Connection,
+  forceUpdate: boolean = false
+): Promise<{ r_long: number; r_short: number } | null> {
   try {
 
     // Use provided connection or get from pool (reuses connections)
@@ -143,7 +157,7 @@ async function doSyncPoolFromChain(
 
     if (!poolAccount) {
       console.error('[SyncPool] Pool account not found on chain:', poolAddress);
-      return false;
+      return null;
     }
 
 
@@ -152,7 +166,7 @@ async function doSyncPoolFromChain(
 
     if (!poolData) {
       console.error('[SyncPool] Failed to parse pool account data');
-      return false;
+      return null;
     }
 
 
@@ -162,13 +176,13 @@ async function doSyncPoolFromChain(
     // First fetch current data to see what's null
     const { data: currentPool, error: fetchError } = await supabase
       .from('pool_deployments')
-      .select('sqrt_price_long_x96, sqrt_price_short_x96, s_long_supply, s_short_supply, vault_balance, s_scale_long_q64, s_scale_short_q64')
+      .select('sqrt_price_long_x96, sqrt_price_short_x96, s_long_supply, s_short_supply, vault_balance, r_long, r_short, s_scale_long_q64, s_scale_short_q64')
       .eq('pool_address', poolAddress)
       .single();
 
     if (fetchError) {
       console.error('[SyncPool] Error fetching current pool data:', fetchError);
-      return false;
+      return null;
     }
 
     // Build update object with only null fields (or all fields if forceUpdate)
@@ -176,21 +190,16 @@ async function doSyncPoolFromChain(
       last_synced_at: new Date().toISOString(),
     };
 
-    if (forceUpdate || currentPool.sqrt_price_long_x96 === null) {
-      updates.sqrt_price_long_x96 = poolData.sqrtPriceLongX96;
-    }
-    if (forceUpdate || currentPool.sqrt_price_short_x96 === null) {
-      updates.sqrt_price_short_x96 = poolData.sqrtPriceShortX96;
-    }
-    if (forceUpdate || currentPool.s_long_supply === null) {
-      updates.s_long_supply = poolData.sLongSupplyDisplay;
-    }
-    if (forceUpdate || currentPool.s_short_supply === null) {
-      updates.s_short_supply = poolData.sShortSupplyDisplay;
-    }
-    if (forceUpdate || currentPool.vault_balance === null) {
-      updates.vault_balance = poolData.vaultBalanceMicro;
-    }
+    // ALWAYS update trading state - these change with every trade
+    updates.sqrt_price_long_x96 = poolData.sqrtPriceLongX96;
+    updates.sqrt_price_short_x96 = poolData.sqrtPriceShortX96;
+    updates.s_long_supply = poolData.sLongSupplyDisplay;
+    updates.s_short_supply = poolData.sShortSupplyDisplay;
+    updates.vault_balance = poolData.vaultBalanceMicro;
+    // ALWAYS update reserves - they change with every trade and settlement
+    // These are critical for implied relevance calculation
+    updates.r_long = poolData.rLong;
+    updates.r_short = poolData.rShort;
     if (forceUpdate || currentPool.f === null) {
       updates.f = poolData.f;
     }
@@ -207,6 +216,8 @@ async function doSyncPoolFromChain(
       updates.s_scale_short_q64 = poolData.sScaleShortQ64;
     }
 
+    console.log('[SyncPool] Updates to apply:', updates);
+
     // Only update if there are fields to update
     if (Object.keys(updates).length > 1) { // More than just last_synced_at
       const { error: updateError } = await supabase
@@ -216,15 +227,19 @@ async function doSyncPoolFromChain(
 
       if (updateError) {
         console.error('[SyncPool] Error updating pool:', updateError);
-        return false;
+        return null;
       }
 
     } else {
     }
 
-    return true;
+    // Return r_long and r_short for caller to use
+    return {
+      r_long: poolData.rLong,
+      r_short: poolData.rShort,
+    };
   } catch (error) {
     console.error('[SyncPool] Error syncing pool from chain:', error);
-    return false;
+    return null;
   }
 }

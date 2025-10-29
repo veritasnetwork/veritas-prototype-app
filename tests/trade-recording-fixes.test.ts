@@ -263,6 +263,81 @@ describe('Trade Recording Bug Fixes', () => {
 
       console.log('✅ Belief submission created correctly');
     });
+
+    it('should NOT update belief submission when selling tokens', async () => {
+      // First, buy with initial belief of 0.8
+      const buyTx = `belief-buy-${Date.now()}`;
+      await supabase.rpc('record_trade_atomic', {
+        p_pool_address: testPoolAddress,
+        p_post_id: testPostId,
+        p_user_id: testUserId,
+        p_wallet_address: `test-wallet-${testUserId}`,
+        p_trade_type: 'buy',
+        p_token_amount: 100,
+        p_usdc_amount: 10,
+        p_tx_signature: buyTx,
+        p_token_type: 'LONG',
+        p_sqrt_price_long_x96: '0',
+        p_sqrt_price_short_x96: '0',
+        p_belief_id: testBeliefId,
+        p_agent_id: testAgentId,
+        p_belief: 0.8,
+        p_meta_prediction: 0.7,
+      });
+
+      // Verify initial belief submission
+      const { data: initialSubmission } = await supabase
+        .from('belief_submissions')
+        .select('*')
+        .eq('belief_id', testBeliefId)
+        .eq('agent_id', testAgentId)
+        .single();
+
+      expect(initialSubmission?.belief).toBe(0.8);
+      expect(initialSubmission?.meta_prediction).toBe(0.7);
+      const initialUpdatedAt = initialSubmission?.updated_at;
+
+      // Wait a moment to ensure timestamp would change if updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Now sell tokens with different belief values
+      const sellTx = `belief-sell-${Date.now()}`;
+      const sellResult = await supabase.rpc('record_trade_atomic', {
+        p_pool_address: testPoolAddress,
+        p_post_id: testPostId,
+        p_user_id: testUserId,
+        p_wallet_address: `test-wallet-${testUserId}`,
+        p_trade_type: 'sell',
+        p_token_amount: 50,
+        p_usdc_amount: 5,
+        p_tx_signature: sellTx,
+        p_token_type: 'LONG',
+        p_sqrt_price_long_x96: '0',
+        p_sqrt_price_short_x96: '0',
+        p_belief_id: testBeliefId,
+        p_agent_id: testAgentId,
+        p_belief: 0.3,  // Different belief (should be ignored)
+        p_meta_prediction: 0.2,  // Different meta (should be ignored)
+      });
+
+      expect(sellResult.data?.success).toBe(true);
+
+      // Verify belief submission was NOT updated
+      const { data: afterSellSubmission } = await supabase
+        .from('belief_submissions')
+        .select('*')
+        .eq('belief_id', testBeliefId)
+        .eq('agent_id', testAgentId)
+        .single();
+
+      // Belief values should remain the same (from buy)
+      expect(afterSellSubmission?.belief).toBe(0.8);
+      expect(afterSellSubmission?.meta_prediction).toBe(0.7);
+      // Timestamp should also be unchanged
+      expect(afterSellSubmission?.updated_at).toBe(initialUpdatedAt);
+
+      console.log('✅ Belief submission correctly NOT updated on sell');
+    });
   });
 });
 

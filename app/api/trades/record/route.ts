@@ -354,6 +354,15 @@ export async function POST(req: NextRequest) {
           updateData.vault_balance = body.vault_balance_after;
         }
 
+        // CRITICAL: Update reserves after trade for accurate implied relevance display
+        // Reserves are stored in DISPLAY USDC units in the database
+        if (body.r_long_after !== undefined) {
+          updateData.r_long = body.r_long_after;
+        }
+        if (body.r_short_after !== undefined) {
+          updateData.r_short = body.r_short_after;
+        }
+
         const { error: poolUpdateError } = await supabase
           .from('pool_deployments')
           .update(updateData)

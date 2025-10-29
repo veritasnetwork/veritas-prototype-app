@@ -228,9 +228,11 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
       )
     : null;
 
-  // Use market implied relevance from database (if available)
+  // Use market implied relevance from reserves (if available)
   const marketImpliedRelevance = (post as any).marketImpliedRelevance ??
-    (poolDataFromDb ? poolDataFromDb.marketCapLong / (poolDataFromDb.marketCapLong + poolDataFromDb.marketCapShort) : null);
+    (poolDataFromDb && poolDataFromDb.rLong !== undefined && poolDataFromDb.rShort !== undefined
+      ? poolDataFromDb.rLong / (poolDataFromDb.rLong + poolDataFromDb.rShort)
+      : null);
 
   console.log('[PostDetailPage] Render state:', {
     postId: post.id,

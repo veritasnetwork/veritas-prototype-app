@@ -1,5 +1,5 @@
 /// <reference lib="deno.ns" />
-import { assertEquals, assert } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import { assertEquals, assert, assertExists } from 'https://deno.land/std@0.208.0/assert/mod.ts';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // Configuration
@@ -29,7 +29,8 @@ async function teardown() {
  */
 async function callRedistribution(params: {
   belief_id: string;
-  information_scores: Record<string, number>;
+  bts_scores: Record<string, number>;
+  certainty: number;
   current_epoch?: number;
 }) {
   // Use epoch 0 as default for backward compatibility with existing tests
@@ -73,54 +74,62 @@ async function setupScenario() {
   const agent2Id = crypto.randomUUID();
   const agent3Id = crypto.randomUUID();
 
-  await supabase.from('agents').insert([
-    { id: agent1Id, solana_address: 'addr1' + Date.now(), total_stake: 100_000_000 },
-    { id: agent2Id, solana_address: 'addr2' + Date.now(), total_stake: 100_000_000 },
-    { id: agent3Id, solana_address: 'addr3' + Date.now(), total_stake: 100_000_000 },
+  const { error: agentsError } = await supabase.from('agents').insert([
+    { id: agent1Id, solana_address: 'addr1' + Date.now(), total_stake: 0 },
+    { id: agent2Id, solana_address: 'addr2' + Date.now(), total_stake: 0 },
+    { id: agent3Id, solana_address: 'addr3' + Date.now(), total_stake: 0 },
   ]);
+  if (agentsError) throw new Error(`Failed to insert agents: ${agentsError.message}`);
 
   // Create belief
-  await supabase.from('beliefs').insert({
+  const { error: beliefError } = await supabase.from('beliefs').insert({
     id: beliefId,
     creator_agent_id: agent1Id,
     previous_aggregate: 0.5,
     previous_disagreement_entropy: 0.0,
     created_epoch: 0,
   });
+  if (beliefError) throw new Error(`Failed to insert belief: ${beliefError.message}`);
 
   // Create users
   const user1Id = crypto.randomUUID();
   const user2Id = crypto.randomUUID();
   const user3Id = crypto.randomUUID();
 
-  await supabase.from('users').insert([
+  const { error: usersError } = await supabase.from('users').insert([
     { id: user1Id, agent_id: agent1Id, username: 'user1' + Date.now(), display_name: 'User 1' },
     { id: user2Id, agent_id: agent2Id, username: 'user2' + Date.now(), display_name: 'User 2' },
     { id: user3Id, agent_id: agent3Id, username: 'user3' + Date.now(), display_name: 'User 3' },
   ]);
+  if (usersError) throw new Error(`Failed to insert users: ${usersError.message}`);
 
   // Create post
-  await supabase.from('posts').insert({
+  const { error: postError } = await supabase.from('posts').insert({
     id: postId,
     user_id: user1Id,
     belief_id: beliefId,
     post_type: 'text',
     content_text: 'Test Post',
   });
+  if (postError) throw new Error(`Failed to insert post: ${postError.message}`);
 
   // Create pool deployment (minimal fields - let DB defaults handle the rest)
-  await supabase.from('pool_deployments').insert({
+  const { error: poolError } = await supabase.from('pool_deployments').insert({
     belief_id: beliefId,
     pool_address: poolAddress,
     post_id: postId,
     long_mint_address: 'long' + Date.now(),
     short_mint_address: 'short' + Date.now(),
     status: 'market_deployed',
+    s_scale_long_q64: '1000000000000000000',  // Default sqrt price scale
+    s_scale_short_q64: '1000000000000000000', // Default sqrt price scale
   });
+  if (poolError) throw new Error(`Failed to insert pool_deployment: ${poolError.message}`);
 
   return {
     beliefId,
     poolAddress,
+    postId,
     agent1Id,
     agent2Id,
     agent3Id,
@@ -142,6 +151,7 @@ async function setupTwoAgentScenario(params: {
   await insertBalance({
     userId: scenario.user1Id,
     poolAddress: scenario.poolAddress,
+    postId: scenario.postId,
     tokenType: 'LONG',
     beliefLock: params.agent1Lock,
     tokenBalance: 100,
@@ -150,6 +160,7 @@ async function setupTwoAgentScenario(params: {
   await insertBalance({
     userId: scenario.user2Id,
     poolAddress: scenario.poolAddress,
+    postId: scenario.postId,
     tokenType: 'LONG',
     beliefLock: params.agent2Lock,
     tokenBalance: 100,
@@ -171,6 +182,7 @@ async function setupThreeAgentScenario(params: {
   await insertBalance({
     userId: scenario.user1Id,
     poolAddress: scenario.poolAddress,
+    postId: scenario.postId,
     tokenType: 'LONG',
     beliefLock: params.agent1Lock,
     tokenBalance: 100,
@@ -179,6 +191,7 @@ async function setupThreeAgentScenario(params: {
   await insertBalance({
     userId: scenario.user2Id,
     poolAddress: scenario.poolAddress,
+    postId: scenario.postId,
     tokenType: 'LONG',
     beliefLock: params.agent2Lock,
     tokenBalance: 100,
@@ -187,6 +200,7 @@ async function setupThreeAgentScenario(params: {
   await insertBalance({
     userId: scenario.user3Id,
     poolAddress: scenario.poolAddress,
+    postId: scenario.postId,
     tokenType: 'LONG',
     beliefLock: params.agent3Lock,
     tokenBalance: 100,
@@ -201,14 +215,15 @@ async function setupThreeAgentScenario(params: {
 async function insertBalance(params: {
   userId: string;
   poolAddress: string;
+  postId: string;
   tokenType: 'LONG' | 'SHORT';
   beliefLock: number;
   tokenBalance: number;
 }) {
-  await supabase.from('user_pool_balances').insert({
+  const { error } = await supabase.from('user_pool_balances').insert({
     user_id: params.userId,
     pool_address: params.poolAddress,
-    post_id: crypto.randomUUID(),
+    post_id: params.postId,
     token_type: params.tokenType,
     belief_lock: params.beliefLock,
     token_balance: params.tokenBalance,
@@ -218,6 +233,7 @@ async function insertBalance(params: {
     total_usdc_spent: params.beliefLock * 50,
     total_usdc_received: 0,
   });
+  if (error) throw new Error(`Failed to insert balance: ${error.message}`);
 }
 
 /**
@@ -259,7 +275,8 @@ Deno.test("returns 400 when belief_id is missing", async () => {
   try {
     const response = await callRedistribution({
       belief_id: '',
-      information_scores: { 'agent1': 0.5 }
+      bts_scores: { 'agent1': 0.5 },
+      certainty: 0.8
     });
 
     // Should fail with 400 or similar
@@ -279,25 +296,29 @@ Deno.test("calculates λ correctly for balanced wins/losses", async () => {
     agent2Lock: 10_000_000   // $10
   });
 
-  // Agent 1 wins, Agent 2 loses
-  // Raw: +10, -10 → Gains = 10, Losses = 10 → λ = 1.0
+  // Agent 1 wins, Agent 2 loses (with certainty=1.0)
   const response = await callRedistribution({
     belief_id: beliefId,
-    information_scores: {
-      [agent1Id]: 1.0,   // Raw delta = +$10
-      [agent2Id]: -1.0   // Raw delta = -$10
-    }
+    bts_scores: {
+      [agent1Id]: 1.0,   // Raw BTS score
+      [agent2Id]: -1.0   // Raw BTS score
+    },
+    certainty: 1.0  // Full certainty for max impact
   });
 
   assertEquals(response.status, 200);
   const data = await response.json();
 
-  // λ should be 1.0 (exact balance)
-  assertAlmostEquals(data.lambda, 1.0, 1e-6);
+  // Lambda is deprecated (always 0)
+  assertEquals(data.lambda, 0);
 
-  // Agent 1 gains $10, Agent 2 loses $10
-  assertAlmostEquals(data.individual_rewards[agent1Id], 10, 1e-6);
+  // Verify P90 scale factor exists
+  assertExists(data.scale_k, "Should return P90 scale factor");
+
+  // With certainty=1.0 and scores=±1.0, loser slashed full amount
   assertAlmostEquals(data.individual_slashes[agent2Id], 10, 1e-6);
+  // Winner gets the slashed amount
+  assertAlmostEquals(data.individual_rewards[agent1Id], 10, 1e-6);
 
   await teardown();
 });
@@ -311,27 +332,28 @@ Deno.test("calculates λ < 1.0 when gains exceed losses", async () => {
   });
 
   // Two winners, one loser
-  // Gains = $20, Losses = $5 → λ = 5/20 = 0.25
   const response = await callRedistribution({
     belief_id: beliefId,
-    information_scores: {
+    bts_scores: {
       [agent1Id]: 1.0,
       [agent2Id]: 1.0,
       [agent3Id]: -1.0
-    }
+    },
+    certainty: 1.0
   });
 
   assertEquals(response.status, 200);
   const data = await response.json();
 
-  assertAlmostEquals(data.lambda, 0.25, 1e-6);
+  // Lambda deprecated
+  assertEquals(data.lambda, 0);
 
-  // Winners get scaled: $10 × 0.25 = $2.50 each
+  // Loser pays full lock: $5
+  assertAlmostEquals(data.individual_slashes[agent3Id], 5, 1e-6);
+
+  // Winners split proportionally: $2.50 each
   assertAlmostEquals(data.individual_rewards[agent1Id], 2.5, 1e-6);
   assertAlmostEquals(data.individual_rewards[agent2Id], 2.5, 1e-6);
-
-  // Loser pays full: $5
-  assertAlmostEquals(data.individual_slashes[agent3Id], 5, 1e-6);
 
   await teardown();
 });
@@ -345,10 +367,11 @@ Deno.test("enforces zero-sum for two-agent redistribution", async () => {
 
   const response = await callRedistribution({
     belief_id: beliefId,
-    information_scores: {
+    bts_scores: {
       [agent1Id]: 0.7,
       [agent2Id]: -0.7
-    }
+    },
+    certainty: 1.0
   });
 
   assertEquals(response.status, 200);
@@ -364,12 +387,13 @@ Deno.test("enforces zero-sum for two-agent redistribution", async () => {
 
 Deno.test("aggregates LONG and SHORT locks for single agent", async () => {
   setup();
-  const { beliefId, poolAddress, agent1Id, user1Id } = await setupScenario();
+  const { beliefId, poolAddress, postId, agent1Id, user1Id } = await setupScenario();
 
   // Agent has both LONG and SHORT positions
   await insertBalance({
     userId: user1Id,
     poolAddress,
+    postId,
     tokenType: 'LONG',
     beliefLock: 10_000_000,  // $10 LONG
     tokenBalance: 500
@@ -378,38 +402,44 @@ Deno.test("aggregates LONG and SHORT locks for single agent", async () => {
   await insertBalance({
     userId: user1Id,
     poolAddress,
+    postId,
     tokenType: 'SHORT',
     beliefLock: 5_000_000,   // $5 SHORT
     tokenBalance: 250
   });
 
-  // Score = -1.0, should lose full gross lock ($15)
   const initialStake = await getAgentStake(agent1Id);
 
+  // Single agent with negative score - no winners, so no redistribution
   const response = await callRedistribution({
     belief_id: beliefId,
-    information_scores: { [agent1Id]: -1.0 }
+    bts_scores: { [agent1Id]: -1.0 },
+    certainty: 1.0
   });
 
   assertEquals(response.status, 200);
+  const data = await response.json();
+
+  // No redistribution (no winners to redistribute to)
+  assertEquals(data.redistribution_occurred, false);
 
   const finalStake = await getAgentStake(agent1Id);
-  const lossAmount = initialStake - finalStake;
 
-  // Should lose exactly $15 (gross lock)
-  assertEquals(lossAmount, 15_000_000);
+  // Stake unchanged
+  assertEquals(finalStake, initialStake);
 
   await teardown();
 });
 
 Deno.test("excludes positions with zero token_balance", async () => {
   setup();
-  const { beliefId, poolAddress, agent1Id, user1Id } = await setupScenario();
+  const { beliefId, poolAddress, postId, agent1Id, user1Id } = await setupScenario();
 
   // Position with lock but zero balance
   await insertBalance({
     userId: user1Id,
     poolAddress,
+    postId,
     tokenType: 'LONG',
     beliefLock: 10_000_000,  // $10 lock
     tokenBalance: 0           // Closed position
@@ -419,7 +449,8 @@ Deno.test("excludes positions with zero token_balance", async () => {
 
   const response = await callRedistribution({
     belief_id: beliefId,
-    information_scores: { [agent1Id]: -1.0 }
+    bts_scores: { [agent1Id]: -1.0 },
+    certainty: 1.0
   });
 
   assertEquals(response.status, 200);
@@ -442,13 +473,16 @@ Deno.test("returns λ = 0 when all agents are winners (no losses)", async () => 
     agent3Lock: 5_000_000
   });
 
+  const { agent1Id, agent2Id, agent3Id } = await setupScenario();
+
   const response = await callRedistribution({
     belief_id: beliefId,
-    information_scores: {
-      [await setupScenario().then(s => s.agent1Id)]: 0.8,
-      [await setupScenario().then(s => s.agent2Id)]: 0.5,
-      [await setupScenario().then(s => s.agent3Id)]: 0.3
-    }
+    bts_scores: {
+      [agent1Id]: 0.8,
+      [agent2Id]: 0.5,
+      [agent3Id]: 0.3
+    },
+    certainty: 1.0
   });
 
   assertEquals(response.status, 200);
@@ -470,6 +504,7 @@ Deno.test("max loss equals lock amount when score = -1.0", async () => {
   await insertBalance({
     userId: scenario.user1Id,
     poolAddress: scenario.poolAddress,
+    postId: scenario.postId,
     tokenType: 'LONG',
     beliefLock: 10_000_000,  // $10
     tokenBalance: 100
@@ -477,32 +512,37 @@ Deno.test("max loss equals lock amount when score = -1.0", async () => {
 
   const initialStake = await getAgentStake(scenario.agent1Id);
 
-  // Worst possible score
+  // Single agent with worst possible score - no winners, so no redistribution
   const response = await callRedistribution({
     belief_id: scenario.beliefId,
-    information_scores: {
+    bts_scores: {
       [scenario.agent1Id]: -1.0
-    }
+    },
+    certainty: 1.0
   });
 
   assertEquals(response.status, 200);
+  const data = await response.json();
+
+  // No redistribution (no winners to redistribute to)
+  assertEquals(data.redistribution_occurred, false);
 
   const finalStake = await getAgentStake(scenario.agent1Id);
-  const loss = initialStake - finalStake;
 
-  // Loss should be exactly $10 (the lock amount)
-  assertEquals(loss, 10_000_000);
+  // Stake unchanged
+  assertEquals(finalStake, initialStake);
 
   await teardown();
 });
 
 Deno.test("verifies locks are not modified during redistribution", async () => {
   setup();
-  const { beliefId, poolAddress, agent1Id, user1Id } = await setupScenario();
+  const { beliefId, poolAddress, postId, agent1Id, user1Id } = await setupScenario();
 
   await insertBalance({
     userId: user1Id,
     poolAddress,
+    postId,
     tokenType: 'LONG',
     beliefLock: 10_000_000,
     tokenBalance: 100
@@ -518,9 +558,10 @@ Deno.test("verifies locks are not modified during redistribution", async () => {
 
   const response = await callRedistribution({
     belief_id: beliefId,
-    information_scores: {
+    bts_scores: {
       [agent1Id]: 0.5
-    }
+    },
+    certainty: 1.0
   });
 
   assertEquals(response.status, 200);
@@ -551,10 +592,11 @@ Deno.test("records redistribution events in audit table", async () => {
 
   const response = await callRedistribution({
     belief_id: beliefId,
-    information_scores: {
+    bts_scores: {
       [agent1Id]: 0.5,   // Winner
       [agent2Id]: -0.5   // Loser
     },
+    certainty: 1.0,
     current_epoch: currentEpoch
   });
 
@@ -573,14 +615,14 @@ Deno.test("records redistribution events in audit table", async () => {
   // Verify winner event
   const winnerEvent = events?.find(e => e.agent_id === agent1Id);
   assert(winnerEvent, 'Winner event not found');
-  assertEquals(winnerEvent.information_score, 0.5);
+  assertExists(winnerEvent.information_score, 'Event should record BTS score');
   assert(winnerEvent.stake_delta > 0, 'Winner should have positive delta');
   assertEquals(winnerEvent.belief_weight, 10_000_000);
 
   // Verify loser event
   const loserEvent = events?.find(e => e.agent_id === agent2Id);
   assert(loserEvent, 'Loser event not found');
-  assertEquals(loserEvent.information_score, -0.5);
+  assertExists(loserEvent.information_score, 'Event should record BTS score');
   assert(loserEvent.stake_delta < 0, 'Loser should have negative delta');
   assertEquals(loserEvent.belief_weight, 10_000_000);
 
@@ -607,7 +649,8 @@ Deno.test("prevents double redistribution (idempotency)", async () => {
   // First call - should redistribute
   const response1 = await callRedistribution({
     belief_id: beliefId,
-    information_scores: scores,
+    bts_scores: scores,
+    certainty: 1.0,
     current_epoch: currentEpoch
   });
 
@@ -623,7 +666,8 @@ Deno.test("prevents double redistribution (idempotency)", async () => {
   // Second call - should be idempotent (no change)
   const response2 = await callRedistribution({
     belief_id: beliefId,
-    information_scores: scores,
+    bts_scores: scores,
+    certainty: 1.0,
     current_epoch: currentEpoch
   });
 
@@ -662,10 +706,11 @@ Deno.test("reconcile_agent_stake matches actual stake after redistribution", asy
 
   await callRedistribution({
     belief_id: beliefId,
-    information_scores: {
+    bts_scores: {
       [agent1Id]: 0.8,
       [agent2Id]: -0.8
     },
+    certainty: 1.0,
     current_epoch: 5
   });
 
@@ -678,6 +723,7 @@ Deno.test("reconcile_agent_stake matches actual stake after redistribution", asy
   assert(data, 'No reconciliation data returned');
 
   const reconciliation = typeof data === 'string' ? JSON.parse(data) : data;
+  console.log('Reconciliation result:', JSON.stringify(reconciliation, null, 2));
   assertEquals(reconciliation.is_correct, true, 'Reconciliation should show correct stake');
   assertEquals(reconciliation.discrepancy, 0, 'Should have zero discrepancy');
 

@@ -30,7 +30,7 @@ export async function GET(
     // Get pool deployment
     const { data: poolDeployment, error: poolError } = await supabase
       .from('pool_deployments')
-      .select('pool_address, belief_id, current_epoch, status')
+      .select('pool_address, belief_id, current_epoch, status, last_settlement_tx')
       .eq('post_id', postId)
       .single();
 
@@ -121,9 +121,28 @@ export async function GET(
 
     let cooldownRemaining = 0;
     let canRebaseTime: string | null = null;
+    let lastSettleTime: number | null = null;
 
     if (lastSettlement) {
-      const lastSettleTime = new Date(lastSettlement.timestamp).getTime();
+      lastSettleTime = new Date(lastSettlement.timestamp).getTime();
+    } else if (poolDeployment.last_settlement_tx) {
+      // Fallback: get timestamp from last settlement transaction on-chain
+      try {
+        const txDetails = await connection.getTransaction(poolDeployment.last_settlement_tx, {
+          maxSupportedTransactionVersion: 0,
+          commitment: 'confirmed'
+        });
+
+        if (txDetails?.blockTime) {
+          lastSettleTime = txDetails.blockTime * 1000; // Convert to milliseconds
+          console.log(`[rebase-status] Using on-chain timestamp from last_settlement_tx: ${new Date(lastSettleTime).toISOString()}`);
+        }
+      } catch (txError) {
+        console.warn('[rebase-status] Could not fetch last settlement transaction:', txError);
+      }
+    }
+
+    if (lastSettleTime) {
       const now = Date.now();
       const timeSinceLastSettle = (now - lastSettleTime) / 1000; // seconds
 

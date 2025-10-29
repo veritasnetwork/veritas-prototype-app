@@ -40,6 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${lora.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning style={{ backgroundColor: '#0f0f0f' }}>
       <body className="bg-bg-primary text-text-primary font-sans antialiased" style={{ backgroundColor: '#0f0f0f', color: '#ffffff' }}>
+        <MobileBlockModal />
         <ThemeProvider>
           <AuthProvider>
             {children}

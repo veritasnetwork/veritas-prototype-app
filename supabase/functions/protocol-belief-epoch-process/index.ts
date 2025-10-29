@@ -33,6 +33,8 @@ interface BeliefProcessingResult {
   jensen_shannon_disagreement_entropy: number
   redistribution_occurred: boolean
   slashing_pool: number
+  individual_rewards: Record<string, number>
+  individual_slashes: Record<string, number>
 }
 
 // Helper function to call internal functions
@@ -89,14 +91,19 @@ serve(async (req) => {
       )
     }
 
-    // Get current epoch from system config
-    const { data: epochData } = await supabaseClient
-      .from('system_config')
-      .select('value')
-      .eq('key', 'current_epoch')
-      .single()
+    // CRITICAL: Each belief/pool tracks its own epoch independently
+    // The epoch parameter is REQUIRED - no system-wide epoch fallback
+    if (inputEpoch === undefined || inputEpoch === null) {
+      return new Response(
+        JSON.stringify({
+          error: 'current_epoch parameter is required',
+          details: 'Each belief/pool tracks its own epoch independently. Caller must specify which epoch to process.'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
-    const currentEpoch = inputEpoch ?? parseInt(epochData?.value || '0')
+    const currentEpoch = inputEpoch
 
     console.log(`\n🔄 PROCESSING BELIEF ${belief_id.substring(0, 8)}`)
     console.log(`📅 Current epoch: ${currentEpoch}`)
@@ -136,26 +143,40 @@ serve(async (req) => {
 
     console.log(`✅ Proceeding with epoch processing (last processed: ${belief.last_processed_epoch ?? 'never'})`)
 
-    // Get ALL participants who have ever submitted to this belief market
-    const { data: submissions, error: submissionsError } = await supabaseClient
+    // Get ALL participants who have ever submitted to this belief market (for BD/aggregation)
+    // We need their LATEST submission regardless of epoch
+    const { data: allSubmissions, error: allSubmissionsError } = await supabaseClient
       .from('belief_submissions')
-      .select('agent_id')
+      .select('agent_id, belief, meta_prediction, epoch, updated_at')
       .eq('belief_id', belief_id)
+      .order('updated_at', { ascending: false })
 
-    if (submissionsError) {
-      throw new Error(`Failed to get submissions: ${submissionsError.message}`)
+    if (allSubmissionsError) {
+      throw new Error(`Failed to get submissions: ${allSubmissionsError.message}`)
     }
 
-    if (!submissions || submissions.length === 0) {
+    if (!allSubmissions || allSubmissions.length === 0) {
       throw new Error(`No submissions found for belief ${belief_id.substring(0, 8)}`)
     }
 
-    if (submissions.length < 2) {
-      throw new Error(`Insufficient participants for belief ${belief_id.substring(0, 8)} (${submissions.length} < 2)`)
+    // Get most recent submission per agent for BD/aggregation
+    const latestSubmissionsByAgent: Record<string, any> = {}
+    const seenAgents = new Set<string>()
+
+    for (const submission of allSubmissions) {
+      if (!seenAgents.has(submission.agent_id)) {
+        latestSubmissionsByAgent[submission.agent_id] = submission
+        seenAgents.add(submission.agent_id)
+      }
     }
 
-    const participantAgents = [...new Set(submissions.map(s => s.agent_id))] // Get unique participants
-    console.log(`👥 Found ${participantAgents.length} unique participants (${submissions.length} total submissions)`)
+    const participantAgents = Object.keys(latestSubmissionsByAgent)
+
+    if (participantAgents.length < 2) {
+      throw new Error(`Insufficient participants for belief ${belief_id.substring(0, 8)} (${participantAgents.length} < 2)`)
+    }
+
+    console.log(`👥 Found ${participantAgents.length} unique participants with latest submissions`)
     console.log(`👥 Participants: ${participantAgents.map(id => id.substring(0, 8)).join(', ')}`)
 
     // Step 1: Calculate epistemic weights
@@ -178,7 +199,8 @@ serve(async (req) => {
       // Try decomposition first
       aggregationData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-decompose/decompose', {
         belief_id: belief_id,
-        weights: weightsData.weights
+        weights: weightsData.weights,
+        epoch: currentEpoch
       })
       decompositionUsed = true;
 
@@ -203,7 +225,8 @@ serve(async (req) => {
     if (!decompositionUsed) {
       aggregationData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-aggregate', {
         belief_id: belief_id,
-        weights: weightsData.weights
+        weights: weightsData.weights,
+        epoch: currentEpoch
       })
 
       console.log(`📊 Step 2: Belief aggregation (naive) complete`)
@@ -237,25 +260,35 @@ serve(async (req) => {
     const totalStake = Object.values(weightsData.belief_weights as Record<string, number>)
       .reduce((sum: number, w: number) => sum + w, 0)
 
-    // Record belief history for charts (absolute BD relevance)
-    const { error: historyInsertError } = await supabaseClient
-      .from('belief_relevance_history')
-      .insert({
-        belief_id: belief_id,
-        epoch: currentEpoch,
-        aggregate: finalAggregate,
-        certainty: aggregationData.certainty,
-        disagreement_entropy: aggregationData.jensen_shannon_disagreement_entropy,
-        participant_count: participantAgents.length,
-        total_stake: totalStake,
-        recorded_at: new Date().toISOString()
-      })
+    // Get post_id for this belief (required for belief_relevance_history)
+    const { data: postData } = await supabaseClient
+      .from('posts')
+      .select('id')
+      .eq('belief_id', belief_id)
+      .single()
 
-    if (historyInsertError) {
-      console.error(`⚠️ Failed to record belief history: ${historyInsertError.message}`)
-      // Don't throw - this is not critical to processing
+    if (!postData) {
+      console.error(`⚠️ No post found for belief ${belief_id} - cannot record relevance history`)
     } else {
-      console.log(`📝 Belief history recorded: epoch ${currentEpoch}, relevance ${(finalAggregate * 100).toFixed(1)}%, ${participantAgents.length} participants, $${totalStake.toFixed(2)} total stake`)
+      // Record belief history for charts (absolute BD relevance)
+      const { error: historyInsertError } = await supabaseClient
+        .from('belief_relevance_history')
+        .insert({
+          belief_id: belief_id,
+          post_id: postData.id,
+          epoch: currentEpoch,
+          aggregate: finalAggregate,
+          certainty: aggregationData.certainty,
+          disagreement_entropy: aggregationData.jensen_shannon_disagreement_entropy,
+          recorded_at: new Date().toISOString()
+        })
+
+      if (historyInsertError) {
+        console.error(`⚠️ Failed to record belief history: ${historyInsertError.message}`)
+        // Don't throw - this is not critical to processing
+      } else {
+        console.log(`📝 Belief history recorded: epoch ${currentEpoch}, relevance ${(finalAggregate * 100).toFixed(1)}%, ${participantAgents.length} participants, $${totalStake.toFixed(2)} total stake`)
+      }
     }
 
     // Step 4: Get active agent indicators for BTS scoring
@@ -278,38 +311,27 @@ serve(async (req) => {
       console.log(`📋 Active agents: ${activeAgentIndicators.map(id => id.substring(0, 8)).join(', ')}`)
     }
 
-    // Step 5: BTS Scoring (always run)
+    // Step 5: BTS Scoring (only for current epoch participants)
     console.log(`\n💰 Proceeding with BTS scoring and redistribution`)
 
-    // Collect agent beliefs and meta-predictions from ALL participants
-    // Get most recent submission for each agent (as per spec: score ALL historical participants)
-    const { data: allSubmissions, error: allSubmissionsError } = await supabaseClient
-      .from('belief_submissions')
-      .select('agent_id, belief, meta_prediction, epoch, updated_at')
-      .eq('belief_id', belief_id)
-      .order('updated_at', { ascending: false })
-
-    if (allSubmissionsError) {
-      throw new Error(`Failed to get all submissions for BTS: ${allSubmissionsError.message}`)
-    }
-
-    // Get most recent submission per agent for BTS scoring
+    // For BTS scoring, we only score agents who submitted in the CURRENT epoch
+    // But we can use their latest beliefs/meta-predictions from the aggregation data
     const agentBeliefs: Record<string, number> = {}
     const agentMetaPredictions: Record<string, number> = {}
-    const seenAgents = new Set<string>()
 
-    for (const submission of allSubmissions || []) {
-      if (!seenAgents.has(submission.agent_id)) {
-        // Use most recent submission for this agent
-        agentBeliefs[submission.agent_id] = submission.belief
-        agentMetaPredictions[submission.agent_id] = submission.meta_prediction
-        seenAgents.add(submission.agent_id)
+    // Only include agents who submitted in current epoch
+    for (const submission of currentEpochSubmissions || []) {
+      const agentId = submission.agent_id
+      // Get the latest belief/meta from our earlier data collection
+      if (latestSubmissionsByAgent[agentId]) {
+        agentBeliefs[agentId] = latestSubmissionsByAgent[agentId].belief
+        agentMetaPredictions[agentId] = latestSubmissionsByAgent[agentId].meta_prediction
       }
     }
 
-    console.log(`🎯 BTS Scoring: Including ${Object.keys(agentBeliefs).length} total participants (historical + current)`)
-    console.log(`🎯 Active agents in current epoch: ${activeAgentIndicators.length}`)
-    console.log(`🎯 Historical participants: ${Object.keys(agentBeliefs).length - activeAgentIndicators.length}`)
+    console.log(`🎯 BTS Scoring: Scoring ${Object.keys(agentBeliefs).length} agents from current epoch`)
+    console.log(`🎯 Total participants in BD: ${participantAgents.length}`)
+    console.log(`🎯 Current epoch participants: ${Object.keys(agentBeliefs).length}`)
 
     // Get leave-one-out aggregates from aggregation step
     const btsData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-bts-scoring', {
@@ -317,23 +339,23 @@ serve(async (req) => {
       agent_beliefs: agentBeliefs,
       leave_one_out_aggregates: aggregationData.leave_one_out_aggregates,
       leave_one_out_meta_aggregates: aggregationData.leave_one_out_meta_aggregates,
-      normalized_weights: weightsData.weights,
       agent_meta_predictions: agentMetaPredictions
     })
 
     console.log(`🎯 Step 5: BTS scoring complete`)
-    console.log(`🎯 Information scores calculated for ${Object.keys(btsData.information_scores).length} agents`)
+    console.log(`🎯 BTS scores calculated for ${Object.keys(btsData.bts_scores).length} agents`)
     console.log(`🎯 Winners: ${btsData.winners.length} agents (${btsData.winners.map(id => id.substring(0, 8)).join(', ')})`)
     console.log(`🎯 Losers: ${btsData.losers.length} agents (${btsData.losers.map(id => id.substring(0, 8)).join(', ')})`)
-    const scoresSummary = Object.entries(btsData.information_scores)
+    const scoresSummary = Object.entries(btsData.bts_scores)
       .map(([id, score]) => `${id.substring(0, 8)}:${(score as number).toFixed(3)}`)
       .join(', ')
-    console.log(`🎯 Information scores: ${scoresSummary}`)
+    console.log(`🎯 BTS scores (raw, unbounded): ${scoresSummary}`)
 
-    // Step 6: Stake Redistribution (ΔS = score × w_i)
+    // Step 6: Stake Redistribution (P90-scaled)
     const redistributionData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-stake-redistribution', {
       belief_id: belief_id,
-      information_scores: btsData.information_scores,
+      bts_scores: btsData.bts_scores,
+      certainty: aggregationData.certainty,
       current_epoch: currentEpoch
     })
 
@@ -381,7 +403,9 @@ serve(async (req) => {
       certainty: aggregationData.certainty,
       jensen_shannon_disagreement_entropy: aggregationData.jensen_shannon_disagreement_entropy,
       redistribution_occurred: redistributionData.redistribution_occurred,
-      slashing_pool: redistributionData.slashing_pool
+      slashing_pool: redistributionData.slashing_pool,
+      individual_rewards: redistributionData.individual_rewards || {},
+      individual_slashes: redistributionData.individual_slashes || {}
     }
 
     return new Response(

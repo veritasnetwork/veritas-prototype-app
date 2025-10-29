@@ -373,7 +373,7 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
                 </div>
                 <div>
                   <p className="text-white text-base">
-                    <span className="font-semibold">Submit beliefs</span> → Every trade includes your relevance judgment.
+                    <span className="font-semibold">Submit beliefs</span> → Every buy includes your relevance judgment.
                   </p>
                 </div>
               </div>

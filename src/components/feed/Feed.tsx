@@ -289,13 +289,9 @@ export function Feed() {
   const { data: tradeHistory, refresh: refreshTradeHistory } = useTradeHistory(shouldFetchTradeHistory, '24H');
 
   // Refresh handler for after successful trades
+  // Note: SWR mutate in useBuyTokens handles most refreshing
+  // This just updates the post in the feed list to keep it in sync
   const handleTradeSuccess = async () => {
-    // Refresh trade history (chart)
-    if (refreshTradeHistory) {
-      refreshTradeHistory();
-    }
-
-    // Refresh the selected post data
     if (selectedPostId) {
       try {
         const response = await fetch(`/api/posts/${selectedPostId}`);
@@ -306,8 +302,6 @@ export function Feed() {
         }
       } catch (error) {
         console.error('[Feed] Error refreshing post after trade:', error);
-        // Fallback: refetch all posts
-        await refetch();
       }
     }
   };

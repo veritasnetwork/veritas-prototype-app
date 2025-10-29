@@ -22,15 +22,27 @@ interface RelevanceHistoryData {
 const fetcher = async (url: string): Promise<RelevanceHistoryData> => {
   // Add query param to only fetch relevance data (skip price/trade data)
   const urlWithParams = `${url}?include=relevance`;
+  console.log('[useRelevanceHistory] ========================================');
+  console.log('[useRelevanceHistory] 🔍 FETCHING from:', urlWithParams);
+  console.log('[useRelevanceHistory] 🕐 Timestamp:', new Date().toISOString());
+  console.log('[useRelevanceHistory] ========================================');
+
   const res = await fetch(urlWithParams);
   if (!res.ok) {
-    if (res.status === 404) return { actualRelevance: [], impliedRelevance: [] };
+    console.error('[useRelevanceHistory] ❌ Fetch failed with status:', res.status);
+    if (res.status === 404) return { actualRelevance: [], impliedRelevance: [], rebaseEvents: [] };
     throw new Error('Failed to fetch relevance history');
   }
 
   const data = await res.json();
   const beliefHistory = (data.belief_history || []) as BeliefHistoryItem[];
   const impliedHistory = (data.implied_relevance_history || []) as ImpliedHistoryItem[];
+  console.log('[useRelevanceHistory] ========================================');
+  console.log('[useRelevanceHistory] 📊 FETCHED DATA:');
+  console.log('[useRelevanceHistory] Belief history count:', beliefHistory.length);
+  console.log('[useRelevanceHistory] Implied history count:', impliedHistory.length);
+  console.log('[useRelevanceHistory] Latest implied entries:', impliedHistory.slice(-3)); // Show last 3
+  console.log('[useRelevanceHistory] ========================================');
 
   // Transform actual BD relevance to TradingView format
   const actualRelevance = beliefHistory.map(item => ({
@@ -66,12 +78,20 @@ const fetcher = async (url: string): Promise<RelevanceHistoryData> => {
  * Pass undefined to skip fetching (when chart type is "price")
  */
 export function useRelevanceHistory(postId: string | undefined) {
+  const swrKey = postId ? `/api/posts/${postId}/history` : null;
+
+  console.log('[useRelevanceHistory] 🎯 Hook called:', { postId, swrKey });
+
   const { data, error, isLoading, mutate } = useSWR<RelevanceHistoryData>(
-    postId ? `/api/posts/${postId}/history` : null, // ✅ Conditional fetch
+    swrKey,
     fetcher,
     {
+      refreshInterval: 60000, // Refresh every 60 seconds (same as trade history)
       revalidateOnFocus: false,
-      dedupingInterval: 5000,
+      dedupingInterval: 5000, // Dedupe requests within 5 seconds to prevent duplicate calls
+      revalidateIfStale: true, // Always revalidate stale data
+      revalidateOnMount: true, // Always fetch on mount
+      keepPreviousData: true, // Keep showing previous data while fetching (prevents loading flicker)
       loadingTimeout: 10000, // 10 second timeout to prevent hanging
       onLoadingSlow: () => {
         console.warn('[useRelevanceHistory] Slow loading detected for', postId);
@@ -82,10 +102,21 @@ export function useRelevanceHistory(postId: string | undefined) {
     }
   );
 
+  console.log('[useRelevanceHistory] 📦 Returning:', {
+    hasData: !!data,
+    isLoading,
+    hasError: !!error,
+    impliedCount: data?.impliedRelevance?.length,
+    actualCount: data?.actualRelevance?.length,
+  });
+
   return {
     data: data || { actualRelevance: [], impliedRelevance: [], rebaseEvents: [] },
     isLoading,
     error,
-    refetch: mutate,
+    refetch: () => {
+      console.log('[useRelevanceHistory] 🔄 REFETCH called for postId:', postId);
+      return mutate(undefined, { revalidate: true });
+    },
   };
 }

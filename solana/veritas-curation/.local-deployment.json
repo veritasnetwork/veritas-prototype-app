@@ -1,14 +1,14 @@
 {
   "custodian": {
-    "address": "2QdUVMhCfyMyDnyYdh8E4QrNJ7pGX1MGYgkZYTUZrsAH",
-    "usdcVault": "EapaCfmApERDxkg5sEBEdSdvR45gNv5XAK51Da2gtuVw",
-    "protocolAuthority": "6dWmZerecAqrBykdh8Si2sLdDF3Uq3Zq7UfVLXzedQti"
+    "address": "2CTpKMD35PCyqXjg34pKwDo2SocAxnYFhYNBKyHsebGw",
+    "usdcVault": "Fcxd2KSosDJ9EJXhQh1wo4QBPo4dudHfeyLdTvxReugP",
+    "protocolAuthority": "d7z54dmwDBm9G3RQWabEXRyRePHUo3MYHZeQXgf3gX4"
   },
   "factory": {
-    "address": "4KtzyZuzoeTm8pydYNaxexEmkoCECFj1EJnznLVTuQA8",
-    "protocolAuthority": "6dWmZerecAqrBykdh8Si2sLdDF3Uq3Zq7UfVLXzedQti",
-    "protocolTreasury": "6dWmZerecAqrBykdh8Si2sLdDF3Uq3Zq7UfVLXzedQti",
-    "custodian": "2QdUVMhCfyMyDnyYdh8E4QrNJ7pGX1MGYgkZYTUZrsAH",
+    "address": "BzJDFXWdo1F36ZDnFjWCj26i9rnAJqckpVsRX6F4LtkU",
+    "protocolAuthority": "d7z54dmwDBm9G3RQWabEXRyRePHUo3MYHZeQXgf3gX4",
+    "protocolTreasury": "d7z54dmwDBm9G3RQWabEXRyRePHUo3MYHZeQXgf3gX4",
+    "custodian": "2CTpKMD35PCyqXjg34pKwDo2SocAxnYFhYNBKyHsebGw",
     "totalFeeBps": 300,
     "creatorSplitBps": 5000,
     "defaultF": 1,

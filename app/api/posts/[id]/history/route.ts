@@ -15,6 +15,13 @@ export async function GET(
     const includeRelevance = !include || include === 'relevance' || include === 'all';
     const includePrice = include === 'price' || include === 'all';
 
+    console.log('[GET /api/posts/[id]/history] 📊 Fetching history:', {
+      postId,
+      include,
+      includeRelevance,
+      includePrice
+    });
+
     // Build parallel queries based on what's requested
     const queries = [];
 
@@ -52,6 +59,16 @@ export async function GET(
           .order('recorded_at', { ascending: true })
       );
 
+      // Fetch settlement price history
+      queries.push(
+        supabase
+          .from('settlements')
+          .select('price_long_after, price_short_after, sqrt_price_long_x96_after, sqrt_price_short_x96_after, timestamp, epoch, tx_signature, bd_relevance_score')
+          .eq('post_id', postId)
+          .eq('confirmed', true)
+          .order('timestamp', { ascending: true })
+      );
+
       // Fetch trade history for this post
       queries.push(
         supabase
@@ -74,13 +91,15 @@ export async function GET(
     } else {
       queries.push(Promise.resolve({ data: [], error: null }));
       queries.push(Promise.resolve({ data: [], error: null }));
+      queries.push(Promise.resolve({ data: [], error: null }));
     }
 
     // Execute all queries in parallel
     const [
       { data: beliefHistory, error: beliefError },
       { data: impliedHistory, error: impliedError },
-      { data: priceHistory, error: priceError },
+      { data: tradePriceHistory, error: tradePriceError },
+      { data: settlementPriceHistory, error: settlementPriceError },
       { data: tradeHistory, error: tradeError }
     ] = await Promise.all(queries);
 
@@ -90,41 +109,66 @@ export async function GET(
     if (impliedError) {
       console.error('Error fetching implied relevance history:', impliedError);
     }
-    if (priceError) {
-      console.error('Error fetching price history:', priceError);
+    if (tradePriceError) {
+      console.error('Error fetching trade price history:', tradePriceError);
+    }
+    if (settlementPriceError) {
+      console.error('Error fetching settlement price history:', settlementPriceError);
     }
     if (tradeError) {
       console.error('Error fetching trade history:', tradeError);
     }
 
-    // Transform trades into price snapshots (one entry per trade showing both LONG and SHORT prices)
-    const transformedPriceHistory = (priceHistory || []).map((trade: {
-      side: string;
-      sqrt_price_long_x96: string;
-      sqrt_price_short_x96: string;
-      price_long: number;
-      price_short: number;
-      s_long_after: number;
-      s_short_after: number;
-      recorded_at: string;
-    }) => ({
-      side: trade.side,
-      sqrt_price_long_x96: trade.sqrt_price_long_x96,
-      sqrt_price_short_x96: trade.sqrt_price_short_x96,
-      price_long: trade.price_long,
-      price_short: trade.price_short,
-      supply_long: trade.s_long_after,
-      supply_short: trade.s_short_after,
-      recorded_at: trade.recorded_at,
-      triggered_by: trade.trade_type,
-      tx_signature: trade.tx_signature
-    }));
+    // Combine trade and settlement prices into unified timeline
+    const combinedPriceHistory = [
+      // Trade prices
+      ...(tradePriceHistory || []).map((trade: any) => ({
+        time: new Date(trade.recorded_at).getTime() / 1000,
+        side: trade.side,
+        sqrt_price_long_x96: trade.sqrt_price_long_x96,
+        sqrt_price_short_x96: trade.sqrt_price_short_x96,
+        price_long: trade.price_long,
+        price_short: trade.price_short,
+        supply_long: trade.s_long_after,
+        supply_short: trade.s_short_after,
+        recorded_at: trade.recorded_at,
+        event_type: 'trade',
+        triggered_by: trade.trade_type,
+        tx_signature: trade.tx_signature
+      })),
+      // Settlement prices
+      ...(settlementPriceHistory || []).map((settlement: any) => ({
+        time: new Date(settlement.timestamp).getTime() / 1000,
+        side: null, // Settlements affect both sides
+        sqrt_price_long_x96: settlement.sqrt_price_long_x96_after,
+        sqrt_price_short_x96: settlement.sqrt_price_short_x96_after,
+        price_long: settlement.price_long_after,
+        price_short: settlement.price_short_after,
+        supply_long: null, // Not tracked in settlement event
+        supply_short: null,
+        recorded_at: settlement.timestamp,
+        event_type: 'settlement',
+        triggered_by: 'settlement',
+        epoch: settlement.epoch,
+        bd_score: settlement.bd_relevance_score,
+        tx_signature: settlement.tx_signature
+      }))
+    ].sort((a, b) => a.time - b.time);
+
+    console.log('[GET /api/posts/[id]/history] ✅ Returning data:', {
+      beliefCount: beliefHistory?.length || 0,
+      impliedCount: impliedHistory?.length || 0,
+      priceHistoryCount: combinedPriceHistory?.length || 0,
+      tradeCount: tradePriceHistory?.length || 0,
+      settlementCount: settlementPriceHistory?.length || 0,
+      latestImplied: impliedHistory?.[impliedHistory.length - 1]
+    });
 
     return NextResponse.json(
       {
         belief_history: beliefHistory || [],
         implied_relevance_history: impliedHistory || [],
-        price_history: transformedPriceHistory || [],
+        price_history: combinedPriceHistory || [],
         trade_history: tradeHistory || []
       },
       {

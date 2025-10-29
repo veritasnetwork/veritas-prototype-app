@@ -5,8 +5,9 @@ import { useAuth } from '@/providers/AuthProvider';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { getRpcEndpoint, getNetworkName } from '@/lib/solana/network-config';
 import { invalidatePoolData } from '@/services/PoolDataService';
+import { mutate } from 'swr';
 
-export function useBuyTokens(onSuccess?: () => void) {
+export function useBuyTokens() {
   const { wallet, address } = useSolanaWallet();
   const { user } = useAuth();
   const { getAccessToken } = usePrivy();
@@ -96,21 +97,21 @@ export function useBuyTokens(onSuccess?: () => void) {
         }),
       });
 
-      // Handle underwater warning (202 status)
-      if (prepareResponse.status === 202) {
-        const warningData = await prepareResponse.json();
-        console.warn('[useBuyTokens] ⚠️  Excessive skim warning:', warningData);
-
-        // Return warning data for UI to handle
-        setIsLoading(false);
-        return {
-          requiresConfirmation: true,
-          warning: warningData,
-        };
-      }
-
       if (!prepareResponse.ok) {
         const errorData = await prepareResponse.json();
+
+        // Handle excessive skim blocking error (400 status with specific error code)
+        if (prepareResponse.status === 400 && errorData.error === 'excessive_skim') {
+          console.warn('[useBuyTokens] ⚠️  Excessive skim blocked:', errorData);
+
+          // Return data for UI to show deposit modal
+          setIsLoading(false);
+          return {
+            requiresDeposit: true,
+            excessiveSkimData: errorData,
+          };
+        }
+
         console.error('[useBuyTokens] ❌ Step 1 failed:', errorData);
         throw new Error(errorData.error || 'Failed to prepare transaction');
       }
@@ -283,8 +284,8 @@ export function useBuyTokens(onSuccess?: () => void) {
             sqrt_price_short_x96: poolData?._raw?.sqrtPriceShortX96,
             price_long: poolData?.priceLong,
             price_short: poolData?.priceShort,
-            r_long_after: poolData?.marketCapLong,
-            r_short_after: poolData?.marketCapShort,
+            r_long_after: poolData?.rLong,
+            r_short_after: poolData?.rShort,
             vault_balance_after: poolData?._raw?.vaultBalanceMicro, // Micro-USDC
             // Belief submission
             initial_belief: initialBelief,
@@ -309,6 +310,22 @@ export function useBuyTokens(onSuccess?: () => void) {
       // Invalidate pool data cache to trigger immediate refresh
       invalidatePoolData(postId);
 
+      // Add a small delay to ensure database writes (especially implied_relevance_history) are complete
+      // This prevents race conditions where SWR fetches before the data is written
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Trigger SWR to refetch all relevant data immediately
+      // This ensures all components using these hooks get fresh data
+      // Note: keepPreviousData in hook configs prevents loading flicker
+      await Promise.all([
+        mutate(`/api/posts/${postId}/trades?range=1H`),
+        mutate(`/api/posts/${postId}/trades?range=24H`),
+        mutate(`/api/posts/${postId}/trades?range=7D`),
+        mutate(`/api/posts/${postId}/trades?range=ALL`),
+        mutate(`/api/posts/${postId}/history`),
+        mutate(`/api/posts/${postId}`),
+      ]);
+
       // Prepare trade completion details
       const tradeDetails = {
         tradeType: 'buy' as const,
@@ -322,10 +339,8 @@ export function useBuyTokens(onSuccess?: () => void) {
         postId,
       };
 
-      // Call success callback to trigger UI refresh
-      if (onSuccess) {
-        onSuccess();
-      }
+      // Note: We removed onSuccess callback - SWR mutate handles all refreshing now
+      // If parent needs notification, they can use the return value
 
       return { signature, tradeDetails };
     } catch (err) {

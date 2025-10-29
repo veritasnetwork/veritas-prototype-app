@@ -87,14 +87,9 @@ serve(async (req) => {
       }
     }
 
-    // 2. Load submissions excluding target agent from current epoch
-    const { data: currentEpochData } = await supabaseClient
-      .from('system_config')
-      .select('value')
-      .eq('key', 'current_epoch')
-      .single()
-
-    const currentEpoch = parseInt(currentEpochData?.value || '0')
+    // 2. Note: This function is deprecated and should not be used
+    // Leave-one-out aggregates are now computed by protocol-beliefs-decompose
+    // which requires explicit epoch parameter (no system-wide epoch exists)
 
     // Load latest submission from each agent (not just current epoch)
     // Critical for BTS scoring - need all historical participants, not just current epoch

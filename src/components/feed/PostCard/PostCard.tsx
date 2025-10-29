@@ -175,7 +175,9 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
   const marketImpliedRelevance = (post as any).marketImpliedRelevance ??
     // Fallback: calculate from pool data if database value not available
     (poolData && poolData.totalMarketCap > 0
-      ? poolData.marketCapLong / (poolData.marketCapLong + poolData.marketCapShort)
+      ? (poolData.rLong !== undefined && poolData.rShort !== undefined
+          ? poolData.rLong / (poolData.rLong + poolData.rShort)
+          : 0.5)
       : null);
 
   // Check if content is actually truncated (needs Read More button) - define before getBackgroundElement

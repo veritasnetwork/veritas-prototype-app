@@ -33,9 +33,10 @@ export function useRebaseStatus(postId: string | undefined) {
     postId ? `/api/posts/${postId}/rebase-status` : null,
     fetchRebaseStatus,
     {
-      refreshInterval: 5000, // Refresh every 5 seconds to update cooldown timer
+      refreshInterval: 30000, // Refresh every 30 seconds (reduced from 5s to minimize RPC load)
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      dedupingInterval: 5000, // Dedupe requests within 5 seconds
     }
   );
 }

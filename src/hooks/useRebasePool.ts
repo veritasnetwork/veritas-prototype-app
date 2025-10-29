@@ -11,6 +11,7 @@ import { Connection, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { invalidatePoolData } from '@/services/PoolDataService';
 import { useSolanaWallet } from './useSolanaWallet';
 import { getRpcEndpoint } from '@/lib/solana/network-config';
+import { mutate } from 'swr';
 
 interface RebaseResult {
   success: true;
@@ -38,7 +39,7 @@ export function useRebasePool() {
   const [isRebasing, setIsRebasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const rebasePool = async (postId: string): Promise<{
+  const rebasePool = async (postId: string, cooldownRemaining?: number): Promise<{
     success: boolean;
     txSignature?: string;
     bdScore?: number;
@@ -97,6 +98,11 @@ export function useRebasePool() {
       const txBuffer = Buffer.from(result.transaction, 'base64');
       const transaction = Transaction.from(txBuffer);
 
+      // Refresh blockhash before signing (blockhashes expire after ~60s)
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.lastValidBlockHeight = lastValidBlockHeight;
+
       // Sign transaction with Solana wallet from useSolanaWallet hook
       const signedTx = await wallet.signTransaction(transaction);
 
@@ -140,6 +146,17 @@ export function useRebasePool() {
       // Invalidate pool data cache to trigger immediate refresh after settlement
       invalidatePoolData(postId);
 
+      // Trigger SWR to refetch all relevant data immediately
+      await Promise.all([
+        mutate(`/api/posts/${postId}/trades?range=1H`),
+        mutate(`/api/posts/${postId}/trades?range=24H`),
+        mutate(`/api/posts/${postId}/trades?range=7D`),
+        mutate(`/api/posts/${postId}/trades?range=ALL`),
+        mutate(`/api/posts/${postId}/history`),
+        mutate(`/api/posts/${postId}`),
+        mutate(`/api/posts/${postId}/rebase-status`),
+      ]);
+
       setIsRebasing(false);
 
       return {
@@ -150,7 +167,24 @@ export function useRebasePool() {
       };
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Rebase failed';
+      let errorMessage = err instanceof Error ? err.message : 'Rebase failed';
+
+      // Check for settlement cooldown error
+      if (errorMessage.includes('SettlementCooldown') || errorMessage.includes('0x177f')) {
+        if (cooldownRemaining && cooldownRemaining > 0) {
+          const hours = Math.floor(cooldownRemaining / 3600);
+          const minutes = Math.floor((cooldownRemaining % 3600) / 60);
+
+          if (hours > 0) {
+            errorMessage = `Rebase will be available again in ${hours}h ${minutes}m`;
+          } else {
+            errorMessage = `Rebase will be available again in ${minutes}m`;
+          }
+        } else {
+          errorMessage = 'Cooldown active. Please wait before rebasing again.';
+        }
+      }
+
       console.error('[useRebasePool] Error:', errorMessage);
       setError(errorMessage);
       setIsRebasing(false);

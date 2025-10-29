@@ -16,9 +16,8 @@ import { UnifiedSwapComponent } from './UnifiedSwapComponent';
 import { TradingChartCard } from './TradingChartCard';
 import { SettlementButton } from '@/components/pool/SettlementButton';
 import { usePoolData } from '@/hooks/usePoolData';
-import { useTradeHistory } from '@/hooks/api/useTradeHistory';
+import { useRebaseStatus } from '@/hooks/api/useRebaseStatus';
 import { invalidatePoolData } from '@/services/PoolDataService';
-import { supabase } from '@/lib/supabase';
 
 interface PostDetailContentProps {
   postId: string;
@@ -35,6 +34,11 @@ interface Belief {
 }
 
 export function PostDetailContent({ postId }: PostDetailContentProps) {
+  // CRITICAL DEBUG - Force a console log to verify component is mounting
+  useEffect(() => {
+    console.log('🚨🚨🚨 [PostDetailContent] COMPONENT MOUNTED with postId:', postId);
+  }, []);
+
   const { closePanel } = usePanel();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,22 +50,13 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
   // Track pool address separately to allow updates without full post reload
   const [poolAddress, setPoolAddress] = useState<string | null>(null);
 
-  // Fetch pool data from chain
+  // Fetch pool data and rebase status at parent level
+  // Note: Chart data (trade history, relevance history) is now fetched by TradingChartCard
+  // based on selected chart type and time range to avoid duplicate/stale requests
+  console.log('[PostDetailContent] 📞 Calling hooks for postId:', postId);
   const { poolData, loading: poolLoading, error: poolError } = usePoolData(poolAddress || undefined, postId);
-  const { data: tradeHistory } = useTradeHistory(poolAddress || undefined);
+  const { data: rebaseStatus } = useRebaseStatus(postId);
 
-  // Callback to refresh chart and pool data after trade
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const handleTradeSuccess = () => {
-    setRefreshTrigger(prev => prev + 1);
-
-    // Invalidate pool data cache to fetch fresh metrics
-    invalidatePoolData(postId);
-  };
-
-  // Debug: Log pool data state
-  useEffect(() => {
-  }, [postId, post?.poolAddress, poolData, poolLoading, poolError]);
 
   // Fetch post data
   useEffect(() => {
@@ -195,10 +190,11 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
           />
         ) : (
           <div className="space-y-4">
-            {/* Trading Chart */}
+            {/* Trading Chart - Fetches its own data based on selected chart type and time range */}
             <TradingChartCard
               postId={postId}
-              refreshTrigger={refreshTrigger}
+              poolData={poolData}
+              rebaseStatus={rebaseStatus}
             />
 
             {/* Pool Metrics */}
@@ -218,7 +214,7 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
             ) : poolData ? (
               <PoolMetricsCard
                 poolData={poolData}
-                stats={tradeHistory?.stats}
+                stats={undefined}
                 side={selectedSide}
               />
             ) : (
@@ -257,7 +253,6 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
                   betaDen={poolData.betaDen}
                   selectedSide={selectedSide}
                   onSideChange={setSelectedSide}
-                  onTradeSuccess={handleTradeSuccess}
                 />
               </div>
             ) : (
@@ -272,7 +267,6 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
                 postId={postId}
                 poolAddress={poolAddress}
                 bdScore={post.belief.previous_aggregate}
-                onSettlementSuccess={handleTradeSuccess}
               />
             )}
           </div>

@@ -99,19 +99,15 @@ export function RebaseConfirmationModal({
           <div className="space-y-2 mb-4">
             {/* Unaccounted Submissions */}
             {unaccountedSubmissions !== undefined && minRequiredSubmissions !== undefined && (
-              <div className={`flex items-center justify-between p-3 rounded-lg border ${
-                hasEnoughSubmissions
-                  ? 'bg-green-500/10 border-green-500/30'
-                  : 'bg-orange-500/10 border-orange-500/30'
-              }`}>
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-[#F0EAD6]/10 border-[#F0EAD6]/30">
                 <div className="flex items-center gap-2">
-                  <Users className={`w-4 h-4 ${hasEnoughSubmissions ? 'text-green-400' : 'text-orange-400'}`} />
-                  <span className={`text-sm font-medium ${hasEnoughSubmissions ? 'text-green-300' : 'text-orange-300'}`}>
+                  <Users className="w-4 h-4 text-[#F0EAD6]" />
+                  <span className="text-sm font-medium text-[#F0EAD6]">
                     New Beliefs
                   </span>
                 </div>
-                <span className={`text-sm font-mono ${hasEnoughSubmissions ? 'text-green-300' : 'text-orange-300'}`}>
-                  {unaccountedSubmissions} / {minRequiredSubmissions}
+                <span className="text-sm font-mono text-[#F0EAD6]">
+                  {cooldownRemaining > 0 ? 0 : unaccountedSubmissions} / {minRequiredSubmissions}
                 </span>
               </div>
             )}
@@ -159,23 +155,27 @@ export function RebaseConfirmationModal({
         {/* Error Message */}
         {error && (
           <div className={`mb-4 p-4 rounded-lg ${
-            error.includes('Insufficient new activity') || error.includes('Need at least')
+            error.includes('Rebase will be available') || error.includes('Cooldown active') || error.includes('Insufficient new activity') || error.includes('Need at least')
               ? 'bg-orange-500/10 border border-orange-500/30'
               : 'bg-red-500/10 border border-red-500/30'
           }`}>
-            <p className={`text-sm font-medium mb-1 ${
-              error.includes('Insufficient new activity') || error.includes('Need at least')
+            <p className={`text-sm font-medium ${
+              error.includes('Rebase will be available') || error.includes('Cooldown active') || error.includes('Insufficient new activity') || error.includes('Need at least')
                 ? 'text-orange-400'
                 : 'text-red-400'
             }`}>
-              Rebase Failed
-            </p>
-            <p className={`text-xs ${
-              error.includes('Insufficient new activity') || error.includes('Need at least')
-                ? 'text-orange-300'
-                : 'text-red-300'
-            }`}>
-              {error}
+              {error.includes('Rebase will be available') || error.includes('Cooldown active') ? error : (
+                <>
+                  Rebase Failed
+                  <p className={`text-xs mt-1 font-normal ${
+                    error.includes('Insufficient new activity') || error.includes('Need at least')
+                      ? 'text-orange-300'
+                      : 'text-red-300'
+                  }`}>
+                    {error}
+                  </p>
+                </>
+              )}
             </p>
           </div>
         )}

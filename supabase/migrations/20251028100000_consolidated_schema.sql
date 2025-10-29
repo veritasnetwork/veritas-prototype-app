@@ -1,7 +1,3 @@
-
-\restrict VDnfSQzrrRfaxtTvLJcjr0mzsDbiUCaTfECsNcavUz4maVGvYx5OFgJxpfPAEOy
-
-
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
@@ -575,48 +571,9 @@ COMMENT ON FUNCTION "public"."get_agent_redistribution_history"("p_agent_id" "uu
 
 
 
-CREATE OR REPLACE FUNCTION "public"."get_epoch_status"() RETURNS TABLE("current_epoch" integer, "epoch_start_time" timestamp with time zone, "time_remaining_seconds" integer, "next_deadline" timestamp with time zone, "processing_enabled" boolean)
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-DECLARE
-    config_row RECORD;
-    start_time TIMESTAMPTZ;
-    deadline TIMESTAMPTZ;
-    duration_sec INTEGER;
-BEGIN
-    -- Get all config values in one query
-    SELECT
-        MAX(CASE WHEN key = 'current_epoch' THEN value::INTEGER END) as curr_epoch,
-        MAX(CASE WHEN key = 'current_epoch_start_time' THEN value::TIMESTAMPTZ END) as start_tm,
-        MAX(CASE WHEN key = 'next_epoch_deadline' THEN value::TIMESTAMPTZ END) as deadline_tm,
-        MAX(CASE WHEN key = 'epoch_duration_seconds' THEN value::INTEGER END) as duration
-    INTO config_row
-    FROM system_config
-    WHERE key IN (
-        'current_epoch',
-        'current_epoch_start_time',
-        'next_epoch_deadline',
-        'epoch_duration_seconds'
-    );
-
-    -- Calculate time remaining
-    start_time := COALESCE(config_row.start_tm, NOW());
-    deadline := COALESCE(config_row.deadline_tm, start_time + INTERVAL '1 hour');
-    duration_sec := GREATEST(0, EXTRACT(EPOCH FROM (deadline - NOW()))::INTEGER);
-
-    -- Return results
-    current_epoch := COALESCE(config_row.curr_epoch, 0);
-    epoch_start_time := start_time;
-    time_remaining_seconds := duration_sec;
-    next_deadline := deadline;
-    processing_enabled := true;
-
-    RETURN NEXT;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."get_epoch_status"() OWNER TO "postgres";
+-- Legacy function removed: get_epoch_status
+-- Epochs are now tracked per-pool in pool_deployments.current_epoch
+-- There is no system-wide epoch
 
 
 CREATE OR REPLACE FUNCTION "public"."get_pool_with_stats"("p_post_id" "uuid") RETURNS TABLE("pool_address" "text", "long_mint_address" "text", "short_mint_address" "text", "market_address" "text", "status" "text", "deployed_at" timestamp with time zone, "pool_created_at" timestamp with time zone, "market_deployed_at" timestamp with time zone, "fee_rate_bps" integer, "strike_ratio_num" bigint, "strike_ratio_den" bigint, "total_long_supply" numeric, "total_short_supply" numeric, "total_usdc_reserve" numeric, "sqrt_price_long" numeric, "sqrt_price_short" numeric, "last_synced_at" timestamp with time zone)
@@ -1615,29 +1572,32 @@ BEGIN
     recorded_by = 'both'
   RETURNING id INTO v_trade_id;
 
-  -- ✅ FIX: Set epoch to pool's current_epoch so submissions count as "new" for rebase
-  INSERT INTO belief_submissions (
-    belief_id,
-    agent_id,
-    belief,
-    meta_prediction,
-    epoch,
-    created_at,
-    updated_at
-  ) VALUES (
-    p_belief_id,
-    p_agent_id,
-    p_belief,
-    p_meta_prediction,
-    v_pool_current_epoch,  -- Use pool's current epoch
-    NOW(),
-    NOW()
-  )
-  ON CONFLICT (belief_id, agent_id) DO UPDATE SET
-    belief = EXCLUDED.belief,
-    meta_prediction = EXCLUDED.meta_prediction,
-    epoch = v_pool_current_epoch,  -- Update epoch on conflict
-    updated_at = NOW();
+  -- ✅ FIX: Only record belief submissions on BUY operations
+  -- When users sell, their existing belief submission should remain unchanged
+  IF p_trade_type = 'buy' THEN
+    INSERT INTO belief_submissions (
+      belief_id,
+      agent_id,
+      belief,
+      meta_prediction,
+      epoch,
+      created_at,
+      updated_at
+    ) VALUES (
+      p_belief_id,
+      p_agent_id,
+      p_belief,
+      p_meta_prediction,
+      v_pool_current_epoch,  -- Use pool's current epoch
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (belief_id, agent_id) DO UPDATE SET
+      belief = EXCLUDED.belief,
+      meta_prediction = EXCLUDED.meta_prediction,
+      epoch = v_pool_current_epoch,  -- Update epoch on conflict
+      updated_at = NOW();
+  END IF;
 
   INSERT INTO user_pool_balances (
     user_id,
@@ -3851,9 +3811,7 @@ GRANT ALL ON FUNCTION "public"."get_agent_redistribution_history"("p_agent_id" "
 
 
 
-GRANT ALL ON FUNCTION "public"."get_epoch_status"() TO "anon";
-GRANT ALL ON FUNCTION "public"."get_epoch_status"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_epoch_status"() TO "service_role";
+-- Legacy grants removed for get_epoch_status (function removed)
 
 
 

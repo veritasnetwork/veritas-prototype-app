@@ -15,9 +15,11 @@ import { useSwapBalances } from '@/hooks/useSwapBalances';
 import { useFundWallet } from '@privy-io/react-auth/solana';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { usePrivy } from '@/hooks/usePrivyHooks';
 import { FundingPromptModal } from '@/components/wallet/FundingPromptModal';
 import { FundWalletButton } from '@/components/wallet/FundWalletButton';
 import { TradeCompletedModal } from '@/components/trading/TradeCompletedModal';
+import { ExcessiveSkimModal } from '@/components/trading/ExcessiveSkimModal';
 import { getRpcEndpoint } from '@/lib/solana/network-config';
 import { usdcToMicro, displayToAtomic, asDisplay, DisplayUnits, AtomicUnits, MicroUSDC } from '@/lib/units';
 import {
@@ -83,6 +85,7 @@ export function UnifiedSwapComponent({
   const [fundingType, setFundingType] = useState<'SOL' | 'USDC' | 'BOTH'>('USDC');
   const [solBalance, setSolBalance] = useState<number>(0);
   const [completedTrade, setCompletedTrade] = useState<any>(null);
+  const [excessiveSkimData, setExcessiveSkimData] = useState<any>(null);
 
   // Belief submission state
   const [initialBelief, setInitialBelief] = useState<number>(0.5);
@@ -91,19 +94,25 @@ export function UnifiedSwapComponent({
   // Hooks
   const { usdcBalance, longBalance, shortBalance, loading: balancesLoading, refresh: refreshBalances } = useSwapBalances(poolAddress, postId);
   const { fundWallet } = useFundWallet();
-  const { address } = useSolanaWallet();
+  const { address, wallet } = useSolanaWallet();
+  const { getAccessToken } = usePrivy();
 
   // Create wrapped callback that refreshes balances after trade
   const handleTradeSuccess = () => {
     setTradeError(null); // Clear any previous errors
     refreshBalances();
+
     if (onTradeSuccess) {
-      onTradeSuccess();
+      try {
+        onTradeSuccess();
+      } catch (error) {
+        console.error('[UnifiedSwap] Error calling parent callback:', error);
+      }
     }
   };
 
-  const { buyTokens, isLoading: buyLoading, error: buyError } = useBuyTokens(handleTradeSuccess);
-  const { sellTokens, isLoading: sellLoading, error: sellError } = useSellTokens(handleTradeSuccess);
+  const { buyTokens, isLoading: buyLoading, error: buyError } = useBuyTokens();
+  const { sellTokens, isLoading: sellLoading, error: sellError } = useSellTokens();
   const { requireAuth } = useRequireAuth();
 
   // Get the relevant balance based on mode and side
@@ -277,10 +286,110 @@ export function UnifiedSwapComponent({
     }
   };
 
+  // Handle protocol deposit
+  const handleProtocolDeposit = async (amount: number) => {
+    if (!address) return;
+
+    try {
+      const jwt = await getAccessToken();
+
+      if (!jwt) {
+        throw new Error('Authentication required');
+      }
+
+      // Step 1: Build deposit transaction
+      const response = await fetch('/api/users/protocol_deposit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          amount,
+          walletAddress: address,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to prepare deposit');
+      }
+
+      const { transaction: serializedTx } = await response.json();
+
+      // Step 2: Deserialize and sign
+      const { Transaction } = await import('@solana/web3.js');
+      const txBuffer = Buffer.from(serializedTx, 'base64');
+      const transaction = Transaction.from(txBuffer);
+
+      if (!wallet || !('signTransaction' in wallet)) {
+        throw new Error('Wallet not connected');
+      }
+
+      // @ts-ignore - Privy wallet has signTransaction
+      const signedTx = await wallet.signTransaction(transaction);
+
+      // Step 3: Send and confirm
+      const rpcEndpoint = getRpcEndpoint();
+      const connection = new Connection(rpcEndpoint, 'confirmed');
+      const signature = await connection.sendRawTransaction(signedTx.serialize());
+      await connection.confirmTransaction(signature, 'confirmed');
+
+      // Step 4: Record deposit and update agent stake immediately
+      const amountMicro = Math.floor(amount * 1_000_000);
+      const recordResponse = await fetch('/api/users/protocol_deposit/record', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          txSignature: signature,
+          walletAddress: address,
+          amountMicro,
+        }),
+      });
+
+      if (!recordResponse.ok) {
+        const errorText = await recordResponse.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
+        console.error('[DEPOSIT] Failed to record deposit:', errorData);
+        // Don't fail - indexer will pick it up later
+      }
+
+      // Close the excessive skim modal
+      setExcessiveSkimData(null);
+
+      // Show success message and refresh balances
+      handleTradeSuccess();
+
+      // After deposit, automatically retry the trade
+      await handleSwap();
+    } catch (error) {
+      console.error('[DEPOSIT] Deposit failed:', error);
+      if (error instanceof Error) {
+        setTradeError(error.message);
+      }
+    }
+  };
+
   // Check balances before showing preview
   const handleShowPreview = async () => {
     const amount = parseFloat(inputAmount);
     if (!amount || amount <= 0) return;
+
+    // Check auth FIRST - before checking balances
+    const isAuthed = await requireAuth();
+    if (!isAuthed) {
+      // Privy login modal already shown
+      // If authenticated but no profile, OnboardingModal shows automatically
+      return;
+    }
 
     let needsUSDC = false;
     let needsSOL = false;
@@ -323,7 +432,6 @@ export function UnifiedSwapComponent({
     // Show funding prompt if either is needed
     if (needsUSDC || needsSOL) {
       const fundType = needsUSDC && needsSOL ? 'BOTH' : needsUSDC ? 'USDC' : 'SOL';
-      console.log('[UnifiedSwap] Showing funding prompt:', { needsUSDC, needsSOL, fundType, usdcBalance, amount });
       setFundingType(fundType);
       setShowFundingPrompt(true);
       return;
@@ -354,16 +462,27 @@ export function UnifiedSwapComponent({
         // Convert USDC to micro-USDC with type safety
         const microUsdc = usdcToMicro(amount);
         result = await buyTokens(postId, poolAddress, microUsdc, side, initialBelief, metaBelief);
+
+        // Check if trade is blocked due to excessive skim
+        if (result && 'requiresDeposit' in result && result.requiresDeposit) {
+          setExcessiveSkimData(result.excessiveSkimData);
+          return; // Don't reset form - user may deposit and retry
+        }
       } else {
         // Convert display tokens to atomic units with type safety
         const displayUnits = asDisplay(amount);
         const tokensAtomic = displayToAtomic(displayUnits);
-        result = await sellTokens(postId, poolAddress, tokensAtomic, side, initialBelief, metaBelief);
+        // Note: Belief submissions are NOT sent on sell - they only update on buy
+        result = await sellTokens(postId, poolAddress, tokensAtomic, side);
       }
 
       // Check if trade completed successfully (has tradeDetails)
       if (result && 'tradeDetails' in result) {
         setCompletedTrade(result.tradeDetails);
+
+        // Call the trade success handler (if provided by parent)
+        // This handles any additional UI updates the parent needs
+        handleTradeSuccess();
       }
 
       // Reset after successful transaction
@@ -374,13 +493,8 @@ export function UnifiedSwapComponent({
       setInitialBelief(0.5);
       setMetaBelief(0.5);
     } catch (error) {
-      console.error('[SWAP] ❌ Swap error:', error);
+      console.error('[SWAP] Swap error:', error);
       if (error instanceof Error) {
-        console.error('[SWAP] Error details:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
         setTradeError(error.message);
       }
     }
@@ -569,52 +683,54 @@ export function UnifiedSwapComponent({
               </div>
             </div>
 
-            {/* Belief Submission */}
-            <div className="space-y-3 mb-4 border-t border-gray-800 pt-4">
-              <p className="text-sm font-medium text-gray-300">Record your belief</p>
+            {/* Belief Submission - Only show on BUY mode */}
+            {mode === 'buy' && (
+              <div className="space-y-3 mb-4 border-t border-gray-800 pt-4">
+                <p className="text-sm font-medium text-gray-300">Record your belief</p>
 
-              <div>
-                <label htmlFor="initial-belief-trade" className="block text-xs text-gray-400 mb-1.5">
-                  How relevant is this post?
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    id="initial-belief-trade"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={initialBelief}
-                    onChange={(e) => setInitialBelief(Number(e.target.value))}
-                    className="flex-1 accent-[#B9D9EB] h-1"
-                  />
-                  <span className="text-xs font-mono text-gray-300 w-10 text-right">
-                    {Math.round(initialBelief * 100)}%
-                  </span>
+                <div>
+                  <label htmlFor="initial-belief-trade" className="block text-xs text-gray-400 mb-1.5">
+                    How relevant is this post?
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="initial-belief-trade"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={initialBelief}
+                      onChange={(e) => setInitialBelief(Number(e.target.value))}
+                      className="flex-1 accent-[#B9D9EB] h-1"
+                    />
+                    <span className="text-xs font-mono text-gray-300 w-10 text-right">
+                      {Math.round(initialBelief * 100)}%
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="meta-belief-trade" className="block text-xs text-gray-400 mb-1.5">
+                    How relevant will others think it is?
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="meta-belief-trade"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={metaBelief}
+                      onChange={(e) => setMetaBelief(Number(e.target.value))}
+                      className="flex-1 accent-[#B9D9EB] h-1"
+                    />
+                    <span className="text-xs font-mono text-gray-300 w-10 text-right">
+                      {Math.round(metaBelief * 100)}%
+                    </span>
+                  </div>
                 </div>
               </div>
-
-              <div>
-                <label htmlFor="meta-belief-trade" className="block text-xs text-gray-400 mb-1.5">
-                  How relevant will others think it is?
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    id="meta-belief-trade"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={metaBelief}
-                    onChange={(e) => setMetaBelief(Number(e.target.value))}
-                    className="flex-1 accent-[#B9D9EB] h-1"
-                  />
-                  <span className="text-xs font-mono text-gray-300 w-10 text-right">
-                    {Math.round(metaBelief * 100)}%
-                  </span>
-                </div>
-              </div>
-            </div>
+            )}
 
             <div className="flex gap-2">
               <button
@@ -663,6 +779,20 @@ export function UnifiedSwapComponent({
         onClose={() => setCompletedTrade(null)}
         details={completedTrade}
       />
+
+      {/* Excessive Skim Modal */}
+      {excessiveSkimData && (
+        <ExcessiveSkimModal
+          isOpen={!!excessiveSkimData}
+          onClose={() => setExcessiveSkimData(null)}
+          onDeposit={handleProtocolDeposit}
+          skimAmount={excessiveSkimData.skimAmount / 1_000_000}
+          skimPercentage={excessiveSkimData.skimPercentage}
+          tradeAmount={excessiveSkimData.tradeAmount}
+          recommendedDeposit={excessiveSkimData.recommendedDeposit}
+          underwaterInfo={excessiveSkimData.underwaterInfo}
+        />
+      )}
     </div>
   );
 }

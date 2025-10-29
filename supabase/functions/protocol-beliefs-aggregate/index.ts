@@ -12,6 +12,7 @@ const EPSILON_PROBABILITY = 1e-10
 interface BeliefsAggregateRequest {
   belief_id: string
   weights: Record<string, number>
+  epoch?: number  // Optional: if provided, use this epoch instead of system current_epoch
 }
 
 interface BeliefsAggregateResponse {
@@ -53,7 +54,7 @@ serve(async (req) => {
     )
 
     // Parse request body
-    const { belief_id, weights }: BeliefsAggregateRequest = await req.json()
+    const { belief_id, weights, epoch: providedEpoch }: BeliefsAggregateRequest = await req.json()
 
     // 1. Validate inputs
     if (!belief_id || belief_id.trim().length === 0) {
@@ -88,25 +89,30 @@ serve(async (req) => {
       )
     }
 
-    // 2. Load filteredSubmissions from current epoch
-    const { data: currentEpochData } = await supabaseClient
-      .from('system_config')
-      .select('value')
-      .eq('key', 'current_epoch')
-      .single()
+    // 2. Epoch parameter is now REQUIRED - no system-wide epoch
+    if (providedEpoch === undefined) {
+      return new Response(
+        JSON.stringify({ error: 'epoch parameter is required. Each belief tracks its own epoch independently.', code: 400 }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
 
-    const currentEpoch = parseInt(currentEpochData?.value || '0')
+    const queryEpoch = providedEpoch
+    console.log(`Aggregating belief ${belief_id} for epoch ${queryEpoch}`)
 
-    // Load latest submission from each agent (not just current epoch)
-    // We need all agent beliefs to compute the aggregate, not just current epoch
-    const { data: submissions, error: submissionsError } = await supabaseClient
+    // Load ALL submissions to get latest from each agent (for aggregation)
+    // We need latest submission from ALL participants, not just current epoch
+    const { data: allSubmissions, error: allSubmissionsError } = await supabaseClient
       .from('belief_submissions')
-      .select('agent_id, belief, meta_prediction, is_active, epoch')
+      .select('agent_id, belief, meta_prediction, is_active, epoch, updated_at')
       .eq('belief_id', belief_id)
-      .order('epoch', { ascending: false })
+      .order('updated_at', { ascending: false })
 
-    if (submissionsError) {
-      console.error('Failed to load submissions:', submissionsError)
+    if (allSubmissionsError) {
+      console.error('Failed to load submissions:', allSubmissionsError)
       return new Response(
         JSON.stringify({ error: 'Failed to load submissions', code: 503 }),
         {
@@ -116,17 +122,23 @@ serve(async (req) => {
       )
     }
 
-    // Group by agent_id and take the latest submission (highest epoch) for each agent
-    const latestSubmissions: Record<string, any> = {}
-    for (const submission of (submissions || [])) {
-      if (!latestSubmissions[submission.agent_id] || submission.epoch > latestSubmissions[submission.agent_id].epoch) {
-        latestSubmissions[submission.agent_id] = submission
+    // Get most recent submission per agent
+    const latestSubmissionsByAgent: Record<string, any> = {}
+    const seenAgents = new Set<string>()
+
+    for (const submission of allSubmissions || []) {
+      if (!seenAgents.has(submission.agent_id)) {
+        // Store latest submission for this agent
+        latestSubmissionsByAgent[submission.agent_id] = submission
+        seenAgents.add(submission.agent_id)
       }
     }
-    const filteredSubmissions = Object.values(latestSubmissions)
 
-    if (!filteredSubmissions || filteredSubmissions.length === 0) {
-      console.log(`No submissions found for belief ${belief_id} - returning neutral defaults`)
+    // Convert to array for processing
+    const filteredSubmissions = Object.values(latestSubmissionsByAgent)
+
+    if (filteredSubmissions.length === 0) {
+      console.log(`No submissions found for belief ${belief_id} in epoch ${queryEpoch} - returning neutral defaults`)
       return new Response(
         JSON.stringify({
           aggregate: 0.5, // Neutral
@@ -189,8 +201,8 @@ serve(async (req) => {
       // Store meta prediction
       agentMetaPredictions[agentId] = submission.meta_prediction
 
-      // Track active agents
-      if (submission.is_active) {
+      // Track active agents (those who submitted in the query epoch)
+      if (submission.epoch === queryEpoch && submission.is_active) {
         activeAgentIndicators.push(agentId)
       }
     }

@@ -19,7 +19,10 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
 }: RelevanceHistoryChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
+  const impliedSeriesRef = useRef<any>(null);
+  const actualSeriesRef = useRef<any>(null);
 
+  // Create chart only once
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
@@ -78,79 +81,29 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
       },
     });
 
-    // Add implied relevance line series (blue, dashed - market predictions)
-    const impliedSeries = chart.addLineSeries({
-      color: '#3b82f6',  // Blue-500
+    // Add implied relevance area series (blue - market predictions)
+    const impliedSeries = chart.addAreaSeries({
+      topColor: 'rgba(59, 130, 246, 0.4)',     // Blue-500 with 40% opacity
+      bottomColor: 'rgba(59, 130, 246, 0.05)', // Blue-500 with 5% opacity
+      lineColor: 'rgba(59, 130, 246, 0.9)',    // Blue-500 with 90% opacity
       lineWidth: 2,
-      lineStyle: 2,      // Dashed line
       priceScaleId: 'right',
       title: 'Market Prediction',
     });
 
-    // Add actual relevance area series (green - ground truth)
+    // Add actual relevance area series (cream/gold - BD scores from settlements)
     const actualSeries = chart.addAreaSeries({
-      topColor: 'rgba(34, 197, 94, 0.3)',      // Green
-      bottomColor: 'rgba(34, 197, 94, 0.02)',  // Green fade
-      lineColor: '#22c55e',                     // Green-500
-      lineWidth: 2,
+      topColor: 'rgba(240, 234, 214, 0.5)',    // Cream with 50% opacity
+      bottomColor: 'rgba(240, 234, 214, 0.05)', // Cream with 5% opacity
+      lineColor: '#F0EAD6',                     // Solid cream line
+      lineWidth: 3,
       priceScaleId: 'right',
-      title: 'Actual Relevance',
+      title: 'Settlements',
     });
 
-    // Add rebase markers (vertical lines at settlement times)
-    const rebaseMarkerSeries = chart.addLineSeries({
-      color: '#F0EAD6',  // Cream color for rebases
-      lineWidth: 2,
-      lineStyle: 0,  // Solid line
-      priceScaleId: 'right',
-      title: 'Rebases',
-      visible: false, // Don't show in legend, just use for markers
-    });
-
-    // Deduplicate and sort data by time (lightweight-charts requires strictly ascending timestamps)
-    const deduplicateAndSort = (data: ChartDataPoint[]): ChartDataPoint[] => {
-      // Group by timestamp and take the last value for each timestamp
-      const byTime = new Map<number, number>();
-      data.forEach(point => {
-        byTime.set(point.time, point.value);
-      });
-
-      // Convert back to array and sort by time
-      return Array.from(byTime.entries())
-        .map(([time, value]) => ({ time, value }))
-        .sort((a, b) => a.time - b.time);
-    };
-
-    // Update data if available
-    if (impliedRelevance.length > 0) {
-      const cleanedImplied = deduplicateAndSort(impliedRelevance);
-      impliedSeries.setData(cleanedImplied);
-    }
-    if (actualRelevance.length > 0) {
-      const cleanedActual = deduplicateAndSort(actualRelevance);
-      actualSeries.setData(cleanedActual);
-    }
-
-    // Add rebase event markers
-    if (rebaseEvents.length > 0) {
-      rebaseEvents.forEach(event => {
-        actualSeries.setMarkers([
-          ...actualSeries.markers?.() || [],
-          {
-            time: event.time,
-            position: 'inBar',
-            color: '#F0EAD6',
-            shape: 'circle',
-            text: 'R',
-          },
-        ]);
-      });
-    }
-
-    // Fit content if we have any data
-    if (actualRelevance.length > 0 || impliedRelevance.length > 0) {
-      chart.timeScale().fitContent();
-    }
+    // Store series references
+    impliedSeriesRef.current = impliedSeries;
+    actualSeriesRef.current = actualSeries;
 
     // Handle resize
     const handleResize = () => {
@@ -171,7 +124,47 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
         chartRef.current = null;
       }
     };
-  }, [height, actualRelevance, impliedRelevance, rebaseEvents]);
+  }, [height]); // Only recreate chart when height changes
+
+  // Separate effect for updating data
+  useEffect(() => {
+    if (!chartRef.current || !impliedSeriesRef.current || !actualSeriesRef.current) return;
+
+    // Deduplicate and sort data by time (lightweight-charts requires strictly ascending timestamps)
+    const deduplicateAndSort = (data: ChartDataPoint[]): ChartDataPoint[] => {
+      // Group by timestamp and take the last value for each timestamp
+      const byTime = new Map<number, number>();
+      data.forEach(point => {
+        byTime.set(point.time, point.value);
+      });
+
+      // Convert back to array and sort by time
+      return Array.from(byTime.entries())
+        .map(([time, value]) => ({ time, value }))
+        .sort((a, b) => a.time - b.time);
+    };
+
+    console.log('[RelevanceHistoryChart] Updating data:', {
+      impliedCount: impliedRelevance.length,
+      actualCount: actualRelevance.length,
+      latestImplied: impliedRelevance[impliedRelevance.length - 1],
+    });
+
+    // Update data if available
+    if (impliedRelevance.length > 0) {
+      const cleanedImplied = deduplicateAndSort(impliedRelevance);
+      impliedSeriesRef.current.setData(cleanedImplied);
+    }
+    if (actualRelevance.length > 0) {
+      const cleanedActual = deduplicateAndSort(actualRelevance);
+      actualSeriesRef.current.setData(cleanedActual);
+    }
+
+    // Fit content if we have any data
+    if (actualRelevance.length > 0 || impliedRelevance.length > 0) {
+      chartRef.current.timeScale().fitContent();
+    }
+  }, [actualRelevance, impliedRelevance, rebaseEvents]);
 
   return (
     <div

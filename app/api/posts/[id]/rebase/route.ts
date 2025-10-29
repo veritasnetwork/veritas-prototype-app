@@ -1,14 +1,18 @@
 /**
  * POST /api/posts/[id]/rebase
  *
- * Triggers belief-specific epoch processing (BD decomposition + stake redistribution)
- * then creates a settlement transaction for the pool.
+ * Triggers pool rebase by calculating BD score and returning settlement transaction.
+ * BTS scoring + stake redistribution run asynchronously in the background.
  *
  * Flow:
- * 1. Call protocol-belief-epoch-process to calculate new BD score
+ * 1. Calculate epistemic weights + BD decomposition (synchronous - needed for tx)
  * 2. Build settle_epoch transaction with new BD score
  * 3. Protocol authority partially signs
  * 4. Return transaction for user to sign and send
+ * 5. Run BTS scoring + stake redistribution asynchronously (fire and forget)
+ *
+ * This ensures users can sign the transaction quickly without waiting for
+ * the full protocol processing to complete.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -73,6 +77,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: postId } = await params;
+  console.log(`\n========== REBASE REQUEST START ==========`);
+  console.log(`[rebase] Post ID: ${postId}`);
+  console.log(`[rebase] Timestamp: ${new Date().toISOString()}`);
 
   try {
     // Authenticate user
@@ -80,20 +87,25 @@ export async function POST(
     const privyUserId = await verifyAuthHeader(authHeader);
 
     if (!privyUserId) {
+      console.log(`[rebase] ❌ Authentication failed`);
       return NextResponse.json({ error: 'Invalid or missing authentication' }, { status: 401 });
     }
+    console.log(`[rebase] ✅ Authenticated user: ${privyUserId}`);
 
     const body = await req.json();
     const { walletAddress } = body;
 
     if (!walletAddress) {
+      console.log(`[rebase] ❌ Missing wallet address`);
       return NextResponse.json({ error: 'walletAddress is required' }, { status: 400 });
     }
+    console.log(`[rebase] Wallet: ${walletAddress}`);
 
     // Get Supabase singleton client
     const supabase = getSupabaseServiceRole();
 
     // Get pool deployment
+    console.log(`[rebase] Fetching pool deployment...`);
     const { data: poolDeployment, error: poolError } = await supabase
       .from('pool_deployments')
       .select('pool_address, belief_id, post_id, current_epoch, status')
@@ -101,8 +113,15 @@ export async function POST(
       .single();
 
     if (poolError || !poolDeployment) {
+      console.log(`[rebase] ❌ Pool not found:`, poolError);
       return NextResponse.json({ error: 'Pool not found for this post' }, { status: 404 });
     }
+    console.log(`[rebase] ✅ Pool found:`, {
+      pool_address: poolDeployment.pool_address,
+      belief_id: poolDeployment.belief_id,
+      current_epoch: poolDeployment.current_epoch,
+      status: poolDeployment.status
+    });
 
     if (poolDeployment.status !== 'market_deployed') {
       return NextResponse.json({
@@ -217,8 +236,15 @@ export async function POST(
 
     const minNewSubmissions = parseInt(minSubmissionsConfig?.value || '2');
 
-    if (uniqueNewSubmitters < minNewSubmissions) {
+    console.log(`[rebase] New submissions check:`, {
+      uniqueNewSubmitters,
+      minNewSubmissions,
+      lastSettlementEpoch,
+      nextEpoch
+    });
 
+    if (uniqueNewSubmitters < minNewSubmissions) {
+      console.log(`[rebase] ❌ Insufficient new submissions`);
       return NextResponse.json({
         error: `Insufficient new activity. Need at least ${minNewSubmissions} new unique belief submissions since last settlement (found ${uniqueNewSubmitters}).`,
         minNewSubmissions,
@@ -229,40 +255,79 @@ export async function POST(
     }
 
 
-    // Step 1: Call protocol-belief-epoch-process
+    // Step 1: Run weights calculation + BD decomposition (synchronous - needed for transaction)
+    console.log(`[rebase] Running weights + BD decomposition for belief ${beliefId}...`);
 
-    const epochProcessResult = await callEdgeFunction('protocol-belief-epoch-process', {
-      belief_id: beliefId
-    });
+    // Get all participants
+    const { data: submissions, error: allSubmissionsError } = await supabase
+      .from('belief_submissions')
+      .select('agent_id')
+      .eq('belief_id', beliefId);
 
-
-    // Step 2: Get updated belief with new BD score
-    const { data: belief, error: beliefError } = await supabase
-      .from('beliefs')
-      .select('id, previous_aggregate, certainty')
-      .eq('id', beliefId)
-      .single();
-
-    if (beliefError || !belief) {
-      console.error('[rebase] Failed to get updated belief:', beliefError);
-      return NextResponse.json({ error: 'Failed to get updated belief' }, { status: 500 });
-    }
-
-    const bdScore = belief.previous_aggregate;
-
-    if (bdScore === null || bdScore === undefined) {
+    if (allSubmissionsError || !submissions || submissions.length < 2) {
+      console.log(`[rebase] ❌ Insufficient submissions`);
       return NextResponse.json({
-        error: 'Epoch processing did not produce a BD score. Ensure there are at least 2 participants.'
+        error: 'Insufficient submissions for belief decomposition (need at least 2 participants)'
       }, { status: 400 });
     }
 
+    const participantAgents = [...new Set(submissions.map(s => s.agent_id))];
+    console.log(`[rebase] Found ${participantAgents.length} unique participants`);
+
+    // Calculate weights
+    const weightsData = await callEdgeFunction('protocol-weights-calculate', {
+      belief_id: beliefId,
+      participant_agents: participantAgents
+    });
+    console.log(`[rebase] ✅ Weights calculated for ${Object.keys(weightsData.weights).length} agents`);
+
+    // Run BD decomposition
+    let aggregationData;
+    try {
+      aggregationData = await callEdgeFunction('protocol-beliefs-decompose/decompose', {
+        belief_id: beliefId,
+        weights: weightsData.weights,
+        epoch: nextEpoch // Use pool's next epoch, not system current_epoch
+      });
+      console.log(`[rebase] ✅ BD decomposition complete: ${(aggregationData.aggregate * 100).toFixed(1)}%`);
+
+      // Check decomposition quality - fall back to naive if too low
+      if (aggregationData.decomposition_quality < 0.3) {
+        console.log(`[rebase] ⚠️ Low quality, falling back to naive aggregation`);
+        aggregationData = await callEdgeFunction('protocol-beliefs-aggregate', {
+          belief_id: beliefId,
+          weights: weightsData.weights,
+          epoch: nextEpoch // Also pass epoch to naive aggregation
+        });
+      }
+    } catch (decomposeError) {
+      console.error(`[rebase] ⚠️ Decomposition failed:`, decomposeError);
+      console.log(`[rebase] Falling back to naive aggregation`);
+      aggregationData = await callEdgeFunction('protocol-beliefs-aggregate', {
+        belief_id: beliefId,
+        weights: weightsData.weights,
+        epoch: nextEpoch // Also pass epoch to naive aggregation
+      });
+    }
+
+    // NOTE: We do NOT persist the BD score yet!
+    // State will only be updated after the settlement transaction succeeds
+    // This happens in /api/settlements/record after tx confirmation
+    console.log(`[rebase] ⚠️  NOT persisting state yet - waiting for tx confirmation`);
+
+
+    // Step 2: Use BD score from aggregation
+    const bdScore = aggregationData.aggregate;
+    console.log(`[rebase] ✅ BD Score (Absolute Relevance): ${(bdScore * 100).toFixed(2)}%`);
+
 
     // Step 3: Build settlement transaction
-
+    console.log(`[rebase] Building settlement transaction...`);
     // Convert BD score to millionths format (contract expects 0-1,000,000)
     const bdScoreTyped = asBDScore(bdScore);
     const bdScoreMillionths = bdScoreToMillionths(bdScoreTyped);
     const bdScoreBN = new BN(bdScoreMillionths);
+    console.log(`[rebase] BD score for contract: ${bdScoreMillionths} (${bdScore})`);
 
     // Derive factory PDA
     const [factoryPda] = PublicKey.findProgramAddressSync(
@@ -323,12 +388,6 @@ export async function POST(
     }).toString('base64');
 
 
-    // Calculate stake changes for response
-    const totalRewards = Object.values(epochProcessResult.stake_changes?.individual_rewards || {})
-      .reduce((sum: number, val: unknown) => sum + (typeof val === 'number' ? val : 0), 0);
-    const totalSlashes = Object.values(epochProcessResult.stake_changes?.individual_slashes || {})
-      .reduce((sum: number, val: unknown) => sum + (typeof val === 'number' ? val : 0), 0);
-
     const response: RebaseResponse = {
       success: true,
       transaction: serializedTx,
@@ -337,17 +396,27 @@ export async function POST(
       poolAddress,
       currentEpoch: poolDeployment.current_epoch,
       stakeChanges: {
-        totalRewards,
-        totalSlashes,
-        participantCount: epochProcessResult.participant_count || 0
+        totalRewards: 0, // Will be calculated asynchronously
+        totalSlashes: 0, // Will be calculated asynchronously
+        participantCount: participantAgents.length
       }
     };
 
+    console.log(`[rebase] ✅ Transaction built successfully`);
+    console.log(`\n========== REBASE SUMMARY ==========`);
+    console.log(`BD Score (Absolute Relevance): ${(bdScore * 100).toFixed(2)}%`);
+    console.log(`Current Epoch: ${poolDeployment.current_epoch}`);
+    console.log(`Participants: ${participantAgents.length}`);
+    console.log(`Pool: ${poolAddress.substring(0, 8)}...`);
+    console.log(`⚠️  State NOT persisted yet - waiting for tx confirmation`);
+    console.log(`BTS + redistribution will run AFTER tx succeeds`);
+    console.log(`========== REBASE REQUEST END ==========\n`);
 
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('[/api/posts/[id]/rebase] Error:', error);
+    console.error(`[rebase] ❌ ERROR:`, error);
+    console.log(`========== REBASE REQUEST END (ERROR) ==========\n`);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

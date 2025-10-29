@@ -699,10 +699,50 @@ export class EventProcessor {
     } else {
     }
 
-    // 2.5. Sync full pool state from chain after settlement
+    // 2.5. Sync full pool state from chain after settlement (FORCE UPDATE to get scaled reserves)
+    let priceLong: number | null = null;
+    let priceShort: number | null = null;
+    let sqrtPriceLongX96: string | null = null;
+    let sqrtPriceShortX96: string | null = null;
+
     try {
-      const synced = await syncPoolFromChain(poolAddress);
-      if (synced) {
+      const poolState = await syncPoolFromChain(poolAddress, undefined, 5000, true);
+      if (poolState) {
+        console.log(`✅ Synced pool state after settlement (epoch ${epoch})`);
+
+        // Fetch prices from pool_deployments (now updated by syncPoolFromChain)
+        const { data: poolWithPrices } = await this.supabase
+          .from('pool_deployments')
+          .select('sqrt_price_long_x96, sqrt_price_short_x96')
+          .eq('pool_address', poolAddress)
+          .single();
+
+        if (poolWithPrices?.sqrt_price_long_x96 && poolWithPrices?.sqrt_price_short_x96) {
+          sqrtPriceLongX96 = poolWithPrices.sqrt_price_long_x96;
+          sqrtPriceShortX96 = poolWithPrices.sqrt_price_short_x96;
+
+          // Calculate human-readable prices
+          priceLong = this.sqrtPriceX96ToPrice(BigInt(sqrtPriceLongX96));
+          priceShort = this.sqrtPriceX96ToPrice(BigInt(sqrtPriceShortX96));
+
+          console.log(`[event-indexer] Calculated settlement prices:`, {
+            priceLong,
+            priceShort
+          });
+
+          // Update settlement record with prices
+          await this.supabase
+            .from('settlements')
+            .update({
+              sqrt_price_long_x96_after: sqrtPriceLongX96,
+              sqrt_price_short_x96_after: sqrtPriceShortX96,
+              price_long_after: priceLong,
+              price_short_after: priceShort,
+            })
+            .eq('tx_signature', signature);
+
+          console.log(`✅ Settlement prices updated for tx ${signature}`);
+        }
       } else {
         console.warn(`⚠️  Failed to sync pool state after settlement`);
       }
@@ -737,6 +777,47 @@ export class EventProcessor {
       reserveShort: rShortAfter,
       blockTime,
     });
+
+    // 5. CRITICAL: Trigger protocol processing (BD + BTS + redistribution)
+    // This is the BACKUP path - manual recording is primary, but if that fails,
+    // Helius webhook will trigger processing. Idempotency prevents double-processing.
+    console.log(`[event-indexer] Triggering protocol processing for belief ${pool.belief_id}, epoch ${epoch - 1}...`);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (supabaseUrl && supabaseAnonKey) {
+      (async () => {
+        try {
+          const response = await fetch(`${supabaseUrl}/functions/v1/protocol-belief-epoch-process`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseAnonKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              belief_id: pool.belief_id,
+              current_epoch: epoch - 1 // Process the epoch that just ended
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[event-indexer] ⚠️  Protocol processing failed: ${errorText}`);
+          } else {
+            const result = await response.json();
+            console.log(`[event-indexer] ✅ Protocol processing completed:`, {
+              participant_count: result.participant_count,
+              redistribution_occurred: result.redistribution_occurred,
+              slashing_pool: result.slashing_pool
+            });
+          }
+        } catch (asyncError) {
+          console.error(`[event-indexer] ⚠️  Protocol processing error:`, asyncError);
+        }
+      })();
+    } else {
+      console.warn('[event-indexer] ⚠️  Supabase URL/key not configured, skipping protocol processing');
+    }
 
   }
 
@@ -822,8 +903,8 @@ export class EventProcessor {
           f: poolData.f,
           beta_num: poolData.betaNum,
           beta_den: poolData.betaDen,
-          r_long: poolData.marketCapLong,  // ✅ FIX: Already in display USDC, don't multiply
-          r_short: poolData.marketCapShort,  // ✅ FIX: Already in display USDC, don't multiply
+          r_long: poolData.marketCapLong,  // Market cap LONG (display USDC) = s × p
+          r_short: poolData.marketCapShort,  // Market cap SHORT (display USDC) = s × p
           market_deployment_tx_signature: signature,
           market_deployed_at: blockTime ? new Date(blockTime * 1000).toISOString() : new Date().toISOString(),
           status: 'market_deployed',
@@ -911,7 +992,8 @@ export class EventProcessor {
       .single();
 
     if (existing) {
-
+      // Deposit already recorded (by server or previous indexer run)
+      // Just mark as confirmed
       const { error: updateError } = await this.supabase
         .from('custodian_deposits')
         .update({
@@ -926,6 +1008,30 @@ export class EventProcessor {
         console.error('Failed to update deposit:', updateError);
         throw updateError;
       }
+
+      // Only add stake if it wasn't already credited
+      // (Server might have crashed before marking agent_credited=true)
+      if (!existing.agent_credited) {
+        const { error: stakeError } = await this.supabase
+          .rpc('add_agent_stake', {
+            p_agent_id: agentId,
+            p_amount: amountMicro,
+          });
+
+        if (stakeError) {
+          console.error('Failed to update agent stake on confirmation:', stakeError);
+          throw stakeError;
+        }
+
+        // Mark as credited
+        await this.supabase
+          .from('custodian_deposits')
+          .update({
+            agent_credited: true,
+            credited_at: new Date().toISOString(),
+          })
+          .eq('tx_signature', txSignature);
+      }
     } else {
       // Insert new deposit record from indexer
       const { error: insertError } = await this.supabase
@@ -937,6 +1043,7 @@ export class EventProcessor {
           deposit_type: 'direct',
           recorded_by: 'indexer',
           confirmed: true,
+          agent_credited: false, // Will be set to true after updating stake
           slot,
           block_time: blockTime,
           indexed_at: new Date().toISOString(),
@@ -959,6 +1066,15 @@ export class EventProcessor {
         console.error('Failed to update agent stake:', stakeError);
         throw stakeError;
       }
+
+      // Mark as credited
+      await this.supabase
+        .from('custodian_deposits')
+        .update({
+          agent_credited: true,
+          credited_at: new Date().toISOString(),
+        })
+        .eq('tx_signature', txSignature);
     }
 
   }

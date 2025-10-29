@@ -11,6 +11,9 @@ import { TradingChartCard } from './PostDetailPanel/TradingChartCard';
 import { PoolMetricsCard } from './PostDetailPanel/PoolMetricsCard';
 import { UnifiedSwapComponent } from './PostDetailPanel/UnifiedSwapComponent';
 import { DeployPoolCard } from './PostDetailPanel/DeployPoolCard';
+import { useTradeHistory } from '@/hooks/api/useTradeHistory';
+import { useRelevanceHistory } from '@/hooks/api/useRelevanceHistory';
+import { useRebaseStatus } from '@/hooks/api/useRebaseStatus';
 import type { PoolData } from '@/hooks/usePoolData';
 import type { TradeStats } from '@/hooks/api/useTradeHistory';
 
@@ -59,6 +62,11 @@ export function TradingPanel({
   loadingPoolData = false,
   initialPoolData,
 }: TradingPanelProps) {
+  // Fetch the chart data for TradingChartCard
+  const { data: tradeHistory, isLoading: tradeHistoryLoading } = useTradeHistory(postId, '24H');
+  const { data: relevanceHistory, isLoading: relevanceLoading } = useRelevanceHistory(postId);
+  const { data: rebaseStatus } = useRebaseStatus(postId);
+
   // Use poolData if available, fallback to initialPoolData for instant rendering
   const displayPoolData = poolData || (initialPoolData ? {
     priceLong: initialPoolData.priceLong,
@@ -90,7 +98,15 @@ export function TradingPanel({
       {/* Trading Chart Card - Show if pool exists */}
       {poolAddress && (
         <Suspense fallback={<LoadingCard height="h-96" />}>
-          <TradingChartCard postId={postId} />
+          <TradingChartCard
+            postId={postId}
+            poolData={displayPoolData}
+            tradeHistory={tradeHistory}
+            relevanceHistory={relevanceHistory}
+            rebaseStatus={rebaseStatus}
+            tradeHistoryLoading={tradeHistoryLoading}
+            relevanceLoading={relevanceLoading}
+          />
         </Suspense>
       )}
 

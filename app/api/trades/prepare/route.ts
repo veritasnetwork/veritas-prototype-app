@@ -188,26 +188,6 @@ export async function POST(req: NextRequest) {
         );
       }
       poolAddress = poolDeployment.pool_address;
-
-      // ✅ RECTIFY STATUS: If pool has status 'pool_created' but trade is being prepared,
-      // update it to 'market_deployed' (market must be deployed if trades are being prepared)
-      if (poolDeployment.status === 'pool_created') {
-        console.warn('[PREPARE] ⚠️  Pool has status "pool_created" but trade is being prepared - updating to "market_deployed"');
-        const { error: statusUpdateError } = await supabase
-          .from('pool_deployments')
-          .update({
-            status: 'market_deployed',
-            market_deployed_at: new Date().toISOString(),
-          })
-          .eq('pool_address', poolAddress);
-
-        if (statusUpdateError) {
-          console.error('[PREPARE] ⚠️  Failed to update pool status:', statusUpdateError);
-          // Don't fail the trade - just log the warning
-        } else {
-          console.log('[PREPARE] ✅ Pool status updated to "market_deployed"');
-        }
-      }
     }
 
     // Calculate stake skim with UX check
@@ -221,23 +201,38 @@ export async function POST(req: NextRequest) {
       side: side.toUpperCase() as 'LONG' | 'SHORT',
     });
 
-    // Check if skim is excessive (> 20% of trade)
-    // This indicates underwater positions that should be closed first
+    // Check if skim is excessive (> 30% of trade)
+    // This indicates underwater positions that should be topped up first
     if (tradeType === 'buy' && stakeSkim > 0) {
       const skimPercentage = (stakeSkim / amount) * 100;
 
-      if (skimPercentage > 20) {
+      if (skimPercentage > 30) {
         // Import the underwater check function
         const { checkUnderwaterPositions } = await import('@/lib/stake/check-underwater-positions');
         const underwaterCheck = await checkUnderwaterPositions(user.id, user.agent_id);
 
-        // Return warning (not error) with helpful information
+        // Calculate required deposit to bring skim down to 2%
+        // Target: stakeSkim = 2% of tradeAmount
+        // stakeSkim = max(0, (totalLocks + newLock) - (currentStake + deposit))
+        // For 2% skim: stakeSkim = 0.02 * tradeAmount
+        // We need: (totalLocks + newLock) - (currentStake + deposit) = 0.02 * tradeAmount
+        // Solving for deposit: deposit = (totalLocks + newLock) - currentStake - (0.02 * tradeAmount)
+
+        const targetSkimPercentage = 2; // 2% target
+        const targetSkim = Math.floor((targetSkimPercentage / 100) * amount); // µUSDC
+        const newLock = Math.floor(amount * 0.02); // 2% of trade amount becomes new lock
+        const requiredDeposit = Math.max(0,
+          (underwaterCheck.totalLocks + newLock) - underwaterCheck.currentStake - targetSkim
+        );
+
+        // Block the trade with error
         return NextResponse.json({
-          warning: 'excessive_skim',
+          error: 'excessive_skim',
+          blocked: true,
           skimAmount: stakeSkim,
           skimPercentage: Math.round(skimPercentage),
           tradeAmount: amount,
-          message: `This trade requires ${Math.round(skimPercentage)}% skim (${(stakeSkim / 1_000_000).toFixed(2)} USDC). This is unusually high and indicates you have underwater positions.`,
+          message: `This trade requires ${Math.round(skimPercentage)}% skim (${(stakeSkim / 1_000_000).toFixed(2)} USDC). Please deposit funds to continue.`,
           underwaterInfo: {
             isUnderwater: underwaterCheck.isUnderwater,
             currentStake: underwaterCheck.currentStake / 1_000_000,
@@ -251,11 +246,10 @@ export async function POST(req: NextRequest) {
               balance: p.tokenBalance,
             })),
           },
-          recommendation: underwaterCheck.isUnderwater
-            ? 'Close some of your positions to reduce your locks. This will enable normal trading with lower skim.'
-            : 'Consider trading in pools where you already have positions to replace locks instead of adding new ones.',
-          canProceed: true, // User CAN proceed but we warn them
-        }, { status: 202 }); // 202 Accepted (warning, not error)
+          recommendedDeposit: requiredDeposit / 1_000_000, // Convert to display USDC
+          recommendedDepositMicro: requiredDeposit, // Keep micro-USDC for API calls
+          recommendation: `Deposit ${(requiredDeposit / 1_000_000).toFixed(2)} USDC to reduce skim to ${targetSkimPercentage}% and enable this trade.`,
+        }, { status: 400 }); // 400 Bad Request (blocking error)
       }
     }
 

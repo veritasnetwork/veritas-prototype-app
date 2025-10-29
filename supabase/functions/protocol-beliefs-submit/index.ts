@@ -16,6 +16,7 @@ interface BeliefSubmissionRequest {
   belief_id: string
   belief_value: number
   meta_prediction: number
+  epoch: number  // Required: the epoch for this submission (from pool's next epoch)
 }
 
 interface BeliefSubmissionResponse {
@@ -62,7 +63,8 @@ serve(async (req) => {
       agent_id,
       belief_id,
       belief_value,
-      meta_prediction
+      meta_prediction,
+      epoch
     }: BeliefSubmissionRequest = await req.json()
 
     // 1. Validate inputs
@@ -71,6 +73,16 @@ serve(async (req) => {
         JSON.stringify({ error: 'Missing required fields: agent_id, belief_id', code: 422 }),
         {
           status: 422,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    if (typeof epoch !== 'number' || epoch < 0 || !Number.isInteger(epoch)) {
+      return new Response(
+        JSON.stringify({ error: 'epoch must be a non-negative integer', code: 400 }),
+        {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
@@ -176,33 +188,18 @@ serve(async (req) => {
       )
     }
 
-    // 3. Get current epoch
-    const { data: epochData, error: epochError } = await supabaseClient
-      .from('system_config')
-      .select('value')
-      .eq('key', 'current_epoch')
-      .single()
-
-    if (epochError) {
-      console.error('Failed to get current_epoch:', epochError)
-      return new Response(
-        JSON.stringify({ error: 'Configuration error', code: 503 }),
-        {
-          status: 503,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    const currentEpoch = parseInt(epochData.value)
+    // 3. Use the provided epoch (no system-wide epoch anymore)
+    const submissionEpoch = epoch
+    console.log(`[belief-submit] Submitting for belief ${belief_id}, agent ${agent_id}, epoch ${submissionEpoch}`)
 
     // 4. BEGIN TRANSACTION
-    // 5. Check existing submission
+    // 5. Check existing submission for this belief/agent/epoch combination
     const { data: existingSubmission, error: existingError } = await supabaseClient
       .from('belief_submissions')
       .select('id')
       .eq('belief_id', belief_id)
       .eq('agent_id', agent_id)
+      .eq('epoch', submissionEpoch)
       .maybeSingle()
 
     if (existingError) {
@@ -220,13 +217,12 @@ serve(async (req) => {
     let isFirstSubmission = false
 
     if (existingSubmission) {
-      // 6A. Update existing submission (use clamped values)
+      // 6A. Update existing submission for this epoch (use clamped values)
       const { data: updatedSubmission, error: updateError } = await supabaseClient
         .from('belief_submissions')
         .update({
           belief: finalBeliefValue,
           meta_prediction: finalMetaPrediction,
-          epoch: currentEpoch,
           is_active: true,
           updated_at: new Date().toISOString()
         })
@@ -261,7 +257,7 @@ serve(async (req) => {
           belief_id: belief_id,
           belief: finalBeliefValue,
           meta_prediction: finalMetaPrediction,
-          epoch: currentEpoch,
+          epoch: submissionEpoch,
           is_active: true
         })
         .select('id')
@@ -286,7 +282,7 @@ serve(async (req) => {
 
     const response: BeliefSubmissionResponse = {
       submission_id: submissionId,
-      current_epoch: currentEpoch,
+      current_epoch: submissionEpoch,
       is_first_submission: isFirstSubmission
     }
 

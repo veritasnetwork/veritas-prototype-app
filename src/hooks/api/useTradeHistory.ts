@@ -16,10 +16,13 @@ export type { ChartDataPoint, VolumeDataPoint, TradeStats };
 export type TradeHistoryData = TradeHistoryResponse;
 
 const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
+  console.log('[useTradeHistory] 🔄 Fetching from:', url);
   const res = await fetch(url);
   if (!res.ok) {
+    console.log('[useTradeHistory] ❌ Fetch failed with status:', res.status);
     // Return empty data for 404s (pool not deployed yet) instead of throwing
     if (res.status === 404) {
+      console.log('[useTradeHistory] 📭 Returning empty data (404)');
       return {
         priceLongData: [],
         priceShortData: [],
@@ -45,6 +48,11 @@ const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
     throw new Error('Failed to fetch trade history');
   }
   const data = await res.json();
+  console.log('[useTradeHistory] ✅ Fetched data:', {
+    priceLongCount: data.priceLongData?.length,
+    priceShortCount: data.priceShortData?.length,
+    volumeCount: data.volumeData?.length,
+  });
 
   // Validate response with Zod schema
   return TradeHistoryResponseSchema.parse(data);
@@ -53,23 +61,33 @@ const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
 export function useTradeHistory(postId: string | undefined, timeRange: TimeRange = 'ALL') {
   const swrKey = postId ? `/api/posts/${postId}/trades?range=${timeRange}` : null;
 
-  const { data, error, isLoading, isValidating, mutate } = useSWR<TradeHistoryResponse>(
+  console.log('[useTradeHistory] 🎯 Hook called:', { postId, timeRange, swrKey });
+
+  const { data, error, isLoading, mutate } = useSWR<TradeHistoryResponse>(
     swrKey,
     fetcher,
     {
       refreshInterval: 60000, // Refresh every 60 seconds
       revalidateOnFocus: false, // Disable focus revalidation to reduce unnecessary fetches
-      dedupingInterval: 2000, // Reduce deduping to 2 seconds
+      dedupingInterval: 5000, // Dedupe requests within 5 seconds to prevent duplicate calls
       revalidateIfStale: true, // Always revalidate stale data
       revalidateOnMount: true, // Always fetch on mount
-      keepPreviousData: false, // Don't show previous data when switching posts
+      keepPreviousData: true, // Keep showing previous data while fetching (prevents loading flicker)
     }
   );
+
+  console.log('[useTradeHistory] 📦 Returning:', {
+    hasData: !!data,
+    isLoading,
+    hasError: !!error,
+    dataKeys: data ? Object.keys(data) : 'no data',
+    priceLongCount: data?.priceLongData?.length,
+  });
 
   return {
     data,
     isLoading,
     error,
-    refresh: mutate,
+    refresh: () => mutate(undefined, { revalidate: true }),
   };
 }

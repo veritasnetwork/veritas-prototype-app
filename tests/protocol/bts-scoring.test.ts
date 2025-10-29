@@ -7,13 +7,11 @@ interface BTSScoringRequest {
   agent_beliefs: Record<string, number>
   leave_one_out_aggregates: Record<string, number>
   leave_one_out_meta_aggregates: Record<string, number>
-  normalized_weights: Record<string, number>
   agent_meta_predictions: Record<string, number>
 }
 
 interface BTSScoringResponse {
   bts_scores: Record<string, number>
-  information_scores: Record<string, number>
   winners: string[]
   losers: string[]
 }
@@ -69,10 +67,6 @@ Deno.test("BTS Scoring - Basic Two Agent Scenario", async () => {
       'agent-a': 0.8,  // Without A, meta = B's meta
       'agent-b': 0.6   // Without B, meta = A's meta
     },
-    normalized_weights: {
-      'agent-a': 0.5,
-      'agent-b': 0.5
-    },
     agent_meta_predictions: {
       'agent-a': 0.6,
       'agent-b': 0.8
@@ -83,7 +77,6 @@ Deno.test("BTS Scoring - Basic Two Agent Scenario", async () => {
 
   // Verify structure
   assertExists(result.bts_scores);
-  assertExists(result.information_scores);
   assertExists(result.winners);
   assertExists(result.losers);
 
@@ -91,25 +84,15 @@ Deno.test("BTS Scoring - Basic Two Agent Scenario", async () => {
   assertExists(result.bts_scores['agent-a'], "Agent A should have BTS score");
   assertExists(result.bts_scores['agent-b'], "Agent B should have BTS score");
 
-  // Information score = weight × BTS score for both agents
-  assertAlmostEquals(
-    result.information_scores['agent-a'],
-    0.5 * result.bts_scores['agent-a'],
-    1e-6,
-    "Agent A information score should equal weight × BTS score"
-  );
-  assertAlmostEquals(
-    result.information_scores['agent-b'],
-    0.5 * result.bts_scores['agent-b'],
-    1e-6,
-    "Agent B information score should equal weight × BTS score"
-  );
+  // Verify BTS scores are finite
+  assert(isFinite(result.bts_scores['agent-a']), "Agent A BTS score should be finite");
+  assert(isFinite(result.bts_scores['agent-b']), "Agent B BTS score should be finite");
 
-  // Winners/losers partitioning - verify correct partitioning regardless of sign
+  // Winners/losers partitioning - verify correct partitioning based on BTS scores
   for (const agentId of ['agent-a', 'agent-b']) {
-    if (result.information_scores[agentId] > 0) {
+    if (result.bts_scores[agentId] > 0) {
       assert(result.winners.includes(agentId), `${agentId} with positive score should be in winners`);
-    } else if (result.information_scores[agentId] < 0) {
+    } else if (result.bts_scores[agentId] < 0) {
       assert(result.losers.includes(agentId), `${agentId} with negative score should be in losers`);
     }
   }
@@ -136,7 +119,6 @@ Deno.test("BTS Scoring - Mathematical Verification", async () => {
     agent_beliefs: { 'agent-a': pi },
     leave_one_out_aggregates: { 'agent-a': pBarMinusI },
     leave_one_out_meta_aggregates: { 'agent-a': mBarMinusI },
-    normalized_weights: { 'agent-a': 1.0 },
     agent_meta_predictions: { 'agent-a': mi }
   });
 
@@ -175,11 +157,6 @@ Deno.test("BTS Scoring - Three Agent Scenario", async () => {
       'agent-b': 0.60,
       'agent-c': 0.65
     },
-    normalized_weights: {
-      'agent-a': 1/3,
-      'agent-b': 1/3,
-      'agent-c': 1/3
-    },
     agent_meta_predictions: {
       'agent-a': 0.6,
       'agent-b': 0.6,
@@ -191,16 +168,11 @@ Deno.test("BTS Scoring - Three Agent Scenario", async () => {
 
   // All agents should have scores
   assertEquals(Object.keys(result.bts_scores).length, 3);
-  assertEquals(Object.keys(result.information_scores).length, 3);
 
-  // Verify information score formula for each
+  // Verify BTS scores are finite for each
   for (const agentId of ['agent-a', 'agent-b', 'agent-c']) {
-    assertAlmostEquals(
-      result.information_scores[agentId],
-      (1/3) * result.bts_scores[agentId],
-      1e-6,
-      `Information score for ${agentId} should equal weight × BTS score`
-    );
+    assertExists(result.bts_scores[agentId], `BTS score for ${agentId} should exist`);
+    assert(isFinite(result.bts_scores[agentId]), `BTS score for ${agentId} should be finite`);
   }
 
   // Winners + losers should not overlap
@@ -234,10 +206,6 @@ Deno.test("BTS Scoring - Edge Case: Extreme Probabilities", async () => {
       'agent-a': 0.5,
       'agent-b': 0.5
     },
-    normalized_weights: {
-      'agent-a': 0.5,
-      'agent-b': 0.5
-    },
     agent_meta_predictions: {
       'agent-a': 0.5,
       'agent-b': 0.5
@@ -247,8 +215,6 @@ Deno.test("BTS Scoring - Edge Case: Extreme Probabilities", async () => {
   // Should not crash or produce NaN
   assert(isFinite(result.bts_scores['agent-a']), "Agent A BTS score should be finite");
   assert(isFinite(result.bts_scores['agent-b']), "Agent B BTS score should be finite");
-  assert(isFinite(result.information_scores['agent-a']), "Agent A info score should be finite");
-  assert(isFinite(result.information_scores['agent-b']), "Agent B info score should be finite");
 
   console.log("✅ Extreme probabilities test passed");
 });
@@ -282,7 +248,6 @@ Deno.test("BTS Scoring - Mismatched Agent Sets", async () => {
     agent_beliefs: { 'agent-a': 0.7 },
     leave_one_out_aggregates: { 'agent-b': 0.5 },  // Wrong agent!
     leave_one_out_meta_aggregates: { 'agent-a': 0.5 },
-    normalized_weights: { 'agent-a': 1.0 },
     agent_meta_predictions: { 'agent-a': 0.6 }
   };
 
@@ -298,31 +263,6 @@ Deno.test("BTS Scoring - Mismatched Agent Sets", async () => {
   await response.text();
 
   console.log("✅ Mismatched agent sets test passed");
-});
-
-Deno.test("BTS Scoring - Zero Weights Edge Case", async () => {
-  // Agent with zero weight
-
-  const result = await callBTSScoring({
-    belief_id: 'test',
-    agent_beliefs: { 'agent-a': 0.7 },
-    leave_one_out_aggregates: { 'agent-a': 0.5 },
-    leave_one_out_meta_aggregates: { 'agent-a': 0.5 },
-    normalized_weights: { 'agent-a': 0.0 },  // Zero weight
-    agent_meta_predictions: { 'agent-a': 0.6 }
-  });
-
-  // BTS score calculated normally
-  assertExists(result.bts_scores['agent-a'], "BTS score should exist even with zero weight");
-
-  // Information score should be 0 (weight × BTS = 0 × anything = 0)
-  assertEquals(result.information_scores['agent-a'], 0, "Information score should be 0 for zero weight");
-
-  // Should not be in winners or losers (score = 0)
-  assert(!result.winners.includes('agent-a'), "Zero-weight agent should not be in winners");
-  assert(!result.losers.includes('agent-a'), "Zero-weight agent should not be in losers");
-
-  console.log("✅ Zero weights test passed");
 });
 
 // ============================================================================
@@ -348,11 +288,6 @@ Deno.test("BTS Scoring - Winners and Losers Partition", async () => {
       'negative': 0.6,
       'neutral': 0.5
     },
-    normalized_weights: {
-      'positive': 0.33,
-      'negative': 0.34,
-      'neutral': 0.33
-    },
     agent_meta_predictions: {
       'positive': 0.3,
       'negative': 0.7,
@@ -360,20 +295,20 @@ Deno.test("BTS Scoring - Winners and Losers Partition", async () => {
     }
   });
 
-  // Verify partitioning
+  // Verify partitioning based on BTS scores
   for (const winner of result.winners) {
-    assert(result.information_scores[winner] > 0,
-      `Winners must have positive information scores, got ${result.information_scores[winner]} for ${winner}`);
+    assert(result.bts_scores[winner] > 0,
+      `Winners must have positive BTS scores, got ${result.bts_scores[winner]} for ${winner}`);
   }
 
   for (const loser of result.losers) {
-    assert(result.information_scores[loser] < 0,
-      `Losers must have negative information scores, got ${result.information_scores[loser]} for ${loser}`);
+    assert(result.bts_scores[loser] < 0,
+      `Losers must have negative BTS scores, got ${result.bts_scores[loser]} for ${loser}`);
   }
 
   // Neutral agents (score = 0) should be in neither
-  for (const agentId in result.information_scores) {
-    if (Math.abs(result.information_scores[agentId]) < 1e-10) {
+  for (const agentId in result.bts_scores) {
+    if (Math.abs(result.bts_scores[agentId]) < 1e-10) {
       assert(!result.winners.includes(agentId), `Agent ${agentId} with score 0 should not be in winners`);
       assert(!result.losers.includes(agentId), `Agent ${agentId} with score 0 should not be in losers`);
     }
@@ -430,17 +365,11 @@ Deno.test("BTS Scoring - Integration with Decomposition Output", async () => {
     agent_beliefs: agentBeliefs,
     leave_one_out_aggregates: decompResult.leave_one_out_aggregates,
     leave_one_out_meta_aggregates: decompResult.leave_one_out_meta_aggregates,
-    normalized_weights: {
-      'agent-1': 1/3,
-      'agent-2': 1/3,
-      'agent-3': 1/3
-    },
     agent_meta_predictions: decompResult.agent_meta_predictions
   });
 
   // Should succeed without errors
   assertExists(btsResult.bts_scores, "BTS scores should exist");
-  assertExists(btsResult.information_scores, "Information scores should exist");
 
   // Verify all agents have scores
   assertEquals(Object.keys(btsResult.bts_scores).length, 3, "Should have scores for all 3 agents");

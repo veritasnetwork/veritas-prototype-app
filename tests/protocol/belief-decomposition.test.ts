@@ -52,12 +52,13 @@ async function setupTestData(numAgents: number = 4) {
 }
 
 // Helper function to submit beliefs
-async function submitBelief(beliefId: string, agentId: string, belief: number, meta: number) {
+async function submitBelief(beliefId: string, agentId: string, belief: number, meta: number, epoch: number = 0) {
   const { response, data } = await callSupabaseFunction('protocol-beliefs-submit', {
     belief_id: beliefId,
     agent_id: agentId,
     belief_value: belief,
-    meta_prediction: meta
+    meta_prediction: meta,
+    epoch: epoch
   });
 
   if (!response.ok) {
@@ -88,7 +89,8 @@ Deno.test("BD - Diverse Opinions", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assert(response.ok, `Decomposition should succeed: ${JSON.stringify(data)}`);
@@ -127,7 +129,8 @@ Deno.test("BD - Consensus", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assert(response.ok, `Decomposition should succeed: ${JSON.stringify(data)}`);
@@ -158,7 +161,8 @@ Deno.test("BD - Extreme Disagreement", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assert(response.ok, `Decomposition should succeed: ${JSON.stringify(data)}`);
@@ -196,7 +200,8 @@ Deno.test("BD - Weighted Decomposition", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assert(response.ok, `Decomposition should succeed: ${JSON.stringify(data)}`);
@@ -221,7 +226,8 @@ Deno.test("BD - Invalid Weights", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assertEquals(response.status, 400, "Should return 400 for invalid weights");
@@ -252,7 +258,8 @@ Deno.test("BD - Leave-One-Out Aggregates in Main Output", async () => {
   // Call main decomposition
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assert(response.ok, `Decomposition should succeed: ${JSON.stringify(data)}`);
@@ -309,7 +316,8 @@ Deno.test("BD - Minimum Participants", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assertEquals(response.status, 409, "Should return 409 for insufficient participants");
@@ -334,7 +342,8 @@ Deno.test("BD - Extreme Values", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assert(response.ok, `Should handle extreme values with diversity: ${JSON.stringify(data)}`);
@@ -364,7 +373,8 @@ Deno.test("BD - Identical Beliefs", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   // Identical beliefs may trigger quality threshold rejection (singular matrix)
@@ -404,7 +414,8 @@ Deno.test("BD - Matrix Validation", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assert(response.ok, `Decomposition should succeed: ${JSON.stringify(data)}`);
@@ -446,7 +457,8 @@ Deno.test("BD - Leave-One-Out Endpoint", async () => {
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/leave-one-out-decompose', {
     belief_id: beliefId,
     exclude_agent_id: agents[0],
-    weights
+    weights,
+    epoch: 0
   });
 
   assert(response.ok, `Leave-one-out should succeed: ${JSON.stringify(data)}`);
@@ -483,7 +495,8 @@ Deno.test("BD - Full Support Validation: Boundary Clustering Rejection", async (
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assertEquals(response.status, 409, "Should reject when beliefs cluster at boundaries");
@@ -509,7 +522,8 @@ Deno.test("BD - Full Support Validation: Sufficient Diversity", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assert(response.ok, `Should accept diverse beliefs: ${JSON.stringify(data)}`);
@@ -534,7 +548,8 @@ Deno.test("BD - Quality Threshold: Low Quality Rejection", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   // May succeed or fail depending on actual quality
@@ -571,7 +586,8 @@ Deno.test("BD - Leave-One-Out Full Decomposition", async () => {
   // First, get full decomposition
   const { response: fullResp, data: fullData } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assert(fullResp.ok, `Full decomposition should succeed: ${JSON.stringify(fullData)}`);
@@ -604,7 +620,8 @@ Deno.test("BD - Leave-One-Out Full Decomposition", async () => {
   const { response: looResp, data: looData } = await callSupabaseFunction('protocol-beliefs-decompose/leave-one-out-decompose', {
     belief_id: beliefId,
     exclude_agent_id: agents[0],
-    weights: looWeights
+    weights: looWeights,
+    epoch: 0
   });
 
   assert(looResp.ok, `Leave-one-out decomposition should succeed: ${JSON.stringify(looData)}`);
@@ -635,7 +652,8 @@ Deno.test("BD - Weight Normalization Internal Check", async () => {
 
   const { response, data } = await callSupabaseFunction('protocol-beliefs-decompose/decompose', {
     belief_id: beliefId,
-    weights
+    weights,
+    epoch: 0
   });
 
   assertEquals(response.status, 400, "Should reject non-normalized weights");

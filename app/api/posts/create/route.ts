@@ -152,21 +152,11 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseServiceRole();
 
     // Fetch user and config in parallel
-    const [
-      { data: userData, error: userError },
-      { data: configData }
-    ] = await Promise.all([
-      supabase
-        .from('users')
-        .select('agent_id')
-        .eq('id', user_id)
-        .single(),
-      supabase
-        .from('system_config')
-        .select('value')
-        .eq('key', 'current_epoch')
-        .single()
-    ]);
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('agent_id')
+      .eq('id', user_id)
+      .single();
 
     if (userError || !userData) {
       console.error('Failed to get user agent_id:', userError);
@@ -177,7 +167,8 @@ export async function POST(request: NextRequest) {
     }
 
     const agent_id = userData.agent_id;
-    const currentEpoch = parseInt(configData?.value || '0');
+    // New beliefs always start at epoch 0 - epochs are tracked per-pool in pool_deployments.current_epoch
+    const currentEpoch = 0;
 
     const { data: belief, error: beliefError } = await supabase
       .from('beliefs')

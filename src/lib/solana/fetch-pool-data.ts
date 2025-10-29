@@ -177,12 +177,19 @@ export interface PoolData {
   // Vault balance in USDC
   vaultBalance: number;
 
+  // Virtual reserves (for implied relevance calculation)
+  rLong: number;   // LONG reserve in display USDC
+  rShort: number;  // SHORT reserve in display USDC
+
   // Raw values for debugging
   _raw: {
     sqrtPriceLongX96: string;
     sqrtPriceShortX96: string;
     sLong: number;
     sShort: number;
+    vaultBalanceMicro: number;
+    rLong: number;  // Virtual reserve LONG (display USDC)
+    rShort: number; // Virtual reserve SHORT (display USDC)
   };
 
   // ICBS parameters (needed for trade simulation)

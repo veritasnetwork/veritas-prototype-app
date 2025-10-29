@@ -105,11 +105,18 @@ pub fn handler(
     let f_long_q64 = ((f_long as u128) << 64) / 1_000_000;
     let f_short_q64 = ((f_short as u128) << 64) / 1_000_000;
 
-    // --- SAFE σ UPDATE (avoid u128 overflow) ---
-    // Use mul_div_u128 instead of direct multiplication to prevent overflow
-    // when σ ≈ 2^96 and f ≈ 2^64. Floor rounding is fine; renormalize_scales will correct.
-    pool.s_scale_long_q64 = mul_div_u128(pool.s_scale_long_q64, f_long_q64, Q64)?;
-    pool.s_scale_short_q64 = mul_div_u128(pool.s_scale_short_q64, f_short_q64, Q64)?;
+    // --- SAFE σ UPDATE WITH SQUARE-ROOT FACTORS ---
+    // CRITICAL: Use SQUARE-ROOT of factors to keep price-implied reserves consistent with actual reserves
+    // When updating σ by sqrt(f) instead of f, the post-settlement price-implied ratio equals BD exactly:
+    //   q_price = q·√f_L² / (q·√f_L² + (1-q)·√f_S²) = q·f_L / (q·f_L + (1-q)·f_S) = x
+    //
+    // For a value x in Q64, sqrt(x) in Q64 = isqrt(x_q64) << 32
+    let sqrt_f_long_q64 = isqrt_u128(f_long_q64) << 32;
+    let sqrt_f_short_q64 = isqrt_u128(f_short_q64) << 32;
+
+    // σ_new = σ_old / sqrt(f)
+    pool.s_scale_long_q64 = mul_div_u128(pool.s_scale_long_q64, Q64, sqrt_f_long_q64)?;
+    pool.s_scale_short_q64 = mul_div_u128(pool.s_scale_short_q64, Q64, sqrt_f_short_q64)?;
 
     // Renormalize scales to keep both sigma and virtual norm in safe range
     {
@@ -128,24 +135,44 @@ pub fn handler(
     }
 
     // --- SAFE RESERVE UPDATE ---
-    // Use mul_div_u128 to prevent overflow during reserve scaling
-    pool.r_long = mul_div_u128(pool.r_long as u128, f_long as u128, 1_000_000u128)? as u64;
-    pool.r_short = mul_div_u128(pool.r_short as u128, f_short as u128, 1_000_000u128)? as u64;
+    // CRITICAL FIX: Detect extreme imbalance (one side near zero)
+    // When one reserve is < 1% of total, multiplicative scaling fails because
+    // multiplying near-zero by any factor gives near-zero, then the recouple
+    // undoes the settlement by proportionally redistributing.
+    //
+    // Instead: directly redistribute vault_balance according to BD score
+    const EXTREME_IMBALANCE_THRESHOLD: u128 = 10_000; // 1% in micro-units
+    let total_before = total_reserves;
+    let is_extreme_imbalance =
+        (pool.r_long as u128 * 1_000_000) < (total_before * EXTREME_IMBALANCE_THRESHOLD) ||
+        (pool.r_short as u128 * 1_000_000) < (total_before * EXTREME_IMBALANCE_THRESHOLD);
 
-    // --- INVARIANT RECOUPLE: r_L + r_S == vault_balance ---
-    // After scaling by capped factors, reserves may drift from vault due to clamping/rounding.
-    // Proportionally adjust reserves to maintain the invariant.
-    let total_after = (pool.r_long as u128)
-        .checked_add(pool.r_short as u128)
-        .ok_or(ContentPoolError::NumericalOverflow)?;
+    if is_extreme_imbalance {
+        // Direct redistribution: ignore multiplicative factors
+        // r_long = vault × bd_score
+        // r_short = vault × (1 - bd_score)
+        pool.r_long = mul_div_u128(pool.vault_balance as u128, bd_score as u128, 1_000_000u128)? as u64;
+        pool.r_short = pool.vault_balance.saturating_sub(pool.r_long);
+    } else {
+        // Normal case: multiplicative scaling with recouple
+        pool.r_long = mul_div_u128(pool.r_long as u128, f_long as u128, 1_000_000u128)? as u64;
+        pool.r_short = mul_div_u128(pool.r_short as u128, f_short as u128, 1_000_000u128)? as u64;
 
-    if total_after > 0 {
-        let target = pool.vault_balance as u128;
-        if total_after != target {
-            // Proportional recouple: scale both reserves to sum to vault_balance
-            let r_long_new = mul_div_u128(pool.r_long as u128, target, total_after)?;
-            pool.r_long = r_long_new as u64;
-            pool.r_short = (target.saturating_sub(r_long_new)) as u64;
+        // --- INVARIANT RECOUPLE: r_L + r_S == vault_balance ---
+        // After scaling by capped factors, reserves may drift from vault due to clamping/rounding.
+        // Proportionally adjust reserves to maintain the invariant.
+        let total_after = (pool.r_long as u128)
+            .checked_add(pool.r_short as u128)
+            .ok_or(ContentPoolError::NumericalOverflow)?;
+
+        if total_after > 0 {
+            let target = pool.vault_balance as u128;
+            if total_after != target {
+                // Proportional recouple: scale both reserves to sum to vault_balance
+                let r_long_new = mul_div_u128(pool.r_long as u128, target, total_after)?;
+                pool.r_long = r_long_new as u64;
+                pool.r_short = (target.saturating_sub(r_long_new)) as u64;
+            }
         }
     }
 

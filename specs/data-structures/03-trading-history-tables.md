@@ -200,6 +200,7 @@ unrealized_pnl = (current_price - entry_price) * token_balance
      - Calculate realized_pnl
      - If token_balance = 0: release belief_lock
      - Else: keep existing lock
+   - Does NOT insert/update belief_submission (only happens on buy)
 5. Trigger updates pool_deployments
 6. Event indexer confirms later
 ```

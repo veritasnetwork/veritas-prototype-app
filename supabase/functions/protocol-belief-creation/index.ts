@@ -62,25 +62,9 @@ serve(async (req) => {
     // No stake validation - per stake-mechanics.md, skim auto-collateralizes on trades
     // Belief weights = 2% of last trade amount (per user_pool_balances.belief_lock)
 
-    // Get current epoch
-    const { data: epochData, error: epochError } = await supabaseClient
-      .from('system_config')
-      .select('value')
-      .eq('key', 'current_epoch')
-      .single()
-
-    if (epochError) {
-      console.error('Failed to get current_epoch:', epochError)
-      return new Response(
-        JSON.stringify({ error: 'Configuration error', code: 503 }),
-        {
-          status: 503,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    const currentEpoch = parseInt(epochData.value)
+    // New beliefs always start at epoch 0
+    // Epoch increments happen per-pool via pool_deployments.current_epoch during settlements
+    const currentEpoch = 0
 
     // Verify agent exists
     const { data: agentData, error: agentError } = await supabaseClient

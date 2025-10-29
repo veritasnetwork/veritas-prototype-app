@@ -25,6 +25,8 @@ export interface PoolData {
   currentPrice: number;
   reserveBalance: number;
   marketCap: number;
+  rLong: number;   // ICBS token reserve for LONG (used for implied relevance)
+  rShort: number;  // ICBS token reserve for SHORT (used for implied relevance)
 }
 
 type Subscriber = (data: PoolData | null) => void;
@@ -68,6 +70,7 @@ class PoolDataService {
   subscribe(postId: string, callback: Subscriber, initialData?: PoolData | null): () => void {
     console.log('[PoolDataService] subscribe called for postId:', postId);
     let sub = this.subscriptions.get(postId);
+    const hasInitialData = !!initialData;
 
     if (!sub) {
       console.log('[PoolDataService] Creating new subscription for postId:', postId);
@@ -76,7 +79,7 @@ class PoolDataService {
         postId,
         subscribers: new Set(),
         data: initialData || null,
-        lastFetch: 0,
+        lastFetch: hasInitialData ? Date.now() : 0, // Mark as recently fetched if we have initial data
         intervalId: null,
         isFetching: false,
         error: null,
@@ -106,7 +109,8 @@ class PoolDataService {
     // If first subscriber, start polling
     if (sub.subscribers.size === 1) {
       console.log('[PoolDataService] First subscriber, starting polling for postId:', postId);
-      this.startPolling(postId);
+      // Skip immediate fetch if we have initial data - just start the interval
+      this.startPolling(postId, hasInitialData);
     }
 
     // Return unsubscribe function
@@ -177,17 +181,21 @@ class PoolDataService {
   /**
    * Start polling for a pool
    */
-  private startPolling(postId: string) {
-    console.log('[PoolDataService] startPolling for postId:', postId);
+  private startPolling(postId: string, skipImmediateFetch = false) {
+    console.log('[PoolDataService] startPolling for postId:', postId, 'skipImmediateFetch:', skipImmediateFetch);
     const sub = this.subscriptions.get(postId);
     if (!sub) {
       console.log('[PoolDataService] No subscription found in startPolling for postId:', postId);
       return;
     }
 
-    // Fetch immediately
-    console.log('[PoolDataService] Fetching immediately for postId:', postId);
-    this.fetchPoolData(postId);
+    // Only fetch immediately if we don't have initial data
+    if (!skipImmediateFetch) {
+      console.log('[PoolDataService] Fetching immediately for postId:', postId);
+      this.fetchPoolData(postId);
+    } else {
+      console.log('[PoolDataService] Skipping immediate fetch (using initial data) for postId:', postId);
+    }
 
     // Start interval
     const interval = this.getInterval(postId);
@@ -269,6 +277,8 @@ class PoolDataService {
         poolPriceShort: data.poolPriceShort,
         poolSupplyLong: data.poolSupplyLong,
         poolSupplyShort: data.poolSupplyShort,
+        poolReserveLong: data.poolReserveLong,
+        poolReserveShort: data.poolReserveShort,
         poolVaultBalance: data.poolVaultBalance,
         poolF: data.poolF,
         poolBetaNum: data.poolBetaNum,
@@ -288,6 +298,8 @@ class PoolDataService {
       const priceShort = coerceNumber(data.poolPriceShort);
       const supplyLong = coerceNumber(data.poolSupplyLong);
       const supplyShort = coerceNumber(data.poolSupplyShort);
+      const rLong = coerceNumber(data.poolReserveLong) ?? 0;
+      const rShort = coerceNumber(data.poolReserveShort) ?? 0;
 
       if (priceLong === null || priceShort === null || supplyLong === null || supplyShort === null) {
         console.error('[PoolDataService] Missing pool data fields:', {
@@ -327,6 +339,8 @@ class PoolDataService {
         currentPrice,
         reserveBalance: vaultBalance,
         marketCap,
+        rLong,
+        rShort,
       };
 
       sub.data = poolData;

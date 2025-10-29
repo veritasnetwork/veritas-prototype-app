@@ -13,13 +13,11 @@ interface BTSScoringRequest {
   agent_beliefs: Record<string, number>
   leave_one_out_aggregates: Record<string, number>
   leave_one_out_meta_aggregates: Record<string, number>
-  normalized_weights: Record<string, number>
   agent_meta_predictions: Record<string, number>
 }
 
 interface BTSScoringResponse {
   bts_scores: Record<string, number>
-  information_scores: Record<string, number>
   winners: string[]
   losers: string[]
 }
@@ -51,7 +49,6 @@ serve(async (req) => {
       agent_beliefs,
       leave_one_out_aggregates,
       leave_one_out_meta_aggregates,
-      normalized_weights,
       agent_meta_predictions
     }: BTSScoringRequest = await req.json()
 
@@ -98,15 +95,6 @@ serve(async (req) => {
           }
         )
       }
-      if (!(agentId in normalized_weights)) {
-        return new Response(
-          JSON.stringify({ error: `Missing normalized_weight for agent ${agentId}`, code: 422 }),
-          {
-            status: 422,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
-      }
       if (!(agentId in agent_meta_predictions)) {
         return new Response(
           JSON.stringify({ error: `Missing meta_prediction for agent ${agentId}`, code: 422 }),
@@ -118,16 +106,14 @@ serve(async (req) => {
       }
     }
 
-    // 2. Calculate BTS scores for each agent
+    // 2. Calculate BTS scores for each agent (raw, unweighted)
     const btsScores: Record<string, number> = {}
-    const informationScores: Record<string, number> = {}
 
     for (const agentId of agentIds) {
       const pi = agent_beliefs[agentId]
       const pBarMinusI = leave_one_out_aggregates[agentId]
       const mBarMinusI = leave_one_out_meta_aggregates[agentId]
       const mi = agent_meta_predictions[agentId]
-      const weight = normalized_weights[agentId]
 
       // BTS score: s_i = D_KL(p_i || m̄_{-i}) - D_KL(p_i || p̄_{-i}) - D_KL(p̄_{-i} || m_i)
       const term1 = binaryKLDivergence(pi, mBarMinusI)  // Information gain vs meta-predictions
@@ -135,29 +121,25 @@ serve(async (req) => {
       const term3 = binaryKLDivergence(pBarMinusI, mi)  // Prediction accuracy penalty
 
       const btsScore = term1 - term2 - term3
-      const informationScore = weight * btsScore
-
-      btsScores[agentId] = btsScore
-      informationScores[agentId] = informationScore
+      btsScores[agentId] = btsScore  // Store raw unweighted score
     }
 
-    // 3. Partition into winners and losers
+    // 3. Partition into winners and losers (based on raw BTS scores)
     const winners: string[] = []
     const losers: string[] = []
 
     for (const agentId of agentIds) {
-      if (informationScores[agentId] > 0) {
+      if (btsScores[agentId] > 0) {
         winners.push(agentId)
-      } else if (informationScores[agentId] < 0) {
+      } else if (btsScores[agentId] < 0) {
         losers.push(agentId)
       }
-      // Note: agents with exactly 0 information score are neither winners nor losers
+      // Note: agents with exactly 0 BTS score are neither winners nor losers
     }
 
     // 4. Return BTS scoring results
     const response: BTSScoringResponse = {
       bts_scores: btsScores,
-      information_scores: informationScores,
       winners: winners,
       losers: losers
     }

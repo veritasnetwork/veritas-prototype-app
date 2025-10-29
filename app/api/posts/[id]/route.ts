@@ -49,7 +49,11 @@ export async function GET(
           sqrt_price_long_x96,
           sqrt_price_short_x96,
           vault_balance,
-          last_synced_at
+          r_long,
+          r_short,
+          last_synced_at,
+          current_epoch,
+          status
         )
       `)
       .eq('id', id)
@@ -77,53 +81,25 @@ export async function GET(
     const userData = Array.isArray(post.user) ? post.user[0] : post.user;
     const poolData = post.pool_deployments?.[0] || null;
 
-    // Pool data is kept fresh by the event indexer
-    // Event indexer updates pool_deployments table after every trade event
+    // IMPORTANT: Always sync pool data from chain to ensure reserves are up-to-date
+    // This is critical because trades update implied_relevance_history but the
+    // pool_deployments table needs to be refreshed from chain to show current reserves
     //
-    // PERFORMANCE: Don't block the API response to sync from chain
-    // The event indexer handles this asynchronously
+    // PERFORMANCE: This happens asynchronously (fire and forget) so it doesn't block the response
     if (poolData?.pool_address) {
-      // Check if critical fields are null
-      const hasNullFields =
-        poolData.sqrt_price_long_x96 === null ||
-        poolData.sqrt_price_short_x96 === null ||
-        poolData.s_long_supply === null ||
-        poolData.s_short_supply === null ||
-        poolData.vault_balance === null;
-
-      if (hasNullFields) {
-        console.warn('[GET /api/posts/[id]] Pool has null fields, but not blocking response. Event indexer will fix:', poolData.pool_address);
-        // Trigger async sync in background (fire and forget)
-        syncPoolFromChain(poolData.pool_address).catch((err) => {
-          console.error('[GET /api/posts/[id]] Background sync failed:', err);
-        });
-      }
+      // Trigger async sync in background (fire and forget)
+      syncPoolFromChain(poolData.pool_address, undefined, 5000, true).catch((err) => {
+        console.error('[GET /api/posts/[id]] Background sync failed:', err);
+      });
     }
 
     // Calculate actual prices from sqrt prices
     let priceLong: number | null = null;
     let priceShort: number | null = null;
 
-    if (poolData?.pool_address) {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('📖 [GET POST] Reading from Database:');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('Pool:', poolData.pool_address);
-      console.log('Supplies (from DB):');
-      console.log('  s_long_supply:', poolData.s_long_supply);
-      console.log('  s_short_supply:', poolData.s_short_supply);
-      console.log('Sqrt Prices (from DB):');
-      console.log('  sqrt_price_long_x96:', poolData.sqrt_price_long_x96);
-      console.log('  sqrt_price_short_x96:', poolData.sqrt_price_short_x96);
-      console.log('Vault:');
-      console.log('  vault_balance (micro-USDC):', poolData.vault_balance);
-    }
-
     if (poolData?.sqrt_price_long_x96) {
       try {
         priceLong = sqrtPriceX96ToPrice(poolData.sqrt_price_long_x96);
-        console.log('Calculated prices:');
-        console.log('  priceLong (USDC):', priceLong);
       } catch (e) {
       }
     }
@@ -131,13 +107,8 @@ export async function GET(
     if (poolData?.sqrt_price_short_x96) {
       try {
         priceShort = sqrtPriceX96ToPrice(poolData.sqrt_price_short_x96);
-        console.log('  priceShort (USDC):', priceShort);
       } catch (e) {
       }
-    }
-
-    if (poolData?.pool_address) {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
 
     // Transform the data to match our Post type
@@ -183,6 +154,8 @@ export async function GET(
       poolSqrtPriceLongX96: poolData?.sqrt_price_long_x96 || null,
       poolSqrtPriceShortX96: poolData?.sqrt_price_short_x96 || null,
       poolVaultBalance: poolData?.vault_balance ? Number(poolData.vault_balance) / USDC_PRECISION : null,
+      poolReserveLong: poolData?.r_long !== null && poolData?.r_long !== undefined ? Number(poolData.r_long) : null,
+      poolReserveShort: poolData?.r_short !== null && poolData?.r_short !== undefined ? Number(poolData.r_short) : null,
       poolLastSyncedAt: poolData?.last_synced_at || null,
       // ICBS parameters (F is FIXED at 1 for all pools)
       poolF: poolData?.f || 1,
