@@ -47,7 +47,7 @@ function ExploreContent() {
         });
       case 'recent':
       default:
-        return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return sorted.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     }
   }, [rawPosts, sortBy]);
 

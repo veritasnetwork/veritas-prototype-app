@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { loadProtocolAuthority } from '@/lib/solana/load-authority';
 
 export async function GET() {
-  let keypairTest: any = { error: 'not tested' };
+  let keypairTest: { error: string } | { success: boolean; hasPublicKey: boolean; publicKeyType: string; publicKey: string; keypairType: string; keypairKeys: string[] } = { error: 'not tested' };
   try {
     const kp = loadProtocolAuthority();
     keypairTest = {

@@ -337,10 +337,30 @@ export async function POST(
 
     // Validate authority
     const factory = await program.account.poolFactory.fetch(factoryPda);
-    if (!factory.protocolAuthority.equals(protocolAuthority.publicKey)) {
+
+    // Log what we actually got
+    console.log('[rebase] Factory object:', JSON.stringify(factory, null, 2));
+    console.log('[rebase] Factory keys:', Object.keys(factory));
+    console.log('[rebase] Checking protocol_authority:', (factory as any).protocol_authority);
+    console.log('[rebase] Checking protocolAuthority:', (factory as any).protocolAuthority);
+
+    // The IDL uses snake_case: protocol_authority, but Anchor might convert to camelCase
+    const factoryAuthority = (factory as any).protocolAuthority || (factory as any).protocol_authority;
+
+    if (!factoryAuthority) {
+      console.error('[rebase] protocol_authority field not found on factory');
+      console.error('[rebase] Available fields:', Object.keys(factory));
+      return NextResponse.json({
+        error: 'Factory protocol_authority not found',
+        availableFields: Object.keys(factory),
+        factoryData: factory
+      }, { status: 500 });
+    }
+
+    if (!factoryAuthority.equals(protocolAuthority.publicKey)) {
       console.error('[rebase] Authority mismatch:', {
-        expected: factory.protocolAuthority.toBase58(),
-        actual: protocolAuthority.publicKey.toBase58(),
+        factoryAuthority: factoryAuthority.toBase58(),
+        signerAuthority: protocolAuthority.publicKey.toBase58(),
       });
       return NextResponse.json({
         error: 'Protocol authority mismatch'
@@ -349,14 +369,14 @@ export async function POST(
 
     // Build settle_epoch instruction
     const settleEpochIx = await program.methods
-      .settleEpoch(bdScoreBN)
+      .settleEpoch(bdScoreMillionths)
       .accounts({
         pool: poolPda,
         factory: factoryPda,
         protocolAuthority: protocolAuthority.publicKey,
         settler: new PublicKey(walletAddress),
         vault: poolAccount.vault,
-      })
+      } as any)
       .instruction();
 
     // Create transaction with increased compute budget

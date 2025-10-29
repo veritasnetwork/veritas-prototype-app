@@ -62,7 +62,7 @@ export async function GET(
 
     // Apply pagination in-memory (since RPC doesn't support .range())
     // Sort by value first (would need pool data for perfect sort, so we'll do basic sort)
-    const sortedPositions = (allPositions || []).sort((a, b) => {
+    const sortedPositions = (allPositions || []).sort((a: any, b: any) => {
       // Sort by token_balance * rough price estimate
       const aValue = a.token_balance * (a.entry_price || 0);
       const bValue = b.token_balance * (b.entry_price || 0);
@@ -77,8 +77,8 @@ export async function GET(
     interface PositionEntry {
       pool_address: string;
       post_id: string;
-      posts: any;
-      pool_deployments: any;
+      posts: { id?: string; post_type?: string; content_text?: string; caption?: string; media_urls?: string[]; cover_image_url?: string; article_title?: string; user_id?: string; created_at?: string; total_volume_usdc?: number; users?: { username?: string; display_name?: string; avatar_url?: string } };
+      pool_deployments: { pool_address?: string; prices_last_updated_at?: string; cached_price_long?: number; cached_price_short?: number; s_long_supply?: number; s_short_supply?: number };
       token_type: 'LONG' | 'SHORT';
       token_balance: number;
       belief_lock: number;
@@ -88,7 +88,7 @@ export async function GET(
       entry_price: number;
     }
 
-    const holdings: PositionEntry[] = (positions || []).map(pos => ({
+    const holdings: PositionEntry[] = (positions || []).map((pos: any) => ({
       pool_address: pos.pool_address,
       post_id: pos.post_id,
       posts: pos.posts,
@@ -109,7 +109,7 @@ export async function GET(
       const postIds = [...new Set(holdings.map(h => h.post_id))];
 
 
-      const { data: volumeData, error: volumeError } = await supabase
+      const { data: volumeData } = await supabase
         .from('trades')
         .select('post_id, side, usdc_amount')
         .in('post_id', postIds);
@@ -169,7 +169,7 @@ export async function GET(
       : new Map();
 
     // Combine cached and fetched data
-    const poolDataMap = new Map<string, any>();
+    const poolDataMap = new Map<string, { priceLong: number; priceShort: number; supplyLong: number; supplyShort: number }>();
 
     // Add cached data
     for (const [address, data] of cachedPoolData.entries()) {

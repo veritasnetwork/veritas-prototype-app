@@ -28,9 +28,10 @@ export function Sidebar({ onCreatePost, isCompact = false, viewMode = 'trade', o
   const isActive = (path: string) => pathname === path;
 
   // Get wallet type from Privy
-  const walletType = privyUser?.linkedAccounts?.find(
+  const walletAccount = privyUser?.linkedAccounts?.find(
     (account: any) => account.type === 'wallet' && account.chainType === 'solana'
-  )?.walletClientType || 'embedded';
+  ) as any;
+  const walletType = walletAccount?.walletClientType || 'embedded';
 
   // Detect network from RPC URL
   const isMainnet = process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.includes('mainnet');

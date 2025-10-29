@@ -8,9 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
-import { PoolSyncService } from '@/services/pool-sync.service';
 import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
-import { asDisplay, displayToAtomic, poolDisplayToAtomic, asMicroUsdc } from '@/lib/units';
+import { asDisplay } from '@/lib/units';
 import { syncPoolFromChain } from '@/lib/solana/sync-pool-from-chain';
 
 interface RecordTradeRequest {
@@ -288,7 +287,7 @@ export async function POST(req: NextRequest) {
 
 
     // Verify the trade was actually inserted
-    const { data: tradeVerify, error: tradeVerifyError } = await supabase
+    const { error: tradeVerifyError } = await supabase
       .from('trades')
       .select('id, tx_signature, trade_type, side, token_amount, usdc_amount, recorded_by, confirmed, created_at')
       .eq('tx_signature', body.tx_signature)
@@ -296,7 +295,6 @@ export async function POST(req: NextRequest) {
 
     if (tradeVerifyError) {
       console.error('[STEP 5/7] ⚠️  Could not verify trade insertion:', tradeVerifyError);
-    } else {
     }
 
     // Record implied relevance from virtual reserves after trade
@@ -341,7 +339,7 @@ export async function POST(req: NextRequest) {
         const sLongDisplay = asDisplay(body.s_long_after);
         const sShortDisplay = asDisplay(body.s_short_after);
 
-        const updateData: any = {
+        const updateData: { sqrt_price_long_x96: string; sqrt_price_short_x96: string; s_long_supply: number; s_short_supply: number; last_synced_at: string; vault_balance?: number; r_long?: number; r_short?: number } = {
           sqrt_price_long_x96: body.sqrt_price_long_x96,
           sqrt_price_short_x96: body.sqrt_price_short_x96,
           s_long_supply: sLongDisplay,

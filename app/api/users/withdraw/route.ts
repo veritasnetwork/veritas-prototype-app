@@ -18,7 +18,7 @@ import { getUsdcMint, getRpcEndpoint, getProgramId } from '@/lib/solana/network-
 import { calculateWithdrawable } from '@/lib/stake/calculate-withdrawable';
 import { loadProtocolAuthority } from '@/lib/solana/load-authority';
 import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
-import { asMicroUsdc, microToUsdc } from '@/lib/units';
+import { asMicroUsdc, microToUsdc, type MicroUSDC } from '@/lib/units';
 import idl from '@/lib/solana/target/idl/veritas_curation.json';
 
 interface WithdrawRequest {
@@ -106,19 +106,19 @@ export async function POST(req: NextRequest) {
     if (withdrawableMicro <= 0) {
       return NextResponse.json({
         error: 'No unlocked stake available. Close positions to free up stake.',
-        totalStake: microToUsdc(totalStakeMicro),
-        totalLocked: microToUsdc(totalLocksMicro),
-        withdrawable: microToUsdc(withdrawableMicro),
+        totalStake: microToUsdc(totalStakeMicro as MicroUSDC),
+        totalLocked: microToUsdc(totalLocksMicro as MicroUSDC),
+        withdrawable: microToUsdc(withdrawableMicro as MicroUSDC),
       }, { status: 400 });
     }
 
     if (requestedMicro > withdrawableMicro) {
       return NextResponse.json({
         error: 'Withdrawal amount exceeds available balance',
-        requested: microToUsdc(requestedMicro),
-        available: microToUsdc(withdrawableMicro),
-        totalStake: microToUsdc(totalStakeMicro),
-        totalLocked: microToUsdc(totalLocksMicro),
+        requested: microToUsdc(requestedMicro as MicroUSDC),
+        available: microToUsdc(withdrawableMicro as MicroUSDC),
+        totalStake: microToUsdc(totalStakeMicro as MicroUSDC),
+        totalLocked: microToUsdc(totalLocksMicro as MicroUSDC),
       }, { status: 400 });
     }
 
@@ -138,11 +138,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       transaction: serialized.toString('base64'),
-      amount: microToUsdc(requestedMicro),
+      amount: microToUsdc(requestedMicro as MicroUSDC),
       amountMicro: requestedMicro,
-      withdrawable: microToUsdc(withdrawableMicro),
-      totalStake: microToUsdc(totalStakeMicro),
-      totalLocked: microToUsdc(totalLocksMicro),
+      withdrawable: microToUsdc(withdrawableMicro as MicroUSDC),
+      totalStake: microToUsdc(totalStakeMicro as MicroUSDC),
+      totalLocked: microToUsdc(totalLocksMicro as MicroUSDC),
     });
 
   } catch (error) {
@@ -220,7 +220,7 @@ async function buildWithdrawTransaction(params: {
       recipientUsdcAccount: recipientUsdcAccount,
       authority: authorityKeypair.publicKey,
       tokenProgram: TOKEN_PROGRAM_ID,
-    })
+    } as any)
     .preInstructions([
       // Add compute budget
       (await import('@solana/web3.js')).ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 })

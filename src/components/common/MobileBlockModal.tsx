@@ -70,7 +70,7 @@ export function MobileBlockModal() {
         </p>
 
         <div className="text-sm text-text-tertiary">
-          We're working hard to bring Veritas to mobile devices.
+          We&apos;re working hard to bring Veritas to mobile devices.
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@
 
 'use client';
 
+import React from 'react';
 import type { TiptapDocument } from '@/types/post.types';
 
 interface RichTextRendererProps {
@@ -65,18 +66,19 @@ export function RichTextRenderer({ content }: RichTextRendererProps) {
 
       case 'heading':
         const level = node.attrs?.level || 1;
-        const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
-        const headingClasses = {
+        const HeadingTag = `h${level}` as keyof React.JSX.IntrinsicElements;
+        const headingClasses: Record<number, string> = {
           1: 'text-3xl font-bold text-white mb-4',
           2: 'text-2xl font-bold text-white mb-3',
           3: 'text-xl font-bold text-white mb-2',
           4: 'text-lg font-bold text-white mb-2',
           5: 'text-base font-bold text-white mb-2',
           6: 'text-sm font-bold text-white mb-2',
-        }[level] || 'text-xl font-bold text-white mb-2';
+        };
+        const headingClass = headingClasses[level] || 'text-xl font-bold text-white mb-2';
 
         return (
-          <HeadingTag className={headingClasses}>
+          <HeadingTag className={headingClass}>
             {node.content?.map((child: any, index: number) => (
               <span key={index}>{renderNode(child)}</span>
             ))}

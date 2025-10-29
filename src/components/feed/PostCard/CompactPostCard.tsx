@@ -22,19 +22,19 @@ export function CompactPostCard({ post, onClick }: CompactPostCardProps) {
   const preview = getPostPreview(post, 120);
 
   // Calculate pool metrics using ICBS
-  const poolData = post.poolLongTokenSupply && post.poolShortTokenSupply
+  const poolData = post.poolSupplyLong && post.poolSupplyShort
     ? {
-        longPrice: calculateICBSPrice(post.poolLongTokenSupply, post.poolShortTokenSupply, TokenSide.Long),
-        shortPrice: calculateICBSPrice(post.poolLongTokenSupply, post.poolShortTokenSupply, TokenSide.Short),
-        prediction: calculateMarketPrediction(post.poolLongTokenSupply, post.poolShortTokenSupply),
+        longPrice: calculateICBSPrice(post.poolSupplyLong, post.poolSupplyShort, TokenSide.Long),
+        shortPrice: calculateICBSPrice(post.poolSupplyLong, post.poolSupplyShort, TokenSide.Short),
+        prediction: calculateMarketPrediction(post.poolSupplyLong, post.poolSupplyShort),
       }
     : null;
 
   // Calculate total pool value (virtual reserves)
-  // Note: poolLongTokenSupply and poolShortTokenSupply are already in display units from API
+  // Note: poolSupplyLong and poolSupplyShort are already in display units from API
   const poolValue = poolData
-    ? post.poolLongTokenSupply! * poolData.longPrice +
-      post.poolShortTokenSupply! * poolData.shortPrice
+    ? post.poolSupplyLong! * poolData.longPrice +
+      post.poolSupplyShort! * poolData.shortPrice
     : null;
 
   const handleClick = () => {

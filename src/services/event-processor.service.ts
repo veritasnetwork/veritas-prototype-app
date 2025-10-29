@@ -127,7 +127,7 @@ export class EventProcessor {
    * Helper: Convert sqrt_price_x96 to human-readable price
    */
   private sqrtPriceX96ToPrice(sqrtPriceX96: bigint): number {
-    const Q96 = 2n ** 96n;
+    const Q96 = BigInt(2) ** BigInt(96);
     const priceX192 = sqrtPriceX96 * sqrtPriceX96;
     const price = Number(priceX192) / Number(Q96 * Q96);
     // Convert from lamports to USDC (6 decimals)
@@ -425,12 +425,14 @@ export class EventProcessor {
       r_short: rShortAfter,
       sqrt_price_long_x96: sqrtPriceLongX96,
       sqrt_price_short_x96: sqrtPriceShortX96,
-      last_synced_at: new Date().toISOString(),
     });
 
     await this.supabase
       .from('pool_deployments')
-      .update(poolUpdate)
+      .update({
+        ...poolUpdate,
+        last_synced_at: new Date().toISOString(),
+      })
       .eq('pool_address', poolAddress);
 
 
@@ -721,9 +723,9 @@ export class EventProcessor {
           sqrtPriceLongX96 = poolWithPrices.sqrt_price_long_x96;
           sqrtPriceShortX96 = poolWithPrices.sqrt_price_short_x96;
 
-          // Calculate human-readable prices
-          priceLong = this.sqrtPriceX96ToPrice(BigInt(sqrtPriceLongX96));
-          priceShort = this.sqrtPriceX96ToPrice(BigInt(sqrtPriceShortX96));
+          // Calculate human-readable prices (both are non-null by this point)
+          priceLong = this.sqrtPriceX96ToPrice(BigInt(sqrtPriceLongX96!));
+          priceShort = this.sqrtPriceX96ToPrice(BigInt(sqrtPriceShortX96!));
 
           console.log(`[event-indexer] Calculated settlement prices:`, {
             priceLong,

@@ -227,7 +227,7 @@ export async function GET(
       let priceLong = null;
       let priceShort = null;
 
-      if (isCacheFresh) {
+      if (isCacheFresh && pool) {
         priceLong = Number(pool.cached_price_long);
         priceShort = Number(pool.cached_price_short);
       } else {
@@ -273,9 +273,9 @@ export async function GET(
         poolSqrtPriceLongX96: pool?.sqrt_price_long_x96 !== undefined && pool?.sqrt_price_long_x96 !== null ? pool.sqrt_price_long_x96 : null,
         poolSqrtPriceShortX96: pool?.sqrt_price_short_x96 !== undefined && pool?.sqrt_price_short_x96 !== null ? pool.sqrt_price_short_x96 : null,
         poolVaultBalance: pool?.vault_balance !== undefined && pool?.vault_balance !== null ? Number(pool.vault_balance) / USDC_PRECISION : null,
-        poolF: pool?.f || null,
-        poolBetaNum: pool?.beta_num || null,
-        poolBetaDen: pool?.beta_den || null,
+        poolF: (pool as any)?.f || null,
+        poolBetaNum: (pool as any)?.beta_num || null,
+        poolBetaDen: (pool as any)?.beta_den || null,
         totalVolumeUsdc: post.total_volume_usdc ? Number(post.total_volume_usdc) : undefined,
         // Default values for required fields
         relevanceScore: 0,

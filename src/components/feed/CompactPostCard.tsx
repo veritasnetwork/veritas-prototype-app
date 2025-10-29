@@ -40,17 +40,17 @@ export interface CompactPostCardProps {
  * Get current LONG token price using ICBS formula
  */
 function getCurrentLongPrice(pool: {
-  poolLongTokenSupply?: number;
-  poolShortTokenSupply?: number;
+  poolSupplyLong?: number;
+  poolSupplyShort?: number;
 }): number {
-  if (!pool.poolLongTokenSupply || !pool.poolShortTokenSupply) {
+  if (!pool.poolSupplyLong || !pool.poolSupplyShort) {
     return 0;
   }
 
   try {
     return calculateICBSPrice(
-      pool.poolLongTokenSupply,
-      pool.poolShortTokenSupply,
+      pool.poolSupplyLong,
+      pool.poolSupplyShort,
       TokenSide.Long
     );
   } catch {
@@ -67,8 +67,8 @@ export function CompactPostCard({ post, holdings, onClick }: CompactPostCardProp
 
   // Calculate current LONG price
   const currentPrice = getCurrentLongPrice({
-    poolLongTokenSupply: post.poolLongTokenSupply,
-    poolShortTokenSupply: post.poolShortTokenSupply,
+    poolSupplyLong: post.poolSupplyLong,
+    poolSupplyShort: post.poolSupplyShort,
   });
 
   const handleClick = () => {

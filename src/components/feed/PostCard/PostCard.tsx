@@ -113,6 +113,7 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
       // Small delay to allow expansion animation to start
       setTimeout(() => {
         // Get the article's position and scroll it to the top of viewport
+        if (!articleRef.current) return;
         const rect = articleRef.current.getBoundingClientRect();
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         const targetPosition = rect.top + scrollTop;
@@ -174,9 +175,9 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
   // This comes from implied_relevance_history table and is used for both ranking and display
   const marketImpliedRelevance = (post as any).marketImpliedRelevance ??
     // Fallback: calculate from pool data if database value not available
-    (poolData && poolData.totalMarketCap > 0
-      ? (poolData.rLong !== undefined && poolData.rShort !== undefined
-          ? poolData.rLong / (poolData.rLong + poolData.rShort)
+    (poolData && poolData.marketCap > 0
+      ? (poolData.marketCapLong !== undefined && poolData.marketCapShort !== undefined
+          ? poolData.marketCapLong / (poolData.marketCapLong + poolData.marketCapShort)
           : 0.5)
       : null);
 

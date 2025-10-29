@@ -134,8 +134,8 @@ export function TradingChartCard({
       setRebaseDetails({
         bdScore: result.bdScore,
         txSignature: result.txSignature,
-        poolAddress: poolData?.poolAddress || '',
-        currentEpoch: poolData?.currentEpoch || 0,
+        poolAddress: (poolData as any)?.poolAddress || '',
+        currentEpoch: (poolData as any)?.currentEpoch || 0,
         stakeChanges: result.stakeChanges,
       });
 
@@ -245,7 +245,7 @@ export function TradingChartCard({
           {(['price', 'relevance'] as ChartType[]).map((type) => (
             <button
               key={type}
-              ref={(el) => (chartTypeRefs.current[type] = el)}
+              ref={(el) => { chartTypeRefs.current[type] = el; }}
               onClick={() => setChartType(type)}
               className={`flex-1 px-3 py-1 rounded text-xs font-medium transition-colors duration-300 capitalize relative z-10 ${
                 chartType === type
@@ -280,7 +280,7 @@ export function TradingChartCard({
             {(['1H', '24H', '7D', 'ALL'] as TimeRange[]).map((range) => (
               <button
                 key={range}
-                ref={(el) => (timeRangeRefs.current[range] = el)}
+                ref={(el) => { timeRangeRefs.current[range] = el; }}
                 onClick={() => setTimeRange(range)}
                 className={`flex-1 px-2 py-0.5 rounded text-xs font-medium transition-colors duration-300 relative z-10 ${
                   timeRange === range
@@ -302,7 +302,7 @@ export function TradingChartCard({
             {(['1H', '24H', '7D', 'ALL'] as TimeRange[]).map((range) => (
               <button
                 key={range}
-                ref={(el) => (relevanceTimeRangeRefs.current[range] = el)}
+                ref={(el) => { relevanceTimeRangeRefs.current[range] = el; }}
                 onClick={() => setRelevanceTimeRange(range)}
                 className={`flex-1 px-2 py-0.5 rounded text-xs font-medium transition-colors duration-300 relative z-10 ${
                   relevanceTimeRange === range

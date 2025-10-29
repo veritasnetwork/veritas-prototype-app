@@ -10,7 +10,7 @@
 
 import { DisplayUnits, MicroUSDC, asDisplay, asMicroUsdc, displayToAtomic } from '@/lib/units';
 
-const Q96 = 2n ** 96n;
+const Q96 = BigInt(2) ** BigInt(96);
 const USDC_DECIMALS = 6;
 const USDC_PRECISION = 10 ** USDC_DECIMALS;
 
@@ -135,19 +135,19 @@ export function formatPoolAccountData(pool: any) {
     ? (typeof pool.sqrtPriceLongX96 === 'object' && 'toString' in pool.sqrtPriceLongX96
       ? BigInt(pool.sqrtPriceLongX96.toString(10))
       : BigInt('0x' + pool.sqrtPriceLongX96.toString()))
-    : 0n;
+    : BigInt(0);
 
   const sqrtPriceShortX96 = pool.sqrtPriceShortX96
     ? (typeof pool.sqrtPriceShortX96 === 'object' && 'toString' in pool.sqrtPriceShortX96
       ? BigInt(pool.sqrtPriceShortX96.toString(10))
       : BigInt('0x' + pool.sqrtPriceShortX96.toString()))
-    : 0n;
+    : BigInt(0);
 
-  const priceLong = sqrtPriceLongX96 > 0n
+  const priceLong = sqrtPriceLongX96 > BigInt(0)
     ? sqrtPriceX96ToPrice(sqrtPriceLongX96)
     : 0;
 
-  const priceShort = sqrtPriceShortX96 > 0n
+  const priceShort = sqrtPriceShortX96 > BigInt(0)
     ? sqrtPriceX96ToPrice(sqrtPriceShortX96)
     : 0;
 
@@ -257,7 +257,7 @@ export function calculateMarketCap(pool: any): number {
 export function isValidSqrtPrice(sqrtPriceX96: bigint | string | number): boolean {
   try {
     const sqrtPrice = BigInt(sqrtPriceX96);
-    return sqrtPrice > 0n && sqrtPrice < (2n ** 128n);
+    return sqrtPrice > BigInt(0) && sqrtPrice < (BigInt(2) ** BigInt(128));
   } catch {
     return false;
   }

@@ -89,14 +89,14 @@ export async function POST(req: NextRequest) {
       publicKey: dummyKeypair.publicKey,
       signTransaction: async <T extends anchor.web3.Transaction | anchor.web3.VersionedTransaction>(tx: T): Promise<T> => {
         if ('sign' in tx && typeof tx.sign === 'function') {
-          tx.sign([dummyKeypair]);
+          (tx.sign as (signers: anchor.web3.Signer[]) => void)([dummyKeypair]);
         }
         return tx;
       },
       signAllTransactions: async <T extends anchor.web3.Transaction | anchor.web3.VersionedTransaction>(txs: T[]): Promise<T[]> => {
         return txs.map(tx => {
           if ('sign' in tx && typeof tx.sign === 'function') {
-            tx.sign([dummyKeypair]);
+            (tx.sign as (signers: anchor.web3.Signer[]) => void)([dummyKeypair]);
           }
           return tx;
         });
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     const program = new anchor.Program(idl.default as anchor.Idl, provider);
 
     const poolPda = new PublicKey(poolAddress);
-    const poolData = await program.account.contentPool.fetch(poolPda);
+    const poolData = await (program.account as unknown as { contentPool: { fetch: (key: typeof poolPda) => Promise<{ vault?: { toBase58: () => string }; sLong?: { toNumber: () => number }; sShort?: { toNumber: () => number }; f?: number; betaNum?: number; betaDen?: number; longMint?: { toBase58: () => string }; shortMint?: { toBase58: () => string }; sqrtPriceLongX96?: { toString: () => string }; sqrtPriceShortX96?: { toString: () => string } }> } }).contentPool.fetch(poolPda);
 
 
     // Verify pool is actually deployed (has vault)

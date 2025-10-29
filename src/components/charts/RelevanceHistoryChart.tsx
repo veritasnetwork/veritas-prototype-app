@@ -18,9 +18,9 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
   height = 400,
 }: RelevanceHistoryChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const impliedSeriesRef = useRef<any>(null);
-  const actualSeriesRef = useRef<any>(null);
+  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
+  const impliedSeriesRef = useRef<ReturnType<ReturnType<typeof createChart>['addAreaSeries']> | null>(null);
+  const actualSeriesRef = useRef<ReturnType<ReturnType<typeof createChart>['addAreaSeries']> | null>(null);
 
   // Create chart only once
   useEffect(() => {
@@ -44,11 +44,6 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
       },
       rightPriceScale: {
         borderColor: 'transparent',
-        formatter: (price: number) => {
-          // Format as percentage (0-1 range becomes 0-100%)
-          if (price < 0 || !Number.isFinite(price)) return '0%';
-          return `${(price * 100).toFixed(1)}%`;
-        },
       },
       localization: {
         priceFormatter: (price: number) => {
@@ -153,11 +148,11 @@ export const RelevanceHistoryChart = memo(function RelevanceHistoryChart({
     // Update data if available
     if (impliedRelevance.length > 0) {
       const cleanedImplied = deduplicateAndSort(impliedRelevance);
-      impliedSeriesRef.current.setData(cleanedImplied);
+      impliedSeriesRef.current.setData(cleanedImplied as any);
     }
     if (actualRelevance.length > 0) {
       const cleanedActual = deduplicateAndSort(actualRelevance);
-      actualSeriesRef.current.setData(cleanedActual);
+      actualSeriesRef.current.setData(cleanedActual as any);
     }
 
     // Fit content if we have any data

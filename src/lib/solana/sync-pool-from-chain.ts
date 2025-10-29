@@ -45,14 +45,14 @@ async function parsePoolAccount(
       publicKey: dummyKeypair.publicKey,
       signTransaction: async <T extends anchor.web3.Transaction | anchor.web3.VersionedTransaction>(tx: T): Promise<T> => {
         if ('sign' in tx && typeof tx.sign === 'function') {
-          tx.sign([dummyKeypair]);
+          (tx as any).sign(dummyKeypair);
         }
         return tx;
       },
       signAllTransactions: async <T extends anchor.web3.Transaction | anchor.web3.VersionedTransaction>(txs: T[]): Promise<T[]> => {
         return txs.map(tx => {
           if ('sign' in tx && typeof tx.sign === 'function') {
-            tx.sign([dummyKeypair]);
+            (tx as any).sign(dummyKeypair);
           }
           return tx;
         });
@@ -63,7 +63,7 @@ async function parsePoolAccount(
     const program = new anchor.Program(idl as anchor.Idl, provider);
 
     // Fetch pool account using Anchor's deserializer
-    const poolData = await program.account.contentPool.fetch(poolAddress);
+    const poolData = await (program.account as any).contentPool.fetch(poolAddress);
 
     // Use formatPoolAccountData to handle hex parsing and unit conversion
     const formatted = formatPoolAccountData(poolData);
@@ -176,7 +176,7 @@ async function doSyncPoolFromChain(
     // First fetch current data to see what's null
     const { data: currentPool, error: fetchError } = await supabase
       .from('pool_deployments')
-      .select('sqrt_price_long_x96, sqrt_price_short_x96, s_long_supply, s_short_supply, vault_balance, r_long, r_short, s_scale_long_q64, s_scale_short_q64')
+      .select('sqrt_price_long_x96, sqrt_price_short_x96, s_long_supply, s_short_supply, vault_balance, r_long, r_short, s_scale_long_q64, s_scale_short_q64, f, beta_num, beta_den')
       .eq('pool_address', poolAddress)
       .single();
 

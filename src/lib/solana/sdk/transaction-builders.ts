@@ -255,7 +255,7 @@ export async function buildCreatePoolTx(
       postCreator: postCreator,
       payer: creator,
       systemProgram: SystemProgram.programId,
-    })
+    } as any)
     .transaction();
 
   // Add compute budget instruction (300K CU should be sufficient)
@@ -344,7 +344,7 @@ export async function buildTradeTx(
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
-    })
+    } as any)
     .instruction();
 
   tx.add(tradeIx);
@@ -427,7 +427,7 @@ export async function buildDeployMarketTx(
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
-    })
+    } as any)
     .transaction();
 
   // Add compute budget instruction (600K CU for deploy_market - creates ATAs and mints tokens)
@@ -477,8 +477,11 @@ export async function buildSettleEpochTx(
     program.programId
   );
 
+  // Fetch pool to get vault address
+  const pool = await program.account.contentPool.fetch(poolPda);
+
   // Build settle_epoch instruction
-  // Note: Only requires pool, factory, protocol_authority, and settler accounts
+  // Note: Requires pool, factory, protocol_authority, settler, and vault accounts
   const settleEpochIx = await program.methods
     .settleEpoch(bdScoreMicro)
     .accounts({
@@ -486,7 +489,8 @@ export async function buildSettleEpochTx(
       factory: factoryAddress,
       protocolAuthority,
       settler,
-    })
+      vault: pool.vault,
+    } as any)
     .instruction();
 
   // Create transaction

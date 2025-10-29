@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import * as anchor from '@coral-xyz/anchor';
 import { syncPoolFromChain } from '@/lib/solana/sync-pool-from-chain';
 
 interface RecordSettlementRequest {
@@ -63,8 +64,7 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseServiceRole();
 
     // Verify the transaction and extract settlement event data
-    let settlementVerified = false;
-    let settlementEventData: any = null;
+    let settlementEventData: null | { marketPredictionQ: number; fLong: number; fShort: number; rLongBefore: number; rShortBefore: number; rLongAfter: number; rShortAfter: number; sScaleLongBefore: string; sScaleLongAfter: string; sScaleShortBefore: string; sScaleShortAfter: string } = null;
     try {
       const { Connection, PublicKey } = await import('@solana/web3.js');
       const { BorshCoder, EventParser } = await import('@coral-xyz/anchor');
@@ -88,13 +88,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Transaction failed on-chain' }, { status: 400 });
       }
 
-      settlementVerified = true;
       console.log('[/api/settlements/record] ✅ Transaction verified on-chain');
 
       // Parse settlement event from transaction logs
       try {
         const idl = await import('@/lib/solana/target/idl/veritas_curation.json');
-        const coder = new BorshCoder(idl as any);
+        const coder = new BorshCoder(idl as unknown as anchor.Idl);
         // Use program ID from environment or Anchor.toml
         const programId = process.env.NEXT_PUBLIC_VERITAS_PROGRAM_ID || 'GUUnua8NmaJQKvseg1oGXcZn3Ddh1RGrDnaiXRzQUvew';
         const eventParser = new EventParser(new PublicKey(programId), coder);
@@ -104,7 +103,6 @@ export async function POST(req: NextRequest) {
           for (const event of events) {
             if (event.name === 'SettlementEvent') {
               console.log('[/api/settlements/record] Raw event data:', event.data);
-              const Q64_ONE = BigInt(1) << BigInt(64);
 
               // Event fields use snake_case
               const hasRequiredFields = event.data.market_prediction_q !== undefined &&
@@ -460,7 +458,7 @@ export async function POST(req: NextRequest) {
     // CRITICAL: Sync pool state from chain FIRST to get post-settlement reserves
     // RETRY LOGIC: RPC nodes may have stale cache, so retry until we see the new epoch
     console.log('[settlement] Syncing pool state from chain (force update)...');
-    let poolState: any = null;
+    let poolState: null | { r_long?: number; r_short?: number } = null;
     const MAX_SYNC_RETRIES = 5;
     const SYNC_RETRY_DELAY_MS = 500;
 

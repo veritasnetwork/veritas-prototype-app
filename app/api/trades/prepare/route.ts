@@ -129,7 +129,6 @@ export async function POST(req: NextRequest) {
 
     // Get pool address and post creator info
     let poolAddress = body.poolAddress;
-    let postCreatorWallet: string;
 
     // Batch database queries
     const [postResult, poolResult, slippageConfig] = await Promise.all([
@@ -169,14 +168,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Extract creator's Solana wallet address
-    const creatorAgent = (post.users as any)?.agents;
+    const creatorAgent = (post.users as { agents?: { solana_address?: string } })?.agents;
     if (!creatorAgent || !creatorAgent.solana_address) {
       return NextResponse.json(
         { error: 'Post creator has no Solana wallet' },
         { status: 400 }
       );
     }
-    postCreatorWallet = creatorAgent.solana_address;
+    const postCreatorWallet = creatorAgent.solana_address;
 
     // Handle pool address result
     if (!poolAddress) {
@@ -192,9 +191,10 @@ export async function POST(req: NextRequest) {
 
     // Calculate stake skim with UX check
     // Note: amount is already in µUSDC for buys, calculateStakeSkim expects and returns µUSDC
+    // At this point, poolAddress is guaranteed to be defined (checked above)
     const stakeSkim = await calculateStakeSkim({
       userId: user.id,
-      poolAddress: poolAddress,
+      poolAddress: poolAddress!,
       tradeType: tradeType,
       tradeAmount: amount, // µUSDC for buys
       walletAddress: body.walletAddress,
@@ -291,8 +291,8 @@ export async function POST(req: NextRequest) {
       connection,
       walletAddress: body.walletAddress,
       postId: body.postId,
-      poolAddress: poolAddress,
-      postCreatorWallet,
+      poolAddress: poolAddress!,
+      postCreatorWallet: postCreatorWallet!,
       side: side,
       tradeType: tradeType,
       amount: amount,
@@ -309,7 +309,7 @@ export async function POST(req: NextRequest) {
     // Calculate expected trade outputs by reading pool state
     const tradeOutputs = await calculateTradeOutputs({
       connection,
-      poolAddress: poolAddress,
+      poolAddress: poolAddress!,
       side,
       tradeType,
       amount,
@@ -464,14 +464,17 @@ async function buildTradeTransaction(params: {
   ]);
 
   const stakeVault = custodian.usdcVault;
-  const protocolTreasuryPubkey = factory.protocolTreasury;
+  // TypeScript types may not match on-chain structure - cast to access protocol_treasury
+  const protocolTreasuryPubkey = (factory as any).protocolTreasury || (factory as any).protocol_treasury;
   const protocolTreasuryUsdcAccount = await getAssociatedTokenAddress(usdcMint, protocolTreasuryPubkey);
+
+  // Get factory authority (field name from IDL: protocol_authority)
+  const expectedAuthority = (factory as any).protocolAuthority || (factory as any).protocol_authority;
+
   console.log('[TRADE] Factory data:', {
     keys: Object.keys(factory || {}),
-    poolAuthority: factory.poolAuthority,
-    protocolAuthority: (factory as any).protocolAuthority,
+    expectedAuthority: expectedAuthority?.toBase58?.(),
   });
-  const expectedAuthority = factory.poolAuthority || (factory as any).protocolAuthority;
 
   // Load protocol authority keypair
   console.log('[TRADE] About to load protocol authority...');
@@ -479,8 +482,8 @@ async function buildTradeTransaction(params: {
   console.log('[TRADE] Loaded keypair:', {
     type: typeof authorityKeypair,
     keys: Object.keys(authorityKeypair || {}),
-    hasPublicKey: !!(authorityKeypair as any)?.publicKey,
-    publicKeyType: typeof (authorityKeypair as any)?.publicKey,
+    hasPublicKey: !!(authorityKeypair as { publicKey?: unknown })?.publicKey,
+    publicKeyType: typeof (authorityKeypair as { publicKey?: unknown })?.publicKey,
   });
 
   // Debug: verify we got a valid keypair
@@ -489,7 +492,7 @@ async function buildTradeTransaction(params: {
   }
   if (!authorityKeypair.publicKey) {
     console.error('[TRADE] authorityKeypair:', authorityKeypair);
-    console.error('[TRADE] authorityKeypair.publicKey:', (authorityKeypair as any).publicKey);
+    console.error('[TRADE] authorityKeypair.publicKey:', (authorityKeypair as { publicKey?: unknown }).publicKey);
     throw new Error('authorityKeypair.publicKey is undefined');
   }
 
@@ -549,7 +552,7 @@ async function buildTradeTransaction(params: {
       tokenProgram: TOKEN_PROGRAM_ID,
       postCreatorUsdcAccount: postCreatorUsdcAccount,
       protocolTreasuryUsdcAccount: protocolTreasuryUsdcAccount,
-    })
+    } as any)
     .preInstructions([
       // Add compute budget
       (await import('@solana/web3.js')).ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })

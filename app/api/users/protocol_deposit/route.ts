@@ -184,7 +184,7 @@ async function buildDepositTransaction(params: {
       depositorUsdcAccount: depositorUsdcAccount,
       depositor: walletPubkey,
       tokenProgram: TOKEN_PROGRAM_ID,
-    })
+    } as any)
     .instruction();
 
   // Build transaction

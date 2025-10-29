@@ -168,7 +168,7 @@ export function useSellTokens() {
 
                 // Only update if we got a valid positive amount
                 if (tokensSold > 0) {
-                  actualTokensSold = tokensSold;
+                  actualTokensSold = atomicToDisplay(asAtomic(tokensSold));
                   foundTokenChange = true;
                   console.log('[useSellTokens] ✅ Actual tokens sold from tx:', actualTokensSold);
                 }
@@ -212,7 +212,7 @@ export function useSellTokens() {
       // CRITICAL: Ensure we never send 0 amounts to the database
       if (actualTokensSold <= 0) {
         console.warn('[useSellTokens] ⚠️  Token amount is 0, using requested amount:', tokenAmount);
-        actualTokensSold = atomicToDisplay(asAtomic(tokenAmount)) || 0.000001; // Use minimum value if expected is also 0
+        actualTokensSold = atomicToDisplay(asAtomic(tokenAmount)) || atomicToDisplay(asAtomic(0.000001)); // Use minimum value if expected is also 0
       }
       if (actualUsdcReceived <= 0) {
         console.warn('[useSellTokens] ⚠️  USDC amount is 0, using expected amount:', expectedUsdcOut);

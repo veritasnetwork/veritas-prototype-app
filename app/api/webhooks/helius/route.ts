@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
       // Parse Anchor events from transaction logs
       const logMessages = heliusEvent.meta?.logMessages || heliusEvent.logs || [];
-      const anchorEvents = eventParser.parseLogs(logMessages);
+      const anchorEvents = Array.from(eventParser.parseLogs(logMessages));
 
       if (anchorEvents.length === 0) {
         continue;

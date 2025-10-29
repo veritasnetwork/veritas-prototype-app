@@ -8,7 +8,7 @@
 import { Connection, PublicKey, Keypair, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import { formatPoolAccountData } from './sqrt-price-helpers';
-import type { VeritasCuration } from './sdk/types/veritas_curation';
+import type { VeritasCuration } from './target/types/veritas_curation';
 import IDL from './target/idl/veritas_curation.json';
 
 /**
@@ -287,13 +287,13 @@ export async function fetchPoolStateWithDecay(
       priceShort,
       sLong,
       sShort,
-      sqrtPriceLongX96: poolAccount.sqrtPriceLongX96.toString(),
-      sqrtPriceShortX96: poolAccount.sqrtPriceShortX96.toString(),
+      sqrtPriceLongX96: (poolAccount as any).sqrtPriceLongX96?.toString() || '0',
+      sqrtPriceShortX96: (poolAccount as any).sqrtPriceShortX96?.toString() || '0',
       daysExpired: 0,
       daysSinceLastUpdate: 0,
       decayPending: false,
-      expirationTimestamp: poolAccount.expirationTimestamp.toNumber(),
-      lastDecayUpdate: poolAccount.lastDecayUpdate.toNumber(),
+      expirationTimestamp: (poolAccount as any).expirationTimestamp?.toNumber?.() || 0,
+      lastDecayUpdate: (poolAccount as any).lastDecayUpdate?.toNumber?.() || 0,
     };
   } catch (error) {
     console.error('[fetchPoolStateWithDecay] Error:', error);

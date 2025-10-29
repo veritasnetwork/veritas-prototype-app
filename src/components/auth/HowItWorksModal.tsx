@@ -42,7 +42,7 @@ export function HowItWorksModal({ isOpen, onClose }: HowItWorksModalProps) {
             </div>
             <div>
               <p className="text-white text-base">
-                <span className="font-semibold">Trade relevance</span> → Go LONG or SHORT. Prices reflect the market's opinion.
+                <span className="font-semibold">Trade relevance</span> → Go LONG or SHORT. Prices reflect the market&apos;s opinion.
               </p>
             </div>
           </div>

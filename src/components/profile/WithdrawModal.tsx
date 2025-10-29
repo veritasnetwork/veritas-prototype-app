@@ -138,7 +138,7 @@ export function WithdrawModal({
         const [custodianPda] = pdaHelper.getGlobalCustodianPda();
 
         // Fetch custodian account
-        const custodian = await program.account.veritasCustodian.fetch(custodianPda);
+        const custodian = await (program.account as any).veritasCustodian.fetch(custodianPda);
         console.log('[WITHDRAW] Fetched custodian state from blockchain');
 
         // Use the amount from the withdrawal (already in micro-USDC)

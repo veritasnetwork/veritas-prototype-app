@@ -49,9 +49,9 @@ export function CompactProfilePostCard({ post }: CompactProfilePostCardProps) {
 
   // Use market implied relevance from database (if available)
   const marketImpliedRelevance = (post as any).marketImpliedRelevance ??
-    (poolData && poolData.totalMarketCap > 0
-      ? (poolData.rLong !== undefined && poolData.rShort !== undefined
-          ? poolData.rLong / (poolData.rLong + poolData.rShort)
+    (poolData && poolData.marketCap > 0
+      ? (poolData.marketCapLong !== undefined && poolData.marketCapShort !== undefined
+          ? poolData.marketCapLong / (poolData.marketCapLong + poolData.marketCapShort)
           : 0.5)
       : null);
 
@@ -64,7 +64,7 @@ export function CompactProfilePostCard({ post }: CompactProfilePostCardProps) {
         {/* Left: Post Preview Thumbnail (96x96) - Only for media posts and articles with covers */}
         {(post.post_type === 'image' ||
           post.post_type === 'video' ||
-          (post.post_type === 'blog' && post.cover_image_url)) && (
+          (post.post_type === 'text' && post.cover_image_url)) && (
           <div className="flex-shrink-0">
             <PostPreviewThumbnail post={post} />
           </div>
@@ -99,7 +99,7 @@ export function CompactProfilePostCard({ post }: CompactProfilePostCardProps) {
                     <span>•</span>
                   </>
                 )}
-                <span>{formatRelativeTime(post.created_at || post.timestamp)}</span>
+                <span>{formatRelativeTime(post.timestamp || (post as any).created_at)}</span>
               </div>
             </div>
           </div>

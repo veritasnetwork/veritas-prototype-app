@@ -34,7 +34,7 @@ export function FundWalletButton({ variant = 'full', className = '', currency = 
       await fundWallet(address, {
         cluster: { name: 'mainnet-beta' }, // or 'devnet' for testing
         currencyCode: fundingCurrency === 'USDC' ? 'usdc_sol' : 'sol', // MoonPay currency codes
-      });
+      } as any);
     } catch (error) {
       console.error('Funding flow error:', error);
     } finally {
@@ -48,7 +48,7 @@ export function FundWalletButton({ variant = 'full', className = '', currency = 
   if (variant === 'icon') {
     return (
       <button
-        onClick={handleFundWallet}
+        onClick={() => handleFundWallet()}
         disabled={isFunding}
         className={`p-2 text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-default ${className}`}
         aria-label="Fund wallet"

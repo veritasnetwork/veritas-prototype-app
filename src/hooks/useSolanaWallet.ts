@@ -26,8 +26,10 @@ const isSolanaAddress = (address: string): boolean => {
  */
 export function useSolanaWallet() {
   const { ready, authenticated, user: privyUser } = usePrivy();
-  const { wallets: allWallets, ready: walletsReady } = useWallets();
-  const { wallets: solanaWallets, ready: solanaWalletsReady } = useSolanaWallets();
+  const allWalletsData = useWallets();
+  const { wallets: allWallets, ready: walletsReady } = 'ready' in allWalletsData ? allWalletsData : { wallets: allWalletsData.wallets, ready: true };
+  const solanaWalletsData = useSolanaWallets();
+  const { wallets: solanaWallets, ready: solanaWalletsReady } = 'ready' in solanaWalletsData ? solanaWalletsData : { wallets: solanaWalletsData.wallets, ready: true };
   const [initializationAttempts, setInitializationAttempts] = useState(0);
 
   // Retry initialization every 500ms for up to 10 seconds when we detect a linked wallet that isn't ready
@@ -71,7 +73,7 @@ export function useSolanaWallet() {
         isSolanaAddress(account.address)
     );
 
-    const expectedWalletAddress = linkedSolanaAccount?.address;
+    const expectedWalletAddress = (linkedSolanaAccount as any)?.address;
 
     // CRITICAL: Only return a wallet if it matches the user's linked wallet address
     // This prevents using an external wallet (like Phantom) when the user has an embedded wallet
@@ -97,16 +99,16 @@ export function useSolanaWallet() {
     if (allWallets && allWallets.length > 0) {
       if (expectedWalletAddress) {
         const matchingWallet = allWallets.find((w: any) => w.address === expectedWalletAddress);
-        if (matchingWallet && matchingWallet.signTransaction) {
-          return matchingWallet;
+        if (matchingWallet && (matchingWallet as any).signTransaction) {
+          return matchingWallet as any;
         }
       } else {
         // No linked wallet yet - return first Solana wallet
         const solanaWallet = allWallets.find((w: any) =>
           isSolanaAddress(w.address) || w.chainType === 'solana'
         );
-        if (solanaWallet && solanaWallet.signTransaction) {
-          return solanaWallet;
+        if (solanaWallet && (solanaWallet as any).signTransaction) {
+          return solanaWallet as any;
         }
       }
     }

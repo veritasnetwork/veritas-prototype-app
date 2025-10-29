@@ -9,8 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
-import { syncPoolFromChain } from '@/lib/solana/sync-pool-from-chain';
-import { displayToAtomic, asDisplay } from '@/lib/units';
+import { asDisplay } from '@/lib/units';
 
 export async function POST(req: NextRequest) {
   try {

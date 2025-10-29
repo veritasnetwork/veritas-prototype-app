@@ -2,9 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Enable instrumentation for server-side initialization
-  experimental: {
-    instrumentationHook: true,
-  },
+  // Note: instrumentationHook removed in Next.js 15 - instrumentation now works by default
 
   // Enable static optimization
   // output: 'standalone',  // Temporarily disabled for debugging

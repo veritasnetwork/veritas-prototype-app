@@ -384,17 +384,17 @@ export function ProfilePage({ username }: ProfilePageProps) {
                             content_text: holding.post?.content_text,
                             caption: holding.post?.caption,
                             media_urls: holding.post?.media_urls,
-                            cover_image: holding.post?.cover_image,
-                            title: holding.post?.title,
+                            cover_image_url: (holding.post as any)?.cover_image || holding.post?.cover_image_url,
+                            article_title: (holding.post as any)?.title,
                             author: {
                               username: holding.post?.author?.username || 'unknown',
                               display_name: holding.post?.author?.display_name,
                             },
-                            timestamp: holding.post?.created_at,
+                            timestamp: (holding.post as any)?.created_at,
                             poolAddress: holding.pool?.pool_address,
-                            poolLongTokenSupply: holding.pool?.supply_long ?? 0,
-                            poolShortTokenSupply: holding.pool?.supply_short ?? 0,
-                          }}
+                            poolSupplyLong: holding.pool?.supply_long ?? 0,
+                            poolSupplyShort: holding.pool?.supply_short ?? 0,
+                          } as any}
                           holdings={{
                             token_balance: holding.holdings?.token_balance ?? 0,
                             current_value_usdc: holding.holdings?.current_value_usdc ?? 0,
@@ -455,7 +455,7 @@ export function ProfilePage({ username }: ProfilePageProps) {
         {showWithdrawModal && (
           <WithdrawModal
             totalStake={stats.total_stake}
-            totalLocked={stats.total_locked || 0}
+            totalLocked={(stats as any).total_locked || 0}
             onClose={() => setShowWithdrawModal(false)}
             onSuccess={async () => {
               // Refresh profile data after withdrawal

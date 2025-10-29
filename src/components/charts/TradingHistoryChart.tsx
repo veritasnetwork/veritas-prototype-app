@@ -36,12 +36,6 @@ export const TradingHistoryChart = memo(function TradingHistoryChart({
       timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'transparent' },
       rightPriceScale: {
         borderColor: 'transparent',
-        // Custom price formatter for token prices (2 decimals)
-        formatter: (price: number) => {
-          // Chart library may pass negative values for axis calculations
-          if (price < 0 || !Number.isFinite(price)) return '$0.00';
-          return `$${formatDisplay(asDisplay(price), 2)}`;
-        },
       },
       crosshair: {
         vertLine: { width: 1, color: '#6b7280', style: 1 },
@@ -100,12 +94,6 @@ export const TradingHistoryChart = memo(function TradingHistoryChart({
 
     chart.priceScale('volume').applyOptions({
       scaleMargins: { top: 0.85, bottom: 0 },
-      formatter: (price: number) => {
-        // Volume formatter for y-axis
-        // Chart library may pass negative values for axis calculations
-        if (price < 0 || !Number.isFinite(price)) return '$0.00';
-        return `$${formatDisplay(asDisplay(price), 2)}`;
-      },
     });
 
     const handleResize = () => {

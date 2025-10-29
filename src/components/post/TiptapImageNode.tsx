@@ -1,23 +1,11 @@
 'use client';
 
-import { NodeViewWrapper } from '@tiptap/react';
+import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { X } from 'lucide-react';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useState } from 'react';
 
-interface TiptapImageNodeProps {
-  node: {
-    attrs: {
-      src: string;
-      alt?: string;
-      title?: string;
-    };
-  };
-  deleteNode: () => void;
-  selected: boolean;
-}
-
-export function TiptapImageNode({ node, deleteNode, selected }: TiptapImageNodeProps) {
+export function TiptapImageNode({ node, deleteNode, selected }: NodeViewProps) {
   const { getAccessToken } = usePrivy();
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -27,7 +15,7 @@ export function TiptapImageNode({ node, deleteNode, selected }: TiptapImageNodeP
     try {
       // Extract the file path from the URL
       // URL format: https://{supabase-url}/storage/v1/object/public/veritas-media/images/{user_id}/{filename}
-      const url = node.attrs.src;
+      const url = (node.attrs as any).src;
       const match = url.match(/\/storage\/v1\/object\/public\/veritas-media\/(.+)$/);
 
       if (match && match[1]) {
@@ -62,9 +50,9 @@ export function TiptapImageNode({ node, deleteNode, selected }: TiptapImageNodeP
   return (
     <NodeViewWrapper className="relative inline-block my-4 group">
       <img
-        src={node.attrs.src}
-        alt={node.attrs.alt || ''}
-        title={node.attrs.title || ''}
+        src={(node.attrs as any).src}
+        alt={(node.attrs as any).alt || ''}
+        title={(node.attrs as any).title || ''}
         className={`max-w-full h-auto rounded-lg transition-all ${
           selected ? 'ring-3 ring-blue-400 ring-offset-2 ring-offset-gray-900' : ''
         }`}

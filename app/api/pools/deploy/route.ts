@@ -15,6 +15,7 @@ import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { checkRateLimit, rateLimiters } from '@/lib/rate-limit';
 import * as anchor from '@coral-xyz/anchor';
 import { Keypair } from '@solana/web3.js';
+import { VeritasCuration } from '@/lib/solana/target/types/veritas_curation';
 
 export async function POST(req: NextRequest) {
   try {
@@ -208,14 +209,14 @@ export async function POST(req: NextRequest) {
           publicKey: dummyKeypair.publicKey,
           signTransaction: async <T extends anchor.web3.Transaction | anchor.web3.VersionedTransaction>(tx: T): Promise<T> => {
             if ('sign' in tx && typeof tx.sign === 'function') {
-              tx.sign([dummyKeypair]);
+              (tx.sign as (signers: anchor.web3.Signer[]) => void)([dummyKeypair]);
             }
             return tx;
           },
           signAllTransactions: async <T extends anchor.web3.Transaction | anchor.web3.VersionedTransaction>(txs: T[]): Promise<T[]> => {
             return txs.map(tx => {
               if ('sign' in tx && typeof tx.sign === 'function') {
-                tx.sign([dummyKeypair]);
+                (tx.sign as (signers: anchor.web3.Signer[]) => void)([dummyKeypair]);
               }
               return tx;
             });
@@ -224,7 +225,7 @@ export async function POST(req: NextRequest) {
         const provider = new anchor.AnchorProvider(connection, wallet as anchor.Wallet, {});
 
         const idl = await import('@/lib/solana/target/idl/veritas_curation.json');
-        const program = new anchor.Program(idl.default as anchor.Idl, provider);
+        const program = new anchor.Program(idl.default as anchor.Idl, provider) as anchor.Program<VeritasCuration>;
 
         const poolData = await program.account.contentPool.fetch(poolPda);
 

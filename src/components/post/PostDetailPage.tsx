@@ -82,8 +82,8 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
     post.poolSupplyLong !== null && post.poolSupplyShort !== null ? {
     priceLong: post.poolPriceLong,
     priceShort: post.poolPriceShort,
-    supplyLong: post.poolSupplyLong,
-    supplyShort: post.poolSupplyShort,
+    supplyLong: post.poolSupplyLong ?? 0,
+    supplyShort: post.poolSupplyShort ?? 0,
     f: post.poolF || 1,
     betaNum: post.poolBetaNum || 1,
     betaDen: post.poolBetaDen || 2,
@@ -92,6 +92,8 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
     currentPrice: 0,
     reserveBalance: post.poolVaultBalance || 0,
     marketCap: 0,
+    rLong: post.poolSupplyLong ?? 0,
+    rShort: post.poolSupplyShort ?? 0,
   } : undefined;
 
   // Fetch pool data only after post is available (either cached or loaded)
@@ -101,7 +103,7 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
     shouldFetchPoolData ? post.id : undefined,
     initialPoolData // Pass initial data for instant rendering
   );
-  const { data: tradeHistory, loading: tradesLoading } = useTradeHistory(shouldFetchPoolData ? post.id : undefined);
+  const { data: tradeHistory, isLoading: tradesLoading } = useTradeHistory(shouldFetchPoolData ? post.id : undefined);
 
   // Fetch post data (or refresh if already cached)
   useEffect(() => {
@@ -230,8 +232,8 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
 
   // Use market implied relevance from reserves (if available)
   const marketImpliedRelevance = (post as any).marketImpliedRelevance ??
-    (poolDataFromDb && poolDataFromDb.rLong !== undefined && poolDataFromDb.rShort !== undefined
-      ? poolDataFromDb.rLong / (poolDataFromDb.rLong + poolDataFromDb.rShort)
+    (poolData && poolData.rLong !== undefined && poolData.rShort !== undefined
+      ? poolData.rLong / (poolData.rLong + poolData.rShort)
       : null);
 
   console.log('[PostDetailPage] Render state:', {
@@ -364,14 +366,14 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
                   </div>
                 </div>
 
-                {/* Post Title - only show for blog posts or if there's an actual title */}
-                {(post.post_type === 'blog' || post.title || post.article_title) && (
+                {/* Post Title - only show for text posts with title or if there's an article_title */}
+                {((post as any).title || post.article_title) && (
                   <h1 className="text-2xl font-bold text-white mb-2">{title}</h1>
                 )}
 
                 {/* Timestamp */}
                 <p className="text-sm text-gray-400">
-                  {formatRelativeTime(post.timestamp || post.created_at)}
+                  {formatRelativeTime(post.timestamp || (post as any).created_at)}
                 </p>
               </div>
 
@@ -459,11 +461,11 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
               )}
 
               {/* Article/Blog Cover Image */}
-              {((post.post_type === 'text' && post.cover_image_url) || (post.post_type === 'blog' && post.cover_image)) && (
+              {((post.post_type === 'text' && post.cover_image_url) || ((post as any).cover_image)) && (
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden">
                   <div className="relative aspect-video">
                     <Image
-                      src={post.cover_image_url || post.cover_image}
+                      src={post.cover_image_url || (post as any).cover_image}
                       alt="Cover image"
                       fill
                       className="object-cover"
@@ -472,8 +474,8 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
                 </div>
               )}
 
-              {/* Post Content (text/blog) */}
-              {(post.post_type === 'text' || post.post_type === 'blog') && (
+              {/* Post Content (text) */}
+              {post.post_type === 'text' && (
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6 overflow-hidden">
                   {post.content_json ? (
                     <div className={`prose prose-invert ${viewMode === 'read' ? 'max-w-none' : 'max-w-full'} break-words`}>

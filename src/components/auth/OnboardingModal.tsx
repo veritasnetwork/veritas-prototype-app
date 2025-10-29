@@ -171,9 +171,9 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
 
       // Move to "How it works" step
       setStep('how-it-works');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Profile completion error:', err);
-      setError(err.message || 'Failed to complete profile');
+      setError(err instanceof Error ? err.message : 'Failed to complete profile');
     } finally {
       setIsSubmitting(false);
     }
@@ -197,7 +197,7 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
                 <h2 className="text-white text-3xl font-bold font-mono tracking-wide">VERITAS</h2>
               </div>
               <p className="text-gray-400 text-sm">
-                Welcome! Let's set up your profile
+                Welcome! Let&apos;s set up your profile
               </p>
             </div>
 
@@ -361,7 +361,7 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
                 </div>
                 <div>
                   <p className="text-white text-base">
-                    <span className="font-semibold">Trade relevance</span> → Go LONG or SHORT. Prices reflect the market's opinion.
+                    <span className="font-semibold">Trade relevance</span> → Go LONG or SHORT. Prices reflect the market&apos;s opinion.
                   </p>
                 </div>
               </div>

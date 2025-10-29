@@ -41,7 +41,7 @@ export function validateImageFile(file: File): FileValidationResult {
   }
 
   // Check file type
-  if (!FILE_VALIDATION.IMAGE.ALLOWED_TYPES.includes(file.type)) {
+  if (!FILE_VALIDATION.IMAGE.ALLOWED_TYPES.includes(file.type as any)) {
     return {
       valid: false,
       error: `Invalid file type. Allowed types: ${FILE_VALIDATION.IMAGE.ALLOWED_TYPES.join(', ')}`
@@ -58,7 +58,7 @@ export function validateImageFile(file: File): FileValidationResult {
 
   // Check file extension
   const ext = file.name.split('.').pop()?.toLowerCase();
-  if (!ext || !FILE_VALIDATION.IMAGE.ALLOWED_EXTENSIONS.includes(ext)) {
+  if (!ext || !FILE_VALIDATION.IMAGE.ALLOWED_EXTENSIONS.includes(ext as any)) {
     return {
       valid: false,
       error: `Invalid file extension. Allowed extensions: ${FILE_VALIDATION.IMAGE.ALLOWED_EXTENSIONS.join(', ')}`
@@ -78,7 +78,7 @@ export function validateVideoFile(file: File): FileValidationResult {
   }
 
   // Check file type
-  if (!FILE_VALIDATION.VIDEO.ALLOWED_TYPES.includes(file.type)) {
+  if (!FILE_VALIDATION.VIDEO.ALLOWED_TYPES.includes(file.type as any)) {
     return {
       valid: false,
       error: `Invalid file type. Allowed types: ${FILE_VALIDATION.VIDEO.ALLOWED_TYPES.join(', ')}`
@@ -95,7 +95,7 @@ export function validateVideoFile(file: File): FileValidationResult {
 
   // Check file extension
   const ext = file.name.split('.').pop()?.toLowerCase();
-  if (!ext || !FILE_VALIDATION.VIDEO.ALLOWED_EXTENSIONS.includes(ext)) {
+  if (!ext || !FILE_VALIDATION.VIDEO.ALLOWED_EXTENSIONS.includes(ext as any)) {
     return {
       valid: false,
       error: `Invalid file extension. Allowed extensions: ${FILE_VALIDATION.VIDEO.ALLOWED_EXTENSIONS.join(', ')}`

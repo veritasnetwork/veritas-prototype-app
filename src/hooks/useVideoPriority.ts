@@ -149,8 +149,8 @@ if (typeof window !== 'undefined') {
  * Hook to register a video with the priority manager
  */
 export function useVideoPriority(
-  videoRef: React.RefObject<HTMLVideoElement>,
-  containerRef: React.RefObject<HTMLElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
+  containerRef: React.RefObject<HTMLElement | null>,
   postId: string,
   enabled: boolean = true
 ) {

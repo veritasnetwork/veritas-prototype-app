@@ -8,7 +8,6 @@ import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { PostAPIResponseSchema } from '@/types/api';
 import { sqrtPriceX96ToPrice, USDC_PRECISION } from '@/lib/solana/sqrt-price-helpers';
 import { syncPoolFromChain } from '@/lib/solana/sync-pool-from-chain';
-import { atomicToDisplay, asAtomic } from '@/lib/units';
 
 export async function GET(
   request: NextRequest,

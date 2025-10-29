@@ -163,15 +163,9 @@ export function useDeployPool() {
             if (recoverRes.ok) {
               const recoverData = await recoverRes.json();
 
-              // Trigger a refresh of the UI
-              if (params.onSuccess) {
-                params.onSuccess(errorData.existingPoolAddress);
-              }
-
               return {
-                success: true,
                 poolAddress: errorData.existingPoolAddress,
-                recovered: true,
+                signature: recoverData.signature || '',
               };
             } else {
               const recoverError = await recoverRes.json();
@@ -213,9 +207,9 @@ export function useDeployPool() {
 
         const program = new Program<VeritasCuration>(idl as any, provider);
 
-        // Fetch factory to get pool authority
+        // Fetch factory to get pool authority (field name from IDL: protocol_authority)
         const factory = await program.account.poolFactory.fetch(factoryPda);
-        const poolAuthority = factory.poolAuthority as PublicKey;
+        const poolAuthority = ((factory as any).protocolAuthority || (factory as any).protocol_authority) as PublicKey;
 
         const protocolAddresses: ProtocolAddresses = {
           programId,
@@ -342,6 +336,9 @@ export function useDeployPool() {
           }
         }
 
+        if (!poolAccount) {
+          throw new Error('Failed to fetch pool account');
+        }
 
         if (!poolAccount.longMint || !poolAccount.shortMint || !poolAccount.vault) {
           throw new Error('Pool state not fully initialized - mints or vault missing');
@@ -373,11 +370,11 @@ export function useDeployPool() {
             f: poolAccount.f,
             betaNum: poolAccount.betaNum,
             betaDen: poolAccount.betaDen,
-            sqrtLambdaX96: poolAccount.sqrtLambdaLongX96?.toString(), // Use sqrt_lambda_long (same as short)
-            sScaleLongQ64: poolAccount.sScaleLongQ64?.toString(),      // NEW
-            sScaleShortQ64: poolAccount.sScaleShortQ64?.toString(),    // NEW
-            sqrtPriceLongX96: poolAccount.sqrtPriceLongX96?.toString(),
-            sqrtPriceShortX96: poolAccount.sqrtPriceShortX96?.toString(),
+            sqrtLambdaX96: (poolAccount as any).sqrtLambdaLongX96?.toString() || (poolAccount as any).sqrt_lambda_long_x96?.toString(),
+            sScaleLongQ64: (poolAccount as any).sScaleLongQ64?.toString() || (poolAccount as any).s_scale_long_q64?.toString(),
+            sScaleShortQ64: (poolAccount as any).sScaleShortQ64?.toString() || (poolAccount as any).s_scale_short_q64?.toString(),
+            sqrtPriceLongX96: (poolAccount as any).sqrtPriceLongX96?.toString() || (poolAccount as any).sqrt_price_long_x96?.toString(),
+            sqrtPriceShortX96: (poolAccount as any).sqrtPriceShortX96?.toString() || (poolAccount as any).sqrt_price_short_x96?.toString(),
           }),
         });
 

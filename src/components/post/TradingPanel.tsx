@@ -81,6 +81,8 @@ export function TradingPanel({
     currentPrice: 0, // Will be calculated by component
     reserveBalance: initialPoolData.vaultBalance,
     marketCap: 0, // Will be calculated by component
+    rLong: initialPoolData.supplyLong,
+    rShort: initialPoolData.supplyShort,
   } : null);
 
   return (
@@ -101,11 +103,7 @@ export function TradingPanel({
           <TradingChartCard
             postId={postId}
             poolData={displayPoolData}
-            tradeHistory={tradeHistory}
-            relevanceHistory={relevanceHistory}
             rebaseStatus={rebaseStatus}
-            tradeHistoryLoading={tradeHistoryLoading}
-            relevanceLoading={relevanceLoading}
           />
         </Suspense>
       )}

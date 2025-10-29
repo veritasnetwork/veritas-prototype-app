@@ -406,13 +406,13 @@ export class PostsService {
       poolBetaNum: poolData?.beta_num || 1,
       poolBetaDen: poolData?.beta_den || 2,
       // ICBS pool state
-      poolSupplyLong: poolData?.s_long_supply ? Number(poolData.s_long_supply) / USDC_PRECISION : null,
-      poolSupplyShort: poolData?.s_short_supply ? Number(poolData.s_short_supply) / USDC_PRECISION : null,
-      poolPriceLong: poolData?.sqrt_price_long_x96 ? sqrtPriceX96ToPrice(poolData.sqrt_price_long_x96) : null,
-      poolPriceShort: poolData?.sqrt_price_short_x96 ? sqrtPriceX96ToPrice(poolData.sqrt_price_short_x96) : null,
-      poolSqrtPriceLongX96: poolData?.sqrt_price_long_x96 || null,
-      poolSqrtPriceShortX96: poolData?.sqrt_price_short_x96 || null,
-      poolVaultBalance: poolData?.vault_balance ? Number(poolData.vault_balance) / USDC_PRECISION : null,
+      poolSupplyLong: poolData?.s_long_supply ? Number(poolData.s_long_supply) / USDC_PRECISION : undefined,
+      poolSupplyShort: poolData?.s_short_supply ? Number(poolData.s_short_supply) / USDC_PRECISION : undefined,
+      poolPriceLong: poolData?.sqrt_price_long_x96 ? sqrtPriceX96ToPrice(poolData.sqrt_price_long_x96) : undefined,
+      poolPriceShort: poolData?.sqrt_price_short_x96 ? sqrtPriceX96ToPrice(poolData.sqrt_price_short_x96) : undefined,
+      poolSqrtPriceLongX96: poolData?.sqrt_price_long_x96 || undefined,
+      poolSqrtPriceShortX96: poolData?.sqrt_price_short_x96 || undefined,
+      poolVaultBalance: poolData?.vault_balance ? Number(poolData.vault_balance) / USDC_PRECISION : undefined,
       totalVolumeUsdc: dbPost.total_volume_usdc ? Number(dbPost.total_volume_usdc) : undefined,
     };
 

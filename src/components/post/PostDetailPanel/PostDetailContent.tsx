@@ -145,29 +145,29 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
         <div className="flex items-center gap-3 text-sm text-gray-400">
           <span>@{post.author?.username || 'unknown'}</span>
           <span>•</span>
-          <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+          <span>{new Date(post.timestamp || (post as any).createdAt).toLocaleDateString()}</span>
         </div>
       </div>
 
       {/* Post Content */}
       <div className="prose prose-invert max-w-none">
-        {post.contentRich ? (
-          <TiptapRenderer content={post.contentRich} />
+        {post.content_json ? (
+          <TiptapRenderer content={post.content_json} />
         ) : (
-          <p className="text-gray-300 whitespace-pre-wrap">{post.content}</p>
+          <p className="text-gray-300 whitespace-pre-wrap">{post.content_text || (post as any).content}</p>
         )}
       </div>
 
       {/* Media */}
-      {post.media && post.media.length > 0 && (
+      {post.media_urls && post.media_urls.length > 0 && (
         <div className="mt-6 space-y-4">
-          {post.media.map((item, index) => (
+          {post.media_urls.map((url, index) => (
             <div key={index}>
-              {item.type === 'image' && (
-                <img src={item.url} alt={item.alt || ''} className="rounded-lg max-w-full" />
+              {post.post_type === 'image' && (
+                <img src={url} alt="" className="rounded-lg max-w-full" />
               )}
-              {item.type === 'video' && (
-                <video src={item.url} controls className="rounded-lg max-w-full" />
+              {post.post_type === 'video' && (
+                <video src={url} controls className="rounded-lg max-w-full" />
               )}
             </div>
           ))}
@@ -262,11 +262,11 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
             )}
 
             {/* Settlement Button - only show if BD score is available */}
-            {post?.belief?.previous_aggregate !== undefined && poolAddress && (
+            {(post?.belief as any)?.previous_aggregate !== undefined && poolAddress && (
               <SettlementButton
                 postId={postId}
                 poolAddress={poolAddress}
-                bdScore={post.belief.previous_aggregate}
+                bdScore={(post.belief as any).previous_aggregate}
               />
             )}
           </div>

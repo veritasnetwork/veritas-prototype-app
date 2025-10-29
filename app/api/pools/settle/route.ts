@@ -90,16 +90,29 @@ export async function POST(req: NextRequest) {
 
     const factory = await program.account.poolFactory.fetch(factoryPda);
 
-    // Validate that our protocol authority matches the factory's pool_authority
-    if (!factory.poolAuthority.equals(protocolAuthority.publicKey)) {
+    // Validate that our protocol authority matches the factory's protocol_authority
+    const factoryAuthority = (factory as any).protocolAuthority || (factory as any).protocol_authority;
+    if (!factoryAuthority || !factoryAuthority.equals(protocolAuthority.publicKey)) {
       console.error('[/api/pools/settle] Authority mismatch:', {
-        expected: factory.poolAuthority.toBase58(),
+        expected: factoryAuthority?.toBase58(),
         actual: protocolAuthority.publicKey.toBase58(),
       });
       return NextResponse.json({
         error: 'Protocol authority mismatch. Factory authority may have changed. Please contact support.',
       }, { status: 500 });
     }
+
+    // Convert post ID to content ID for PDA derivation
+    const postIdBytes16 = Buffer.from(postId.replace(/-/g, ''), 'hex');
+    const postIdBytes32 = Buffer.alloc(32);
+    postIdBytes16.copy(postIdBytes32, 0);
+    const contentId = new PublicKey(postIdBytes32);
+
+    // Derive ContentPool PDA
+    const [poolPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('content_pool'), contentId.toBuffer()],
+      programPubkey
+    );
 
     // Fetch pool to get pool-specific settle interval (may differ from factory default)
     const poolAccount = await program.account.contentPool.fetch(poolPda);
@@ -164,19 +177,6 @@ export async function POST(req: NextRequest) {
     // Convert BD score to Q32.32 format (0-1 range to 0-1,000,000 integer)
     const bdScore = Math.floor(belief.previous_aggregate * 1_000_000);
 
-
-    // Convert post ID to content ID (same as in pool deployment)
-    const postIdBytes = Buffer.from(postId.replace(/-/g, ''), 'hex');
-    const postIdBytes32 = Buffer.alloc(32);
-    postIdBytes.copy(postIdBytes32, 0);
-    const contentId = new PublicKey(postIdBytes32);
-
-    // Derive ContentPool PDA
-    const [poolPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from('content_pool'), contentId.toBuffer()],
-      programPubkey
-    );
-
     // Build settle_epoch instruction
     // Note: The smart contract only requires pool, factory, protocol_authority, and settler
     const settleEpochIx = await program.methods
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
         factory: factoryPda,
         protocolAuthority: protocolAuthority.publicKey,
         settler: new PublicKey(walletAddress), // User as fee payer
-      })
+      } as any)
       .instruction();
 
     // Create transaction

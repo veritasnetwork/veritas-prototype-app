@@ -73,17 +73,17 @@ export function usePosts(): UsePostsResult {
         const sqrtPriceLongX96 = post.poolSqrtPriceLongX96
           ? (typeof post.poolSqrtPriceLongX96 === 'string'
               ? BigInt(post.poolSqrtPriceLongX96)
-              : BigInt(post.poolSqrtPriceLongX96.toString()))
-          : 0n;
+              : BigInt((post.poolSqrtPriceLongX96 as any).toString()))
+          : BigInt(0);
         const sqrtPriceShortX96 = post.poolSqrtPriceShortX96
           ? (typeof post.poolSqrtPriceShortX96 === 'string'
               ? BigInt(post.poolSqrtPriceShortX96)
-              : BigInt(post.poolSqrtPriceShortX96.toString()))
-          : 0n;
+              : BigInt((post.poolSqrtPriceShortX96 as any).toString()))
+          : BigInt(0);
 
         // Convert sqrt price to price using the proper helper function
-        const priceLong = sqrtPriceLongX96 > 0n ? sqrtPriceX96ToPrice(sqrtPriceLongX96) : 0;
-        const priceShort = sqrtPriceShortX96 > 0n ? sqrtPriceX96ToPrice(sqrtPriceShortX96) : 0;
+        const priceLong = sqrtPriceLongX96 > BigInt(0) ? sqrtPriceX96ToPrice(sqrtPriceLongX96) : 0;
+        const priceShort = sqrtPriceShortX96 > BigInt(0) ? sqrtPriceX96ToPrice(sqrtPriceShortX96) : 0;
 
         // Market cap = (supply_long × price_long) + (supply_short × price_short)
         // Supply is in display units (USDC), price is in USDC per token

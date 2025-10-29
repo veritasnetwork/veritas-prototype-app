@@ -62,13 +62,13 @@ export function PostPreviewThumbnail({ post }: PostPreviewThumbnailProps) {
     );
   }
 
-  // Blog post with cover image
-  if (post.post_type === 'blog' && post.cover_image) {
+  // Text post with cover image
+  if (post.post_type === 'text' && post.cover_image_url) {
     return (
       <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-[#0f0f0f] group-hover:scale-105 transition-transform duration-200">
         <Image
-          src={post.cover_image}
-          alt="Blog cover"
+          src={post.cover_image_url}
+          alt="Cover"
           fill
           className="object-cover"
           sizes="96px"
@@ -82,8 +82,8 @@ export function PostPreviewThumbnail({ post }: PostPreviewThumbnailProps) {
 
   return (
     <div className="w-24 h-24 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
-      {/* For blog posts, show document icon */}
-      {post.post_type === 'blog' ? (
+      {/* For text posts without cover, show document icon */}
+      {post.post_type === 'text' ? (
         <div className="flex flex-col items-center justify-center gap-1">
           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

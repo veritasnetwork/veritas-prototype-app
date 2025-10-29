@@ -245,7 +245,7 @@ export class WebSocketIndexer {
       // Anchor events are in logs that start with "Program data: "
       if (log.startsWith('Program data: ')) {
         try {
-          const parsed = this.eventParser.parseLogs([log]);
+          const parsed = Array.from(this.eventParser.parseLogs([log]));
           if (parsed && parsed.length > 0) {
             events.push(...parsed);
           }

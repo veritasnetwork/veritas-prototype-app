@@ -4,7 +4,9 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
+import Mathematics from '@tiptap/extension-mathematics';
 import type { TiptapDocument } from '@/types/post.types';
+import 'katex/dist/katex.min.css';
 
 interface TiptapRendererProps {
   content: TiptapDocument;
@@ -29,6 +31,11 @@ export function TiptapRenderer({ content, className }: TiptapRendererProps) {
           class: 'max-w-full h-auto rounded-lg my-4',
         },
       }),
+      Mathematics.configure({
+        katexOptions: {
+          throwOnError: false,
+        },
+      } as any),
     ],
     content: content,
     editable: false, // Read-only mode

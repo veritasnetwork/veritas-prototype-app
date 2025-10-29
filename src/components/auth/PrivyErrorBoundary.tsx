@@ -27,7 +27,7 @@ export class PrivyErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      const isBrave = (navigator as any).brave !== undefined;
+      const isBrave = (navigator as { brave?: unknown }).brave !== undefined;
 
       return (
         <div className="min-h-screen bg-black flex items-center justify-center p-8">
@@ -39,7 +39,7 @@ export class PrivyErrorBoundary extends React.Component<Props, State> {
             {this.state.error?.message?.includes('Origin not allowed') && (
               <div className="text-[#B9D9EB] space-y-4">
                 <p>
-                  Your browser's privacy settings are blocking authentication.
+                  Your browser&apos;s privacy settings are blocking authentication.
                 </p>
 
                 {isBrave && (
@@ -48,7 +48,7 @@ export class PrivyErrorBoundary extends React.Component<Props, State> {
                     <ol className="list-decimal list-inside space-y-2 text-sm">
                       <li>Click the Brave shield icon in your address bar</li>
                       <li>Turn shields OFF for this site</li>
-                      <li>Or change "Cross-site cookies" to "All cookies allowed"</li>
+                      <li>Or change &ldquo;Cross-site cookies&rdquo; to &ldquo;All cookies allowed&rdquo;</li>
                       <li>Refresh the page</li>
                     </ol>
                   </div>

@@ -5,11 +5,13 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import Dropcursor from '@tiptap/extension-dropcursor';
+import Mathematics from '@tiptap/extension-mathematics';
 import { CustomImage } from './CustomImageExtension';
 import { useEffect, useState, useRef } from 'react';
 import { Bold, Italic, List, ListOrdered, Quote, Undo, Redo, Heading1, Heading2, Heading3, Type, Image as ImageIcon } from 'lucide-react';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import type { TiptapDocument } from '@/types/post.types';
+import 'katex/dist/katex.min.css';
 
 interface TiptapEditorProps {
   content: TiptapDocument | null;
@@ -51,6 +53,11 @@ export function TiptapEditor({ content, onChange, placeholder, disabled }: Tipta
         color: '#60a5fa', // Blue cursor to show drop position
         width: 3,
       }),
+      Mathematics.configure({
+        katexOptions: {
+          throwOnError: false,
+        },
+      } as any),
     ],
     content: content || undefined,
     editable: !disabled,

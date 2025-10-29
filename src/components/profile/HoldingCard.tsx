@@ -103,7 +103,7 @@ export function HoldingCard({ post, tokenType, holdings, pool }: HoldingCardProp
         {/* Left: Post Preview Thumbnail (96x96) - Only for media posts and articles with covers */}
         {(post.post_type === 'image' ||
           post.post_type === 'video' ||
-          (post.post_type === 'blog' && post.cover_image)) && (
+          (post.post_type === 'text' && post.cover_image_url)) && (
           <div className="flex-shrink-0">
             <PostPreviewThumbnail post={post} />
           </div>

@@ -49,5 +49,6 @@ test-ledger/
 .mock-wallet.json
 
 # deployment configs (contain keypair paths and sensitive data)
+scripts/deployment/
 scripts/deployment-config.json
 **/deployment-config.json
