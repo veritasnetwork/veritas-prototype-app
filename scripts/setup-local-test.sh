@@ -66,7 +66,7 @@ if [ ! -f ~/.config/solana/id.json ]; then
     solana-keygen new --no-bip39-passphrase --force
 fi
 
-DEFAULT_WALLET=$(solana address)
+DEFAULT_WALLET=$(solana-keygen pubkey ~/.config/solana/id.json)
 echo -e "${GREEN}✅ Default wallet: $DEFAULT_WALLET${NC}"
 
 # Always fund these specific test wallets
@@ -144,6 +144,7 @@ echo -e "${BLUE}━━━ STEP 4/7: Start Solana Validator ━━━${NC}"
 # Set Solana to localhost
 echo -e "${YELLOW}📡 Configuring Solana CLI for localhost...${NC}"
 solana config set --url http://localhost:8899 > /dev/null
+solana config set --keypair ~/.config/solana/id.json > /dev/null
 
 cd "$ROOT_DIR/solana/veritas-curation"
 
@@ -227,7 +228,7 @@ if [ ! -f target/deploy/veritas_curation-keypair.json ]; then
 fi
 
 # Get program ID from keypair
-PROGRAM_ID=$(solana address -k target/deploy/veritas_curation-keypair.json)
+PROGRAM_ID=$(solana-keygen pubkey target/deploy/veritas_curation-keypair.json)
 echo -e "${YELLOW}📋 Program ID from keypair: $PROGRAM_ID${NC}"
 
 # Check if source files need updating
