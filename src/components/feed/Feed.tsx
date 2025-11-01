@@ -87,6 +87,20 @@ export function Feed() {
     }
   }, [posts, loading, viewMode]); // Removed selectedPostId from deps to prevent infinite loop
 
+  // Debug logging for posts
+  useEffect(() => {
+    console.log('[Feed] Posts updated:', {
+      count: posts.length,
+      loading,
+      posts: posts.map(p => ({
+        id: p.id.substring(0, 8),
+        type: p.post_type,
+        hasPool: !!p.poolAddress,
+        author: p.author?.username
+      }))
+    });
+  }, [posts, loading]);
+
   // Handle create post click - check auth first
   const handleCreatePost = async () => {
     const isAuthed = await requireAuth();
@@ -425,7 +439,6 @@ export function Feed() {
           <div className={`flex flex-col lg:flex-row bg-[#0f0f0f] ${viewMode === 'trade' && selectedPostId ? 'lg:gap-12' : ''} ${viewMode === 'trade' && selectedPostId ? 'lg:items-start lg:h-[calc(100vh-4rem)]' : ''}`}>
             {/* Posts Column */}
             <div className={`flex flex-col w-full lg:w-[680px] lg:flex-shrink-0 bg-[#0f0f0f] lg:gap-8 ${viewMode === 'trade' && selectedPostId ? 'lg:h-full lg:overflow-y-auto scrollbar-hide lg:pb-8' : ''}`}>
-              {console.log('[Feed] Rendering posts:', posts.length, 'posts', posts.map(p => ({ id: p.id.substring(0, 8), type: p.post_type })))}
               {posts.length === 0 && !loading && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <p className="text-gray-400 mb-4">No posts yet</p>
