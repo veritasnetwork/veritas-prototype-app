@@ -95,7 +95,8 @@ class PoolDataService {
 
     // Add subscriber
     sub.subscribers.add(callback);
-    console.log('[PoolDataService] Total subscribers for postId:', postId, '=', sub.subscribers.size);
+    const subscriberCount = sub.subscribers.size;
+    console.log('[PoolDataService] Total subscribers for postId:', postId, '=', subscriberCount);
 
     // Check for cached data first (prioritize: initialData > persistent cache > subscription data)
     const cachedData = initialData || this.cache.get(postId) || sub.data;
@@ -104,13 +105,22 @@ class PoolDataService {
       // Immediately notify with cached data (synchronous)
       callback(cachedData);
       sub.data = cachedData; // Ensure subscription has the cached data
+    } else {
+      console.log('[PoolDataService] No cached data available for postId:', postId);
     }
 
     // If first subscriber, start polling
-    if (sub.subscribers.size === 1) {
+    if (subscriberCount === 1) {
       console.log('[PoolDataService] First subscriber, starting polling for postId:', postId);
       // Skip immediate fetch if we have initial data - just start the interval
       this.startPolling(postId, hasInitialData);
+    } else {
+      console.log('[PoolDataService] Not first subscriber (count:', subscriberCount, '), polling should already be running for postId:', postId);
+      // Check if polling is actually running
+      if (!sub.intervalId) {
+        console.warn('[PoolDataService] ⚠️ Polling NOT running despite multiple subscribers! Starting now...');
+        this.startPolling(postId, hasInitialData);
+      }
     }
 
     // Return unsubscribe function
