@@ -31,9 +31,10 @@ export function useWalletBalances(walletAddress?: string | null): WalletBalances
 
   useEffect(() => {
     if (!walletAddress) {
-      setSol(0);
-      setUsdc(0);
-      setLoading(false);
+      // Don't reset balances to 0 immediately - keep previous values
+      // This prevents showing $0 during wallet reconnection
+      setLoading(true); // Keep loading state true while waiting for wallet
+      setError(null);
       return;
     }
 
