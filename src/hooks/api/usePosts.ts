@@ -31,9 +31,18 @@ export function usePosts(): UsePostsResult {
   const offsetRef = useRef(0); // Use ref to avoid recreating callbacks
   const loadingMoreRef = useRef(false); // Use ref to avoid dependency issues
   const initialLoadDone = useRef(false); // Track if initial load is done
+  const fetchInProgress = useRef(false); // Prevent concurrent fetches
 
   const fetchPosts = useCallback(async (reset: boolean = false) => {
+    // Prevent concurrent fetches
+    if (fetchInProgress.current) {
+      console.log('[usePosts] Fetch already in progress, skipping');
+      return;
+    }
+
     try {
+      fetchInProgress.current = true;
+
       if (reset) {
         setLoading(true);
         offsetRef.current = 0;
@@ -52,52 +61,18 @@ export function usePosts(): UsePostsResult {
         offset: currentOffset
       });
 
-      // Filter out posts with < $1 market cap
-      const filteredData = data.filter(post => {
-        // If no pool deployed yet, keep the post
-        if (!post.poolAddress) return true;
+      console.log('[usePosts] Received from PostsService:', data.length, 'posts');
 
-        // Get supplies in atomic units (micro-USDC, 6 decimals)
-        const sLongAtomic = post.poolSupplyLong ?? 0;
-        const sShortAtomic = post.poolSupplyShort ?? 0;
+      // No market cap filtering - show all posts
+      const filteredData = data;
 
-        // If no pool data available, keep the post
-        if (sLongAtomic === 0 && sShortAtomic === 0) return true;
-
-        // Convert to display units (USDC_PRECISION = 10^6)
-        const USDC_PRECISION = 1000000;
-        const sLongDisplay = sLongAtomic / USDC_PRECISION;
-        const sShortDisplay = sShortAtomic / USDC_PRECISION;
-
-        // Parse sqrt prices (handle different formats from DB)
-        const sqrtPriceLongX96 = post.poolSqrtPriceLongX96
-          ? (typeof post.poolSqrtPriceLongX96 === 'string'
-              ? BigInt(post.poolSqrtPriceLongX96)
-              : BigInt((post.poolSqrtPriceLongX96 as any).toString()))
-          : BigInt(0);
-        const sqrtPriceShortX96 = post.poolSqrtPriceShortX96
-          ? (typeof post.poolSqrtPriceShortX96 === 'string'
-              ? BigInt(post.poolSqrtPriceShortX96)
-              : BigInt((post.poolSqrtPriceShortX96 as any).toString()))
-          : BigInt(0);
-
-        // Convert sqrt price to price using the proper helper function
-        const priceLong = sqrtPriceLongX96 > BigInt(0) ? sqrtPriceX96ToPrice(sqrtPriceLongX96) : 0;
-        const priceShort = sqrtPriceShortX96 > BigInt(0) ? sqrtPriceX96ToPrice(sqrtPriceShortX96) : 0;
-
-        // Market cap = (supply_long × price_long) + (supply_short × price_short)
-        // Supply is in display units (USDC), price is in USDC per token
-        const marketCapLong = sLongDisplay * priceLong;
-        const marketCapShort = sShortDisplay * priceShort;
-        const totalMarketCap = marketCapLong + marketCapShort;
-
-        // Filter out posts with < $1 market cap
-        return totalMarketCap >= 1;
-      });
+      console.log('[usePosts] After filtering:', filteredData.length, 'posts');
 
       if (reset) {
+        console.log('[usePosts] Setting posts (reset):', filteredData.length);
         setPosts(filteredData);
       } else {
+        console.log('[usePosts] Appending posts:', filteredData.length);
         setPosts(prev => [...prev, ...filteredData]);
       }
 
@@ -110,12 +85,13 @@ export function usePosts(): UsePostsResult {
         offsetRef.current = data.length;
       }
     } catch (err) {
-      console.error('[usePosts]:', err);
+      console.error('[usePosts] Error:', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch posts'));
     } finally {
       setLoading(false);
       loadingMoreRef.current = false;
       setLoadingMore(false);
+      fetchInProgress.current = false;
     }
   }, []); // No dependencies - all state managed via refs
 
@@ -132,6 +108,7 @@ export function usePosts(): UsePostsResult {
 
   useEffect(() => {
     if (!initialLoadDone.current) {
+      console.log('[usePosts] Starting initial load');
       initialLoadDone.current = true;
       fetchPosts(true);
     }
