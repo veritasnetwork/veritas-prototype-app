@@ -9,6 +9,10 @@ import { PostAPIResponseSchema } from '@/types/api';
 import { sqrtPriceX96ToPrice, USDC_PRECISION } from '@/lib/solana/sqrt-price-helpers';
 import { syncPoolFromChain } from '@/lib/solana/sync-pool-from-chain';
 
+// Force dynamic rendering - no static generation or caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -167,13 +171,16 @@ export async function GET(
       const validated = PostAPIResponseSchema.parse(transformedPost);
       return NextResponse.json(validated);
     } catch (validationError) {
+      console.error('[GET /api/posts/[id]] Validation failed:', validationError);
+      console.error('[GET /api/posts/[id]] Transformed post data:', JSON.stringify(transformedPost, null, 2));
       // In development, return unvalidated data with warning
       if (process.env.NODE_ENV === 'development') {
+        console.warn('[GET /api/posts/[id]] Returning unvalidated data in development mode');
         return NextResponse.json(transformedPost);
       }
       // In production, fail
       return NextResponse.json(
-        { error: 'Data validation failed' },
+        { error: 'Data validation failed', details: validationError instanceof Error ? validationError.message : 'Unknown validation error' },
         { status: 500 }
       );
     }

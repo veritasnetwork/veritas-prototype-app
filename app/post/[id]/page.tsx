@@ -6,6 +6,10 @@
 
 import { PostDetailPageClient } from '@/components/post/PostDetailPage';
 
+// Force dynamic rendering - don't statically generate this page
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface PostPageProps {
   params: Promise<{
     id: string;

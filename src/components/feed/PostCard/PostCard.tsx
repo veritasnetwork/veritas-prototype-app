@@ -143,8 +143,8 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
     if (typeof window !== 'undefined') {
       sessionStorage.setItem(`post_${post.id}`, JSON.stringify(post));
     }
-    // Navigate to post page in read mode for article reading
-    router.push(`/post/${post.id}?mode=read`);
+    // Navigate to post page in trade mode
+    router.push(`/post/${post.id}?mode=trade`);
   };
 
   // Get content preview or full content

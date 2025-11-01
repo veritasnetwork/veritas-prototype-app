@@ -110,6 +110,9 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
     const fetchPost = async () => {
       try {
         console.log('[PostDetailPage] Fetching post:', postId);
+        console.log('[PostDetailPage] API URL:', `/api/posts/${postId}`);
+        console.log('[PostDetailPage] Current origin:', typeof window !== 'undefined' ? window.location.origin : 'SSR');
+
         // If we have cached data, don't show loading state but still refresh in background
         if (!post) {
           setLoading(true);
@@ -118,14 +121,18 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
 
         const response = await fetch(`/api/posts/${postId}`);
         console.log('[PostDetailPage] Response status:', response.status);
+        console.log('[PostDetailPage] Response headers:', Object.fromEntries(response.headers.entries()));
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[PostDetailPage] Error response body:', errorText);
+
           if (response.status === 404) {
             console.error('[PostDetailPage] Post not found:', postId);
             setError('Post not found');
           } else {
             console.error('[PostDetailPage] Failed to load post:', response.status, response.statusText);
-            setError('Failed to load post');
+            setError(`Failed to load post (${response.status})`);
           }
           return;
         }
