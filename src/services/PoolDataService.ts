@@ -353,15 +353,25 @@ class PoolDataService {
         rShort,
       };
 
-      sub.data = poolData;
-      this.cache.set(postId, poolData); // Store in persistent cache
+      // Only notify if data actually changed (prevent unnecessary re-renders)
+      const hasChanged = !sub.data ||
+        sub.data.priceLong !== poolData.priceLong ||
+        sub.data.priceShort !== poolData.priceShort ||
+        sub.data.supplyLong !== poolData.supplyLong ||
+        sub.data.supplyShort !== poolData.supplyShort ||
+        sub.data.vaultBalance !== poolData.vaultBalance ||
+        sub.data.rLong !== poolData.rLong ||
+        sub.data.rShort !== poolData.rShort;
 
+      sub.data = poolData;
+      this.cache.set(postId, poolData);
       sub.error = null;
       sub.lastFetch = Date.now();
 
-
-      // Notify all subscribers
-      this.notifySubscribers(postId);
+      // Only notify subscribers if data changed
+      if (hasChanged) {
+        this.notifySubscribers(postId);
+      }
     } catch (error) {
       console.error(`[PoolDataService] Error fetching pool ${postId}:`, error);
       sub.error = error instanceof Error ? error : new Error('Unknown error');
