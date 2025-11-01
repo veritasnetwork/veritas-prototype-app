@@ -23,12 +23,35 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Veritas - Information Discovery Platform',
   description: 'Discover and evaluate information through community-driven signals',
+  metadataBase: new URL('https://app.veritas.computer'),
   icons: {
     icon: [
       { url: '/icons/favicon.ico' },
       { url: '/icons/favicon.svg', type: 'image/svg+xml' },
       { url: '/icons/favicon-96x96.png', sizes: '96x96', type: 'image/png' }
     ],
+  },
+  openGraph: {
+    title: 'Veritas - Information Discovery Platform',
+    description: 'Discover and evaluate information through community-driven signals',
+    url: 'https://app.veritas.computer',
+    siteName: 'Veritas',
+    images: [
+      {
+        url: '/icons/logo.png',
+        width: 96,
+        height: 96,
+        alt: 'Veritas Logo',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Veritas - Information Discovery Platform',
+    description: 'Discover and evaluate information through community-driven signals',
+    images: ['/icons/logo.png'],
   },
 };
 

@@ -57,7 +57,6 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const [hasCheckedOnMount, setHasCheckedOnMount] = useState(false);
 
   const checkUserStatus = async (retryCount = 0) => {
     if (!ready || !authenticated) {
@@ -151,18 +150,16 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       return; // Wait for Privy to be ready
     }
 
-    if (authenticated && !hasCheckedOnMount) {
-      // Only check once on mount when authenticated
-      setHasCheckedOnMount(true);
+    if (authenticated) {
+      // Check auth status whenever user becomes authenticated and Privy is ready
       checkUserStatus();
-    } else if (!authenticated) {
+    } else {
       // Not authenticated - clear state
       setIsLoading(false);
       setUser(null);
       setNeedsOnboarding(false);
-      setHasCheckedOnMount(false); // Reset for next auth
     }
-  }, [authenticated, ready, hasCheckedOnMount]);
+  }, [authenticated, ready]);
 
   const authValue: AuthContextValue = {
     user,
@@ -191,7 +188,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Configure Solana wallet connectors
   const solanaConnectors = toSolanaWalletConnectors({
-    shouldAutoConnect: true, // Enable auto-connect for linked wallets (like Phantom)
+    shouldAutoConnect: false, // Disable auto-connect to prevent modal on every navigation
   });
 
   // Get Solana network configuration from environment
@@ -215,6 +212,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
             showWalletLoginFirst: false,
             // Show wallet as primary option in modals
             walletList: ['detected_solana_wallets' as any, 'privy'],
+            // App branding for wallet identification
+            logo: 'https://app.veritas.computer/icons/logo.png',
+            landingHeader: 'Welcome to Veritas',
+            loginMessage: 'Sign in to Veritas to start trading prediction markets',
           },
           // Use loginMethodsAndOrder instead of loginMethods for better control
           loginMethodsAndOrder: {

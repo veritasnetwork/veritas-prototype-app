@@ -258,9 +258,14 @@ export async function buildCreatePoolTx(
     } as any)
     .transaction();
 
-  // Add compute budget instruction (300K CU should be sufficient)
+  // Add compute budget instruction and memo (300K CU should be sufficient)
   tx.instructions.unshift(
-    ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 })
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
+    new TransactionInstruction({
+      programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+      keys: [],
+      data: Buffer.from('Veritas: Create prediction market pool')
+    })
   );
 
   return tx;
@@ -430,9 +435,14 @@ export async function buildDeployMarketTx(
     } as any)
     .transaction();
 
-  // Add compute budget instruction (600K CU for deploy_market - creates ATAs and mints tokens)
+  // Add compute budget instruction and memo (600K CU for deploy_market - creates ATAs and mints tokens)
   tx.instructions.unshift(
-    ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 })
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }),
+    new TransactionInstruction({
+      programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+      keys: [],
+      data: Buffer.from(`Veritas: Deploy market with ${(params.initialDeposit.toNumber() / 1_000_000).toFixed(2)} USDC`)
+    })
   );
 
   return tx;

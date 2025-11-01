@@ -555,7 +555,15 @@ async function buildTradeTransaction(params: {
     } as any)
     .preInstructions([
       // Add compute budget
-      (await import('@solana/web3.js')).ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+      (await import('@solana/web3.js')).ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+      // Add memo for wallet transparency
+      (await import('@solana/web3.js')).TransactionInstruction.fromObject({
+        programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+        keys: [],
+        data: Buffer.from(
+          `Veritas: ${params.tradeType.toUpperCase()} ${params.side.toUpperCase()} tokens ${params.tradeType === 'buy' ? (params.amount / 1_000_000).toFixed(2) + ' USDC' : (params.amount / 1_000_000).toFixed(2) + ' tokens'}`
+        )
+      })
     ])
     .transaction();
 

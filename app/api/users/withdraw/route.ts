@@ -223,7 +223,13 @@ async function buildWithdrawTransaction(params: {
     } as any)
     .preInstructions([
       // Add compute budget
-      (await import('@solana/web3.js')).ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 })
+      (await import('@solana/web3.js')).ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
+      // Add memo for wallet transparency
+      (await import('@solana/web3.js')).TransactionInstruction.fromObject({
+        programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+        keys: [],
+        data: Buffer.from(`Veritas: Withdraw ${(params.amountMicro / 1_000_000).toFixed(2)} USDC from stake`)
+      })
     ])
     .transaction();
 
