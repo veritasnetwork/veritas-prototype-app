@@ -557,7 +557,7 @@ async function buildTradeTransaction(params: {
       // Add compute budget
       (await import('@solana/web3.js')).ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
       // Add memo for wallet transparency
-      (await import('@solana/web3.js')).TransactionInstruction.fromObject({
+      new (await import('@solana/web3.js')).TransactionInstruction({
         programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
         keys: [],
         data: Buffer.from(
