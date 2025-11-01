@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { PrivyErrorBoundary } from '@/components/auth/PrivyErrorBoundary';
 import { getRpcEndpoint, getNetworkName } from '@/lib/solana/network-config';
+import { useEagerWalletConnect } from '@/hooks/useEagerWalletConnect';
 import {
   MockPrivyProvider,
   usePrivy as useMockPrivy,
@@ -57,6 +58,9 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+
+  // Automatically attempt to reconnect previously linked wallets
+  useEagerWalletConnect();
 
   const checkUserStatus = async (retryCount = 0) => {
     if (!ready || !authenticated) {

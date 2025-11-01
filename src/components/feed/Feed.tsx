@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
-import { useEagerWalletConnect } from '@/hooks/useEagerWalletConnect';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { PostCard } from './PostCard';
 import { usePosts } from '@/hooks/api/usePosts';
@@ -28,9 +27,6 @@ export function Feed() {
   const { authenticated, ready, login, user: privyUser } = usePrivy();
   const { needsOnboarding, isLoading: authLoading } = useAuth();
   const { requireAuth } = useRequireAuth();
-
-  // Automatically attempt to reconnect previously linked wallets
-  useEagerWalletConnect();
 
   // Initialize wallet hook early to trigger Privy wallet loading
   const { wallet: solanaWallet, isLoading: walletLoading } = useSolanaWallet();
@@ -293,13 +289,21 @@ export function Feed() {
 
   // Always use the post from the feed list that matches selectedPostId
   // This ensures we're always showing the correct post data
-  const currentPost = selectedPostId ? posts.find(p => p.id === selectedPostId) : null;
+  // Memoize to prevent unnecessary re-renders
+  const currentPost = useMemo(
+    () => (selectedPostId ? posts.find(p => p.id === selectedPostId) : null),
+    [selectedPostId, posts]
+  );
 
   // Fetch pool data from chain
   const { poolData } = usePoolData(currentPost?.poolAddress, selectedPostId ?? undefined);
 
   // Trade history for price change - only fetch if pool exists
-  const shouldFetchTradeHistory = currentPost?.poolAddress ? (selectedPostId ?? undefined) : undefined;
+  // Memoize to prevent unnecessary hook re-renders
+  const shouldFetchTradeHistory = useMemo(
+    () => (currentPost?.poolAddress ? (selectedPostId ?? undefined) : undefined),
+    [currentPost?.poolAddress, selectedPostId]
+  );
   const { data: tradeHistory, refresh: refreshTradeHistory } = useTradeHistory(shouldFetchTradeHistory, '24H');
 
   // Refresh handler for after successful trades

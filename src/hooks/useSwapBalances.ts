@@ -23,11 +23,9 @@ export function useSwapBalances(poolAddress: string, postId: string) {
   useEffect(() => {
     const fetchBalances = async () => {
       if (!address || !user) {
-        setUsdcBalance(0);
-        setShareBalance(0);
-        setLongBalance(0);
-        setShortBalance(0);
-        setLoading(false);
+        // Keep loading state true while wallet/user is reconnecting
+        // Don't reset balances to 0 immediately
+        setLoading(true);
         return;
       }
 
