@@ -524,11 +524,11 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
       )}
 
       {/* Content Card - The article/media preview */}
-      {/* Mobile: No rounded corners or ring, content flows naturally */}
+      {/* Mobile: Rounded corners for images */}
       {/* Desktop: Card with rounded corners and hover ring */}
       <div
         className={`relative overflow-hidden transition-all duration-1000
-          lg:bg-[#1a1a1a] lg:rounded-xl
+          rounded-xl lg:bg-[#1a1a1a]
           ${isPanelOpenForThisPost
             ? 'lg:ring-2 lg:ring-[#B9D9EB]'
             : 'lg:group-hover:ring-2 lg:group-hover:ring-gray-600/50'
