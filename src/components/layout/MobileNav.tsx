@@ -31,10 +31,10 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         >
           <svg
             className="w-7 h-7"
-            fill={isActive('/feed') ? 'currentColor' : 'none'}
+            fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
-            strokeWidth={isActive('/feed') ? 0 : 2}
+            strokeWidth={2}
           >
             <path
               strokeLinecap="round"

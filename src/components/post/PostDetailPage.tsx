@@ -341,7 +341,7 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
 
                     {/* Total volume pill */}
                     {post.totalVolumeUsdc !== undefined && post.totalVolumeUsdc > 0 && (
-                      <div className="bg-black/70 backdrop-blur-sm rounded-full px-2 py-1 md:flex hidden items-center justify-center flex-shrink-0">
+                      <div className="bg-black/70 backdrop-blur-sm rounded-full px-2 py-1 flex items-center justify-center flex-shrink-0">
                         <BarChart3 className="w-3 h-3 text-gray-400 mr-1" />
                         <span className="font-semibold text-gray-300 text-xs">${post.totalVolumeUsdc >= 1000 ? (post.totalVolumeUsdc / 1000).toFixed(1) + 'k' : post.totalVolumeUsdc.toFixed(0)}</span>
                       </div>
