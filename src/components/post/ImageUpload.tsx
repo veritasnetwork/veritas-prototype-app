@@ -65,6 +65,11 @@ export function ImageUpload({ onUpload, currentUrl, onRemove, disabled, displayM
         throw new Error(data.error || 'Failed to upload image');
       }
 
+      if (!data.url) {
+        console.error('[ImageUpload] No URL in response data:', data);
+        throw new Error('Upload succeeded but no URL returned');
+      }
+
       // Return the public URL
       onUpload(data.url);
     } catch (err) {
@@ -107,9 +112,13 @@ export function ImageUpload({ onUpload, currentUrl, onRemove, disabled, displayM
       <div className="relative group">
         <div className={`w-full rounded-lg overflow-hidden ${displayMode === 'contain' ? 'bg-black' : ''}`}>
           <img
+            key={currentUrl} // Force re-render when URL changes
             src={currentUrl}
             alt="Uploaded image"
             className={`w-full rounded-lg max-h-96 ${displayMode === 'contain' ? 'object-contain' : 'object-cover'}`}
+            onError={(e) => {
+              console.error('[ImageUpload] Image failed to load:', currentUrl);
+            }}
           />
         </div>
         <button

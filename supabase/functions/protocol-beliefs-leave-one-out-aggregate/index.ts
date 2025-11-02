@@ -120,16 +120,18 @@ serve(async (req) => {
     }
     const submissions = Object.values(latestSubmissions)
 
-    // If no submissions, return defaults (0.5, 0.5)
+    // If no submissions, cannot calculate leave-one-out aggregate
     if (!submissions || submissions.length === 0) {
-      const response: LeaveOneOutAggregateResponse = {
-        leave_one_out_belief_aggregate: 0.5,
-        leave_one_out_meta_prediction_aggregate: 0.5
-      }
-
+      console.error(`No submissions found for belief ${belief_id} - cannot calculate leave-one-out aggregate`)
       return new Response(
-        JSON.stringify(response),
+        JSON.stringify({
+          error: 'No submissions available for leave-one-out aggregation',
+          code: 422,
+          belief_id: belief_id,
+          message: 'Cannot calculate leave-one-out aggregate without any submissions.'
+        }),
         {
+          status: 422,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )

@@ -8,6 +8,9 @@ skip-lint = false
 [programs.localnet]
 veritas_curation = "GUUnua8NmaJQKvseg1oGXcZn3Ddh1RGrDnaiXRzQUvew"
 
+[programs.mainnet]
+veritas_curation = "GUUnua8NmaJQKvseg1oGXcZn3Ddh1RGrDnaiXRzQUvew"
+
 [registry]
 url = "https://api.apr.dev"
 

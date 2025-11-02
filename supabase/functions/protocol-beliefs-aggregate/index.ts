@@ -138,20 +138,17 @@ serve(async (req) => {
     const filteredSubmissions = Object.values(latestSubmissionsByAgent)
 
     if (filteredSubmissions.length === 0) {
-      console.log(`No submissions found for belief ${belief_id} in epoch ${queryEpoch} - returning neutral defaults`)
+      console.error(`No submissions found for belief ${belief_id} in epoch ${queryEpoch} - cannot aggregate`)
       return new Response(
         JSON.stringify({
-          aggregate: 0.5, // Neutral
-          jensen_shannon_disagreement_entropy: 0.0,
-          normalized_disagreement_entropy: 0.0,
-          certainty: 0.0, // No certainty without submissions
-          agent_meta_predictions: {},
-          active_agent_indicators: [],
-          leave_one_out_aggregates: {},
-          leave_one_out_meta_aggregates: {}
+          error: 'No submissions available for aggregation',
+          code: 422,
+          belief_id: belief_id,
+          epoch: queryEpoch,
+          message: 'Cannot calculate aggregate without any submissions. Belief must have at least one active submission.'
         }),
         {
-          status: 200,
+          status: 422,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
@@ -261,9 +258,11 @@ serve(async (req) => {
         leaveOneOutAggregates[targetAgentId] = clampProbability(leaveOneOutBelief / remainingWeightSum)
         leaveOneOutMetaAggregates[targetAgentId] = clampProbability(leaveOneOutMeta / remainingWeightSum)
       } else {
-        // If only one agent, leave-one-out is undefined - use neutral values
-        leaveOneOutAggregates[targetAgentId] = 0.5
-        leaveOneOutMetaAggregates[targetAgentId] = 0.5
+        // If only one agent, leave-one-out is undefined
+        // Use the agent's own belief/meta as leave-one-out (since no other agents exist)
+        // This preserves the property that BTS scoring still works with single agent
+        leaveOneOutAggregates[targetAgentId] = clampProbability(targetSubmission.belief)
+        leaveOneOutMetaAggregates[targetAgentId] = clampProbability(targetSubmission.meta_prediction)
       }
     }
 

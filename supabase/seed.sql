@@ -50,18 +50,12 @@ ON CONFLICT (key) DO UPDATE SET
 -- STORAGE BUCKETS
 -- =============================================================================
 
--- Create veritas-media bucket for post images and videos
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'veritas-media',
-  'veritas-media',
-  true,  -- Public bucket (files accessible via public URL)
-  104857600,  -- 100MB file size limit
-  ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime']
-)
-ON CONFLICT (id) DO NOTHING;
+-- Create veritas-media bucket for post images and videos (public for read access)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('veritas-media', 'veritas-media', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
 
--- Create profile-photos bucket for user profile images
+-- Create profile-photos bucket for user profile images (public for read access)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('profile-photos', 'profile-photos', true)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = true;

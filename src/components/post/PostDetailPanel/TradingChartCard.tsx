@@ -40,12 +40,20 @@ interface TradingChartCardProps {
   postId: string;
   poolData: PoolData | null;
   rebaseStatus?: RebaseStatus;
+  tradeHistory?: any; // Pass from parent to avoid duplicate fetching
+  tradeHistoryLoading?: boolean;
+  relevanceHistory?: any; // Pass from parent to avoid duplicate fetching
+  relevanceLoading?: boolean;
 }
 
 export function TradingChartCard({
   postId,
   poolData,
   rebaseStatus,
+  tradeHistory: parentTradeHistory,
+  tradeHistoryLoading: parentTradeHistoryLoading,
+  relevanceHistory: parentRelevanceHistory,
+  relevanceLoading: parentRelevanceLoading,
 }: TradingChartCardProps) {
   // Randomly choose initial chart type: 50% price, 50% relevance
   const [chartType, setChartType] = useState<ChartType>(() => Math.random() < 0.5 ? 'price' : 'relevance');
@@ -77,17 +85,22 @@ export function TradingChartCard({
   const [timeRangeSliderStyle, setTimeRangeSliderStyle] = useState<React.CSSProperties>({});
   const [relevanceTimeRangeSliderStyle, setRelevanceTimeRangeSliderStyle] = useState<React.CSSProperties>({});
 
-  // IMPORTANT: Fetch BOTH chart types' data regardless of which is currently visible
-  // This ensures that when a trade happens, both charts get updated in their SWR cache
-  // even if the user is only looking at one of them
-  const { data: tradeHistory, isLoading: tradeHistoryLoading } = useTradeHistory(
-    postId, // Always fetch, don't conditionally skip
+  // IMPORTANT: Use parent data if available to avoid duplicate fetching
+  // Only fetch if parent didn't provide the data (for standalone usage)
+  const { data: ownTradeHistory, isLoading: ownTradeHistoryLoading } = useTradeHistory(
+    parentTradeHistory ? undefined : postId, // Skip fetch if parent provided data
     timeRange
   );
 
-  const { data: relevanceHistory, isLoading: relevanceLoading, error: relevanceError } = useRelevanceHistory(
-    postId  // Always fetch, don't conditionally skip
+  const { data: ownRelevanceHistory, isLoading: ownRelevanceLoading, error: relevanceError } = useRelevanceHistory(
+    parentRelevanceHistory ? undefined : postId  // Skip fetch if parent provided data
   );
+
+  // Use parent data if available, otherwise use own fetched data
+  const tradeHistory = parentTradeHistory || ownTradeHistory;
+  const tradeHistoryLoading = parentTradeHistoryLoading !== undefined ? parentTradeHistoryLoading : ownTradeHistoryLoading;
+  const relevanceHistory = parentRelevanceHistory || ownRelevanceHistory;
+  const relevanceLoading = parentRelevanceLoading !== undefined ? parentRelevanceLoading : ownRelevanceLoading;
 
   const { rebasePool, isRebasing, error: rebaseError } = useRebasePool();
 

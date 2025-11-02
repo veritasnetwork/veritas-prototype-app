@@ -1,0 +1,160 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{hyperref}
+
+\geometry{margin=1in}
+
+\setcounter{secnumdepth}{0}
+
+\title{The Geometry of Belief: Understanding the Euclidean Norm ICBS}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Markets as Instruments of Understanding}
+
+How do you price the relevance of an emerging idea? Or the significance of a contested claim? Standard prediction markets require objective outcomes. But most information worth tracking (early signals, cultural shifts, subjective importance) has no clear ground truth.
+
+The Inversely Coupled Bonding Surface (ICBS) \cite{icbs2020} provides the foundation for such markets. Traders compete by taking LONG or SHORT positions on content relevance. However, without external grounding, even coupled markets risk becoming purely reflexive, rewarding hype over insight. We have adapted the original ICBS design to support periodic settlement via the rebasing of virtual reserves. At regular intervals, reserves rebase according to crowd wisdom elicitation. In Veritas, we use Belief Decomposition scored via Bayesian Truth Serum. By anchoring to ground truth settlement, prices become less reflexive and instead express continuous, honest crowd wisdom. This rewards being ``early and right'' while grounding speculation in collective epistemic truth.
+
+\section{A Coupled Market for Competing Beliefs}
+
+In traditional bonding curves like Uniswap, tokens move independently. You can buy one without affecting the other. This is fine for trading currencies or assets, but it's inadequate when we want to model belief competition.
+
+With ICBS, the two tokens (say, LONG and SHORT) are inversely coupled: buying LONG pushes its price up but pushes SHORT's price down, and buying SHORT does the opposite. Capital flows directly express the relative strength of competing beliefs.
+
+To implement this idea, we use a cost function that binds the two tokens together mathematically. In the Euclidean norm version, this function is strikingly simple and geometrically beautiful.
+
+\section{The Cost Function}
+
+At the heart of the Euclidean norm ICBS is the cost function:
+
+\begin{equation}
+C(s_L, s_S) = \lambda \cdot \sqrt{s_L^2 + s_S^2}
+\end{equation}
+
+where:
+\begin{itemize}
+\item $s_L$ is the total supply of LONG tokens
+\item $s_S$ is the total supply of SHORT tokens
+\item $\lambda$ is a fixed scaling constant that defines the price unit and market scale
+\end{itemize}
+
+This function measures the ``distance'' from the origin in the $(s_L, s_S)$ plane. If the market starts at $(0, 0)$, buying tokens moves us outward along a radial line, with cost proportional to how far we move as measured by the Euclidean norm.
+
+\noindent\textbf{Deriving Lambda from Initial Deployment.}
+
+When deploying a pool with initial deposit $D$ allocated as $(A_L, A_S)$ between LONG and SHORT, we derive integer supplies $(s_L, s_S)$ that match the allocation ratio, then compute:
+
+\begin{equation}
+\lambda = \frac{D}{\sqrt{s_L^2 + s_S^2}}
+\end{equation}
+
+This fixes $\lambda$ for the lifetime of the pool, establishing a consistent unit of account across all trades. The cost function is then precisely $C(s_L, s_S) = D$ at deployment, placing the market exactly on-manifold from inception. This on-manifold property is critical for settlement: when reserves rebase according to relevance scores, the vault remains solvent because total reserves always equal the cost function value, ensuring claims can always be honored.
+
+Every point on a circle centered at the origin has the same cost.
+
+\noindent\textbf{Marginal Prices.} Prices emerge as partial derivatives of the cost function, the slopes of the cost landscape in each direction.
+
+\begin{align}
+p_L &= \frac{\partial C}{\partial s_L} = \lambda \cdot \frac{s_L}{\sqrt{s_L^2 + s_S^2}} \\
+p_S &= \frac{\partial C}{\partial s_S} = \lambda \cdot \frac{s_S}{\sqrt{s_L^2 + s_S^2}}
+\end{align}
+
+Each token's price increases with its own supply but is suppressed by the opposing side. As more people back LONG, it gets more expensive and SHORT becomes cheaper. This expresses the ``strength'' of one belief over another.
+
+\noindent\textbf{Virtual Reserves.}
+
+Virtual reserves represent the notional value backing each side of the market. They enable periodic settlement without minting or burning tokens, allowing markets to rebase according to crowd wisdom. We define them as:
+
+\begin{align}
+r_L &= s_L \cdot p_L = \lambda \cdot \frac{s_L^2}{\sqrt{s_L^2 + s_S^2}} \\
+r_S &= s_S \cdot p_S = \lambda \cdot \frac{s_S^2}{\sqrt{s_L^2 + s_S^2}}
+\end{align}
+
+The total value locked (TVL) in the market becomes:
+
+\begin{equation}
+\text{TVL} = r_L + r_S = \lambda \cdot \sqrt{s_L^2 + s_S^2}
+\end{equation}
+
+Beautifully, this matches the cost function exactly. The definition $r = s \cdot p$ establishes a fundamental relationship: reserves equal supply times price. This invariant ensures that the total claimable value always matches what the vault holds, maintaining solvency.
+
+When settlement occurs, we scale reserves by relevance scores while keeping token supplies constant. By adjusting prices to preserve $r = s \cdot p$, we achieve instant reward redistribution: holders of the correct side see their tokens gain purchasing power, while the incorrect side loses value, all without touching supply.
+
+\section{Properties and Implications}
+
+The cross-derivatives reveal the inverse coupling mechanism:
+
+\begin{equation}
+\frac{\partial p_L}{\partial s_S} = -\lambda \cdot \frac{s_L s_S}{(s_L^2 + s_S^2)^{3/2}} < 0
+\end{equation}
+
+This tells us that increasing supply of SHORT directly lowers the price of LONG and vice versa, creating genuine competition between the two sides.
+
+Prices range from 0 to $\lambda$.
+
+As one token dominates, its price approaches $\lambda$, while the other approaches 0:
+
+\begin{equation}
+\lim_{s_L \to \infty, s_S \text{ fixed}} p_L = \lambda
+\end{equation}
+
+\textbf{Interpretation:} $\lambda$ is the ``price ceiling.'' But since it's defined by the initial deposit, it also sets the scale of belief intensity.
+
+Since $\lambda$ is fixed at deployment, the market can grow without changing price dynamics. Percentage-based price impact remains consistent over time, and comparison between belief markets is meaningful. TVL grows linearly with the supply norm:
+
+\begin{equation}
+\text{TVL} = \lambda \cdot \|s\|
+\end{equation}
+
+This linear growth has important implications for liquidity. Unlike mechanisms with bounded loss (such as LMSR, where maximum loss equals the liquidity parameter $b$), ICBS has no upper bound on potential loss or gain. Each trade increases TVL, allowing liquidity to grow organically with market activity rather than requiring substantial upfront capital from a market maker. This makes ICBS highly capital efficient: markets can bootstrap from minimal initial deposits and scale naturally with trading interest.
+
+\section{Comparison to Other Mechanisms}
+
+\noindent\textbf{Generalized ICBS.} The Euclidean norm variant is a special case of the generalized ICBS formulation with $F=1$ and $\beta=0.5$. While both feature inverse coupling, the Euclidean norm variant offers computational advantages: it requires only square root operations versus fractional powers. This yields circular iso-cost curves instead of rounded squares and linear price growth instead of superlinear.
+
+\noindent\textbf{LMSR.} Logarithmic Market Scoring Rules use a cost function $C = b \ln(e^{s_L/b} + e^{s_S/b})$ with prices bounded in $[0,1]$. LMSR has coupling between tokens, but models probabilities for binary outcomes with a predetermined liquidity parameter $b$.
+
+Euclidean norm ICBS differs critically in two ways. First, prices are bounded by $\lambda$ rather than fixed at $[0,1]$, allowing early backers of correct beliefs to earn unbounded returns, essential for incentivizing discovery of undervalued ideas. Second, LMSR has bounded maximum loss (equal to $b$), requiring the market maker to provide substantial upfront liquidity. ICBS has no such constraint: liquidity grows organically with trading volume, as each trade adds to TVL. This makes ICBS far more capital efficient for speculative discovery.
+
+\noindent\textbf{Uniswap V2.} Constant product market makers use $s_L \times s_S = k$ where tokens act as complements in a liquidity pool rather than substitutes in a speculation market. The price formula $p = s_S/s_L$ depends solely on the supply ratio. Unlike ICBS, there is no scaling factor $\lambda$ to provide a fixed unit of account, and no mechanism for settlement-based rebasing.
+
+\section{Settlement: Anchoring Speculation in Truth}
+
+Markets are powerful for information aggregation, but they need resolution. Otherwise, they devolve into reflexive, hyper-speculative Keynesian beauty contests. ICBS supports settlement anchoring via Veritas' Belief Decomposition (BD) scores.
+
+At the end of an epoch, an external signal $q^* \in [0, 1]$ provides a relevance score. Reserves are updated via a settlement function $f$:
+\begin{align}
+    r'_L &= r_L \cdot f(q^*) \\
+    r'_S &= r_S \cdot f(1 - q^*)
+\end{align}
+
+Virtualization absorbs the change without altering supply:
+\begin{align}
+    s_{\text{virtual}} &= \frac{s_{\text{display}}}{\sigma} \\
+    p_{\text{display}} &= \frac{p_{\text{virtual}}}{\sigma}
+\end{align}
+
+This preserves the invariant $r = s \cdot p$ while allowing the market to recalibrate around truth. The separation between virtual and displayed quantities enables settlement without minting or burning tokens, allowing instant reward redistribution without user intervention. Settlement is not an event but a recalibration of belief weight.
+
+As Vitalik Buterin observed, bonding curves need grounding. Without external anchoring, markets reward only timing and hype, not insight.
+
+Veritas' ICBS, with settlement anchoring, creates a new dynamic where early speculation realizes rewards when correct and markets converge anchored to crowd-sourced relevance. This aligns incentives with epistemic value, turning speculation into structured discovery.
+
+\begin{thebibliography}{9}
+
+\bibitem{icbs2020}
+Nick Williams and Vitalik Buterin,
+\textit{Better Curation via Inversely Coupled Bonding Surfaces},
+Ethereum Research, 2020.
+\url{https://ethresear.ch/t/better-curation-via-inversely-coupled-bonding-surfaces/7613/2}
+
+\end{thebibliography}
+
+\end{document}

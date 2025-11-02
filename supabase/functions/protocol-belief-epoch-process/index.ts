@@ -223,16 +223,28 @@ serve(async (req) => {
 
     // Fall back to naive aggregation if decomposition failed or quality was too low
     if (!decompositionUsed) {
-      aggregationData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-aggregate', {
-        belief_id: belief_id,
-        weights: weightsData.weights,
-        epoch: currentEpoch
-      })
+      try {
+        aggregationData = await callInternalFunction(supabaseUrl, anonKey, 'protocol-beliefs-aggregate', {
+          belief_id: belief_id,
+          weights: weightsData.weights,
+          epoch: currentEpoch
+        })
 
-      console.log(`📊 Step 2: Belief aggregation (naive) complete`)
-      console.log(`📊 Aggregate: ${(aggregationData.aggregate * 100).toFixed(1)}%`)
-      console.log(`📊 Jensen-Shannon entropy: ${aggregationData.jensen_shannon_disagreement_entropy.toFixed(4)}`)
-      console.log(`📊 Certainty: ${(aggregationData.certainty * 100).toFixed(1)}%`)
+        console.log(`📊 Step 2: Belief aggregation (naive) complete`)
+        console.log(`📊 Aggregate: ${(aggregationData.aggregate * 100).toFixed(1)}%`)
+        console.log(`📊 Jensen-Shannon entropy: ${aggregationData.jensen_shannon_disagreement_entropy.toFixed(4)}`)
+        console.log(`📊 Certainty: ${(aggregationData.certainty * 100).toFixed(1)}%`)
+      } catch (aggregateError) {
+        // Both decomposition and aggregation failed - this belief cannot be processed
+        console.error(`❌ Both decomposition and aggregation failed for belief ${belief_id}:`, aggregateError.message)
+        throw new Error(`Cannot process belief ${belief_id}: Both decomposition and aggregation methods failed. ${aggregateError.message}`)
+      }
+    }
+
+    // Validate that we have a valid aggregate value
+    if (aggregationData.aggregate === undefined || aggregationData.aggregate === null ||
+        !isFinite(aggregationData.aggregate) || aggregationData.aggregate < 0 || aggregationData.aggregate > 1) {
+      throw new Error(`Invalid aggregate value for belief ${belief_id}: ${aggregationData.aggregate}. Must be a number between 0 and 1.`)
     }
 
     // Use aggregation/decomposition result directly as final aggregate (absolute BD relevance)

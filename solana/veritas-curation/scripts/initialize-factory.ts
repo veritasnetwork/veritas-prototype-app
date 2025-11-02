@@ -83,11 +83,14 @@ async function main() {
   // Load protocol authority from environment variable
   const protocolAuthorityKeypair = loadProtocolAuthority();
   const protocolAuthority = protocolAuthorityKeypair.publicKey;
-  const protocolTreasury = protocolAuthority; // Use same for treasury
 
-  // Fee configuration: 3% total fee (300 bps), 50% to creator (5000 bps of 10000)
-  const totalFeeBps = 300;
-  const creatorSplitBps = 5000;
+  // Use upgrade authority as protocol treasury for mainnet
+  const protocolTreasury = wallet.publicKey;
+
+  // Fee configuration from deployment.config.json:
+  // 0.5% total fee (50 bps), 100% to creator (10000 bps of 10000)
+  const totalFeeBps = 50;
+  const creatorSplitBps = 10000;
 
   // Get program data PDA
   const [programDataAddress] = PublicKey.findProgramAddressSync(

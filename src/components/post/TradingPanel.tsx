@@ -104,6 +104,10 @@ export function TradingPanel({
             postId={postId}
             poolData={displayPoolData}
             rebaseStatus={rebaseStatus}
+            tradeHistory={tradeHistory}
+            tradeHistoryLoading={tradeHistoryLoading}
+            relevanceHistory={relevanceHistory}
+            relevanceLoading={relevanceLoading}
           />
         </Suspense>
       )}

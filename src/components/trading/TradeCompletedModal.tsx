@@ -48,8 +48,8 @@ export function TradeCompletedModal({
   const isLong = details.side === 'LONG';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="relative w-full max-w-md bg-neutral-900 rounded-xl shadow-2xl border border-neutral-800 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm pointer-events-none">
+      <div className="relative w-full max-w-md bg-neutral-900 rounded-xl shadow-2xl border border-neutral-800 overflow-hidden pointer-events-auto">
         {/* Success Header with Animation */}
         <div className="relative bg-gradient-to-b from-neutral-800 to-neutral-900 px-6 py-8 text-center">
           {/* Animated Check Circle */}

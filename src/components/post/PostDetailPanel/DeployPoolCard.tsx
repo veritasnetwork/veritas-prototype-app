@@ -10,7 +10,6 @@ import { useState } from 'react';
 import { Connection } from '@solana/web3.js';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
 import { useDeployPool } from '@/hooks/useDeployPool';
-import { useConnectWallet } from '@/hooks/usePrivyHooks';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useSwapBalances } from '@/hooks/useSwapBalances';
 import { Rocket, AlertCircle, Info } from 'lucide-react';
@@ -26,7 +25,6 @@ interface DeployPoolCardProps {
 export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps) {
   const { address, isConnected, isLoading: walletLoading, needsReconnection } = useSolanaWallet();
   const { deployPool, isDeploying, error: deployError } = useDeployPool();
-  const { connectWallet } = useConnectWallet();
   const { requireAuth } = useRequireAuth();
   const { usdcBalance } = useSwapBalances('', postId); // Just need USDC balance
 
@@ -45,14 +43,15 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
     setIsConnectingWallet(true);
     setError(null);
     try {
-      await connectWallet();
+      // Use requireAuth to trigger full authentication flow (creates user, agent, etc.)
+      await requireAuth();
       // useSolanaWallet hook will automatically detect the connected wallet
+      // No need to handle the return value - if user cancels, they just stay disconnected
     } catch (err: any) {
       console.error('[DeployPoolCard] Wallet connection error:', err);
-      if (err?.message?.includes('cancel') || err?.message?.includes('user_exited')) {
-        setError('Wallet connection cancelled.');
-      } else {
-        setError(`Failed to connect wallet: ${err?.message || 'Unknown error'}.`);
+      // Only show error for actual failures, not user cancellation
+      if (!err?.message?.includes('cancel') && !err?.message?.includes('user_exited')) {
+        setError(`Failed to authenticate: ${err?.message || 'Unknown error'}.`);
       }
     } finally {
       setIsConnectingWallet(false);

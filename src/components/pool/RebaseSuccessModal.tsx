@@ -96,7 +96,7 @@ export function RebaseSuccessModal({
                 {bdScorePercent.toFixed(1)}%
               </div>
               <p className="text-xs text-neutral-400">
-                Bayesian Truth Serum aggregate score
+                Belief Decomposition Posterior
               </p>
             </div>
           </div>

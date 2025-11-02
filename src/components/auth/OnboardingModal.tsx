@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react';
 import { usePrivy, useConnectWallet } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
+import { X } from 'lucide-react';
 
 interface OnboardingModalProps {
   isOpen: boolean;
 }
 
 export function OnboardingModal({ isOpen }: OnboardingModalProps) {
-  const { user: privyUser, getAccessToken } = usePrivy();
+  const { user: privyUser, getAccessToken, logout } = usePrivy();
   const { refreshUser } = useAuth();
   const { connectWallet } = useConnectWallet();
 
@@ -183,7 +184,18 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md">
-      <div className="bg-[#0a0a0a]/95 border border-white/10 rounded-2xl p-10 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-xl">
+      <div className="bg-[#0a0a0a]/95 border border-white/10 rounded-2xl p-10 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-xl relative">
+        {/* Exit Button - Glassmorphism Style */}
+        <button
+          onClick={async () => {
+            await logout();
+          }}
+          className="absolute top-4 right-4 p-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white/70 hover:text-white transition-all z-10"
+          aria-label="Exit"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
         {step === 'profile' ? (
           <>
             {/* Header */}

@@ -159,24 +159,24 @@ export function RebaseConfirmationModal({
               ? 'bg-orange-500/10 border border-orange-500/30'
               : 'bg-red-500/10 border border-red-500/30'
           }`}>
-            <p className={`text-sm font-medium ${
+            <div className={`text-sm font-medium ${
               error.includes('Rebase will be available') || error.includes('Cooldown active') || error.includes('Insufficient new activity') || error.includes('Need at least')
                 ? 'text-orange-400'
                 : 'text-red-400'
             }`}>
               {error.includes('Rebase will be available') || error.includes('Cooldown active') ? error : (
                 <>
-                  Rebase Failed
-                  <p className={`text-xs mt-1 font-normal ${
+                  <div>Rebase Failed</div>
+                  <div className={`text-xs mt-1 font-normal ${
                     error.includes('Insufficient new activity') || error.includes('Need at least')
                       ? 'text-orange-300'
                       : 'text-red-300'
                   }`}>
                     {error}
-                  </p>
+                  </div>
                 </>
               )}
-            </p>
+            </div>
           </div>
         )}
 

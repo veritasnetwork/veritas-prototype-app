@@ -732,7 +732,8 @@ async function performDecomposition(
     const logDiff_r = logComplement_r - logAggregate_r;
 
     if (!isFinite(logAggregate_r) || !isFinite(logComplement_r)) {
-      aggregate_r = 0.5; // Fallback
+      console.error(`[BD] Non-finite values in leave-one-out calculation for agent ${targetAgentId}: logAggregate=${logAggregate_r}, logComplement=${logComplement_r}`);
+      throw new Error(`Numerical instability in leave-one-out BD calculation for agent ${targetAgentId}`);
     } else if (logDiff_r > 700) {
       aggregate_r = EPSILON_PROBABILITY;
     } else if (logDiff_r < -700) {

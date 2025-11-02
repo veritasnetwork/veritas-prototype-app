@@ -10,48 +10,25 @@ import { EventProcessor } from '@/services/event-processor.service';
 import { BorshCoder, EventParser } from '@coral-xyz/anchor';
 import { PublicKey } from '@solana/web3.js';
 import idl from '@/lib/solana/target/idl/veritas_curation.json';
-import { createHmac } from 'crypto';
 
 const eventProcessor = new EventProcessor();
 
-/**
- * Verify Helius webhook signature using HMAC-SHA256
- * See: https://docs.helius.dev/webhooks/webhook-security
- */
-function verifyWebhookSignature(
-  payload: string,
-  signature: string,
-  secret: string
-): boolean {
-  const hmac = createHmac('sha256', secret);
-  hmac.update(payload);
-  const expectedSignature = hmac.digest('hex');
-
-  // Use timing-safe comparison to prevent timing attacks
-  return signature === expectedSignature;
-}
 
 export async function POST(req: NextRequest) {
 
   // Get raw body for signature verification
   const rawBody = await req.text();
 
-  // Verify webhook signature for security
+  // Verify webhook authentication
   const webhookSecret = process.env.HELIUS_WEBHOOK_SECRET;
   if (webhookSecret) {
-    const signature = req.headers.get('x-helius-signature');
-    if (!signature) {
-      console.error('❌ Missing webhook signature');
+    const authHeader = req.headers.get('authorization');
+    if (authHeader !== webhookSecret && authHeader !== `Bearer ${webhookSecret}`) {
+      console.error('❌ Invalid webhook authentication');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
-      console.error('❌ Invalid webhook signature');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
   } else {
-    console.warn('⚠️  HELIUS_WEBHOOK_SECRET not set - signature verification disabled');
+    console.warn('⚠️  HELIUS_WEBHOOK_SECRET not set - authentication disabled');
   }
 
   try {

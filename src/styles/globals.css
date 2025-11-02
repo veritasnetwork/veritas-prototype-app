@@ -1,9 +1,9 @@
+/* Import panel styles - must be first */
+@import './panel.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Import panel styles */
-@import './panel.css';
 
 /* Hide Lightweight Charts watermark */
 .lightweight-charts-container a[target="_blank"] {

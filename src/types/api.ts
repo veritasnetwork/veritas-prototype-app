@@ -40,6 +40,7 @@ export const PostAPIResponseSchema = z.object({
   media_urls: z.array(z.string().url()).nullable(),
   article_title: z.string().nullable(),
   cover_image_url: z.string().url().nullable(),
+  image_display_mode: z.enum(['contain', 'cover']).optional(),
 
   // Author (nested)
   author: z.object({
@@ -61,15 +62,13 @@ export const PostAPIResponseSchema = z.object({
   poolSqrtPriceLongX96: z.string().nullable(),
   poolSqrtPriceShortX96: z.string().nullable(),
   poolVaultBalance: z.number().nullable(),
+  poolReserveLong: z.number().nullable(),
+  poolReserveShort: z.number().nullable(),
   poolLastSyncedAt: z.string().nullable(),
   // ICBS parameters
   poolF: z.number().optional(),
   poolBetaNum: z.number().optional(),
   poolBetaDen: z.number().optional(),
-
-  // Metadata
-  likes: z.number(),
-  views: z.number(),
 });
 
 // ============================================================================

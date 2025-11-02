@@ -103,7 +103,7 @@ pub struct ContentPool {
 }
 
 impl ContentPool {
-    pub const LEN: usize = 496; // Updated from 464 (+32 for sigma scales: 2 x u128)
+    pub const LEN: usize = 496;
 
     /// Seeds for PDA derivation
     pub fn seeds(&self) -> Vec<Vec<u8>> {

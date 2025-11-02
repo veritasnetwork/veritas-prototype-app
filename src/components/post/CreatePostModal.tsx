@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
@@ -34,9 +34,52 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null); // Optional cover for articles (requires title)
   const [showTitleCover, setShowTitleCover] = useState(false); // Toggle for title/cover section
 
+  // Use refs to persist state across Fast Refresh (dev only)
+  const persistedCoverImageRef = useRef<string | null>(null);
+  const persistedArticleTitleRef = useRef<string>('');
+  const persistedShowTitleCoverRef = useRef<boolean>(false);
+  const hasRestoredRef = useRef<boolean>(false);
+
+  // Restore all state from refs after Fast Refresh
+  useEffect(() => {
+    if (isOpen && !hasRestoredRef.current) {
+      if (persistedCoverImageRef.current && !coverImageUrl) {
+        setCoverImageUrl(persistedCoverImageRef.current);
+      }
+      if (persistedArticleTitleRef.current && !articleTitle) {
+        setArticleTitle(persistedArticleTitleRef.current);
+      }
+      if (persistedShowTitleCoverRef.current && !showTitleCover) {
+        setShowTitleCover(persistedShowTitleCoverRef.current);
+      }
+      hasRestoredRef.current = true;
+    }
+
+    // Reset restoration flag when modal closes
+    if (!isOpen) {
+      hasRestoredRef.current = false;
+    }
+  }, [isOpen, coverImageUrl, articleTitle, showTitleCover]);
+
+  // Persist state to refs whenever they change
+  useEffect(() => {
+    if (coverImageUrl) {
+      persistedCoverImageRef.current = coverImageUrl;
+    }
+  }, [coverImageUrl]);
+
+  useEffect(() => {
+    if (articleTitle) {
+      persistedArticleTitleRef.current = articleTitle;
+    }
+  }, [articleTitle]);
+
+  useEffect(() => {
+    persistedShowTitleCoverRef.current = showTitleCover;
+  }, [showTitleCover]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
 
   // Trap focus and handle ESC key
   useEffect(() => {
@@ -62,17 +105,6 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       document.removeEventListener('keydown', handleEscape);
       document.removeEventListener('keydown', handleCmdEnter);
       document.body.style.overflow = 'unset';
-    };
-  }, [isOpen]); // Remove unnecessary dependencies that cause re-renders
-
-  // Debug: Log when modal unexpectedly unmounts
-  useEffect(() => {
-    if (isOpen) {
-    }
-    return () => {
-      if (isOpen) {
-        console.warn('[CreatePostModal] Unmounted while isOpen=true - possible crash!');
-      }
     };
   }, [isOpen]);
 
@@ -127,7 +159,15 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     setImageDisplayMode('cover');
     setArticleTitle('');
     setCoverImageUrl(null);
+    setShowTitleCover(false);
     setError(null);
+
+    // Clear all persisted refs
+    persistedCoverImageRef.current = null;
+    persistedArticleTitleRef.current = '';
+    persistedShowTitleCoverRef.current = false;
+    hasRestoredRef.current = false;
+
     onClose();
   };
 
