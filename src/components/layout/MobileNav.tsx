@@ -20,12 +20,12 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
   };
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#1a1a1a] border-t border-gray-800 z-[1100] backdrop-blur-md bg-opacity-95">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#1a1a1a] border-t border-gray-800 z-[9999] backdrop-blur-md bg-opacity-95 safe-area-bottom">
       <div className="flex items-center justify-around h-full px-2">
         {/* Feed */}
         <Link
           href="/feed"
-          className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
+          className={`flex flex-col items-center justify-center w-full h-full transition-colors touch-feedback ${
             isActive('/feed') ? 'text-[#B9D9EB]' : 'text-gray-400'
           }`}
         >
@@ -48,7 +48,7 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         {/* Explore */}
         <Link
           href="/explore"
-          className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
+          className={`flex flex-col items-center justify-center w-full h-full transition-colors touch-feedback ${
             isActive('/explore') ? 'text-[#B9D9EB]' : 'text-gray-400'
           }`}
         >
@@ -67,11 +67,12 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         {/* Create Post */}
         <button
           onClick={onCreatePost}
-          className="flex flex-col items-center justify-center w-full h-full text-[#B9D9EB] relative"
+          className="flex flex-col items-center justify-center w-full h-full text-[#B9D9EB] relative touch-feedback"
+          type="button"
         >
           {/* Light blue circle background */}
-          <div className="absolute top-1/2 -translate-y-1/2 w-12 h-12 bg-[#B9D9EB] rounded-full flex items-center justify-center">
-            <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+          <div className="absolute top-1/2 -translate-y-1/2 w-12 h-12 bg-[#B9D9EB] rounded-full flex items-center justify-center pointer-events-none">
+            <svg className="w-6 h-6 text-black pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
           </div>
@@ -81,7 +82,7 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         {user ? (
           <Link
             href={`/profile/${user.username}`}
-            className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
+            className={`flex flex-col items-center justify-center w-full h-full transition-colors touch-feedback ${
               isActive('/profile') ? 'text-[#B9D9EB]' : 'text-gray-400'
             }`}
           >
@@ -103,7 +104,7 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         ) : (
           <Link
             href="/feed"
-            className="flex flex-col items-center justify-center w-full h-full text-gray-400"
+            className="flex flex-col items-center justify-center w-full h-full text-gray-400 touch-feedback"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path
