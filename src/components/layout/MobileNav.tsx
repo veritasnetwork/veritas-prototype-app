@@ -25,12 +25,12 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         {/* Feed */}
         <Link
           href="/feed"
-          className={`flex flex-col items-center justify-center w-full h-full transition-colors touch-feedback ${
+          className={`flex items-center justify-center w-full h-full transition-colors touch-feedback ${
             isActive('/feed') ? 'text-[#B9D9EB]' : 'text-gray-400'
           }`}
         >
           <svg
-            className="w-6 h-6"
+            className="w-7 h-7"
             fill={isActive('/feed') ? 'currentColor' : 'none'}
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -47,12 +47,12 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         {/* Explore */}
         <Link
           href="/explore"
-          className={`flex flex-col items-center justify-center w-full h-full transition-colors touch-feedback ${
+          className={`flex items-center justify-center w-full h-full transition-colors touch-feedback ${
             isActive('/explore') ? 'text-[#B9D9EB]' : 'text-gray-400'
           }`}
         >
           <svg
-            className="w-6 h-6"
+            className="w-7 h-7"
             fill={isActive('/explore') ? 'currentColor' : 'none'}
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -65,7 +65,7 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         {/* Create Post */}
         <button
           onClick={onCreatePost}
-          className="flex flex-col items-center justify-center w-full h-full text-[#B9D9EB] relative touch-feedback"
+          className="flex items-center justify-center w-full h-full text-[#B9D9EB] relative touch-feedback"
           type="button"
         >
           {/* Light blue circle background */}
@@ -80,7 +80,7 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         {user ? (
           <Link
             href={`/profile/${user.username}`}
-            className="flex flex-col items-center justify-center w-full h-full relative touch-feedback"
+            className="flex items-center justify-center w-full h-full relative touch-feedback"
           >
             {/* Profile Picture Circle - same size as create button */}
             <div className={`absolute top-1/2 -translate-y-1/2 w-12 h-12 rounded-full overflow-hidden pointer-events-none ${
@@ -105,7 +105,7 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         ) : (
           <Link
             href="/feed"
-            className="flex flex-col items-center justify-center w-full h-full relative touch-feedback"
+            className="flex items-center justify-center w-full h-full relative touch-feedback"
           >
             {/* Login circle - same style as default profile */}
             <div className="absolute top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center pointer-events-none">
