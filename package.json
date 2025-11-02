@@ -70,6 +70,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@ducanh2912/next-pwa": "^10.2.9",
     "@playwright/test": "^1.56.1",
     "@types/node": "^20.19.1",
     "@types/react": "^19",

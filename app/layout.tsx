@@ -22,18 +22,27 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'Veritas - Information Discovery Platform',
-  description: 'Discover and evaluate information through community-driven signals',
+  description: 'Create, discover, and trade relevant content',
   metadataBase: new URL('https://app.veritas.computer'),
+  manifest: '/manifest.json',
   icons: {
     icon: [
       { url: '/icons/favicon.ico' },
       { url: '/icons/favicon.svg', type: 'image/svg+xml' },
       { url: '/icons/favicon-96x96.png', sizes: '96x96', type: 'image/png' }
     ],
+    apple: [
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Veritas',
   },
   openGraph: {
     title: 'Veritas - Information Discovery Platform',
-    description: 'Discover and evaluate information through community-driven signals',
+    description: 'Create, discover, and trade relevant content',
     url: 'https://app.veritas.computer',
     siteName: 'Veritas',
     images: [
@@ -50,8 +59,14 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary',
     title: 'Veritas - Information Discovery Platform',
-    description: 'Discover and evaluate information through community-driven signals',
+    description: 'Create, discover, and trade relevant content',
     images: ['/icons/logo.png'],
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
   },
 };
 

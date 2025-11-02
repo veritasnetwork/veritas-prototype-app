@@ -1,5 +1,6 @@
 /* Import panel styles - must be first */
 @import './panel.css';
+@import './mobile-animations.css';
 
 @tailwind base;
 @tailwind components;

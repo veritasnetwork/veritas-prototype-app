@@ -101,15 +101,27 @@ export function WithdrawModal({
 
       const signedTx = await wallet.signTransaction(tx);
 
-      // Send transaction
-      const rpcEndpoint = getRpcEndpoint();
-      const connection = new Connection(rpcEndpoint, 'confirmed');
+      // Send signed transaction to backend for protocol signature and execution
+      const executeResponse = await fetch('/api/users/withdraw/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          signedTransaction: Buffer.from(signedTx.serialize()).toString('base64'),
+          amount: Math.floor(amountNum * 1_000_000),
+          walletAddress: address,
+        }),
+      });
 
-      const signature = await connection.sendRawTransaction(signedTx.serialize());
+      if (!executeResponse.ok) {
+        const errorData = await executeResponse.json();
+        throw new Error(errorData.error || 'Failed to execute withdrawal');
+      }
 
-      console.log('[WITHDRAW] ⏳ Confirming transaction:', signature);
-      await connection.confirmTransaction(signature, 'confirmed');
-      console.log('[WITHDRAW] ✅ Transaction confirmed on blockchain!');
+      const { signature } = await executeResponse.json();
+      console.log('[WITHDRAW] ✅ Transaction confirmed:', signature);
 
       // Fetch custodian state from blockchain to get actual withdrawal amount
       let actualAmountMicro = Math.floor(amountNum * 1_000_000); // Fallback to requested amount
@@ -130,6 +142,8 @@ export function WithdrawModal({
           signAllTransactions: async (txs: any[]) => txs,
         };
 
+        const rpcEndpoint = getRpcEndpoint();
+        const connection = new Connection(rpcEndpoint, 'confirmed');
         const provider = new AnchorProvider(connection, dummyWallet as any, { commitment: 'confirmed' });
         const program = new Program(idl as any, provider);
 

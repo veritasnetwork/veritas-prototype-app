@@ -1,3 +1,5 @@
+import withPWA from '@ducanh2912/next-pwa';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -92,4 +94,33 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withPWA({
+  dest: 'public',
+  disable: process.env.NODE_ENV === 'development',
+  register: true,
+  skipWaiting: true,
+  runtimeCaching: [
+    {
+      urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'supabase-images',
+        expiration: {
+          maxEntries: 64,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
+        },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/api\.mainnet-beta\.solana\.com.*/i,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'solana-rpc',
+        expiration: {
+          maxEntries: 32,
+          maxAgeSeconds: 60, // 1 minute
+        },
+      },
+    },
+  ],
+})(nextConfig);
