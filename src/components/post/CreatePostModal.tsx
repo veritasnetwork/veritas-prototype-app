@@ -21,6 +21,10 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const { user } = useAuth();
   const { requireAuth } = useRequireAuth();
 
+  // Animation state - separate from isOpen to allow mount/unmount animation
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
+
   // NEW SCHEMA STATE
   const [postType, setPostType] = useState<PostType>('text');
   const [contentJson, setContentJson] = useState<TiptapDocument | null>(null); // Rich text content
@@ -80,6 +84,26 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle mount/unmount animation
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      // Trigger animation after a brief delay to ensure DOM is ready
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true);
+        });
+      });
+    } else {
+      setIsAnimating(false);
+      // Wait for animation to complete before unmounting
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+      }, 300); // Match transition duration
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   // Trap focus and handle ESC key
   useEffect(() => {
@@ -309,6 +333,8 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     (postType === 'text' && contentJson !== null) ||
     ((postType === 'image' || postType === 'video') && uploadedMediaUrl !== null);
 
+  if (!shouldRender) return null;
+
   return (
     <div
       className="fixed inset-0 z-modal flex md:items-center md:justify-center items-end"
@@ -321,8 +347,9 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-none transition-opacity duration-300"
-        style={{ opacity: isOpen ? 1 : 0 }}
+        className={`absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-none transition-opacity duration-300 ${
+          isAnimating ? 'opacity-100' : 'opacity-0'
+        }`}
       />
 
       {/* Modal - Slides from bottom on mobile, centered on desktop */}
@@ -333,7 +360,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
           max-h-[95vh]
           md:max-w-2xl md:mx-4
           transition-transform duration-300 ease-out
-          ${isOpen ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
+          ${isAnimating ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
         `}
         role="dialog"
         aria-modal="true"

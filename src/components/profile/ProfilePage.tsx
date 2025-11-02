@@ -495,49 +495,49 @@ function ProfileSkeleton() {
   return (
     <div className="animate-pulse">
       {/* Back button skeleton */}
-      <div className="h-6 w-16 bg-[#1a1a1a] rounded mb-8" />
+      <div className="h-6 w-16 bg-white/10 rounded mb-8" />
 
       {/* Two-column layout skeleton */}
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 max-w-[1400px] mx-auto">
         {/* LEFT COLUMN - Profile Info Skeleton */}
         <div>
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6">
+          <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
             {/* Avatar skeleton */}
             <div className="flex justify-center mb-4">
-              <div className="w-24 h-24 rounded-full bg-[#0f0f0f]" />
+              <div className="w-24 h-24 rounded-full bg-white/5" />
             </div>
 
             {/* Name skeleton */}
-            <div className="h-8 w-32 bg-[#0f0f0f] rounded mx-auto mb-1" />
+            <div className="h-8 w-32 bg-white/5 rounded mx-auto mb-1" />
 
             {/* Username skeleton */}
-            <div className="h-5 w-24 bg-[#0f0f0f] rounded mx-auto mb-3" />
+            <div className="h-5 w-24 bg-white/5 rounded mx-auto mb-3" />
 
             {/* Wallet skeleton */}
-            <div className="h-9 w-full bg-[#0f0f0f] rounded mb-4" />
+            <div className="h-9 w-full bg-white/5 rounded mb-4" />
 
             {/* Action buttons skeleton */}
             <div className="space-y-2 mb-4">
-              <div className="h-10 w-full bg-[#0f0f0f] rounded" />
-              <div className="h-10 w-full bg-[#0f0f0f] rounded" />
+              <div className="h-10 w-full bg-white/5 rounded" />
+              <div className="h-10 w-full bg-white/5 rounded" />
             </div>
 
             {/* Divider */}
-            <div className="border-t border-[#2a2a2a] my-4" />
+            <div className="border-t border-white/10 my-4" />
 
             {/* Stats skeleton */}
             <div className="space-y-3">
-              <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl p-4">
-                <div className="h-4 w-16 bg-[#1a1a1a] rounded mb-2" />
-                <div className="h-8 w-20 bg-[#1a1a1a] rounded" />
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="h-4 w-16 bg-white/10 rounded mb-2" />
+                <div className="h-8 w-20 bg-white/10 rounded" />
               </div>
-              <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl p-4">
-                <div className="h-4 w-16 bg-[#1a1a1a] rounded mb-2" />
-                <div className="h-8 w-20 bg-[#1a1a1a] rounded" />
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="h-4 w-16 bg-white/10 rounded mb-2" />
+                <div className="h-8 w-20 bg-white/10 rounded" />
               </div>
-              <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl p-4">
-                <div className="h-4 w-16 bg-[#1a1a1a] rounded mb-2" />
-                <div className="h-8 w-20 bg-[#1a1a1a] rounded" />
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="h-4 w-16 bg-white/10 rounded mb-2" />
+                <div className="h-8 w-20 bg-white/10 rounded" />
               </div>
             </div>
           </div>
@@ -547,16 +547,16 @@ function ProfileSkeleton() {
         <div>
           {/* Tab navigation skeleton */}
           <div className="mb-6">
-            <div className="h-11 bg-[#1a1a1a] rounded-lg border border-[#2a2a2a]" />
+            <div className="h-11 bg-black/40 backdrop-blur-xl rounded-lg border border-white/10 shadow-xl" />
           </div>
 
           {/* Content skeleton */}
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6">
-                <div className="h-4 w-32 bg-[#0f0f0f] rounded mb-3" />
-                <div className="h-6 w-full bg-[#0f0f0f] rounded mb-2" />
-                <div className="h-4 w-3/4 bg-[#0f0f0f] rounded" />
+              <div key={i} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+                <div className="h-4 w-32 bg-white/10 rounded mb-3" />
+                <div className="h-6 w-full bg-white/10 rounded mb-2" />
+                <div className="h-4 w-3/4 bg-white/10 rounded" />
               </div>
             ))}
           </div>
