@@ -239,17 +239,10 @@ export function Feed() {
       return;
     }
 
-    // On mobile: Always navigate to dedicated post page
+    // On mobile: Open slide-in panel (same as desktop)
     if (isMobile) {
-      // Articles with substantial text navigate to read mode for better reading experience
-      const mode = shouldNavigateToArticlePage(post) ? 'read' : 'trade';
-      console.log(`[Feed] Mobile - navigating to ${mode} mode:`, `/post/${postId}?mode=${mode}`);
-
-      // Store post data in sessionStorage for instant loading
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(`post_${postId}`, JSON.stringify(post));
-      }
-      router.push(`/post/${postId}?mode=${mode}`);
+      console.log('[Feed] Mobile - opening slide-in panel for:', postId);
+      setSelectedPostId(postId);
       return;
     }
 
