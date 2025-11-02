@@ -6,9 +6,10 @@ import { usePathname } from 'next/navigation';
 
 interface MobileNavProps {
   onCreatePost: () => void;
+  isHidden?: boolean;
 }
 
-export function MobileNav({ onCreatePost }: MobileNavProps) {
+export function MobileNav({ onCreatePost, isHidden = false }: MobileNavProps) {
   const { user } = useAuth();
   const pathname = usePathname();
 
@@ -20,7 +21,9 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
   };
 
   return (
-    <nav className="lg:hidden fixed bottom-4 left-4 right-4 z-[9999] safe-area-bottom">
+    <nav className={`lg:hidden fixed bottom-4 left-4 right-4 z-sticky safe-area-bottom transition-transform duration-300 ease-out ${
+      isHidden ? 'translate-y-[calc(100%+1rem)]' : 'translate-y-0'
+    }`}>
       <div className="flex items-center justify-around h-16 px-4 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl">
         {/* Feed */}
         <Link

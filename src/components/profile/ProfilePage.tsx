@@ -168,7 +168,7 @@ export function ProfilePage({ username }: ProfilePageProps) {
           {/* LEFT COLUMN - Profile Info */}
           <div className="space-y-4 md:mx-0 mx-6">
             {/* Profile Card */}
-            <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6 md:sticky md:top-6">
+            <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6 md:sticky md:top-6 shadow-2xl">
               {/* Avatar */}
               <div className="flex justify-center mb-4">
                 <div className="relative">
@@ -300,7 +300,7 @@ export function ProfilePage({ username }: ProfilePageProps) {
           <div>
             {/* Tab Navigation - Sliding Toggle */}
             <div className="mb-6 md:mx-0 mx-6">
-              <div className="relative flex gap-2 p-1 bg-[#0f0f0f] rounded-lg border border-[#2a2a2a]">
+              <div className="relative flex gap-2 p-1 bg-black/40 backdrop-blur-xl rounded-lg border border-white/10 shadow-xl">
                 {/* Animated background slider */}
                 <div
                   className={cn(
@@ -345,7 +345,7 @@ export function ProfilePage({ username }: ProfilePageProps) {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-16 bg-[#1a1a1a] border border-[#2a2a2a] md:rounded-xl rounded-none md:mx-0 mx-6">
+                    <div className="text-center py-16 bg-black/40 backdrop-blur-xl border border-white/10 md:rounded-xl rounded-none md:mx-0 mx-6 shadow-xl">
                       <p className="text-white font-medium mb-2 text-lg">
                         No posts yet
                       </p>
@@ -414,7 +414,7 @@ export function ProfilePage({ username }: ProfilePageProps) {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-16 bg-[#1a1a1a] border border-[#2a2a2a] md:rounded-xl rounded-none md:mx-0 mx-6">
+                    <div className="text-center py-16 bg-black/40 backdrop-blur-xl border border-white/10 md:rounded-xl rounded-none md:mx-0 mx-6 shadow-xl">
                       <p className="text-white font-medium mb-2 text-lg">
                         No holdings yet
                       </p>

@@ -500,12 +500,46 @@ export function Feed() {
         </div>
       </div>
 
-      {/* Mobile Detail Modal - NOT SHOWN ON MOBILE
-          On mobile, we navigate to dedicated pages instead of showing modals
-          This modal is kept for compatibility but should never appear on mobile */}
+      {/* Mobile Slide-in Panel */}
+      {isMobile && selectedPostId && currentPost && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/60 z-40 lg:hidden transition-opacity duration-300"
+            onClick={() => setSelectedPostId(null)}
+          />
 
-      {/* Mobile Bottom Navigation (shown on <1024px) */}
-      <MobileNav onCreatePost={handleCreatePost} />
+          {/* Panel - Slides from right */}
+          <div className="fixed inset-y-0 right-0 z-50 bg-[#0f0f0f] shadow-2xl w-full lg:hidden transition-transform duration-300 ease-out translate-x-0 overflow-y-auto">
+            {/* Back button */}
+            <div className="sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a]">
+              <button
+                onClick={() => setSelectedPostId(null)}
+                className="flex items-center gap-2 px-4 py-4 text-[#B9D9EB] font-medium active:opacity-70 transition-opacity"
+              >
+                <span className="text-xl">←</span>
+                <span>Back</span>
+              </button>
+            </div>
+
+            {/* Trading Panel Content */}
+            <div className="p-4">
+              <TradingPanel
+                postId={currentPost.id}
+                poolAddress={currentPost.poolAddress}
+                poolData={poolData}
+                tradeStats={tradeHistory?.stats}
+                selectedSide={selectedSide}
+                onSideChange={setSelectedSide}
+                onTradeSuccess={handleTradeSuccess}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Mobile Bottom Navigation (shown on <1024px) - Hidden when create modal is open */}
+      <MobileNav onCreatePost={handleCreatePost} isHidden={isCreateModalOpen} />
 
       {/* Create Post Modal */}
       <CreatePostModal
