@@ -6,7 +6,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { PrivyErrorBoundary } from '@/components/auth/PrivyErrorBoundary';
 import { getRpcEndpoint, getNetworkName } from '@/lib/solana/network-config';
-import { useEagerWalletConnect } from '@/hooks/useEagerWalletConnect';
+import { useEagerWalletConnect, clearWalletConnectionAttempt } from '@/hooks/useEagerWalletConnect';
 import {
   MockPrivyProvider,
   usePrivy as useMockPrivy,
@@ -142,6 +142,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const logout = () => {
     setUser(null);
     setNeedsOnboarding(false);
+    clearWalletConnectionAttempt(); // Clear the connection attempt flag
     privyLogout();
   };
 

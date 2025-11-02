@@ -8,7 +8,7 @@ import { useEffect, useRef } from 'react';
 import { usePrivy, useConnectWallet, useSolanaWallets } from './usePrivyHooks';
 
 const STORAGE_KEY = 'veritas_preferred_wallet_type';
-const SESSION_KEY = 'veritas_wallet_connect_attempted';
+const CONNECT_ATTEMPTED_KEY = 'veritas_wallet_connect_attempted';
 
 export function useEagerWalletConnect() {
   const { ready, authenticated, user } = usePrivy();
@@ -16,15 +16,20 @@ export function useEagerWalletConnect() {
   const solanaWalletsData = useSolanaWallets();
   const { wallets: solanaWallets, ready: solanaWalletsReady } = 'ready' in solanaWalletsData ? solanaWalletsData : { wallets: solanaWalletsData.wallets, ready: true };
 
-  // Use sessionStorage to persist across page navigations but reset on new session
+  // Use localStorage to persist across page reloads
+  // Will be cleared on logout
   const getHasAttempted = () => {
     if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem(SESSION_KEY) === 'true';
+    return localStorage.getItem(CONNECT_ATTEMPTED_KEY) === 'true';
   };
 
   const setHasAttempted = (value: boolean) => {
     if (typeof window === 'undefined') return;
-    sessionStorage.setItem(SESSION_KEY, String(value));
+    if (value) {
+      localStorage.setItem(CONNECT_ATTEMPTED_KEY, 'true');
+    } else {
+      localStorage.removeItem(CONNECT_ATTEMPTED_KEY);
+    }
   };
 
   useEffect(() => {
@@ -96,5 +101,13 @@ export function useEagerWalletConnect() {
 
   return {
     saveWalletPreference,
+    clearConnectionAttempt: () => setHasAttempted(false),
   };
+}
+
+// Export a standalone function to clear the connection attempt flag
+// Call this on logout
+export function clearWalletConnectionAttempt() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(CONNECT_ATTEMPTED_KEY);
 }
