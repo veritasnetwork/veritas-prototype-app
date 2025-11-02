@@ -348,8 +348,8 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
                     )}
                   </div>
 
-                  {/* Right: View Mode Toggle */}
-                  <div className="flex items-center bg-[#0f0f0f] rounded-lg p-0.5 flex-shrink-0">
+                  {/* Right: View Mode Toggle - Desktop only */}
+                  <div className="hidden lg:flex items-center bg-[#0f0f0f] rounded-lg p-0.5 flex-shrink-0">
                     <button
                       onClick={() => handleViewModeChange('read')}
                       className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
