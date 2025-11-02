@@ -5,18 +5,36 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { usePrivy, useConnectWallet } from './usePrivyHooks';
+import { usePrivy, useConnectWallet, useSolanaWallets } from './usePrivyHooks';
 
 const STORAGE_KEY = 'veritas_preferred_wallet_type';
+const SESSION_KEY = 'veritas_wallet_connect_attempted';
 
 export function useEagerWalletConnect() {
   const { ready, authenticated, user } = usePrivy();
   const { connectWallet } = useConnectWallet();
-  const hasAttemptedConnection = useRef(false);
+  const solanaWalletsData = useSolanaWallets();
+  const { wallets: solanaWallets, ready: solanaWalletsReady } = 'ready' in solanaWalletsData ? solanaWalletsData : { wallets: solanaWalletsData.wallets, ready: true };
+
+  // Use sessionStorage to persist across page navigations but reset on new session
+  const getHasAttempted = () => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem(SESSION_KEY) === 'true';
+  };
+
+  const setHasAttempted = (value: boolean) => {
+    if (typeof window === 'undefined') return;
+    sessionStorage.setItem(SESSION_KEY, String(value));
+  };
 
   useEffect(() => {
     // Only run once per session
-    if (!ready || !authenticated || hasAttemptedConnection.current) {
+    if (!ready || !authenticated || getHasAttempted()) {
+      return;
+    }
+
+    // Wait for wallets to be ready
+    if (!solanaWalletsReady) {
       return;
     }
 
@@ -27,6 +45,16 @@ export function useEagerWalletConnect() {
     );
 
     if (!linkedSolanaWallets || linkedSolanaWallets.length === 0) {
+      setHasAttempted(true); // Mark as attempted even if no linked wallets
+      return;
+    }
+
+    // Check if wallet is already connected
+    const hasConnectedWallet = solanaWallets && solanaWallets.length > 0;
+
+    if (hasConnectedWallet) {
+      // Wallet already connected, no need to show modal
+      setHasAttempted(true); // Mark as attempted
       return;
     }
 
@@ -35,7 +63,7 @@ export function useEagerWalletConnect() {
 
 
     // Mark as attempted to prevent multiple connection attempts
-    hasAttemptedConnection.current = true;
+    setHasAttempted(true);
 
     // Attempt to reconnect the wallet
     const attemptReconnect = async () => {
@@ -59,7 +87,7 @@ export function useEagerWalletConnect() {
     // Small delay to let everything initialize
     const timer = setTimeout(attemptReconnect, 1000);
     return () => clearTimeout(timer);
-  }, [ready, authenticated, user, connectWallet]);
+  }, [ready, authenticated, solanaWalletsReady]);
 
   // Helper to save wallet preference (call this after successful connection)
   const saveWalletPreference = (walletType: string) => {
