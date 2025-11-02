@@ -21,10 +21,29 @@ interface UsePostsResult {
 
 const INITIAL_POSTS = 10; // Initial load for faster perceived performance (just fill screen)
 const POSTS_PER_PAGE = 10; // Chunked loading for smooth scrolling
+const CACHE_KEY = 'veritas_feed_cache';
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// In-memory cache (persists during session)
+let cachedPosts: Post[] | null = null;
+let cacheTimestamp: number | null = null;
 
 export function usePosts(): UsePostsResult {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<Post[]>(() => {
+    // Try to restore from cache on mount
+    if (cachedPosts && cacheTimestamp) {
+      const age = Date.now() - cacheTimestamp;
+      if (age < CACHE_DURATION) {
+        console.log('[usePosts] Restoring from cache (age:', Math.round(age / 1000), 'seconds)');
+        return cachedPosts;
+      }
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    // If we have cached posts, don't show loading spinner
+    return !(cachedPosts && cacheTimestamp && Date.now() - cacheTimestamp < CACHE_DURATION);
+  });
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -71,9 +90,18 @@ export function usePosts(): UsePostsResult {
       if (reset) {
         console.log('[usePosts] Setting posts (reset):', filteredData.length);
         setPosts(filteredData);
+        // Update cache
+        cachedPosts = filteredData;
+        cacheTimestamp = Date.now();
       } else {
         console.log('[usePosts] Appending posts:', filteredData.length);
-        setPosts(prev => [...prev, ...filteredData]);
+        setPosts(prev => {
+          const updated = [...prev, ...filteredData];
+          // Update cache with full list
+          cachedPosts = updated;
+          cacheTimestamp = Date.now();
+          return updated;
+        });
       }
 
       // Has more if we got a full page
@@ -108,9 +136,16 @@ export function usePosts(): UsePostsResult {
 
   useEffect(() => {
     if (!initialLoadDone.current) {
-      console.log('[usePosts] Starting initial load');
       initialLoadDone.current = true;
-      fetchPosts(true);
+
+      // If we have valid cached data, fetch in background without showing loading
+      if (cachedPosts && cacheTimestamp && Date.now() - cacheTimestamp < CACHE_DURATION) {
+        console.log('[usePosts] Loading fresh data in background (using cache)');
+        fetchPosts(true); // Will update cache silently
+      } else {
+        console.log('[usePosts] Starting initial load (no cache)');
+        fetchPosts(true);
+      }
     }
   }, []);
 
