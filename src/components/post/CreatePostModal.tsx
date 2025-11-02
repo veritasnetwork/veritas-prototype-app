@@ -311,7 +311,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
   return (
     <div
-      className="fixed inset-0 z-modal flex items-center justify-center"
+      className="fixed inset-0 z-modal flex md:items-center md:justify-center items-end"
       onMouseDown={(e) => {
         // Only close on backdrop click, not on any child element
         if (e.target === e.currentTarget) {
@@ -320,16 +320,31 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       }}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-none" />
-
-      {/* Modal */}
       <div
-        className="relative bg-[#1a1a1a] border border-gray-800 rounded-lg md:rounded-xl shadow-2xl w-full max-w-2xl mx-4 md:mx-0 max-h-[95vh] flex flex-col"
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-none transition-opacity duration-300"
+        style={{ opacity: isOpen ? 1 : 0 }}
+      />
+
+      {/* Modal - Slides from bottom on mobile, centered on desktop */}
+      <div
+        className={`
+          relative bg-[#1a1a1a] border border-gray-800 shadow-2xl w-full flex flex-col
+          rounded-t-3xl md:rounded-xl
+          max-h-[95vh]
+          md:max-w-2xl md:mx-4
+          transition-transform duration-300 ease-out
+          ${isOpen ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
+        `}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
         onMouseDown={(e) => e.stopPropagation()}
       >
+        {/* Drag handle for mobile */}
+        <div className="md:hidden flex justify-center py-3 border-b border-gray-800">
+          <div className="w-12 h-1.5 bg-gray-600 rounded-full" />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-end px-6 md:px-8 py-2">
           <button
