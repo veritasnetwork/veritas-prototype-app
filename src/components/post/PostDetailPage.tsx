@@ -481,19 +481,19 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
                 </div>
               )}
 
-              {/* Post Content (text) */}
+              {/* Post Content (text) - No bubble on mobile */}
               {post.post_type === 'text' && (
-                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6 overflow-hidden">
+                <div className="md:bg-[#1a1a1a] md:border md:border-[#2a2a2a] md:rounded-xl md:p-6 p-0 overflow-hidden">
                   {post.content_json ? (
-                    <div className={`prose prose-invert ${viewMode === 'read' ? 'max-w-none' : 'max-w-full'} break-words`}>
+                    <div className={`prose prose-invert ${viewMode === 'read' ? 'max-w-none' : 'max-w-full'} break-words md:px-0 px-6`}>
                       <RichTextRenderer content={post.content_json} />
                     </div>
                   ) : post.content_text ? (
-                    <p className="text-gray-300 whitespace-pre-wrap leading-relaxed break-words">
+                    <p className="text-gray-300 whitespace-pre-wrap leading-relaxed break-words md:px-0 px-6">
                       {post.content_text}
                     </p>
                   ) : (
-                    <p className="text-gray-500 italic">No content available</p>
+                    <p className="text-gray-500 italic md:px-0 px-6">No content available</p>
                   )}
                 </div>
               )}
