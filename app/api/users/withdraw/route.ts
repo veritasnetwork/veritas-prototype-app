@@ -238,8 +238,8 @@ async function buildWithdrawTransaction(params: {
   tx.recentBlockhash = blockhash;
   tx.feePayer = walletPubkey;
 
-  // Sign with protocol authority
-  tx.partialSign(authorityKeypair);
+  // Protocol authority will sign in /api/users/withdraw/execute (user signs first)
+  // Transaction is returned unsigned to user for proper signing order
 
   return tx;
 }

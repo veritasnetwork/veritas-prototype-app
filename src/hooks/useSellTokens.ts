@@ -92,13 +92,35 @@ export function useSellTokens() {
       const txBuffer = Buffer.from(serializedTx, 'base64');
       const transaction = Transaction.from(txBuffer);
 
-      // Step 3: Sign the transaction
+      // Step 3: Sign the transaction (user signs FIRST)
       // @ts-ignore - Privy wallet has signTransaction method
       const signedTx = await wallet.signTransaction(transaction);
 
-      // Step 4: Send and confirm transaction
-      const signature = await connection.sendRawTransaction(signedTx.serialize());
-      await connection.confirmTransaction(signature, 'confirmed');
+      // Step 4: Send signed transaction to backend for protocol signature and execution
+      const executeResponse = await fetch('/api/trades/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          signedTransaction: Buffer.from(signedTx.serialize()).toString('base64'),
+          postId,
+          tradeType: 'sell',
+          side: side.toUpperCase() as 'LONG' | 'SHORT',
+        }),
+      });
+
+      if (!executeResponse.ok) {
+        const errorData = await executeResponse.json();
+        console.error('[useSellTokens] ❌ Execute failed:', errorData);
+        throw new Error(errorData.error || 'Failed to execute transaction');
+      }
+
+      const executeResult = await executeResponse.json();
+      const signature = executeResult.signature;
+
+      console.log('[useSellTokens] ✅ Transaction executed:', signature);
 
       // Step 5: Parse transaction to get ACTUAL amounts transferred
       let actualTokensSold = atomicToDisplay(asAtomic(tokenAmount)); // Fallback to requested amount

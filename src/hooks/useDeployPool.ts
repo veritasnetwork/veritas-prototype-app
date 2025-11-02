@@ -296,12 +296,30 @@ export function useDeployPool() {
           const signedTx = await wallet.signTransaction(combinedTx);
           console.log('✅ [SIGNING] Transaction signed successfully!');
 
+          // Send signed transaction to backend for protocol signature and execution
+          const executeResponse = await fetch('/api/pools/execute', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${jwt}`,
+            },
+            body: JSON.stringify({
+              signedTransaction: Buffer.from(signedTx.serialize()).toString('base64'),
+              postId: params.postId,
+              isOrphaned,
+            }),
+          });
 
-          // Send the transaction
-          txSignature = await connection.sendRawTransaction(signedTx.serialize());
+          if (!executeResponse.ok) {
+            const errorData = await executeResponse.json();
+            console.error('[useDeployPool] ❌ Execute failed:', errorData);
+            throw new Error(errorData.error || 'Failed to execute pool deployment');
+          }
 
-          // Wait for confirmation
-          await connection.confirmTransaction(txSignature, 'confirmed');
+          const executeResult = await executeResponse.json();
+          txSignature = executeResult.signature;
+
+          console.log('✅ [DEPLOY] Transaction executed:', txSignature);
         } catch (signError: any) {
           console.error('[STEP 6/7] ❌ Signing/sending failed!');
           console.error('[STEP 6/7] Error details:', {

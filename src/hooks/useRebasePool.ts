@@ -103,16 +103,34 @@ export function useRebasePool() {
       transaction.recentBlockhash = blockhash;
       transaction.lastValidBlockHeight = lastValidBlockHeight;
 
-      // Sign transaction with Solana wallet from useSolanaWallet hook
+      // Sign transaction with Solana wallet (user signs FIRST)
       const signedTx = await wallet.signTransaction(transaction);
 
+      // Send signed transaction to backend for protocol signature and execution
+      const executeResponse = await fetch('/api/settlements/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          signedTransaction: Buffer.from(signedTx.serialize()).toString('base64'),
+          postId,
+          poolAddress: result.poolAddress,
+          epoch: result.currentEpoch + 1,
+        }),
+      });
 
-      // Send signed transaction
-      const txSignature = await connection.sendRawTransaction(signedTx.serialize());
+      if (!executeResponse.ok) {
+        const errorData = await executeResponse.json();
+        console.error('[useRebasePool] ❌ Execute failed:', errorData);
+        throw new Error(errorData.error || 'Failed to execute settlement');
+      }
 
+      const executeResult = await executeResponse.json();
+      const txSignature = executeResult.signature;
 
-      // Wait for confirmation
-      await connection.confirmTransaction(txSignature, 'confirmed');
+      console.log('[useRebasePool] ✅ Settlement executed:', txSignature);
 
       // Record the settlement in the database
       try {

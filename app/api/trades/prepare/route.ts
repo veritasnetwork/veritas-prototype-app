@@ -625,8 +625,8 @@ async function buildTradeTransaction(params: {
   tx.recentBlockhash = blockhash;
   tx.feePayer = walletPubkey;
 
-  // Sign with protocol authority
-  tx.partialSign(authorityKeypair);
+  // Protocol authority will sign in /api/trades/execute (user signs first)
+  // Transaction is returned unsigned to user for proper signing order
 
   return tx;
 }

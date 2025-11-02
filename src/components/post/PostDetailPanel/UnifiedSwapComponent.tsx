@@ -329,11 +329,26 @@ export function UnifiedSwapComponent({
       // @ts-ignore - Privy wallet has signTransaction
       const signedTx = await wallet.signTransaction(transaction);
 
-      // Step 3: Send and confirm
-      const rpcEndpoint = getRpcEndpoint();
-      const connection = new Connection(rpcEndpoint, 'confirmed');
-      const signature = await connection.sendRawTransaction(signedTx.serialize());
-      await connection.confirmTransaction(signature, 'confirmed');
+      // Step 3: Send signed transaction to backend for execution
+      const executeResponse = await fetch('/api/users/protocol_deposit/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          signedTransaction: Buffer.from(signedTx.serialize()).toString('base64'),
+          amount: Math.floor(amount * 1_000_000),
+          walletAddress: address,
+        }),
+      });
+
+      if (!executeResponse.ok) {
+        const errorData = await executeResponse.json();
+        throw new Error(errorData.error || 'Failed to execute deposit');
+      }
+
+      const { signature } = await executeResponse.json();
 
       // Step 4: Record deposit and update agent stake immediately
       const amountMicro = Math.floor(amount * 1_000_000);

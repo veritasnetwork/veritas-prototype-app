@@ -409,8 +409,8 @@ export async function POST(
     transaction.lastValidBlockHeight = lastValidBlockHeight;
     transaction.feePayer = new PublicKey(walletAddress);
 
-    // Protocol authority partially signs
-    transaction.partialSign(protocolAuthority);
+    // Protocol authority will sign in /api/settlements/execute (user signs first)
+    // Transaction is returned unsigned to user for proper signing order
 
     // Serialize transaction
     const serializedTx = transaction.serialize({

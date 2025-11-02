@@ -84,15 +84,30 @@ export function SettlementButton({
       const txBuffer = Buffer.from(serializedTx, 'base64');
       const transaction = Transaction.from(txBuffer);
 
-      // Sign the transaction
+      // Sign the transaction (user signs FIRST)
       // @ts-ignore - Privy wallet has signTransaction method
       const signedTx = await wallet.signTransaction(transaction);
 
-      // Send and confirm transaction
-      const rpcEndpoint = getRpcEndpoint();
-      const connection = new Connection(rpcEndpoint, 'confirmed');
-      const signature = await connection.sendRawTransaction(signedTx.serialize());
-      await connection.confirmTransaction(signature, 'confirmed');
+      // Send signed transaction to backend for protocol signature and execution
+      const executeResponse = await fetch('/api/settlements/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          signedTransaction: Buffer.from(signedTx.serialize()).toString('base64'),
+          postId,
+          poolAddress,
+        }),
+      });
+
+      if (!executeResponse.ok) {
+        const errorData = await executeResponse.json();
+        throw new Error(errorData.error || 'Failed to execute settlement');
+      }
+
+      const { signature } = await executeResponse.json();
 
 
       setSuccess(true);
