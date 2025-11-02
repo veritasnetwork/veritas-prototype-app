@@ -90,7 +90,7 @@ export function HoldingCard({ post, tokenType, holdings, pool }: HoldingCardProp
   return (
     <article
       onClick={handleClick}
-      className={`relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden hover:bg-white/[0.07] transition-all duration-200 cursor-pointer group ${
+      className={`relative bg-white/5 backdrop-blur-sm border border-white/10 md:rounded-xl rounded-none overflow-hidden hover:bg-white/[0.07] transition-all duration-200 cursor-pointer group md:border-x border-x-0 md:border-t border-t md:border-b border-b-0 last:border-b ${
         isLong
           ? 'hover:shadow-[0_0_30px_rgba(185,217,235,0.15)] hover:border-[#B9D9EB]/30'
           : 'hover:shadow-[0_0_30px_rgba(251,146,60,0.15)] hover:border-orange-500/30'
@@ -99,7 +99,7 @@ export function HoldingCard({ post, tokenType, holdings, pool }: HoldingCardProp
       {/* Color accent bar on left edge */}
       <div className={`absolute left-0 top-0 bottom-0 w-1 ${isLong ? 'bg-[#B9D9EB]' : 'bg-orange-500'}`} />
 
-      <div className="flex gap-4 p-4 pl-5">
+      <div className="flex gap-4 md:p-4 md:pl-5 p-6 pl-7">
         {/* Left: Post Preview Thumbnail (96x96) - Only for media posts and articles with covers */}
         {(post.post_type === 'image' ||
           post.post_type === 'video' ||

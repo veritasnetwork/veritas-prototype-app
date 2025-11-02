@@ -153,22 +153,22 @@ export function ProfilePage({ username }: ProfilePageProps) {
   return (
     <main className="min-h-screen bg-[#0f0f0f]">
       {/* Full-width dashboard layout */}
-      <div className="w-full px-6 py-8">
+      <div className="w-full md:px-6 py-8">
         {/* Back Navigation */}
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-white transition-colors mb-8"
+          className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-white transition-colors mb-8 md:mb-8 mb-4 md:mx-0 mx-6"
         >
           <span>←</span>
           <span>Back</span>
         </button>
 
         {/* Two-column layout: Left sidebar + Right content */}
-        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 max-w-[1400px] mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] md:gap-6 gap-4 max-w-[1400px] md:mx-auto">
           {/* LEFT COLUMN - Profile Info */}
-          <div className="space-y-4">
+          <div className="space-y-4 md:mx-0 mx-6">
             {/* Profile Card */}
-            <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6 sticky top-6">
+            <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6 md:sticky md:top-6">
               {/* Avatar */}
               <div className="flex justify-center mb-4">
                 <div className="relative">
@@ -299,7 +299,7 @@ export function ProfilePage({ username }: ProfilePageProps) {
           {/* RIGHT COLUMN - Content Area */}
           <div>
             {/* Tab Navigation - Sliding Toggle */}
-            <div className="mb-6">
+            <div className="mb-6 md:mx-0 mx-6">
               <div className="relative flex gap-2 p-1 bg-[#0f0f0f] rounded-lg border border-[#2a2a2a]">
                 {/* Animated background slider */}
                 <div
@@ -339,13 +339,13 @@ export function ProfilePage({ username }: ProfilePageProps) {
               {activeTab === 'posts' && (
                 <>
                   {recent_posts && recent_posts.length > 0 ? (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col md:gap-3 gap-0">
                       {recent_posts.map((post) => (
                         <CompactProfilePostCard key={post.id} post={post} />
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-16 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl">
+                    <div className="text-center py-16 bg-[#1a1a1a] border border-[#2a2a2a] md:rounded-xl rounded-none md:mx-0 mx-6">
                       <p className="text-white font-medium mb-2 text-lg">
                         No posts yet
                       </p>
@@ -369,11 +369,11 @@ export function ProfilePage({ username }: ProfilePageProps) {
               {activeTab === 'holdings' && (
                 <>
                   {holdingsLoading ? (
-                    <div className="text-center py-16">
+                    <div className="text-center py-16 md:mx-0 mx-6">
                       <p className="text-gray-400">Loading holdings...</p>
                     </div>
                   ) : holdings.length > 0 ? (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col md:gap-3 gap-0">
                       {holdings.map((holding, index) => (
                         <HoldingCard
                           key={`${holding.post?.id}-${holding.token_type}-${index}`}
@@ -414,7 +414,7 @@ export function ProfilePage({ username }: ProfilePageProps) {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-16 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl">
+                    <div className="text-center py-16 bg-[#1a1a1a] border border-[#2a2a2a] md:rounded-xl rounded-none md:mx-0 mx-6">
                       <p className="text-white font-medium mb-2 text-lg">
                         No holdings yet
                       </p>

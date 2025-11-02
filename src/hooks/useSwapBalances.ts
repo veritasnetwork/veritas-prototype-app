@@ -2,13 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import { useSolanaWallet } from './useSolanaWallet';
-import { useAuth } from '@/providers/AuthProvider';
 import { getRpcEndpoint, getUsdcMint } from '@/lib/solana/network-config';
 import { createClient } from '@supabase/supabase-js';
 
 export function useSwapBalances(poolAddress: string, postId: string) {
   const { address } = useSolanaWallet();
-  const { user } = useAuth();
   const [usdcBalance, setUsdcBalance] = useState<number>(0);
   const [shareBalance, setShareBalance] = useState<number>(0);
   const [longBalance, setLongBalance] = useState<number>(0);
@@ -22,8 +20,8 @@ export function useSwapBalances(poolAddress: string, postId: string) {
 
   useEffect(() => {
     const fetchBalances = async () => {
-      if (!address || !user) {
-        // Keep loading state true while wallet/user is reconnecting
+      if (!address) {
+        // Keep loading state true while wallet is reconnecting
         // Don't reset balances to 0 immediately
         setLoading(true);
         return;
@@ -132,7 +130,7 @@ export function useSwapBalances(poolAddress: string, postId: string) {
     };
 
     fetchBalances();
-  }, [address, user, poolAddress, postId, refreshTrigger]);
+  }, [address, poolAddress, postId, refreshTrigger]);
 
   return {
     usdcBalance,

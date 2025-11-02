@@ -58,9 +58,9 @@ export function CompactProfilePostCard({ post }: CompactProfilePostCardProps) {
   return (
     <article
       onClick={handleClick}
-      className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(185,217,235,0.15)] hover:border-[#B9D9EB]/30 transition-all duration-200 cursor-pointer group"
+      className="relative bg-white/5 backdrop-blur-sm border border-white/10 md:rounded-xl rounded-none overflow-hidden hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(185,217,235,0.15)] hover:border-[#B9D9EB]/30 transition-all duration-200 cursor-pointer group md:border-x border-x-0 md:border-t border-t md:border-b border-b-0 last:border-b"
     >
-      <div className="flex gap-4 p-4">
+      <div className="flex gap-4 md:p-4 p-6">
         {/* Left: Post Preview Thumbnail (96x96) - Only for media posts and articles with covers */}
         {(post.post_type === 'image' ||
           post.post_type === 'video' ||
