@@ -115,11 +115,11 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
   const postTitle = getPostTitle(post);
 
   return (
-    <div className="p-6 relative">
+    <div className="relative">
       {/* Close Button */}
       <button
         onClick={closePanel}
-        className="absolute top-6 left-6 w-8 h-8 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors z-10"
+        className="absolute md:top-6 md:left-6 top-4 left-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors z-10"
         aria-label="Close"
       >
         <svg
@@ -140,7 +140,7 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
       </button>
 
       {/* Post Header */}
-      <div className="mb-6 mt-8">
+      <div className="md:mb-6 mb-4 md:mt-8 mt-12 md:px-6 px-6">
         <h1 className="text-2xl font-bold text-white mb-2">{postTitle}</h1>
         <div className="flex items-center gap-3 text-sm text-gray-400">
           <span>@{post.author?.username || 'unknown'}</span>
@@ -149,25 +149,25 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
         </div>
       </div>
 
-      {/* Post Content */}
-      <div className="prose prose-invert max-w-none">
+      {/* Post Content - Full width on mobile (no padding), padded on desktop */}
+      <div className="prose prose-invert max-w-none md:px-6 px-0">
         {post.content_json ? (
           <TiptapRenderer content={post.content_json} />
         ) : (
-          <p className="text-gray-300 whitespace-pre-wrap">{post.content_text || (post as any).content}</p>
+          <p className="text-gray-300 whitespace-pre-wrap md:px-0 px-6">{post.content_text || (post as any).content}</p>
         )}
       </div>
 
       {/* Media */}
       {post.media_urls && post.media_urls.length > 0 && (
-        <div className="mt-6 space-y-4">
+        <div className="mt-6 space-y-4 md:px-6 px-0">
           {post.media_urls.map((url, index) => (
             <div key={index}>
               {post.post_type === 'image' && (
-                <img src={url} alt="" className="rounded-lg max-w-full" />
+                <img src={url} alt="" className="md:rounded-lg rounded-none max-w-full" />
               )}
               {post.post_type === 'video' && (
-                <video src={url} controls className="rounded-lg max-w-full" />
+                <video src={url} controls className="md:rounded-lg rounded-none max-w-full" />
               )}
             </div>
           ))}
@@ -175,7 +175,7 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
       )}
 
       {/* Pool Section */}
-      <div className="mt-8 border-t border-[#2a2a2a] pt-6">
+      <div className="mt-8 border-t border-[#2a2a2a] pt-6 md:px-6 px-6">
         <h2 className="text-lg font-semibold text-white mb-4">Market</h2>
 
         {!poolAddress ? (

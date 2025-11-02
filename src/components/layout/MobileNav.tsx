@@ -86,9 +86,9 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
             <div className={`absolute top-1/2 -translate-y-1/2 w-12 h-12 rounded-full overflow-hidden pointer-events-none ${
               isActive('/profile') ? 'ring-2 ring-[#B9D9EB]' : ''
             }`}>
-              {user.profilePhotoUrl ? (
+              {user.avatar_url ? (
                 <img
-                  src={user.profilePhotoUrl}
+                  src={user.avatar_url}
                   alt={user.username}
                   className="w-full h-full object-cover"
                 />

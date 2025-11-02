@@ -298,17 +298,18 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
             <div className={`space-y-6 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               viewMode === 'trade' ? 'lg:w-1/2' : 'lg:w-full'
             } ${viewMode === 'read' ? 'lg:max-w-none' : ''}`}>
-              {/* Post Header Card */}
-              <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  {/* Author Info and Metrics */}
-                  <div className="flex items-center gap-3 flex-wrap">
+              {/* Post Header Card - Compact */}
+              <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl md:p-4 p-3">
+                {/* Top Row: Author + Metrics + Toggle */}
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  {/* Left: Author + Metrics */}
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <button
                       onClick={handleAuthorClick}
-                      className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                      className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0 flex-shrink"
                     >
                       {post.author?.avatar_url ? (
-                        <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-[#B9D9EB] to-[#0C1D51]">
+                        <div className="relative w-8 h-8 rounded-full overflow-hidden bg-[#F5F5DC] flex-shrink-0">
                           <Image
                             src={post.author.avatar_url}
                             alt={post.author.username}
@@ -317,42 +318,41 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
                           />
                         </div>
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#B9D9EB] to-[#0C1D51] flex items-center justify-center">
-                          <span className="text-white font-semibold">
+                        <div className="w-8 h-8 rounded-full bg-[#F5F5DC] flex items-center justify-center flex-shrink-0">
+                          <span className="text-[#0C1D51] font-semibold text-sm">
                             {post.author?.username?.[0]?.toUpperCase() || 'U'}
                           </span>
                         </div>
                       )}
-                      <div className="text-left">
-                        <p className="text-white font-medium">
-                          {post.author?.display_name || post.author?.username}
+                      <div className="text-left min-w-0">
+                        <p className="text-white font-medium text-sm truncate">
+                          @{post.author?.username}
                         </p>
-                        <p className="text-gray-400 text-sm">@{post.author?.username}</p>
                       </div>
                     </button>
 
                     {/* Market implied relevance pill */}
                     {marketImpliedRelevance !== null && (
-                      <div className="bg-black/70 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center justify-center">
-                        <TrendingUp className="w-4 h-4 text-[#B9D9EB] mr-1.5" />
-                        <span className="font-semibold text-[#B9D9EB] text-sm">{(marketImpliedRelevance * 100).toFixed(1)}%</span>
+                      <div className="bg-black/70 backdrop-blur-sm rounded-full px-2 py-1 flex items-center justify-center flex-shrink-0">
+                        <TrendingUp className="w-3 h-3 text-[#B9D9EB] mr-1" />
+                        <span className="font-semibold text-[#B9D9EB] text-xs">{(marketImpliedRelevance * 100).toFixed(1)}%</span>
                       </div>
                     )}
 
                     {/* Total volume pill */}
                     {post.totalVolumeUsdc !== undefined && post.totalVolumeUsdc > 0 && (
-                      <div className="bg-black/70 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center justify-center">
-                        <BarChart3 className="w-4 h-4 text-gray-400 mr-1.5" />
-                        <span className="font-semibold text-gray-300 text-sm">${post.totalVolumeUsdc >= 1000 ? (post.totalVolumeUsdc / 1000).toFixed(1) + 'k' : post.totalVolumeUsdc.toFixed(0)}</span>
+                      <div className="bg-black/70 backdrop-blur-sm rounded-full px-2 py-1 md:flex hidden items-center justify-center flex-shrink-0">
+                        <BarChart3 className="w-3 h-3 text-gray-400 mr-1" />
+                        <span className="font-semibold text-gray-300 text-xs">${post.totalVolumeUsdc >= 1000 ? (post.totalVolumeUsdc / 1000).toFixed(1) + 'k' : post.totalVolumeUsdc.toFixed(0)}</span>
                       </div>
                     )}
                   </div>
 
-                  {/* View Mode Toggle */}
-                  <div className="flex items-center bg-[#0f0f0f] rounded-lg p-0.5">
+                  {/* Right: View Mode Toggle */}
+                  <div className="flex items-center bg-[#0f0f0f] rounded-lg p-0.5 flex-shrink-0">
                     <button
                       onClick={() => handleViewModeChange('read')}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                         viewMode === 'read'
                           ? 'bg-[#B9D9EB] text-[#0C1D51]'
                           : 'text-gray-400 hover:text-white'
@@ -362,7 +362,7 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
                     </button>
                     <button
                       onClick={() => handleViewModeChange('trade')}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                         viewMode === 'trade'
                           ? 'bg-[#B9D9EB] text-[#0C1D51]'
                           : 'text-gray-400 hover:text-white'
@@ -375,11 +375,11 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
 
                 {/* Post Title - only show for text posts with title or if there's an article_title */}
                 {((post as any).title || post.article_title) && (
-                  <h1 className="text-2xl font-bold text-white mb-2">{title}</h1>
+                  <h1 className="text-xl md:text-2xl font-bold text-white mb-2">{title}</h1>
                 )}
 
                 {/* Timestamp */}
-                <p className="text-sm text-gray-400">
+                <p className="text-xs text-gray-400">
                   {formatRelativeTime(post.timestamp || (post as any).created_at)}
                 </p>
               </div>
