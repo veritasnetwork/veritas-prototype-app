@@ -82,38 +82,43 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
         {user ? (
           <Link
             href={`/profile/${user.username}`}
-            className={`flex flex-col items-center justify-center w-full h-full transition-colors touch-feedback ${
-              isActive('/profile') ? 'text-[#B9D9EB]' : 'text-gray-400'
-            }`}
+            className="flex flex-col items-center justify-center w-full h-full relative touch-feedback"
           >
-            <svg
-              className="w-6 h-6"
-              fill={isActive('/profile') ? 'currentColor' : 'none'}
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              strokeWidth={isActive('/profile') ? 0 : 2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-              />
-            </svg>
-            <span className="text-xs mt-1">Profile</span>
+            {/* Profile Picture Circle - same size as create button */}
+            <div className={`absolute top-1/2 -translate-y-1/2 w-12 h-12 rounded-full overflow-hidden pointer-events-none ${
+              isActive('/profile') ? 'ring-2 ring-[#B9D9EB]' : ''
+            }`}>
+              {user.profilePhotoUrl ? (
+                <img
+                  src={user.profilePhotoUrl}
+                  alt={user.username}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                // Default eggshell circle with initial
+                <div className="w-full h-full bg-[#F0EAD6] flex items-center justify-center">
+                  <span className="text-gray-700 text-lg font-bold">
+                    {user.username?.[0]?.toUpperCase() || '?'}
+                  </span>
+                </div>
+              )}
+            </div>
           </Link>
         ) : (
           <Link
             href="/feed"
-            className="flex flex-col items-center justify-center w-full h-full text-gray-400 touch-feedback"
+            className="flex flex-col items-center justify-center w-full h-full relative touch-feedback"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-              />
-            </svg>
-            <span className="text-xs mt-1">Login</span>
+            {/* Login circle - same style as default profile */}
+            <div className="absolute top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center pointer-events-none">
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+            </div>
           </Link>
         )}
       </div>
