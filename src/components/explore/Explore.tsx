@@ -8,7 +8,6 @@ import { usePosts } from '@/hooks/api/usePosts';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
-import { NavigationHeader } from '@/components/layout/NavigationHeader';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { CreatePostModal } from '@/components/post/CreatePostModal';
@@ -149,11 +148,6 @@ function ExploreContent() {
 
   return (
     <>
-      {/* Mobile Header (shown on <1024px) */}
-      <div className="lg:hidden">
-        <NavigationHeader />
-      </div>
-
       {/* Desktop Sidebar (shown on >=1024px) */}
       <Sidebar
         onCreatePost={handleCreatePost}
