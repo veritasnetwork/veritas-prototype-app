@@ -20,8 +20,8 @@ export function MobileNav({ onCreatePost }: MobileNavProps) {
   };
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-gray-800 z-[9999] backdrop-blur-md bg-opacity-95 safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-2">
+    <nav className="lg:hidden fixed bottom-4 left-4 right-4 z-[9999] safe-area-bottom">
+      <div className="flex items-center justify-around h-16 px-4 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl">
         {/* Feed */}
         <Link
           href="/feed"
