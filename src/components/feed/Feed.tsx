@@ -6,6 +6,7 @@ import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { PostCard } from './PostCard';
 import { usePosts } from '@/hooks/api/usePosts';
 import { NavigationHeader } from '@/components/layout/NavigationHeader';
@@ -27,6 +28,7 @@ export function Feed() {
   const { authenticated, ready, login, user: privyUser } = usePrivy();
   const { needsOnboarding, isLoading: authLoading } = useAuth();
   const { requireAuth } = useRequireAuth();
+  const isMobile = useIsMobile();
 
   // Initialize wallet hook early to trigger Privy wallet loading
   const { wallet: solanaWallet, isLoading: walletLoading } = useSolanaWallet();
@@ -236,9 +238,6 @@ export function Feed() {
       console.warn('[Feed] Post not found:', postId);
       return;
     }
-
-    // Check if we're on mobile (< 1024px)
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
 
     // On mobile: Always navigate to dedicated post page
     if (isMobile) {

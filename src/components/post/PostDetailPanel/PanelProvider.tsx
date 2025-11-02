@@ -13,36 +13,39 @@ interface PanelContextValue {
 
 const PanelContext = createContext<PanelContextValue | null>(null);
 
-export function PanelProvider({ children }: { children: ReactNode }) {
-  // Only active if feature flag is on
-  if (!FEATURES.POST_DETAIL_PANEL) {
-    return <>{children}</>;
-  }
-
+function PanelProviderInner({ children }: { children: ReactNode }) {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [position, setPosition] = useState<'right' | 'fullscreen'>('right');
+  const [isMobileView, setIsMobileView] = useState(false);
 
-  // Update position on resize
+  // Determine if mobile on mount and resize
   useEffect(() => {
-    const updatePosition = () => {
-      setPosition(window.innerWidth < 1024 ? 'fullscreen' : 'right');
+    const checkMobile = () => {
+      const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isSmallScreen = window.innerWidth < 768; // md breakpoint
+      setIsMobileView(hasTouch && isSmallScreen);
     };
 
-    updatePosition();
-    window.addEventListener('resize', updatePosition);
-    return () => window.removeEventListener('resize', updatePosition);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const openPost = useCallback((postId: string) => {
+  const position = isMobileView ? 'fullscreen' : 'right';
+
+  const openPost = useCallback((isMobile: boolean) => (postId: string) => {
     setSelectedPostId(postId);
     setIsOpen(true);
 
     // Prevent body scroll when panel is open on mobile
-    if (window.innerWidth < 1024) {
+    if (isMobile) {
       document.body.style.overflow = 'hidden';
     }
   }, []);
+
+  const openPostCallback = useCallback((postId: string) => {
+    openPost(isMobileView)(postId);
+  }, [isMobileView, openPost]);
 
   const closePanel = useCallback(() => {
     setIsOpen(false);
@@ -69,10 +72,19 @@ export function PanelProvider({ children }: { children: ReactNode }) {
   }, [isOpen, closePanel]);
 
   return (
-    <PanelContext.Provider value={{ isOpen, selectedPostId, openPost, closePanel, position }}>
+    <PanelContext.Provider value={{ isOpen, selectedPostId, openPost: openPostCallback, closePanel, position }}>
       {children}
     </PanelContext.Provider>
   );
+}
+
+export function PanelProvider({ children }: { children: ReactNode }) {
+  // Only active if feature flag is on
+  if (!FEATURES.POST_DETAIL_PANEL) {
+    return <>{children}</>;
+  }
+
+  return <PanelProviderInner>{children}</PanelProviderInner>;
 }
 
 export const usePanel = () => {
