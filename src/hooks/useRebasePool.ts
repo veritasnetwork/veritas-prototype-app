@@ -114,7 +114,10 @@ export function useRebasePool() {
           'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          signedTransaction: Buffer.from(signedTx.serialize()).toString('base64'),
+          signedTransaction: Buffer.from(signedTx.serialize({
+            requireAllSignatures: false,  // Allow partial signing (user signed, protocol will sign next)
+            verifySignatures: false,       // Skip signature verification during serialization
+          })).toString('base64'),
           postId,
           poolAddress: result.poolAddress,
           epoch: result.currentEpoch + 1,
