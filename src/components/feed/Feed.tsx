@@ -389,6 +389,8 @@ export function Feed() {
     // On mobile: Open slide-in panel
     if (isMobile) {
       console.log('[Feed] Mobile - opening slide-in panel for:', postId, 'current:', selectedPostId);
+      console.log('[Feed] Post data:', post);
+      console.log('[Feed] Has pool:', !!post.poolAddress);
       // Always set, even if same post (in case panel was closed)
       setSelectedPostId(postId);
       return;
@@ -431,7 +433,12 @@ export function Feed() {
   // This ensures we're always showing the correct post data
   // Memoize to prevent unnecessary re-renders
   const currentPost = useMemo(
-    () => (selectedPostId ? posts.find(p => p.id === selectedPostId) : null),
+    () => {
+      if (!selectedPostId) return null;
+      const found = posts.find(p => p.id === selectedPostId);
+      console.log('[Feed] currentPost memo:', selectedPostId, 'found:', !!found, 'hasPool:', found?.poolAddress);
+      return found;
+    },
     [selectedPostId, posts]
   );
 
@@ -684,7 +691,7 @@ export function Feed() {
       </div>
 
       {/* Mobile Slide-in Panel - only render on mobile */}
-      {isMobile && selectedPostId && currentPost && (
+      {isMobile && selectedPostId && (
         <>
           {/* Backdrop */}
           <div
@@ -739,15 +746,22 @@ export function Feed() {
 
             {/* Trading Panel Content */}
             <div className="px-3 pb-8">
-              <TradingPanel
-                postId={currentPost.id}
-                poolAddress={currentPost.poolAddress}
-                poolData={poolData}
-                tradeStats={tradeHistory?.stats}
-                selectedSide={selectedSide}
-                onSideChange={setSelectedSide}
-                onTradeSuccess={handleTradeSuccess}
-              />
+              {currentPost ? (
+                <TradingPanel
+                  postId={currentPost.id}
+                  poolAddress={currentPost.poolAddress}
+                  poolData={poolData}
+                  tradeStats={tradeHistory?.stats}
+                  selectedSide={selectedSide}
+                  onSideChange={setSelectedSide}
+                  onTradeSuccess={handleTradeSuccess}
+                />
+              ) : (
+                // Loading state while post data is being found
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-2 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
             </div>
           </div>
         </>
