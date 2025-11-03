@@ -627,7 +627,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-4 md:px-8 py-3 md:py-4 border-t border-gray-800">
+        <div className="flex items-center justify-end gap-3 px-4 md:px-8 py-3 md:py-4 pb-6 md:pb-4 border-t border-gray-800">
           <button
             onClick={handleClose}
             disabled={isSubmitting}
