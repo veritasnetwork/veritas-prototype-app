@@ -17,6 +17,7 @@ import { CreatePostModal } from '@/components/post/CreatePostModal';
 import { TradingPanel } from '@/components/post/TradingPanel';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { HowItWorksModal } from '@/components/auth/HowItWorksModal';
+import { PWAInstallPrompt, usePWAInstallPrompt } from '@/components/common/PWAInstallPrompt';
 import { usePoolData } from '@/hooks/usePoolData';
 import { useTradeHistory } from '@/hooks/api/useTradeHistory';
 import { PostsService } from '@/services/posts.service';
@@ -39,6 +40,9 @@ export function Feed() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedSide, setSelectedSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [isClosing, setIsClosing] = useState(false);
+
+  // PWA install prompt (only on mobile, not in PWA)
+  const { showPrompt: showPWAPrompt, closePrompt: closePWAPrompt, isPWA } = usePWAInstallPrompt();
 
   // Read view mode from URL params, default to 'read' on mobile, 'trade' on desktop
   const [viewMode, setViewMode] = useState<'read' | 'trade'>(() => {
@@ -500,7 +504,7 @@ export function Feed() {
 
       {/* Main Content Area */}
       <div className={`min-h-screen bg-[#0f0f0f] pb-20 lg:pb-0 transition-[margin-left] duration-1000 ease-in-out ${viewMode === 'trade' && selectedPostId ? 'lg:ml-28' : 'lg:ml-64'}`}>
-        <div className={`mx-auto py-8 bg-[#0f0f0f] transition-[max-width,padding] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${viewMode === 'trade' && selectedPostId ? 'lg:max-w-[1400px] lg:px-4' : 'max-w-[750px] px-0 lg:px-6'}`}>
+        <div className={`mx-auto pt-0 pb-8 lg:py-8 bg-[#0f0f0f] transition-[max-width,padding] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${viewMode === 'trade' && selectedPostId ? 'lg:max-w-[1400px] lg:px-4' : 'max-w-[750px] px-0 lg:px-6'}`}>
           <div className={`flex flex-col lg:flex-row bg-[#0f0f0f] ${viewMode === 'trade' && selectedPostId ? 'lg:gap-12' : ''} ${viewMode === 'trade' && selectedPostId ? 'lg:items-start lg:h-[calc(100vh-4rem)]' : ''}`}>
             {/* Posts Column */}
             <div className={`flex flex-col w-full lg:w-[680px] lg:flex-shrink-0 bg-[#0f0f0f] lg:gap-8 ${viewMode === 'trade' && selectedPostId ? 'lg:h-full lg:overflow-y-auto scrollbar-hide lg:pb-8' : ''}`}>
@@ -628,6 +632,11 @@ export function Feed() {
         isOpen={isHowItWorksModalOpen}
         onClose={() => setIsHowItWorksModalOpen(false)}
       />
+
+      {/* PWA Install Prompt (mobile only, not in PWA) */}
+      {isMobile && showPWAPrompt && !isPWA && (
+        <PWAInstallPrompt onClose={closePWAPrompt} />
+      )}
     </div>
   );
 }
