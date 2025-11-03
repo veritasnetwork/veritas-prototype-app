@@ -41,6 +41,11 @@ export function Feed() {
   const [selectedSide, setSelectedSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [isClosing, setIsClosing] = useState(false);
 
+  // Swipe-to-close state for mobile panel
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const startX = useRef(0);
+
   // PWA install prompt (only on mobile, not in PWA)
   const { showPrompt: showPWAPrompt, closePrompt: closePWAPrompt, isPWA } = usePWAInstallPrompt();
 
@@ -142,6 +147,46 @@ export function Feed() {
       };
     }
   }, [isMobile, selectedPostId]);
+
+  // Swipe-to-close handlers for mobile panel
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile) return;
+    startX.current = e.touches[0].clientX;
+
+    // Check if touch starts from left edge or on scrollable content
+    const target = e.target as HTMLElement;
+    const isScrollable = target.closest('.overflow-y-auto') !== null;
+
+    // Enable drag if starting from left edge or not on scrollable content
+    if (startX.current < 100 || !isScrollable) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !isMobile) return;
+
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - startX.current;
+
+    // Only allow dragging right (positive diff)
+    if (diff > 10) {
+      setDragOffset(diff);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging || !isMobile) return;
+    setIsDragging(false);
+
+    // Close if dragged right more than 80px
+    if (dragOffset > 80) {
+      setSelectedPostId(null);
+    }
+
+    // Animate back to original position
+    setDragOffset(0);
+  };
 
   // Handle view mode changes
   const handleViewModeChange = (mode: 'read' | 'trade') => {
@@ -650,13 +695,21 @@ export function Feed() {
               right: 0,
               bottom: 0,
               zIndex: 1150,
+              opacity: isDragging && dragOffset > 0
+                ? Math.max(0.2, 1 - (dragOffset / 300))
+                : undefined,
             }}
             onClick={() => setSelectedPostId(null)}
           />
 
-          {/* Panel - Slides from right, fullscreen - much faster animation */}
+          {/* Panel - Slides from right, fullscreen - with swipe support */}
           <div
-            className="fixed bg-[#0f0f0f] shadow-2xl animate-[slideInFromRight_150ms_cubic-bezier(0.16,1,0.3,1)] overflow-y-auto overscroll-contain"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className={`fixed bg-[#0f0f0f] shadow-2xl overflow-y-auto overscroll-contain ${
+              !isDragging && 'animate-[slideInFromRight_150ms_cubic-bezier(0.16,1,0.3,1)]'
+            }`}
             style={{
               position: 'fixed',
               top: '0px',
@@ -667,6 +720,10 @@ export function Feed() {
               height: '100vh',
               maxHeight: '100dvh',
               zIndex: 1200,
+              transform: isDragging && dragOffset > 0
+                ? `translateX(${dragOffset}px)`
+                : undefined,
+              transition: isDragging ? 'none' : undefined,
             }}
           >
             {/* Back button - sticky at top */}
