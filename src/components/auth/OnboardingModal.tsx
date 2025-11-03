@@ -10,7 +10,7 @@ interface OnboardingModalProps {
 }
 
 export function OnboardingModal({ isOpen }: OnboardingModalProps) {
-  const { user: privyUser, getAccessToken, logout } = usePrivy();
+  const { user: privyUser, getAccessToken, logout, linkPasskey } = usePrivy();
   const { refreshUser } = useAuth();
   const { connectWallet } = useConnectWallet();
 
@@ -31,6 +31,14 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
     (account: { type: string; chainType?: string }) => account.type === 'wallet' && account.chainType === 'solana'
   );
   const solanaAddress = (solanaWallet as { address?: string })?.address;
+
+  // Check if user logged in with email (not passkey)
+  const hasEmail = privyUser?.linkedAccounts?.some(
+    (account: { type: string }) => account.type === 'email'
+  );
+  const hasPasskey = privyUser?.linkedAccounts?.some(
+    (account: { type: string }) => account.type === 'passkey'
+  );
 
   // Shortened wallet address for display
   const shortenedAddress = solanaAddress
