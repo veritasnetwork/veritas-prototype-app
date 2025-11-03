@@ -251,15 +251,20 @@ export function Feed() {
     // Close if dragged right more than 80px
     if (dragOffset > 80 && !isPanelClosing) {
       setIsPanelClosing(true);
+      // Animate panel sliding out to the right
+      setDragOffset(window.innerWidth);
+
+      // Wait for animation to complete before removing from DOM
       setTimeout(() => {
         setSelectedPostId(null);
         setShowMobilePanel(false);
         setIsPanelClosing(false);
-      }, 100);
+        setDragOffset(0); // Reset for next time
+      }, 300); // Match animation duration
+    } else {
+      // Animate back to original position if not closing
+      setDragOffset(0);
     }
-
-    // Animate back to original position
-    setDragOffset(0);
   };
 
   // Handle view mode changes
@@ -847,7 +852,7 @@ export function Feed() {
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             className={`fixed bg-[#0f0f0f] shadow-2xl overflow-y-auto overscroll-contain ${
-              !isDragging && 'animate-[slideInFromRight_150ms_cubic-bezier(0.16,1,0.3,1)]'
+              !isDragging && !dragOffset && 'animate-[slideInFromRight_150ms_cubic-bezier(0.16,1,0.3,1)]'
             }`}
             style={{
               position: 'fixed',
@@ -859,10 +864,12 @@ export function Feed() {
               height: '100vh',
               maxHeight: '100dvh',
               zIndex: 1200,
-              transform: isDragging && dragOffset > 0
+              transform: dragOffset > 0
                 ? `translateX(${dragOffset}px)`
-                : undefined,
-              transition: isDragging ? 'none' : undefined,
+                : 'translateX(0)',
+              transition: isDragging
+                ? 'none'
+                : 'transform 300ms cubic-bezier(0.16,1,0.3,1)',
             }}
           >
             {/* Back button - sticky at top with larger touch target */}
