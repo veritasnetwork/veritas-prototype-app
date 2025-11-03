@@ -59,9 +59,13 @@ export function useSolanaWallet() {
       return undefined;
     }
 
-    // IMPORTANT: Wait for wallets to be ready before checking
-    // This prevents false negatives when page first loads
-    if (!walletsReady && !solanaWalletsReady) {
+    // Try to get wallet immediately if wallets arrays have data
+    // Don't wait for ready flags if we already have wallet objects
+    const hasWalletData = (solanaWallets && solanaWallets.length > 0) ||
+                          (allWallets && allWallets.length > 0);
+
+    // Only wait for ready flags if we have no wallet data yet
+    if (!hasWalletData && !walletsReady && !solanaWalletsReady) {
       return undefined;
     }
 
