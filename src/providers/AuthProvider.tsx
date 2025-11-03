@@ -2,7 +2,7 @@
 
 import { PrivyProvider, usePrivy as useRealPrivy } from '@privy-io/react-auth';
 import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { PrivyErrorBoundary } from '@/components/auth/PrivyErrorBoundary';
 import { getRpcEndpoint, getNetworkName } from '@/lib/solana/network-config';
@@ -58,6 +58,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [initializing, setInitializing] = useState(true);
+  const hasCheckedInitialAuth = useRef(false);
 
   const checkUserStatus = async (retryCount = 0) => {
     if (!ready || !authenticated) {
@@ -151,20 +152,30 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       return; // Wait for Privy to be ready
     }
 
-    // Force logout on page reload to avoid wallet connection issues
-    // This ensures clean state and users must login each session
-    if (authenticated) {
-      console.log('[AuthProvider] Logging out user on page reload to ensure fresh state');
-      privyLogout();
-      setInitializing(false);
-      return;
+    // Force logout ONLY on initial page load, not on subsequent logins
+    if (!hasCheckedInitialAuth.current) {
+      hasCheckedInitialAuth.current = true;
+
+      if (authenticated) {
+        console.log('[AuthProvider] Logging out user on page reload to ensure fresh state');
+        privyLogout();
+        setInitializing(false);
+        return;
+      }
     }
 
     // Privy is ready, end initialization phase
     setInitializing(false);
-    setIsLoading(false);
-    setUser(null);
-    setNeedsOnboarding(false);
+
+    if (authenticated) {
+      // Check auth status whenever user becomes authenticated and Privy is ready
+      checkUserStatus();
+    } else {
+      // Not authenticated - clear state
+      setIsLoading(false);
+      setUser(null);
+      setNeedsOnboarding(false);
+    }
   }, [authenticated, ready]);
 
   const authValue: AuthContextValue = {
