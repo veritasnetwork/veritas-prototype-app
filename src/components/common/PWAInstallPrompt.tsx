@@ -8,7 +8,7 @@ interface PWAInstallPromptProps {
 }
 
 export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
-  const [browser, setBrowser] = useState<'safari' | 'chrome' | 'firefox' | 'other'>('other');
+  const [browser, setBrowser] = useState<'safari' | 'chrome' | 'firefox' | 'brave' | 'other'>('other');
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
@@ -17,7 +17,12 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
     const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIOSDevice);
 
-    if (userAgent.includes('safari') && !userAgent.includes('chrome') && !userAgent.includes('crios')) {
+    // Check for Brave browser (must check before Chrome since Brave includes "chrome" in UA)
+    const isBrave = (navigator as any).brave !== undefined;
+
+    if (isBrave) {
+      setBrowser('brave');
+    } else if (userAgent.includes('safari') && !userAgent.includes('chrome') && !userAgent.includes('crios')) {
       setBrowser('safari');
     } else if (userAgent.includes('chrome') || userAgent.includes('crios')) {
       setBrowser('chrome');
@@ -29,6 +34,29 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
   }, []);
 
   const getInstructions = () => {
+    // Brave on iOS - tell users to switch to Safari
+    if (browser === 'brave' && isIOS) {
+      return (
+        <div className="space-y-3">
+          <p className="text-gray-300 text-sm">Brave doesn't support PWA installation on iOS. Please open this page in Safari.</p>
+          <ol className="space-y-2 text-sm text-gray-300">
+            <li className="flex items-start gap-2">
+              <span className="font-semibold text-white">1.</span>
+              <span>Tap the <Share className="inline w-4 h-4 mx-1" /> Share button</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="font-semibold text-white">2.</span>
+              <span>Select <strong>"Open in Safari"</strong></span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="font-semibold text-white">3.</span>
+              <span>Then follow the Safari instructions to add to home screen</span>
+            </li>
+          </ol>
+        </div>
+      );
+    }
+
     if (browser === 'safari' && isIOS) {
       return (
         <div className="space-y-3">
