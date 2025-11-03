@@ -245,6 +245,20 @@ export async function GET(
         return sum + (microAmount / 1_000_000);
       }, 0);
 
+    // Diagnostic logging
+    console.log('[Trades API] Volume calculation for pool:', poolData.pool_address);
+    console.log('[Trades API] Total trades:', trades.length);
+    console.log('[Trades API] LONG trades:', trades.filter(t => t.side === 'LONG').length);
+    console.log('[Trades API] SHORT trades:', trades.filter(t => t.side === 'SHORT').length);
+    console.log('[Trades API] Total volume:', totalVolume);
+    console.log('[Trades API] LONG volume:', volumeLong);
+    console.log('[Trades API] SHORT volume:', volumeShort);
+    console.log('[Trades API] Trade details:', trades.map(t => ({
+      side: t.side,
+      usdc_amount: t.usdc_amount,
+      recorded_at: t.recorded_at
+    })));
+
     // LONG stats
     const highestPriceLong = priceLongValues.length > 0 ? Math.max(...priceLongValues) : 0;
     const lowestPriceLong = priceLongValues.length > 0 ? Math.min(...priceLongValues) : 0;
