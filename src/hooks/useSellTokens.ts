@@ -11,7 +11,7 @@ import { mutate } from 'swr';
 export function useSellTokens() {
   const { wallet, address } = useSolanaWallet();
   const { user } = useAuth();
-  const { getAccessToken } = usePrivy();
+  const { user: privyUser, getAccessToken } = usePrivy();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -23,9 +23,19 @@ export function useSellTokens() {
     initialBelief?: number,
     metaBelief?: number
   ) => {
+    // Get address from Privy user object (available immediately) or fallback to useSolanaWallet
+    const linkedSolanaAccount = privyUser?.linkedAccounts?.find(
+      (account: any) => account.type === 'wallet' && account.chainType === 'solana'
+    ) as any;
+    const walletAddress = linkedSolanaAccount?.address || address;
 
-    if (!wallet || !address) {
+    if (!walletAddress) {
       throw new Error('Wallet not connected');
+    }
+
+    // We need the wallet object for signing - if it's not ready yet, show a better message
+    if (!wallet) {
+      throw new Error('Wallet is initializing. Please wait a moment and try again.');
     }
 
     if (!('signTransaction' in wallet)) {
@@ -51,7 +61,7 @@ export function useSellTokens() {
       // Validate balances BEFORE preparing transaction
       const { PublicKey } = await import('@solana/web3.js');
 
-      const solBalance = await connection.getBalance(new PublicKey(address));
+      const solBalance = await connection.getBalance(new PublicKey(walletAddress));
       const solBalanceInSol = solBalance / 1e9;
       const minSolRequired = 0.005; // Minimum SOL for transaction fees
 
@@ -72,7 +82,7 @@ export function useSellTokens() {
           'Authorization': `Bearer ${jwt}`,
         },
         body: JSON.stringify({
-          walletAddress: address,
+          walletAddress: walletAddress,
           postId,
           side,
           tradeType: 'SELL',
@@ -161,7 +171,7 @@ export function useSellTokens() {
             console.log('[useSellTokens] 🔍 Looking for token changes:', {
               tokenMint: tokenMintAddress,
               usdcMint: usdcMint.toBase58(),
-              userAddress: address,
+              userAddress: walletAddress,
               side
             });
 
@@ -175,7 +185,7 @@ export function useSellTokens() {
                 pre => pre.accountIndex === postBalance.accountIndex
               );
 
-              if (postBalance.mint === tokenMintAddress && postBalance.owner === address) {
+              if (postBalance.mint === tokenMintAddress && postBalance.owner === walletAddress) {
                 // Token account balance change (should be negative for sell)
                 const preBal = preBalance?.uiTokenAmount?.uiAmount || 0;
                 const postBal = postBalance.uiTokenAmount?.uiAmount || 0;
@@ -196,7 +206,7 @@ export function useSellTokens() {
                 }
               }
 
-              if (postBalance.mint === usdcMint.toBase58() && postBalance.owner === address) {
+              if (postBalance.mint === usdcMint.toBase58() && postBalance.owner === walletAddress) {
                 // USDC account balance change (should be positive for sell)
                 const preBal = preBalance?.uiTokenAmount?.uiAmount || 0;
                 const postBal = postBalance.uiTokenAmount?.uiAmount || 0;
