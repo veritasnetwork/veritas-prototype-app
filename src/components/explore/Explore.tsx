@@ -259,7 +259,12 @@ function ExploreContent() {
       </div>
 
       {/* Mobile Bottom Navigation (shown on <1024px) */}
-      <MobileNav onCreatePost={handleCreatePost} />
+      <MobileNav
+        onCreatePost={handleCreatePost}
+        showFilters={true}
+        currentSort={sortBy}
+        onSortChange={setSortBy}
+      />
 
       {/* Create Post Modal */}
       <CreatePostModal

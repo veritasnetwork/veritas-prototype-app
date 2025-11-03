@@ -1,19 +1,34 @@
 'use client';
 
+import { useState } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Clock, TrendingUp, BarChart3 } from 'lucide-react';
+
+export type SortOption = 'recent' | 'volume' | 'relevant';
 
 interface MobileNavProps {
   onCreatePost: () => void;
   isHidden?: boolean;
+  // Filter props (only used on explore page)
+  currentSort?: SortOption;
+  onSortChange?: (sort: SortOption) => void;
+  showFilters?: boolean;
 }
 
-export function MobileNav({ onCreatePost, isHidden = false }: MobileNavProps) {
+const sortOptions: { value: SortOption; label: string; icon: any }[] = [
+  { value: 'recent', label: 'Most Recent', icon: Clock },
+  { value: 'volume', label: 'Most Volume', icon: BarChart3 },
+  { value: 'relevant', label: 'Most Relevant', icon: TrendingUp },
+];
+
+export function MobileNav({ onCreatePost, isHidden = false, currentSort = 'recent', onSortChange, showFilters = false }: MobileNavProps) {
   const { user } = useAuth();
   const { login } = usePrivy();
   const pathname = usePathname();
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
 
   const isActive = (path: string) => {
     if (path === '/feed') {
@@ -22,10 +37,51 @@ export function MobileNav({ onCreatePost, isHidden = false }: MobileNavProps) {
     return pathname?.startsWith(path);
   };
 
+  const handleFilterToggle = () => {
+    if (showFilters && isActive('/explore')) {
+      setIsFilterExpanded(!isFilterExpanded);
+    }
+  };
+
+  const handleSortSelect = (sort: SortOption) => {
+    onSortChange?.(sort);
+    setIsFilterExpanded(false);
+  };
+
   return (
     <nav className={`lg:hidden fixed bottom-4 left-4 right-4 z-sticky safe-area-bottom transition-transform duration-300 ease-out ${
       isHidden ? 'translate-y-[calc(100%+1rem)]' : 'translate-y-0'
     }`}>
+      {/* Filter Menu - appears above nav when expanded */}
+      {showFilters && isFilterExpanded && (
+        <div className="mb-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
+          {sortOptions.map((option) => {
+            const Icon = option.icon;
+            const isSelected = option.value === currentSort;
+
+            return (
+              <button
+                key={option.value}
+                onClick={() => handleSortSelect(option.value)}
+                className={`w-full px-6 py-4 flex items-center gap-3 transition-colors touch-feedback ${
+                  isSelected
+                    ? 'text-[#B9D9EB] bg-white/5'
+                    : 'text-gray-300 hover:bg-white/5'
+                }`}
+              >
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                <span className="text-sm font-medium">{option.label}</span>
+                {isSelected && (
+                  <svg className="w-5 h-5 ml-auto text-[#B9D9EB]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex items-center justify-around h-16 px-4 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl">
         {/* Feed */}
         <Link
@@ -49,23 +105,43 @@ export function MobileNav({ onCreatePost, isHidden = false }: MobileNavProps) {
           </svg>
         </Link>
 
-        {/* Explore */}
-        <Link
-          href="/explore"
-          className={`flex items-center justify-center w-full h-full transition-colors touch-feedback ${
-            isActive('/explore') ? 'text-[#B9D9EB]' : 'text-gray-400'
-          }`}
-        >
-          <svg
-            className="w-7 h-7"
-            fill={isActive('/explore') ? 'currentColor' : 'none'}
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth={isActive('/explore') ? 0 : 2}
+        {/* Explore - becomes filter menu button when on explore page */}
+        {showFilters && isActive('/explore') ? (
+          <button
+            onClick={handleFilterToggle}
+            className={`flex items-center justify-center w-full h-full transition-all touch-feedback ${
+              isFilterExpanded ? 'text-[#B9D9EB]' : 'text-gray-400'
+            }`}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </Link>
+            <svg
+              className="w-7 h-7 transition-transform duration-200"
+              style={{ transform: isFilterExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        ) : (
+          <Link
+            href="/explore"
+            className={`flex items-center justify-center w-full h-full transition-colors touch-feedback ${
+              isActive('/explore') ? 'text-[#B9D9EB]' : 'text-gray-400'
+            }`}
+          >
+            <svg
+              className="w-7 h-7"
+              fill={isActive('/explore') ? 'currentColor' : 'none'}
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={isActive('/explore') ? 0 : 2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </Link>
+        )}
 
         {/* Create Post */}
         <button

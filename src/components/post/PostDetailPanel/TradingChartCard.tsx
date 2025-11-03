@@ -57,8 +57,8 @@ export function TradingChartCard({
 }: TradingChartCardProps) {
   // Randomly choose initial chart type: 50% price, 50% relevance
   const [chartType, setChartType] = useState<ChartType>(() => Math.random() < 0.5 ? 'price' : 'relevance');
-  const [timeRange, setTimeRange] = useState<TimeRange>('24H');
-  const [relevanceTimeRange, setRelevanceTimeRange] = useState<TimeRange>('24H');
+  const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
+  const [relevanceTimeRange, setRelevanceTimeRange] = useState<TimeRange>('ALL');
   const { requireAuth } = useRequireAuth();
   const { address } = useSolanaWallet();
   const [showFundingPrompt, setShowFundingPrompt] = useState(false);
