@@ -91,13 +91,6 @@ export function PoolMetricsCard({
   const volumeLong = stats?.volumeLong;
   const volumeShort = stats?.volumeShort;
 
-  // Debug logging
-  if (typeof window !== 'undefined') {
-    console.log('[PoolMetricsCard] Stats received:', stats);
-    console.log('[PoolMetricsCard] volumeLong:', volumeLong, 'volumeShort:', volumeShort);
-    console.log('[PoolMetricsCard] Current side:', side);
-  }
-
   // Select metrics based on active side
   const currentPrice = side === 'LONG' ? priceLong : priceShort;
   const marketCap = side === 'LONG' ? marketCapLong : marketCapShort;
@@ -105,6 +98,25 @@ export function PoolMetricsCard({
   const sideReserve = side === 'LONG' ? reserveLongUSDC : reserveShortUSDC;
   const priceChangePercent24h = side === 'LONG' ? priceChangeLong24h : priceChangeShort24h;
   const totalVolume = side === 'LONG' ? volumeLong : volumeShort;
+
+  // Debug logging
+  if (typeof window !== 'undefined') {
+    console.log('[PoolMetricsCard] ====== DEBUG ======');
+    console.log('[PoolMetricsCard] Stats received:', stats);
+    console.log('[PoolMetricsCard] stats?.volumeLong:', stats?.volumeLong);
+    console.log('[PoolMetricsCard] stats?.volumeShort:', stats?.volumeShort);
+    console.log('[PoolMetricsCard] volumeLong variable:', volumeLong);
+    console.log('[PoolMetricsCard] volumeShort variable:', volumeShort);
+    console.log('[PoolMetricsCard] Current side:', side);
+    console.log('[PoolMetricsCard] totalVolume (displayed):', totalVolume);
+    console.log('[PoolMetricsCard] Math.round(1):', Math.round(1));
+    console.log('[PoolMetricsCard] formatCompactNumber(1):', formatCompactNumber(1));
+    if (totalVolume !== undefined) {
+      console.log('[PoolMetricsCard] formatCompactNumber(totalVolume):', formatCompactNumber(totalVolume));
+      console.log('[PoolMetricsCard] Math.round(totalVolume):', Math.round(totalVolume));
+    }
+    console.log('[PoolMetricsCard] ==================');
+  }
   const sideColor = side === 'LONG' ? 'text-[#B9D9EB]' : 'text-orange-400';
 
   return (
