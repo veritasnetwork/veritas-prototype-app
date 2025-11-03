@@ -86,7 +86,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Step 6: Add protocol authority signature (user already signed)
+    // Step 6: Add protocol authority signature
+    // User already signed (Step 4 above), now we add protocol signature
     try {
       transaction.partialSign(protocolAuthority);
       console.log('[EXECUTE TRADE] Protocol authority signed transaction');

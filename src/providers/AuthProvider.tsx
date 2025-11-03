@@ -6,7 +6,6 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { PrivyErrorBoundary } from '@/components/auth/PrivyErrorBoundary';
 import { getRpcEndpoint, getNetworkName } from '@/lib/solana/network-config';
-import { useEagerWalletConnect, clearWalletConnectionAttempt } from '@/hooks/useEagerWalletConnect';
 import {
   MockPrivyProvider,
   usePrivy as useMockPrivy,
@@ -59,9 +58,6 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [initializing, setInitializing] = useState(true);
-
-  // Automatically attempt to reconnect previously linked wallets
-  useEagerWalletConnect();
 
   const checkUserStatus = async (retryCount = 0) => {
     if (!ready || !authenticated) {
@@ -143,7 +139,6 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const logout = () => {
     setUser(null);
     setNeedsOnboarding(false);
-    clearWalletConnectionAttempt(); // Clear the connection attempt flag
     privyLogout();
   };
 
@@ -156,18 +151,20 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       return; // Wait for Privy to be ready
     }
 
+    // Force logout on page reload to avoid wallet connection issues
+    // This ensures clean state and users must login each session
+    if (authenticated) {
+      console.log('[AuthProvider] Logging out user on page reload to ensure fresh state');
+      privyLogout();
+      setInitializing(false);
+      return;
+    }
+
     // Privy is ready, end initialization phase
     setInitializing(false);
-
-    if (authenticated) {
-      // Check auth status whenever user becomes authenticated and Privy is ready
-      checkUserStatus();
-    } else {
-      // Not authenticated - clear state
-      setIsLoading(false);
-      setUser(null);
-      setNeedsOnboarding(false);
-    }
+    setIsLoading(false);
+    setUser(null);
+    setNeedsOnboarding(false);
   }, [authenticated, ready]);
 
   const authValue: AuthContextValue = {
@@ -183,8 +180,21 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       {initializing ? (
         <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-3 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
-            <div className="text-white/70 text-sm">Loading Veritas...</div>
+            {/* Modern circular loader */}
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 border-4 border-[#2a2a2a] rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-transparent border-t-[#B9D9EB] rounded-full animate-spin"></div>
+            </div>
+
+            {/* Animated dots */}
+            <div className="flex items-center gap-1">
+              <span className="text-gray-400 text-sm">Loading</span>
+              <div className="flex gap-0.5">
+                <span className="w-1 h-1 bg-[#B9D9EB] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-1 h-1 bg-[#B9D9EB] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-1 h-1 bg-[#B9D9EB] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
@@ -206,7 +216,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Configure Solana wallet connectors
   const solanaConnectors = toSolanaWalletConnectors({
-    shouldAutoConnect: true, // Enable auto-connect for embedded wallets
+    shouldAutoConnect: false, // Disabled - users must login each session
   });
 
   // Get Solana network configuration from environment
