@@ -369,7 +369,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
   return (
     <div
-      className="fixed inset-0 z-modal flex md:items-center md:justify-center items-end"
+      className="fixed inset-0 z-modal flex items-center justify-center"
       onMouseDown={(e) => {
         // Only close on backdrop click, not on any child element
         if (e.target === e.currentTarget) {
@@ -384,16 +384,18 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         }`}
       />
 
-      {/* Modal - Full-screen on mobile, centered on desktop */}
+      {/* Modal - Full-screen on mobile, centered popup on desktop */}
       <div
         ref={containerRef}
         className={`
           relative bg-[#1a1a1a] border border-gray-800 shadow-2xl w-full flex flex-col
           rounded-t-3xl md:rounded-xl
-          h-full md:max-h-[95vh]
+          h-[100dvh] md:h-auto md:max-h-[85vh]
           md:max-w-2xl md:mx-4
+          fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto
           ${isDragging ? '' : 'transition-transform duration-300 ease-out'}
-          ${isAnimating ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
+          ${isAnimating ? 'translate-y-0' : 'translate-y-full md:translate-y-0 md:scale-100'}
+          ${!isAnimating ? 'md:scale-95 md:opacity-0' : 'md:scale-100 md:opacity-100'}
         `}
         style={{
           transform: isDragging ? `translateY(${dragDistance}px)` : undefined,
@@ -409,7 +411,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-end px-6 md:px-8 py-2">
+        <div className="flex items-center justify-end px-4 md:px-8 py-2">
           <button
             onClick={handleClose}
             disabled={isSubmitting}
@@ -423,7 +425,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 md:px-8 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 md:px-8 py-3 md:py-4 space-y-4">
           {/* Post Type Selector */}
           <div>
             <div className="grid grid-cols-3 gap-3">
@@ -625,7 +627,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 md:px-8 py-4 border-t border-gray-800">
+        <div className="flex items-center justify-end gap-3 px-4 md:px-8 py-3 md:py-4 border-t border-gray-800">
           <button
             onClick={handleClose}
             disabled={isSubmitting}
