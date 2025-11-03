@@ -51,19 +51,28 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
     if (browser === 'brave' && isIOS) {
       return (
         <div className="space-y-3">
-          <p className="text-gray-300 text-sm">Brave doesn't support PWA installation on iOS. Please open this page in Safari.</p>
+          <p className="text-orange-400 font-semibold text-sm">Brave doesn't support app installation on iOS</p>
+          <p className="text-gray-300 text-sm">To install Veritas:</p>
           <ol className="space-y-2 text-sm text-gray-300">
             <li className="flex items-start gap-2">
               <span className="font-semibold text-white">1.</span>
-              <span>Tap the <Share className="inline w-4 h-4 mx-1" /> Share button</span>
+              <span>Open Safari browser</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="font-semibold text-white">2.</span>
-              <span>Select <strong>"Open in Safari"</strong></span>
+              <span>Go to <strong>app.veritas.computer</strong></span>
             </li>
             <li className="flex items-start gap-2">
               <span className="font-semibold text-white">3.</span>
-              <span>Then follow the Safari instructions to add to home screen</span>
+              <span>Tap the <Share className="inline w-4 h-4 mx-1" /> Share button</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="font-semibold text-white">4.</span>
+              <span>Select <strong>"Add to Home Screen"</strong></span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="font-semibold text-white">5.</span>
+              <span>Tap <strong>"Add"</strong></span>
             </li>
           </ol>
         </div>
@@ -95,19 +104,28 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
     if (browser === 'chrome' && isIOS) {
       return (
         <div className="space-y-3">
-          <p className="text-gray-300 text-sm">Chrome on iOS doesn't support PWA installation. Please open this page in Safari to install.</p>
+          <p className="text-orange-400 font-semibold text-sm">Chrome doesn't support app installation on iOS</p>
+          <p className="text-gray-300 text-sm">To install Veritas:</p>
           <ol className="space-y-2 text-sm text-gray-300">
             <li className="flex items-start gap-2">
               <span className="font-semibold text-white">1.</span>
-              <span>Tap the <Share className="inline w-4 h-4 mx-1" /> Share button</span>
+              <span>Open Safari browser</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="font-semibold text-white">2.</span>
-              <span>Select <strong>"Open in Safari"</strong></span>
+              <span>Go to <strong>app.veritas.computer</strong></span>
             </li>
             <li className="flex items-start gap-2">
               <span className="font-semibold text-white">3.</span>
-              <span>Then follow the Safari instructions to add to home screen</span>
+              <span>Tap the <Share className="inline w-4 h-4 mx-1" /> Share button</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="font-semibold text-white">4.</span>
+              <span>Select <strong>"Add to Home Screen"</strong></span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="font-semibold text-white">5.</span>
+              <span>Tap <strong>"Add"</strong></span>
             </li>
           </ol>
         </div>
