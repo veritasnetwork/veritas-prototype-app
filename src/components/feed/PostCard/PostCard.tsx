@@ -15,6 +15,7 @@ import { FEATURES } from '@/config/features';
 import { RichTextRenderer } from '@/components/common/RichTextRenderer';
 import { formatPoolDataFromDb } from '@/lib/solana/sqrt-price-helpers';
 import { useVideoPriority } from '@/hooks/useVideoPriority';
+import { getMediaDisplayMode } from '@/lib/utils/media';
 
 interface PostCardProps {
   post: Post;
@@ -187,13 +188,15 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
   // Determine background for different post types
   const getBackgroundElement = () => {
     if (post.post_type === 'image' && post.media_urls && post.media_urls.length > 0) {
-      const displayMode = post.image_display_mode || 'contain';
-      const useContain = displayMode === 'contain';
+      // Use aspect ratio if available, otherwise calculate from display mode
+      const ratio = post.aspect_ratio || (16 / 9);
+      const displayMode = post.aspect_ratio ? getMediaDisplayMode(ratio) : 'native';
+      const isExtreme = displayMode === 'letterbox' || displayMode === 'pillarbox';
 
       // Lazy load images - only load when shouldLoadMedia is true
       if (!shouldLoadMedia) {
         return (
-          <div className={`w-full bg-gray-800 animate-pulse ${useContain ? 'h-auto' : 'h-full'}`} style={useContain ? { maxHeight: '600px', minHeight: '200px' } : undefined} />
+          <div className={`w-full bg-gray-800 animate-pulse ${isExtreme ? 'flex items-center justify-center' : ''}`} style={{ minHeight: '200px', maxHeight: '600px' }} />
         );
       }
 
@@ -202,8 +205,7 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
           src={post.media_urls[0]}
           alt={post.caption || 'Post image'}
           loading="lazy"
-          className={`w-full ${useContain ? 'h-auto object-contain' : 'h-full object-cover'}`}
-          style={useContain ? { maxHeight: '600px' } : undefined}
+          className={`w-full ${isExtreme ? 'max-w-full max-h-full object-contain' : 'h-auto'}`}
         />
       );
     } else if (post.post_type === 'video' && post.media_urls && post.media_urls.length > 0) {
@@ -244,9 +246,15 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
         );
       }
 
+      // Use aspect ratio if available
+      const ratio = post.aspect_ratio || (16 / 9);
+      const displayMode = post.aspect_ratio ? getMediaDisplayMode(ratio) : 'native';
+      const isExtreme = displayMode === 'letterbox' || displayMode === 'pillarbox';
+
       return (
         <div
-          className="relative w-full h-full"
+          className={`relative w-full ${isExtreme ? 'flex items-center justify-center bg-black' : ''}`}
+          style={isExtreme ? { maxHeight: '90vh' } : undefined}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
         >
@@ -258,7 +266,7 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
             muted
             playsInline
             preload="metadata"
-            className="w-full h-full object-cover"
+            className={`w-full ${isExtreme ? 'max-h-full object-contain' : 'h-auto'}`}
           />
           {/* Pause/Resume Toggle - Bottom Left */}
           <button
@@ -534,11 +542,7 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
             : 'lg:group-hover:ring-2 lg:group-hover:ring-gray-600/50'
           }`}
       >
-        <div className={`relative w-full transition-all duration-2000 ${
-          post.post_type === 'video' || (post.post_type === 'image' && post.image_display_mode === 'cover')
-            ? 'aspect-[3/2]'
-            : 'h-auto' // Let all other content determine its own height
-        }`}>
+        <div className="relative w-full h-auto">
           {/* Background - Image, Video, or Gradient */}
           {getBackgroundElement()}
 

@@ -34,7 +34,11 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const [caption, setCaption] = useState(''); // For image/video posts (280 chars max)
   const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null); // Single media URL
   const [videoThumbnailUrl, setVideoThumbnailUrl] = useState<string | null>(null); // Video thumbnail
-  const [imageDisplayMode, setImageDisplayMode] = useState<'cover' | 'contain'>('cover'); // Image layout mode
+
+  // Media dimensions (auto-extracted)
+  const [mediaWidth, setMediaWidth] = useState<number | null>(null);
+  const [mediaHeight, setMediaHeight] = useState<number | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
 
   // ARTICLE-SPECIFIC STATE
   const [articleTitle, setArticleTitle] = useState(''); // Optional title for articles
@@ -195,7 +199,9 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     setCaption('');
     setUploadedMediaUrl(null);
     setVideoThumbnailUrl(null);
-    setImageDisplayMode('cover');
+    setMediaWidth(null);
+    setMediaHeight(null);
+    setAspectRatio(null);
     setArticleTitle('');
     setCoverImageUrl(null);
     setShowTitleCover(false);
@@ -286,7 +292,9 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
           caption: (postType === 'image' || postType === 'video') ? caption || undefined : undefined,
           article_title: postType === 'text' && articleTitle ? articleTitle : undefined,
           cover_image_url: postType === 'text' && coverImageUrl ? coverImageUrl : undefined,
-          image_display_mode: postType === 'image' ? imageDisplayMode : undefined,
+          media_width: mediaWidth || undefined,
+          media_height: mediaHeight || undefined,
+          aspect_ratio: aspectRatio || undefined,
         }),
       });
 
@@ -305,7 +313,9 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       setCaption('');
       setUploadedMediaUrl(null);
       setVideoThumbnailUrl(null);
-      setImageDisplayMode('cover');
+      setMediaWidth(null);
+      setMediaHeight(null);
+      setAspectRatio(null);
       setArticleTitle('');
       setCoverImageUrl(null);
       setError(null);
@@ -501,7 +511,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
                       </label>
                       <ImageUpload
                         currentUrl={coverImageUrl}
-                        onUpload={setCoverImageUrl}
+                        onUpload={(url) => setCoverImageUrl(url)}
                         onRemove={() => setCoverImageUrl(null)}
                         disabled={isSubmitting}
                       />
@@ -542,42 +552,23 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
               <div>
                 <ImageUpload
                   currentUrl={uploadedMediaUrl}
-                  onUpload={setUploadedMediaUrl}
-                  onRemove={() => setUploadedMediaUrl(null)}
+                  onUpload={(url, dimensions) => {
+                    setUploadedMediaUrl(url);
+                    if (dimensions) {
+                      setMediaWidth(dimensions.width);
+                      setMediaHeight(dimensions.height);
+                      setAspectRatio(dimensions.aspectRatio);
+                    }
+                  }}
+                  onRemove={() => {
+                    setUploadedMediaUrl(null);
+                    setMediaWidth(null);
+                    setMediaHeight(null);
+                    setAspectRatio(null);
+                  }}
                   disabled={isSubmitting}
-                  displayMode={imageDisplayMode}
                 />
               </div>
-
-              {/* Image Display Mode Toggle */}
-              {uploadedMediaUrl && (
-                <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setImageDisplayMode('contain')}
-                      disabled={isSubmitting}
-                      className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        imageDisplayMode === 'contain'
-                          ? 'bg-[#B9D9EB] text-[#0C1D51]'
-                          : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a]'
-                      }`}
-                    >
-                      <span>Full Image</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImageDisplayMode('cover')}
-                      disabled={isSubmitting}
-                      className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        imageDisplayMode === 'cover'
-                          ? 'bg-[#B9D9EB] text-[#0C1D51]'
-                          : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a]'
-                      }`}
-                    >
-                      <span>Fill Card</span>
-                    </button>
-                </div>
-              )}
             </div>
           )}
 
@@ -601,15 +592,23 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
               <div>
                 <VideoUpload
                   currentUrl={uploadedMediaUrl}
-                  onUpload={(videoUrl, thumbnailUrl) => {
+                  onUpload={(videoUrl, thumbnailUrl, dimensions) => {
                     setUploadedMediaUrl(videoUrl);
                     if (thumbnailUrl) {
                       setVideoThumbnailUrl(thumbnailUrl);
+                    }
+                    if (dimensions) {
+                      setMediaWidth(dimensions.width);
+                      setMediaHeight(dimensions.height);
+                      setAspectRatio(dimensions.aspectRatio);
                     }
                   }}
                   onRemove={() => {
                     setUploadedMediaUrl(null);
                     setVideoThumbnailUrl(null);
+                    setMediaWidth(null);
+                    setMediaHeight(null);
+                    setAspectRatio(null);
                   }}
                   disabled={isSubmitting}
                 />

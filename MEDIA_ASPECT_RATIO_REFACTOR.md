@@ -124,9 +124,30 @@ export function MediaContainer({ aspectRatio, children, className }: MediaContai
 ### 9. Handle Existing Posts
 - Calculate aspect ratio on render if missing from DB
 - Default to 16:9 if calculation fails
+- **Production Backfill Options:**
+  1. Run `scripts/backfill-media-dimensions.ts` to extract real dimensions
+  2. SQL update to set all existing posts to 16:9 default
+  3. Let client-side gradually update as posts are viewed
+  - See [BACKFILL_MEDIA_DIMENSIONS.md](BACKFILL_MEDIA_DIMENSIONS.md) for details
 
 ### 10. Testing
 - Test 16:9, 9:16, 1:1, 4:3, 3:4 aspect ratios
 - Test ultra-wide (>16:9) and ultra-tall (>9:16) for letterbox/pillarbox
 - Test on desktop and mobile
 - Test mixed aspect ratios in feed
+
+## Deployment to Production
+
+1. **Apply database migration:**
+   ```bash
+   npx supabase db push
+   ```
+
+2. **Choose backfill strategy** (see [BACKFILL_MEDIA_DIMENSIONS.md](BACKFILL_MEDIA_DIMENSIONS.md)):
+   - **Quick:** SQL update for 16:9 default
+   - **Accurate:** Run backfill script
+   - **Gradual:** No action, let client-side handle it
+
+3. **Deploy code changes**
+
+4. **Monitor:** Check that new posts save with aspect_ratio field populated

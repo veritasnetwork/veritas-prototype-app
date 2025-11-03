@@ -3,9 +3,10 @@
 import { useState, useRef } from 'react';
 import { Upload, X, Video as VideoIcon } from 'lucide-react';
 import { usePrivy } from '@/hooks/usePrivyHooks';
+import { getMediaDimensions, type MediaDimensions } from '@/lib/utils/media';
 
 interface VideoUploadProps {
-  onUpload: (url: string, thumbnailUrl?: string) => void;
+  onUpload: (url: string, thumbnailUrl?: string, dimensions?: MediaDimensions) => void;
   currentUrl: string | null;
   onRemove: () => void;
   disabled?: boolean;
@@ -86,6 +87,15 @@ export function VideoUpload({ onUpload, currentUrl, onRemove, disabled }: VideoU
     setIsUploading(true);
 
     try {
+      // Extract dimensions before upload
+      let dimensions: MediaDimensions | undefined;
+      try {
+        dimensions = await getMediaDimensions(file);
+      } catch (err) {
+        console.warn('Failed to extract video dimensions:', err);
+        // Continue with upload even if dimension extraction fails
+      }
+
       // Get Privy auth token
       const token = await getAccessToken();
 
@@ -137,8 +147,8 @@ export function VideoUpload({ onUpload, currentUrl, onRemove, disabled }: VideoU
         throw new Error(data.error || 'Failed to upload video');
       }
 
-      // Return the public URL and thumbnail URL
-      onUpload(data.url, thumbnailUrl);
+      // Return the public URL, thumbnail URL, and dimensions
+      onUpload(data.url, thumbnailUrl, dimensions);
     } catch (err) {
       console.error('Video upload error:', err);
       setError(err instanceof Error ? err.message : 'Failed to upload video');

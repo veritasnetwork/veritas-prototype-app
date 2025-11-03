@@ -79,7 +79,9 @@ export async function POST(request: NextRequest) {
       caption,
       article_title,
       cover_image_url,
-      image_display_mode,
+      media_width,
+      media_height,
+      aspect_ratio,
       initial_belief,
       meta_belief,
       tx_signature,
@@ -213,7 +215,9 @@ export async function POST(request: NextRequest) {
         content_text: content_text,
         article_title: article_title || null,
         cover_image_url: cover_image_url || null,
-        image_display_mode: image_display_mode || null,
+        media_width: media_width || null,
+        media_height: media_height || null,
+        aspect_ratio: aspect_ratio || null,
         belief_id: post_id, // Use same ID for linked belief
       })
       .select()

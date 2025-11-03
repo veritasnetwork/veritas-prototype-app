@@ -3,16 +3,16 @@
 import { useState, useRef } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { usePrivy } from '@/hooks/usePrivyHooks';
+import { getMediaDimensions, type MediaDimensions } from '@/lib/utils/media';
 
 interface ImageUploadProps {
-  onUpload: (url: string) => void;
+  onUpload: (url: string, dimensions?: MediaDimensions) => void;
   currentUrl: string | null;
   onRemove: () => void;
   disabled?: boolean;
-  displayMode?: 'cover' | 'contain';
 }
 
-export function ImageUpload({ onUpload, currentUrl, onRemove, disabled, displayMode = 'cover' }: ImageUploadProps) {
+export function ImageUpload({ onUpload, currentUrl, onRemove, disabled }: ImageUploadProps) {
   const { getAccessToken } = usePrivy();
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +40,15 @@ export function ImageUpload({ onUpload, currentUrl, onRemove, disabled, displayM
     setIsUploading(true);
 
     try {
+      // Extract dimensions before upload
+      let dimensions: MediaDimensions | undefined;
+      try {
+        dimensions = await getMediaDimensions(file);
+      } catch (err) {
+        console.warn('Failed to extract image dimensions:', err);
+        // Continue with upload even if dimension extraction fails
+      }
+
       // Get Privy auth token
       const token = await getAccessToken();
 
@@ -70,8 +79,8 @@ export function ImageUpload({ onUpload, currentUrl, onRemove, disabled, displayM
         throw new Error('Upload succeeded but no URL returned');
       }
 
-      // Return the public URL
-      onUpload(data.url);
+      // Return the public URL with dimensions
+      onUpload(data.url, dimensions);
     } catch (err) {
       console.error('Image upload error:', err);
       setError(err instanceof Error ? err.message : 'Failed to upload image');
@@ -110,12 +119,12 @@ export function ImageUpload({ onUpload, currentUrl, onRemove, disabled, displayM
   if (currentUrl) {
     return (
       <div className="relative group">
-        <div className={`w-full rounded-lg overflow-hidden ${displayMode === 'contain' ? 'bg-black' : ''}`}>
+        <div className="w-full rounded-lg overflow-hidden bg-black">
           <img
             key={currentUrl} // Force re-render when URL changes
             src={currentUrl}
             alt="Uploaded image"
-            className={`w-full rounded-lg max-h-96 ${displayMode === 'contain' ? 'object-contain' : 'object-cover'}`}
+            className="w-full h-auto max-h-[600px] object-contain"
             onError={(e) => {
               console.error('[ImageUpload] Image failed to load:', currentUrl);
             }}

@@ -70,7 +70,11 @@ export interface Post {
   // === ARTICLE-SPECIFIC FIELDS (optional for text posts) ===
   article_title?: string; // Optional dedicated title for articles
   cover_image_url?: string; // Optional cover/hero image for articles (requires article_title)
-  image_display_mode?: 'cover' | 'contain'; // How to display image posts
+
+  // === MEDIA DIMENSION FIELDS (for automatic aspect ratio handling) ===
+  media_width?: number; // Media width in pixels
+  media_height?: number; // Media height in pixels
+  aspect_ratio?: number; // Pre-calculated aspect ratio (width/height)
 
   // === COMMON FIELDS ===
   author: Author;
