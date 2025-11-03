@@ -123,7 +123,7 @@ export function PostDetailPanel() {
       <div
         className={cn(
           "fixed bg-black/60",
-          "transition-opacity duration-300 ease-out",
+          "transition-opacity duration-150 ease-out",
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         style={{
@@ -152,8 +152,8 @@ export function PostDetailPanel() {
           "lg:left-auto lg:w-[700px] xl:w-[800px]",
           // Enable internal scrolling and disable overscroll
           "overflow-y-auto overscroll-contain",
-          // Animations - slide from right, but not during drag
-          !isDragging && "transition-transform duration-300 ease-out",
+          // Animations - fast slide from right, but not during drag
+          !isDragging && "transition-transform duration-150 ease-out",
           isOpen && !isDragging ? "translate-x-0" : "",
           !isOpen ? "translate-x-full" : ""
         )}
@@ -168,6 +168,8 @@ export function PostDetailPanel() {
           transform: isDragging && dragOffset > 0
             ? `translateX(${dragOffset}px)`
             : undefined,
+          // Hardware acceleration
+          willChange: 'transform',
           // Prevent scroll leaking to background
           touchAction: 'pan-y', // Allow vertical scroll only
           WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS

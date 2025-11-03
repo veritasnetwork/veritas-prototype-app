@@ -584,12 +584,12 @@ export function Feed() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/60 z-40 animate-[fadeIn_300ms_ease-out]"
+            className="fixed inset-0 bg-black/60 z-40 animate-[fadeIn_150ms_ease-out]"
             onClick={() => setSelectedPostId(null)}
           />
 
-          {/* Panel - Slides from right, fullscreen */}
-          <div className="fixed top-0 bottom-0 right-0 z-50 bg-[#0f0f0f] shadow-2xl w-full animate-[slideInFromRight_300ms_cubic-bezier(0.16,1,0.3,1)] overflow-y-auto">
+          {/* Panel - Slides from right, fullscreen - much faster animation */}
+          <div className="fixed top-0 bottom-0 right-0 z-50 bg-[#0f0f0f] shadow-2xl w-full animate-[slideInFromRight_150ms_cubic-bezier(0.16,1,0.3,1)] overflow-y-auto">
             {/* Back button - absolute positioned to avoid creating gap */}
             <div className="absolute top-0 left-0 right-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a]">
               <button
