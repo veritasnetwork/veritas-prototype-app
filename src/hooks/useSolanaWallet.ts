@@ -1,5 +1,5 @@
 import { usePrivy, useWallets, useSolanaWallets } from '@/hooks/usePrivyHooks';
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 
 export interface SolanaWallet {
   address: string;
