@@ -20,6 +20,36 @@ export function PostDetailPanel() {
   const startX = useRef(0);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Prevent body scroll and pull-to-refresh when panel is open
+  useEffect(() => {
+    if (isOpen) {
+      // Disable body scroll
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+
+      // Disable pull-to-refresh
+      document.body.style.overscrollBehavior = 'none';
+    } else {
+      // Re-enable body scroll
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+      document.body.style.overscrollBehavior = '';
+    }
+
+    return () => {
+      // Cleanup on unmount
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+      document.body.style.overscrollBehavior = '';
+    };
+  }, [isOpen]);
+
   // Handle swipe-back gesture on mobile (swipe right to close)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.innerWidth >= 1024) return; // Desktop only uses click to close
@@ -75,9 +105,11 @@ export function PostDetailPanel() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         className={cn(
-          "fixed inset-y-0 right-0 z-50 bg-gray-950 shadow-2xl overflow-hidden",
-          // Width: Fullscreen on mobile, fixed width on desktop
-          "w-full lg:w-[700px] xl:w-[800px]",
+          "fixed inset-0 z-50 bg-gray-950 shadow-2xl",
+          // Width: Fullscreen on mobile, fixed width + offset on desktop
+          "lg:left-auto lg:w-[700px] xl:w-[800px]",
+          // Enable internal scrolling and disable overscroll
+          "overflow-y-auto overscroll-none",
           // Animations - slide from right
           "transition-transform duration-300 ease-out",
           isOpen && !isDragging ? "translate-x-0" : "",
@@ -87,9 +119,11 @@ export function PostDetailPanel() {
           transform: isDragging && dragOffset > 0
             ? `translateX(${dragOffset}px)`
             : undefined,
+          // Ensure panel stays within viewport bounds
+          touchAction: 'pan-y', // Allow vertical scroll only
         }}
       >
-        {/* Back button - Mobile only, top-left */}
+        {/* Back button - Mobile only, sticky at top */}
         <div className="lg:hidden sticky top-0 z-10 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800">
           <button
             onClick={closePanel}

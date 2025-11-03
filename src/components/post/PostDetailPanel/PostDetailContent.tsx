@@ -140,7 +140,7 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
       </button>
 
       {/* Post Header */}
-      <div className="md:mb-6 mb-4 md:mt-8 mt-12 md:px-6 px-6">
+      <div className="md:mb-6 mb-4 md:mt-8 mt-12 md:px-6 px-1">
         <h1 className="text-2xl font-bold text-white mb-2">{postTitle}</h1>
         <div className="flex items-center gap-3 text-sm text-gray-400">
           <span>{post.author?.display_name || post.author?.username || 'unknown'}</span>
@@ -150,7 +150,7 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
       </div>
 
       {/* Post Content - Full width on mobile */}
-      <div className="prose prose-invert max-w-none md:px-6 px-6">
+      <div className="prose prose-invert max-w-none md:px-6 px-1">
         {post.content_json ? (
           <TiptapRenderer content={post.content_json} />
         ) : (
@@ -175,7 +175,7 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
       )}
 
       {/* Pool Section */}
-      <div className="mt-8 border-t border-[#2a2a2a] pt-6 md:px-6 px-6">
+      <div className="mt-8 border-t border-[#2a2a2a] pt-6 md:px-6 px-1">
         <h2 className="text-lg font-semibold text-white mb-4">Market</h2>
 
         {!poolAddress ? (
