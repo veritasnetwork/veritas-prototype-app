@@ -115,7 +115,7 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
   const postTitle = getPostTitle(post);
 
   return (
-    <div className="relative">
+    <div className="relative pb-32 md:pb-8">
       {/* Close Button */}
       <button
         onClick={closePanel}
