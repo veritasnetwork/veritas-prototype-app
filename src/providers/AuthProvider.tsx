@@ -206,7 +206,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Configure Solana wallet connectors
   const solanaConnectors = toSolanaWalletConnectors({
-    shouldAutoConnect: false, // Disable auto-connect to prevent modal on every navigation
+    shouldAutoConnect: true, // Enable auto-connect for embedded wallets
   });
 
   // Get Solana network configuration from environment

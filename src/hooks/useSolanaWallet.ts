@@ -30,47 +30,6 @@ export function useSolanaWallet() {
   const { wallets: allWallets, ready: walletsReady } = 'ready' in allWalletsData ? allWalletsData : { wallets: allWalletsData.wallets, ready: true };
   const solanaWalletsData = useSolanaWallets();
   const { wallets: solanaWallets, ready: solanaWalletsReady } = 'ready' in solanaWalletsData ? solanaWalletsData : { wallets: solanaWalletsData.wallets, ready: true };
-  const [initializationAttempts, setInitializationAttempts] = useState(0);
-  const initStartTime = useRef<number>(Date.now());
-
-  // Log wallet initialization progress
-  useEffect(() => {
-    const elapsed = Date.now() - initStartTime.current;
-    console.log('[useSolanaWallet] State:', {
-      elapsed: `${elapsed}ms`,
-      ready,
-      authenticated,
-      walletsReady,
-      solanaWalletsReady,
-      hasAllWallets: !!allWallets && allWallets.length > 0,
-      hasSolanaWallets: !!solanaWallets && solanaWallets.length > 0,
-      hasLinkedAccount: !!privyUser?.linkedAccounts?.some(
-        (a: any) => a.type === 'wallet' && a.chainType === 'solana'
-      )
-    });
-  }, [ready, authenticated, walletsReady, solanaWalletsReady, allWallets, solanaWallets, privyUser]);
-
-  // Retry initialization every 500ms for up to 10 seconds when we detect a linked wallet that isn't ready
-  useEffect(() => {
-    if (!ready || !authenticated) return;
-
-    const hasLinkedWallet = privyUser?.linkedAccounts?.some(
-      (account: any) =>
-        account.type === 'wallet' &&
-        account.chainType === 'solana' &&
-        isSolanaAddress(account.address)
-    );
-
-    const hasUsableWallet = (solanaWallets && solanaWallets.length > 0) ||
-                           (allWallets && allWallets.some((w: any) => isSolanaAddress(w.address)));
-
-    if (hasLinkedWallet && !hasUsableWallet && initializationAttempts < 20) {
-      const timer = setTimeout(() => {
-        setInitializationAttempts(prev => prev + 1);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [ready, authenticated, privyUser, solanaWallets, allWallets, initializationAttempts]);
 
   const solanaWallet = useMemo(() => {
     if (!ready || !authenticated) {
@@ -106,16 +65,12 @@ export function useSolanaWallet() {
       if (expectedWalletAddress) {
         const matchingWallet = solanaWallets.find((w: any) => w.address === expectedWalletAddress);
         if (matchingWallet) {
-          const elapsed = Date.now() - initStartTime.current;
-          console.log(`[useSolanaWallet] ✅ Wallet found from solanaWallets in ${elapsed}ms`);
           return matchingWallet;
         }
       } else {
         // No linked wallet yet - return first available
         const wallet = solanaWallets[0];
         if (isSolanaAddress(wallet.address)) {
-          const elapsed = Date.now() - initStartTime.current;
-          console.log(`[useSolanaWallet] ✅ Wallet found from solanaWallets (first) in ${elapsed}ms`);
           return wallet;
         }
       }
@@ -142,13 +97,6 @@ export function useSolanaWallet() {
     return undefined;
   }, [ready, authenticated, walletsReady, solanaWalletsReady, allWallets, solanaWallets, privyUser]);
 
-  // Reset retry counter when wallet becomes available
-  useEffect(() => {
-    if (solanaWallet) {
-      setInitializationAttempts(0);
-    }
-  }, [solanaWallet]);
-
   // Determine if we're still loading wallet state
   const hasLinkedSolanaAccount = privyUser?.linkedAccounts?.some(
     (account: any) =>
@@ -157,9 +105,11 @@ export function useSolanaWallet() {
       isSolanaAddress(account.address)
   );
 
-  // Loading only if wallets hooks aren't ready yet
-  // Once they're ready, we stop loading even if wallet isn't connected
-  const isLoading = ready && authenticated && (!walletsReady && !solanaWalletsReady);
+  // Loading if:
+  // 1. Privy not ready yet, OR
+  // 2. User is authenticated and wallet hooks aren't ready yet, OR
+  // 3. User has linked wallet but wallet hasn't appeared yet (give it up to 3 seconds)
+  const isLoading = !ready || (ready && authenticated && (!walletsReady || !solanaWalletsReady));
 
   // Needs reconnection if: wallets are ready, has linked account, but no active wallet
   const needsReconnection = ready && authenticated && walletsReady && solanaWalletsReady && hasLinkedSolanaAccount && !solanaWallet;

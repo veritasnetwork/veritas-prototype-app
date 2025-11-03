@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/providers/AuthProvider';
-import { usePrivy } from '@/hooks/usePrivyHooks';
+import { usePrivy, useConnectWallet } from '@/hooks/usePrivyHooks';
 import { useSolanaWallet } from '@/hooks/useSolanaWallet';
 import { FundWalletButton } from '@/components/wallet/FundWalletButton';
 import Link from 'next/link';
@@ -9,7 +9,8 @@ import Link from 'next/link';
 export function NavigationHeader() {
   const { user, logout } = useAuth();
   const { linkWallet } = usePrivy();
-  const { address: solanaAddress } = useSolanaWallet();
+  const { connectWallet } = useConnectWallet();
+  const { address: solanaAddress, needsReconnection, isLoading } = useSolanaWallet();
 
   return (
     <header className="sticky top-0 z-sticky h-14 bg-[#0f0f0f]/95 backdrop-blur-md border-b border-gray-800">
@@ -28,14 +29,19 @@ export function NavigationHeader() {
 
         {/* Wallet Status (Simplified) */}
         <div className="flex items-center gap-2">
-          {user && !solanaAddress && (
+          {user && !solanaAddress && !isLoading && (
             <button
-              onClick={linkWallet}
+              onClick={needsReconnection ? connectWallet : linkWallet}
               className="px-3 py-1.5 text-xs font-medium text-blue-400 border border-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors"
               aria-label="Connect Wallet"
             >
-              Connect
+              {needsReconnection ? 'Reconnect' : 'Connect'}
             </button>
+          )}
+          {user && isLoading && (
+            <div className="px-3 py-1.5 text-xs text-gray-400">
+              Loading...
+            </div>
           )}
           {user && solanaAddress && (
             <>
