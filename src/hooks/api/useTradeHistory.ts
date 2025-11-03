@@ -65,10 +65,20 @@ export function useTradeHistory(postId: string | undefined, timeRange: TimeRange
     {
       refreshInterval: 120000, // Refresh every 2 minutes (reduced from 60s)
       revalidateOnFocus: false,
-      dedupingInterval: 10000, // Dedupe requests within 10 seconds (increased from 5s)
+      dedupingInterval: 5000, // Dedupe requests within 5 seconds
       revalidateIfStale: true,
       revalidateOnMount: true,
-      keepPreviousData: true,
+      keepPreviousData: false, // Don't keep stale data when switching time ranges
+      onSuccess: (data) => {
+        // Diagnostic logging for volume debugging
+        console.log('[useTradeHistory] Data received for post:', postId);
+        console.log('[useTradeHistory] Stats:', {
+          totalVolume: data.stats.totalVolume,
+          volumeLong: data.stats.volumeLong,
+          volumeShort: data.stats.volumeShort,
+          totalTrades: data.stats.totalTrades,
+        });
+      },
     }
   );
 
