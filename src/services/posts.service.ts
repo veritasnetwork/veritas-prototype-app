@@ -247,27 +247,43 @@ export class PostsService {
 
       // Fetch latest implied relevance for all posts in one query
       const postIds = posts.map(p => p.id);
+      console.log('[PostsService] Fetching implied relevance for', postIds.length, 'posts');
       const { data: impliedRelevanceData } = await supabase
         .from('implied_relevance_history')
         .select('post_id, implied_relevance, recorded_at')
         .in('post_id', postIds)
         .order('recorded_at', { ascending: false });
 
+      console.log('[PostsService] Implied relevance records:', impliedRelevanceData?.length || 0);
+
       // Create a map of post_id -> latest implied_relevance
       const impliedRelevanceMap = new Map<string, number>();
       if (impliedRelevanceData) {
         for (const row of impliedRelevanceData) {
           if (!impliedRelevanceMap.has(row.post_id)) {
+            console.log('[PostsService] Adding implied relevance:', {
+              postId: row.post_id.substring(0, 8),
+              relevance: row.implied_relevance,
+              recordedAt: row.recorded_at
+            });
             impliedRelevanceMap.set(row.post_id, row.implied_relevance);
           }
         }
       }
+      console.log('[PostsService] Final relevance map size:', impliedRelevanceMap.size);
 
       // Transform database posts to frontend posts with implied relevance
       // Skip volume calculation on initial load for faster performance
       const transformedPosts = posts.map(dbPost => {
         const post = this.transformDbPost(dbPost);
         const impliedRelevance = impliedRelevanceMap.get(post.id);
+
+        console.log('[PostsService] Transforming post:', {
+          id: post.id.substring(0, 8),
+          hasImpliedRelevance: impliedRelevance !== undefined,
+          impliedRelevance: impliedRelevance,
+          createdAt: dbPost.created_at
+        });
 
         // Attach implied relevance as marketImpliedRelevance
         if (impliedRelevance !== undefined) {
@@ -283,19 +299,29 @@ export class PostsService {
         return post;
       });
 
+      console.log('[PostsService] Transformed posts summary:', transformedPosts.map(p => ({
+        id: p.id.substring(0, 8),
+        relevance: (p as any).marketImpliedRelevance,
+        timestamp: p.timestamp
+      })));
+
       // Rank using ImpliedRelevanceFirst strategy: posts with implied relevance first, then by recency
       const rankedPosts = await feedRankingService.rank(transformedPosts, {
         strategy: new ImpliedRelevanceFirstRanking(),
         enrichWithPoolState: false,  // Use database instead of on-chain
       });
 
-      console.log('[PostsService] Returning ranked posts:', rankedPosts.length, 'posts');
-      console.log('[PostsService] Post types after ranking:', rankedPosts.map(p => ({
-        id: p.id.substring(0, 8),
-        type: p.post_type,
-        hasPool: !!p.poolAddress,
-        impliedRelevance: (p as any).marketImpliedRelevance
-      })));
+      console.log('[PostsService] ===== FINAL RANKED ORDER =====');
+      rankedPosts.forEach((p, index) => {
+        console.log(`[PostsService] #${index + 1}:`, {
+          id: p.id.substring(0, 8),
+          type: p.post_type,
+          relevance: (p as any).marketImpliedRelevance,
+          timestamp: p.timestamp,
+          hasPool: !!p.poolAddress
+        });
+      });
+      console.log('[PostsService] ===== END RANKED ORDER =====');
 
       return rankedPosts;
     } catch (error) {

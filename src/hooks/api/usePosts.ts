@@ -89,6 +89,12 @@ export function usePosts(): UsePostsResult {
 
       if (reset) {
         console.log('[usePosts] Setting posts (reset):', filteredData.length);
+        console.log('[usePosts] Posts order received from API:', filteredData.map((p, i) => ({
+          index: i + 1,
+          id: p.id.substring(0, 8),
+          relevance: (p as any).marketImpliedRelevance,
+          timestamp: p.timestamp
+        })));
         setPosts(filteredData);
         // Update cache
         cachedPosts = filteredData;

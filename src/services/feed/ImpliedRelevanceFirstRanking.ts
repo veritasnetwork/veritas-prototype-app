@@ -67,8 +67,12 @@ export class ImpliedRelevanceFirstRanking implements RankingStrategy {
       withRelevance: postsWithRelevance.length,
       withoutRelevance: postsWithoutRelevance.length,
       postsWithRelevanceIds: postsWithRelevance.map(p => ({ id: p.id.substring(0, 8), q: (p as any).marketImpliedRelevance })),
-      postsWithoutRelevanceIds: postsWithoutRelevance.map(p => p.id.substring(0, 8))
+      postsWithoutRelevanceIds: postsWithoutRelevance.map(p => ({ id: p.id.substring(0, 8), q: (p as any).marketImpliedRelevance }))
     });
+
+    if (postsWithRelevance.length === 0 && posts.some(p => (p as any).marketImpliedRelevance === 0.5)) {
+      console.error('[ImpliedRelevanceFirstRanking] ⚠️ BUG: Post with 0.5 relevance was NOT added to postsWithRelevance!');
+    }
 
     try {
       // Sort posts with relevance by their implied relevance score (descending)
