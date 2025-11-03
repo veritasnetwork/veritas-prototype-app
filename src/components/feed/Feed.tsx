@@ -76,10 +76,10 @@ export function Feed() {
   const visibilityObserverRef = useRef<IntersectionObserver | null>(null);
   const poolSubscriptionsRef = useRef<Map<string, () => void>>(new Map());
 
-  // Pull-to-refresh on mobile (disabled when modal is open)
+  // Pull-to-refresh on mobile (disabled when modal or panel is open)
   const { isRefreshing, isPulling, indicatorRef } = usePullToRefresh({
     onRefresh: refetch,
-    enabled: isMobile && !isCreateModalOpen,
+    enabled: isMobile && !isCreateModalOpen && !selectedPostId,
   });
 
   // Prevent clicks during pull-to-refresh gesture
@@ -91,13 +91,30 @@ export function Feed() {
       // Save current scroll position
       const scrollY = window.scrollY;
 
-      // Disable body scroll
+      // Disable body scroll completely
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
       document.body.style.width = '100%';
+      document.body.style.height = '100%';
+
+      // Also disable on html element for extra safety
       document.documentElement.style.overflow = 'hidden';
       document.documentElement.style.overscrollBehavior = 'none';
+      document.documentElement.style.touchAction = 'none';
+
+      // Disable touch events on body to prevent any scroll
+      const preventTouch = (e: TouchEvent) => {
+        // Only prevent if not scrolling within the panel
+        const target = e.target as HTMLElement;
+        if (!target.closest('.overflow-y-auto')) {
+          e.preventDefault();
+        }
+      };
+
+      document.addEventListener('touchmove', preventTouch, { passive: false });
 
       return () => {
         // Get saved scroll position
@@ -107,9 +124,16 @@ export function Feed() {
         document.body.style.overflow = '';
         document.body.style.position = '';
         document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
         document.body.style.width = '';
+        document.body.style.height = '';
+
         document.documentElement.style.overflow = '';
         document.documentElement.style.overscrollBehavior = '';
+        document.documentElement.style.touchAction = '';
+
+        document.removeEventListener('touchmove', preventTouch);
 
         // Restore scroll position
         if (scrollY) {
