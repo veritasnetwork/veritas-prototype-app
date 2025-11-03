@@ -618,19 +618,20 @@ export function Feed() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed bg-black/60 z-40 animate-[fadeIn_150ms_ease-out]"
+            className="fixed bg-black/60 animate-[fadeIn_150ms_ease-out]"
             style={{
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
+              zIndex: 1150,
             }}
             onClick={() => setSelectedPostId(null)}
           />
 
           {/* Panel - Slides from right, fullscreen - much faster animation */}
           <div
-            className="fixed z-50 bg-[#0f0f0f] shadow-2xl w-full animate-[slideInFromRight_150ms_cubic-bezier(0.16,1,0.3,1)] overflow-y-auto overscroll-contain"
+            className="fixed bg-[#0f0f0f] shadow-2xl w-full animate-[slideInFromRight_150ms_cubic-bezier(0.16,1,0.3,1)] overflow-y-auto overscroll-contain"
             style={{
               top: 0,
               left: 0,
@@ -638,6 +639,7 @@ export function Feed() {
               bottom: 0,
               height: '100vh',
               maxHeight: '100dvh',
+              zIndex: 1200,
             }}
           >
             {/* Back button - sticky at top */}
