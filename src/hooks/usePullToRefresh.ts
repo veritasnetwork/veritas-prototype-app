@@ -12,18 +12,34 @@ export function usePullToRefresh({
   enabled = true,
 }: UsePullToRefreshOptions) {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [pullDistance, setPullDistance] = useState(0);
-  const [isSnappingBack, setIsSnappingBack] = useState(false);
+  const [isPulling, setIsPulling] = useState(false);
   const touchStartY = useRef<number>(0);
-  const isPulling = useRef(false);
+  const isPullingRef = useRef(false);
   const currentPullDistance = useRef<number>(0);
-  const animationFrameRef = useRef<number>();
+  const indicatorRef = useRef<HTMLDivElement | null>(null);
 
   // Memoize the refresh callback to prevent re-creating event listeners
   const onRefreshRef = useRef(onRefresh);
   useEffect(() => {
     onRefreshRef.current = onRefresh;
   }, [onRefresh]);
+
+  // Direct DOM manipulation for butter-smooth dragging (no React re-renders)
+  const updateIndicatorPosition = useCallback((distance: number) => {
+    if (indicatorRef.current) {
+      const clampedDistance = Math.min(distance, distanceToRefresh * 1.5);
+      const opacity = Math.min(clampedDistance / distanceToRefresh, 1);
+
+      indicatorRef.current.style.transform = `translateY(${clampedDistance}px)`;
+      indicatorRef.current.style.opacity = String(opacity);
+
+      // Rotate the spinner based on pull distance (only when not refreshing)
+      const spinner = indicatorRef.current.querySelector('.ptr-spinner') as HTMLElement;
+      if (spinner && !isRefreshing) {
+        spinner.style.transform = `rotate(${clampedDistance * 4}deg)`;
+      }
+    }
+  }, [distanceToRefresh, isRefreshing]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -32,13 +48,13 @@ export function usePullToRefresh({
       // Only trigger if at the top of the page
       if (window.scrollY === 0) {
         touchStartY.current = e.touches[0].clientY;
-        isPulling.current = true;
-        setIsSnappingBack(false);
+        isPullingRef.current = true;
+        setIsPulling(true);
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isPulling.current) return;
+      if (!isPullingRef.current) return;
 
       const touchY = e.touches[0].clientY;
       const distance = touchY - touchStartY.current;
@@ -53,47 +69,58 @@ export function usePullToRefresh({
         // Apply a more subtle resistance curve for smoother feel
         // Use a square root curve which feels more natural than logarithmic
         const resistance = Math.sqrt(distance) * 8;
-        const limitedDistance = Math.min(resistance, distanceToRefresh * 1.5);
+        currentPullDistance.current = resistance;
 
-        // Use requestAnimationFrame for smoother updates
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-
-        animationFrameRef.current = requestAnimationFrame(() => {
-          currentPullDistance.current = limitedDistance;
-          setPullDistance(limitedDistance);
-        });
+        // Direct DOM manipulation - no state updates = no jitter
+        updateIndicatorPosition(resistance);
       }
     };
 
     const handleTouchEnd = async () => {
-      if (!isPulling.current) return;
+      if (!isPullingRef.current) return;
 
-      isPulling.current = false;
+      isPullingRef.current = false;
       const finalDistance = currentPullDistance.current;
 
       if (finalDistance >= distanceToRefresh) {
         setIsRefreshing(true);
-        setPullDistance(distanceToRefresh); // Keep at threshold during refresh
+        updateIndicatorPosition(distanceToRefresh);
 
         try {
           await onRefreshRef.current();
         } finally {
           // Smooth transition back to 0
-          setIsSnappingBack(true);
+          if (indicatorRef.current) {
+            indicatorRef.current.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+          }
+
           setTimeout(() => {
             setIsRefreshing(false);
-            setPullDistance(0);
+            setIsPulling(false);
+            updateIndicatorPosition(0);
             currentPullDistance.current = 0;
-            setIsSnappingBack(false);
-          }, 300); // Match CSS transition duration
+
+            // Remove transition for next pull
+            if (indicatorRef.current) {
+              indicatorRef.current.style.transition = '';
+            }
+          }, 300);
         }
       } else {
         // Animate snap back
-        setIsSnappingBack(true);
-        setPullDistance(0);
+        if (indicatorRef.current) {
+          indicatorRef.current.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+        }
+
+        updateIndicatorPosition(0);
         currentPullDistance.current = 0;
+
+        setTimeout(() => {
+          setIsPulling(false);
+          if (indicatorRef.current) {
+            indicatorRef.current.style.transition = '';
+          }
+        }, 300);
       }
     };
 
@@ -102,18 +129,15 @@ export function usePullToRefresh({
     document.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [enabled, distanceToRefresh]); // Removed pullDistance from deps
+  }, [enabled, distanceToRefresh, updateIndicatorPosition]);
 
   return {
     isRefreshing,
-    pullDistance,
-    isSnappingBack,
+    isPulling,
+    indicatorRef,
   };
 }

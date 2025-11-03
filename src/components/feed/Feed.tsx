@@ -60,7 +60,7 @@ export function Feed() {
   const poolSubscriptionsRef = useRef<Map<string, () => void>>(new Map());
 
   // Pull-to-refresh on mobile
-  const { isRefreshing, pullDistance, isSnappingBack } = usePullToRefresh({
+  const { isRefreshing, isPulling, indicatorRef } = usePullToRefresh({
     onRefresh: refetch,
     enabled: isMobile,
   });
@@ -448,24 +448,20 @@ export function Feed() {
   return (
     <div className="bg-[#0f0f0f] min-h-screen">
       {/* Pull-to-refresh indicator (mobile only) */}
-      {isMobile && pullDistance > 0 && (
+      {isMobile && isPulling && (
         <div
-          className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-center ${
-            isSnappingBack ? 'transition-all duration-300 ease-out' : ''
-          }`}
+          ref={indicatorRef}
+          className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center"
           style={{
-            transform: `translateY(${Math.min(pullDistance, 80)}px)`,
-            opacity: Math.min(pullDistance / 80, 1),
+            transform: 'translateY(0px)',
+            opacity: 0,
           }}
         >
           <div className="bg-[#1a1a1a] border border-white/10 rounded-full p-3 shadow-xl">
             <div
-              className={`w-6 h-6 border-2 border-[#B9D9EB] border-t-transparent rounded-full ${
+              className={`ptr-spinner w-6 h-6 border-2 border-[#B9D9EB] border-t-transparent rounded-full ${
                 isRefreshing ? 'animate-spin' : ''
               }`}
-              style={{
-                transform: isRefreshing ? undefined : `rotate(${pullDistance * 4}deg)`,
-              }}
             />
           </div>
         </div>
