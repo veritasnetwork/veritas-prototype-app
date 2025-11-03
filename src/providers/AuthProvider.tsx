@@ -222,10 +222,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
             landingHeader: 'Welcome to Veritas',
             loginMessage: 'Sign in to Veritas to start trading prediction markets',
           },
-          // Use loginMethodsAndOrder instead of loginMethods for better control
-          loginMethodsAndOrder: {
-            primary: ['passkey', 'email', 'detected_solana_wallets'],
-          },
+          // prettier-ignore
+          // Note: passkey not supported in loginMethodsAndOrder yet, using loginMethods
+          loginMethods: ['passkey', 'email', 'wallet'],
           embeddedWallets: {
             createOnLogin: 'all-users', // Always create embedded wallet
             requireUserPasswordOnCreate: false,
