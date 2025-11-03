@@ -198,6 +198,10 @@ export class PostsService {
 
       // Query posts with latest implied relevance from database
       // Use LATERAL join to get the most recent implied_relevance for each post
+      // First, fetch ALL posts (or a reasonable max) to ensure we can rank properly
+      // We'll apply the limit AFTER ranking, not before
+      const maxPostsToFetch = 100; // Fetch more posts than needed for proper ranking
+
       const { data: posts, error } = await supabase
         .from('posts')
         .select(`
@@ -229,8 +233,7 @@ export class PostsService {
           )
         `)
         .order('created_at', { ascending: false })
-        .limit(options?.limit ?? 15)
-        .range(options?.offset ?? 0, (options?.offset ?? 0) + (options?.limit ?? 15) - 1);
+        .limit(maxPostsToFetch);
 
       if (error) {
         console.error('[PostsService] Error fetching posts:', error);
@@ -311,8 +314,13 @@ export class PostsService {
         enrichWithPoolState: false,  // Use database instead of on-chain
       });
 
-      console.log('[PostsService] ===== FINAL RANKED ORDER =====');
-      rankedPosts.forEach((p, index) => {
+      // Apply pagination AFTER ranking
+      const startIndex = options?.offset ?? 0;
+      const endIndex = startIndex + (options?.limit ?? 15);
+      const paginatedPosts = rankedPosts.slice(startIndex, endIndex);
+
+      console.log('[PostsService] ===== FINAL RANKED ORDER (BEFORE PAGINATION) =====');
+      rankedPosts.slice(0, 10).forEach((p, index) => {
         console.log(`[PostsService] #${index + 1}:`, {
           id: p.id.substring(0, 8),
           type: p.post_type,
@@ -323,7 +331,14 @@ export class PostsService {
       });
       console.log('[PostsService] ===== END RANKED ORDER =====');
 
-      return rankedPosts;
+      console.log('[PostsService] Pagination applied:', {
+        totalRanked: rankedPosts.length,
+        offset: startIndex,
+        limit: options?.limit ?? 15,
+        returning: paginatedPosts.length
+      });
+
+      return paginatedPosts;
     } catch (error) {
       console.error('Failed to fetch posts:', error);
 
