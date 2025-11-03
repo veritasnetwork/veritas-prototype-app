@@ -17,6 +17,7 @@ import { TradingChartCard } from './TradingChartCard';
 import { SettlementButton } from '@/components/pool/SettlementButton';
 import { usePoolData } from '@/hooks/usePoolData';
 import { useRebaseStatus } from '@/hooks/api/useRebaseStatus';
+import { useTradeHistory } from '@/hooks/api/useTradeHistory';
 import { invalidatePoolData } from '@/services/PoolDataService';
 
 interface PostDetailContentProps {
@@ -56,6 +57,7 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
   console.log('[PostDetailContent] 📞 Calling hooks for postId:', postId);
   const { poolData, loading: poolLoading, error: poolError } = usePoolData(poolAddress || undefined, postId);
   const { data: rebaseStatus } = useRebaseStatus(postId);
+  const { data: tradeHistory } = useTradeHistory(postId);
 
 
   // Fetch post data
@@ -214,7 +216,7 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
             ) : poolData ? (
               <PoolMetricsCard
                 poolData={poolData}
-                stats={undefined}
+                stats={tradeHistory?.stats}
                 side={selectedSide}
               />
             ) : (
