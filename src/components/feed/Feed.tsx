@@ -40,6 +40,7 @@ export function Feed() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedSide, setSelectedSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [isClosing, setIsClosing] = useState(false);
+  const [showMobilePanel, setShowMobilePanel] = useState(false);
 
   // Swipe-to-close state for mobile panel
   const [isDragging, setIsDragging] = useState(false);
@@ -148,6 +149,15 @@ export function Feed() {
     }
   }, [isMobile, selectedPostId]);
 
+  // Debug selectedPostId changes
+  useEffect(() => {
+    console.log('[Feed] selectedPostId changed to:', selectedPostId);
+    if (selectedPostId) {
+      console.log('[Feed] Panel should be rendering now for:', selectedPostId);
+      console.log('[Feed] isMobile:', isMobile);
+    }
+  }, [selectedPostId, isMobile]);
+
   // Swipe-to-close handlers for mobile panel
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!isMobile) return;
@@ -182,6 +192,7 @@ export function Feed() {
     // Close if dragged right more than 80px
     if (dragOffset > 80) {
       setSelectedPostId(null);
+      setShowMobilePanel(false);
     }
 
     // Animate back to original position
@@ -199,6 +210,7 @@ export function Feed() {
 
       setIsClosing(true);
       setSelectedPostId(null);
+      setShowMobilePanel(false);
       setTimeout(() => {
         setIsClosing(false);
       }, 1000);
@@ -373,6 +385,8 @@ export function Feed() {
 
   const handlePostClick = (postId: string) => {
     console.log('[Feed] handlePostClick called with:', postId, 'viewMode:', viewMode, 'isMobile:', isMobile);
+    console.log('[Feed] Current selectedPostId:', selectedPostId);
+    console.log('[Feed] Posts loaded:', posts.length);
 
     // Block clicks during pull-to-refresh
     if (isInteractionBlocked) {
@@ -387,12 +401,14 @@ export function Feed() {
     }
 
     // On mobile: Open slide-in panel
-    if (isMobile) {
+    if (isMobile || window.innerWidth < 768) {
       console.log('[Feed] Mobile - opening slide-in panel for:', postId, 'current:', selectedPostId);
       console.log('[Feed] Post data:', post);
       console.log('[Feed] Has pool:', !!post.poolAddress);
-      // Always set, even if same post (in case panel was closed)
+      // Force immediate state updates
       setSelectedPostId(postId);
+      setShowMobilePanel(true);
+      console.log('[Feed] Set both selectedPostId and showMobilePanel');
       return;
     }
 
@@ -691,7 +707,8 @@ export function Feed() {
       </div>
 
       {/* Mobile Slide-in Panel - only render on mobile */}
-      {isMobile && selectedPostId && (
+      {/* Use explicit showMobilePanel state for immediate rendering */}
+      {showMobilePanel && selectedPostId && (
         <>
           {/* Backdrop */}
           <div
@@ -706,7 +723,10 @@ export function Feed() {
                 ? Math.max(0.2, 1 - (dragOffset / 300))
                 : undefined,
             }}
-            onClick={() => setSelectedPostId(null)}
+            onClick={() => {
+              setSelectedPostId(null);
+              setShowMobilePanel(false);
+            }}
           />
 
           {/* Panel - Slides from right, fullscreen - with swipe support */}
@@ -736,7 +756,10 @@ export function Feed() {
             {/* Back button - sticky at top */}
             <div className="sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a]">
               <button
-                onClick={() => setSelectedPostId(null)}
+                onClick={() => {
+              setSelectedPostId(null);
+              setShowMobilePanel(false);
+            }}
                 className="flex items-center gap-2 px-4 py-4 text-[#B9D9EB] font-medium active:opacity-70 transition-opacity"
               >
                 <span className="text-xl">←</span>
@@ -768,7 +791,7 @@ export function Feed() {
       )}
 
       {/* Mobile Bottom Navigation (shown on <1024px) - Hidden when create modal or panel is open */}
-      <MobileNav onCreatePost={handleCreatePost} isHidden={isCreateModalOpen || (isMobile && !!selectedPostId)} />
+      <MobileNav onCreatePost={handleCreatePost} isHidden={isCreateModalOpen || showMobilePanel} />
 
       {/* Create Post Modal */}
       <CreatePostModal
