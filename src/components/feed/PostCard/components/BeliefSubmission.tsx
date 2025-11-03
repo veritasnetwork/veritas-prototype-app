@@ -6,6 +6,7 @@
 'use client';
 
 import { useState } from 'react';
+import { MobileSlider } from '@/components/common/MobileSlider';
 
 interface BeliefSubmissionProps {
   onCancel: () => void;
@@ -34,31 +35,16 @@ export function BeliefSubmission({ onCancel, onSubmit }: BeliefSubmissionProps) 
       </h3>
       
       <div className="space-y-4">
-        {/* Slider */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            Your belief: {userBelief}%
-          </label>
-          <div className="relative">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={userBelief}
-              onChange={(e) => setUserBelief(Number(e.target.value))}
-              className="w-full h-2 bg-neutral-200 dark:bg-neutral-700 rounded-lg appearance-none cursor-pointer"
-              style={{
-                background: `linear-gradient(to right, #EA900E 0%, #EA900E ${userBelief}%, #e5e7eb ${userBelief}%, #e5e7eb 100%)`
-              }}
-              aria-label="Belief percentage slider"
-            />
-            <div className="flex justify-between text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              <span>0% (No)</span>
-              <span>50% (Neutral)</span>
-              <span>100% (Yes)</span>
-            </div>
-          </div>
-        </div>
+        {/* Slider with improved mobile touch targets */}
+        <MobileSlider
+          min={0}
+          max={100}
+          value={userBelief}
+          onChange={setUserBelief}
+          step={1}
+          label="Your belief"
+          formatValue={(v) => `${v}%`}
+        />
 
         {/* Actions */}
         <div className="flex justify-end space-x-3">

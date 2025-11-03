@@ -6,6 +6,7 @@
 'use client';
 
 import { useRef } from 'react';
+import './MobileSlider.css';
 
 interface MobileSliderProps {
   min: number;

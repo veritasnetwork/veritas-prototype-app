@@ -1,0 +1,35 @@
+/* MobileSlider specific styles */
+.mobile-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #0f0f0f;
+  border-radius: 50%;
+  background: #B9D9EB;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.mobile-slider input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #0f0f0f;
+  border-radius: 50%;
+  background: #B9D9EB;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Increase touch target on mobile */
+@media (hover: none) and (pointer: coarse) {
+  .mobile-slider input[type="range"]::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .mobile-slider input[type="range"]::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
+}

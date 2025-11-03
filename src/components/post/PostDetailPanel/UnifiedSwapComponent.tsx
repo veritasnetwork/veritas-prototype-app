@@ -8,6 +8,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { ArrowDownUp, AlertCircle, ChevronDown, Wallet } from 'lucide-react';
+import { MobileSlider } from '@/components/common/MobileSlider';
 import { Connection } from '@solana/web3.js';
 import { useBuyTokens } from '@/hooks/useBuyTokens';
 import { useSellTokens } from '@/hooks/useSellTokens';
@@ -726,50 +727,30 @@ export function UnifiedSwapComponent({
 
             {/* Belief Submission - Only show on BUY mode */}
             {mode === 'buy' && (
-              <div className="space-y-3 mb-4 border-t border-gray-800 pt-4">
+              <div className="space-y-4 mb-4 border-t border-gray-800 pt-4">
                 <p className="text-sm font-medium text-gray-300">Record your belief</p>
 
-                <div>
-                  <label htmlFor="initial-belief-trade" className="block text-xs text-gray-400 mb-1.5">
-                    How relevant is this post?
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      id="initial-belief-trade"
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={initialBelief}
-                      onChange={(e) => setInitialBelief(Number(e.target.value))}
-                      className="flex-1 accent-[#B9D9EB] h-1"
-                    />
-                    <span className="text-xs font-mono text-gray-300 w-10 text-right">
-                      {Math.round(initialBelief * 100)}%
-                    </span>
-                  </div>
-                </div>
+                <MobileSlider
+                  min={0}
+                  max={100}
+                  value={Math.round(initialBelief * 100)}
+                  onChange={(v) => setInitialBelief(v / 100)}
+                  step={1}
+                  label="How relevant is this post?"
+                  formatValue={(v) => `${v}%`}
+                  className="text-xs"
+                />
 
-                <div>
-                  <label htmlFor="meta-belief-trade" className="block text-xs text-gray-400 mb-1.5">
-                    How relevant will others think it is?
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      id="meta-belief-trade"
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={metaBelief}
-                      onChange={(e) => setMetaBelief(Number(e.target.value))}
-                      className="flex-1 accent-[#B9D9EB] h-1"
-                    />
-                    <span className="text-xs font-mono text-gray-300 w-10 text-right">
-                      {Math.round(metaBelief * 100)}%
-                    </span>
-                  </div>
-                </div>
+                <MobileSlider
+                  min={0}
+                  max={100}
+                  value={Math.round(metaBelief * 100)}
+                  onChange={(v) => setMetaBelief(v / 100)}
+                  step={1}
+                  label="How relevant will others think it is?"
+                  formatValue={(v) => `${v}%`}
+                  className="text-xs"
+                />
               </div>
             )}
 
