@@ -82,14 +82,30 @@ export function Feed() {
   const visibilityObserverRef = useRef<IntersectionObserver | null>(null);
   const poolSubscriptionsRef = useRef<Map<string, () => void>>(new Map());
 
-  // Add a small delay before enabling pull-to-refresh to prevent initial false triggers
+  // Add a longer delay and only enable pull-to-refresh after first interaction
   const [pullToRefreshEnabled, setPullToRefreshEnabled] = useState(false);
+  const hasInteractedRef = useRef(false);
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setPullToRefreshEnabled(true);
-      console.log('[Feed] Pull-to-refresh enabled after delay');
-    }, 500);
-    return () => clearTimeout(timer);
+    // Only enable pull-to-refresh after user has interacted with the page
+    const enableAfterInteraction = () => {
+      if (!hasInteractedRef.current) {
+        hasInteractedRef.current = true;
+        setTimeout(() => {
+          setPullToRefreshEnabled(true);
+          console.log('[Feed] Pull-to-refresh enabled after interaction + delay');
+        }, 1000);
+      }
+    };
+
+    // Listen for first user interaction
+    document.addEventListener('click', enableAfterInteraction, { once: true });
+    document.addEventListener('touchend', enableAfterInteraction, { once: true });
+
+    return () => {
+      document.removeEventListener('click', enableAfterInteraction);
+      document.removeEventListener('touchend', enableAfterInteraction);
+    };
   }, []);
 
   // Pull-to-refresh on mobile (disabled when modal or panel is open)
@@ -98,17 +114,20 @@ export function Feed() {
     enabled: pullToRefreshEnabled && isMobile && !isCreateModalOpen && !selectedPostId,
   });
 
-  // Prevent clicks during pull-to-refresh gesture
-  const isInteractionBlocked = isPulling || isRefreshing;
+  // NEVER block interactions on the first click - let pull-to-refresh be secondary
+  // Only block if actually refreshing (not just pulling)
+  const isInteractionBlocked = isRefreshing; // Removed isPulling from here!
 
   // Log interaction blocking state
   useEffect(() => {
-    if (isInteractionBlocked) {
-      console.log('[Feed] ⚠️ Interactions BLOCKED:', { isPulling, isRefreshing });
-    } else {
-      console.log('[Feed] ✅ Interactions ENABLED');
-    }
-  }, [isInteractionBlocked, isPulling, isRefreshing]);
+    console.log('[Feed] Interaction state:', {
+      isInteractionBlocked,
+      isPulling,
+      isRefreshing,
+      pullToRefreshEnabled,
+      message: isInteractionBlocked ? '⚠️ BLOCKED (refreshing)' : '✅ ENABLED'
+    });
+  }, [isInteractionBlocked, isPulling, isRefreshing, pullToRefreshEnabled]);
 
   // Prevent body scroll when mobile panel is open
   useEffect(() => {
