@@ -377,7 +377,11 @@ export class PostsService {
       // ARTICLE-SPECIFIC FIELDS
       article_title: dbPost.article_title,
       cover_image_url: dbPost.cover_image_url,
-      image_display_mode: dbPost.image_display_mode,
+
+      // MEDIA DIMENSION FIELDS
+      media_width: dbPost.media_width,
+      media_height: dbPost.media_height,
+      aspect_ratio: dbPost.aspect_ratio,
 
       author: {
         username: userData?.username || 'anonymous',
