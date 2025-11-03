@@ -41,6 +41,7 @@ export function Feed() {
   const [selectedSide, setSelectedSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [isClosing, setIsClosing] = useState(false);
   const [showMobilePanel, setShowMobilePanel] = useState(false);
+  const [isPanelClosing, setIsPanelClosing] = useState(false);
 
   // Swipe-to-close state for mobile panel
   const [isDragging, setIsDragging] = useState(false);
@@ -235,9 +236,13 @@ export function Feed() {
     setIsDragging(false);
 
     // Close if dragged right more than 80px
-    if (dragOffset > 80) {
-      setSelectedPostId(null);
-      setShowMobilePanel(false);
+    if (dragOffset > 80 && !isPanelClosing) {
+      setIsPanelClosing(true);
+      setTimeout(() => {
+        setSelectedPostId(null);
+        setShowMobilePanel(false);
+        setIsPanelClosing(false);
+      }, 100);
     }
 
     // Animate back to original position
@@ -808,9 +813,18 @@ export function Feed() {
                 ? Math.max(0.2, 1 - (dragOffset / 300))
                 : undefined,
             }}
-            onClick={() => {
-              setSelectedPostId(null);
-              setShowMobilePanel(false);
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              // Prevent double-clicks and add delay for smooth transition
+              if (!isPanelClosing) {
+                setIsPanelClosing(true);
+                setTimeout(() => {
+                  setSelectedPostId(null);
+                  setShowMobilePanel(false);
+                  setIsPanelClosing(false);
+                }, 100);
+              }
             }}
           />
 
@@ -841,9 +855,18 @@ export function Feed() {
             {/* Back button - sticky at top */}
             <div className="sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a]">
               <button
-                onClick={() => {
-              setSelectedPostId(null);
-              setShowMobilePanel(false);
+                onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              // Prevent double-clicks and add delay for smooth transition
+              if (!isPanelClosing) {
+                setIsPanelClosing(true);
+                setTimeout(() => {
+                  setSelectedPostId(null);
+                  setShowMobilePanel(false);
+                  setIsPanelClosing(false);
+                }, 100);
+              }
             }}
                 className="flex items-center gap-2 px-4 py-4 text-[#B9D9EB] font-medium active:opacity-70 transition-opacity"
               >
