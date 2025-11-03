@@ -421,6 +421,19 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
                 </div>
               </div>
 
+              {/* Learn More Button */}
+              <a
+                href="https://veritas.computer/knowledge-hub"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full bg-[#F5F5DC] hover:bg-[#E5E5CC] text-[#0C1D51] font-semibold py-3 px-6 rounded-xl transition-all duration-300 ease-in-out shadow-md hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98] mt-4 flex items-center justify-center gap-2"
+              >
+                Learn more
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+
               {/* Continue Button */}
               <button
                 onClick={async () => {
