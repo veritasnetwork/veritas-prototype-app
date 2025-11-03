@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/providers/AuthProvider';
+import { usePrivy } from '@/hooks/usePrivyHooks';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -11,6 +12,7 @@ interface MobileNavProps {
 
 export function MobileNav({ onCreatePost, isHidden = false }: MobileNavProps) {
   const { user } = useAuth();
+  const { login } = usePrivy();
   const pathname = usePathname();
 
   const isActive = (path: string) => {
@@ -106,11 +108,12 @@ export function MobileNav({ onCreatePost, isHidden = false }: MobileNavProps) {
             </div>
           </Link>
         ) : (
-          <Link
-            href="/feed"
+          <button
+            onClick={login}
             className="flex items-center justify-center w-full h-full relative touch-feedback"
+            type="button"
           >
-            {/* Login circle - same style as default profile */}
+            {/* Sign in circle - same icon as desktop */}
             <div className="absolute top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center pointer-events-none">
               <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path
@@ -120,7 +123,7 @@ export function MobileNav({ onCreatePost, isHidden = false }: MobileNavProps) {
                 />
               </svg>
             </div>
-          </Link>
+          </button>
         )}
       </div>
     </nav>

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 import type { PostType, TiptapDocument } from '@/types/post.types';
 import { FileText, Image as ImageIcon, Video } from 'lucide-react';
 import { TiptapEditor } from './TiptapEditor';
@@ -20,6 +22,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const { getAccessToken } = usePrivy();
   const { user } = useAuth();
   const { requireAuth } = useRequireAuth();
+  const isMobile = useIsMobile();
 
   // Animation state - separate from isOpen to allow mount/unmount animation
   const [isAnimating, setIsAnimating] = useState(false);
@@ -195,6 +198,13 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     onClose();
   };
 
+  // Swipe-to-dismiss on mobile
+  const { containerRef, dragDistance, isDragging } = useSwipeToDismiss({
+    onDismiss: handleClose,
+    enabled: isMobile && isOpen,
+    threshold: 150,
+    dragHandleSelector: '.drag-handle',
+  });
 
   const handleSubmit = async () => {
     // Check auth first
@@ -354,21 +364,25 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
       {/* Modal - Slides from bottom on mobile, centered on desktop */}
       <div
+        ref={containerRef}
         className={`
           relative bg-[#1a1a1a] border border-gray-800 shadow-2xl w-full flex flex-col
           rounded-t-3xl md:rounded-xl
           max-h-[95vh]
           md:max-w-2xl md:mx-4
-          transition-transform duration-300 ease-out
+          ${isDragging ? '' : 'transition-transform duration-300 ease-out'}
           ${isAnimating ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
         `}
+        style={{
+          transform: isDragging ? `translateY(${dragDistance}px)` : undefined,
+        }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Drag handle for mobile */}
-        <div className="md:hidden flex justify-center py-3 border-b border-gray-800">
+        <div className="md:hidden flex justify-center py-3 border-b border-gray-800 drag-handle">
           <div className="w-12 h-1.5 bg-gray-600 rounded-full" />
         </div>
 

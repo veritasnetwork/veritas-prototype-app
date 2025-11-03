@@ -94,7 +94,7 @@ export function CompactProfilePostCard({ post }: CompactProfilePostCardProps) {
                       onClick={handleUsernameClick}
                       className="hover:text-[#B9D9EB] hover:underline transition-colors"
                     >
-                      @{post.author.username}
+                      {post.author.display_name || post.author.username}
                     </button>
                     <span>•</span>
                   </>

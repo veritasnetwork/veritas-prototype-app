@@ -416,9 +416,10 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
 
               {/* Continue Button */}
               <button
-                onClick={() => {
-                  // Modal will auto-close via needsOnboarding check
-                  // No need to refreshUser - profile was already created and feed is loaded
+                onClick={async () => {
+                  // Ensure user state is refreshed (should already be done, but refresh again to be safe)
+                  await refreshUser();
+                  // Modal will auto-close via needsOnboarding check after refresh
                 }}
                 className="w-full bg-gradient-to-r from-[#B9D9EB] to-[#a8c8d8] hover:from-[#0C1D51] hover:to-[#162d5f] text-[#0C1D51] hover:text-white font-semibold py-4 px-6 rounded-xl font-mono transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] mt-2"
               >

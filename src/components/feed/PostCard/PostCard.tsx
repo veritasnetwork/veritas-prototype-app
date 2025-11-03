@@ -493,9 +493,9 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
           {/* Author Info with Belief & Price */}
           <div className="flex items-center gap-2 mb-2">
             <div className="w-6 h-6 rounded-full bg-[#F0EAD6] flex items-center justify-center text-gray-700 text-xs font-bold">
-              {post.author?.username?.[0]?.toUpperCase() || '?'}
+              {(post.author?.display_name?.[0] || post.author?.username?.[0])?.toUpperCase() || '?'}
             </div>
-            <span className="text-white font-medium text-xs">@{post.author?.username || 'anonymous'}</span>
+            <span className="text-white font-medium text-xs">{post.author?.display_name || post.author?.username || 'anonymous'}</span>
 
             {/* Market implied relevance pill */}
             {marketImpliedRelevance !== null && !isNaN(marketImpliedRelevance) && (
@@ -546,9 +546,9 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
           {!showAuthorAbove && (
             <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-3 py-2">
               <div className="w-8 h-8 rounded-full bg-[#F0EAD6] flex items-center justify-center text-gray-700 text-sm font-bold">
-                {post.author?.username?.[0]?.toUpperCase() || '?'}
+                {(post.author?.display_name?.[0] || post.author?.username?.[0])?.toUpperCase() || '?'}
               </div>
-              <span className="text-white font-medium text-sm">@{post.author?.username || 'anonymous'}</span>
+              <span className="text-white font-medium text-sm">{post.author?.display_name || post.author?.username || 'anonymous'}</span>
               {/* Market implied relevance pill (for posts without author above) */}
               {marketImpliedRelevance !== null && !isNaN(marketImpliedRelevance) && (
                 <div className="bg-black/70 rounded-full px-2 py-0.5 ml-2 flex items-center">

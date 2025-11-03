@@ -143,7 +143,7 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
       <div className="md:mb-6 mb-4 md:mt-8 mt-12 md:px-6 px-6">
         <h1 className="text-2xl font-bold text-white mb-2">{postTitle}</h1>
         <div className="flex items-center gap-3 text-sm text-gray-400">
-          <span>@{post.author?.username || 'unknown'}</span>
+          <span>{post.author?.display_name || post.author?.username || 'unknown'}</span>
           <span>•</span>
           <span>{new Date(post.timestamp || (post as any).createdAt).toLocaleDateString()}</span>
         </div>

@@ -96,6 +96,15 @@ export function ProfilePage({ username }: ProfilePageProps) {
     router.push('/feed');
   };
 
+  // Show onboarding modal immediately if user needs onboarding (before loading profile)
+  if (authenticated && needsOnboarding && !authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0f0f0f]">
+        <OnboardingModal isOpen={true} />
+      </div>
+    );
+  }
+
   // Loading state
   if (isLoading) {
     return (
@@ -476,11 +485,6 @@ export function ProfilePage({ username }: ProfilePageProps) {
               refreshBalances();
             }}
           />
-        )}
-
-        {/* Onboarding Modal - Show if user needs onboarding */}
-        {authenticated && needsOnboarding && !authLoading && (
-          <OnboardingModal isOpen={true} />
         )}
       </div>
     </main>

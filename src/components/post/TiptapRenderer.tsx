@@ -47,7 +47,7 @@ export function TiptapRenderer({ content, className }: TiptapRendererProps) {
   }
 
   return (
-    <div className="md:px-0 px-6">
+    <div className="md:px-0 px-3">
       <EditorContent
         editor={editor}
         className={`prose prose-invert max-w-none prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-img:rounded-lg prose-img:my-4 ${className || ''}`}

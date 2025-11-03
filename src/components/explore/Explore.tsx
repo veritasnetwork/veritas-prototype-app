@@ -8,6 +8,8 @@ import { usePosts } from '@/hooks/api/usePosts';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { usePrivy } from '@/hooks/usePrivyHooks';
 import { useAuth } from '@/providers/AuthProvider';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { CreatePostModal } from '@/components/post/CreatePostModal';
@@ -25,12 +27,19 @@ function ExploreContent() {
   const { requireAuth } = useRequireAuth();
   const { authenticated } = usePrivy();
   const { needsOnboarding, isLoading: authLoading } = useAuth();
+  const isMobile = useIsMobile();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isHowItWorksModalOpen, setIsHowItWorksModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('recent');
   const { openPost, isOpen } = FEATURES.POST_DETAIL_PANEL ? usePanel() : { openPost: () => {}, isOpen: false };
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
+
+  // Pull-to-refresh on mobile
+  const { isRefreshing, pullDistance } = usePullToRefresh({
+    onRefresh: refetch,
+    enabled: isMobile,
+  });
 
   // Sort posts based on selected option
   const posts = useMemo(() => {
@@ -96,6 +105,15 @@ function ExploreContent() {
     }
   };
 
+  // Show onboarding modal immediately if user needs onboarding (before loading posts)
+  if (authenticated && needsOnboarding && !authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0f0f0f]">
+        <OnboardingModal isOpen={true} />
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0f0f0f] lg:ml-64">
@@ -148,6 +166,28 @@ function ExploreContent() {
 
   return (
     <>
+      {/* Pull-to-refresh indicator (mobile only) */}
+      {isMobile && pullDistance > 0 && (
+        <div
+          className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center transition-all duration-200"
+          style={{
+            transform: `translateY(${Math.min(pullDistance, 80)}px)`,
+            opacity: Math.min(pullDistance / 80, 1),
+          }}
+        >
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-full p-3 shadow-xl">
+            <div
+              className={`w-6 h-6 border-2 border-[#B9D9EB] border-t-transparent rounded-full ${
+                isRefreshing ? 'animate-spin' : ''
+              }`}
+              style={{
+                transform: `rotate(${pullDistance * 4}deg)`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Desktop Sidebar (shown on >=1024px) */}
       <Sidebar
         onCreatePost={handleCreatePost}
@@ -233,11 +273,6 @@ function ExploreContent() {
         isOpen={isHowItWorksModalOpen}
         onClose={() => setIsHowItWorksModalOpen(false)}
       />
-
-      {/* Onboarding Modal - Show on top of explore if user needs onboarding */}
-      {authenticated && needsOnboarding && !authLoading && (
-        <OnboardingModal isOpen={true} />
-      )}
 
       {/* Post Detail Panel (only renders if feature flag is on) */}
       {FEATURES.POST_DETAIL_PANEL && <PostDetailPanel />}

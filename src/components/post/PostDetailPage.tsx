@@ -158,6 +158,15 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
     }
   }, [postId]); // Only re-fetch when postId changes
 
+  // Show onboarding modal immediately if user needs onboarding (before loading post)
+  if (authenticated && needsOnboarding && !authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0f0f0f]">
+        <OnboardingModal isOpen={true} />
+      </div>
+    );
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -320,13 +329,13 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-[#F5F5DC] flex items-center justify-center flex-shrink-0">
                           <span className="text-[#0C1D51] font-semibold text-sm">
-                            {post.author?.username?.[0]?.toUpperCase() || 'U'}
+                            {(post.author?.display_name?.[0] || post.author?.username?.[0])?.toUpperCase() || 'U'}
                           </span>
                         </div>
                       )}
                       <div className="text-left min-w-0">
                         <p className="text-white font-medium text-sm truncate">
-                          @{post.author?.username}
+                          {post.author?.display_name || post.author?.username}
                         </p>
                       </div>
                     </button>
@@ -521,11 +530,6 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
           </div>
         </div>
       </div>
-
-      {/* Onboarding Modal - Show if user needs onboarding */}
-      {authenticated && needsOnboarding && !authLoading && (
-        <OnboardingModal isOpen={true} />
-      )}
     </main>
   );
 }

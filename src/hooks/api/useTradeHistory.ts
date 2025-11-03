@@ -20,6 +20,8 @@ const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
   const res = await fetch(url);
   if (!res.ok) {
     console.log('[useTradeHistory] ❌ Fetch failed with status:', res.status);
+    const errorText = await res.text();
+    console.log('[useTradeHistory] ❌ Error response:', errorText);
     // Return empty data for 404s (pool not deployed yet) instead of throwing
     if (res.status === 404) {
       console.log('[useTradeHistory] 📭 Returning empty data (404)');
@@ -45,17 +47,24 @@ const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
         },
       };
     }
-    throw new Error('Failed to fetch trade history');
+    throw new Error(`Failed to fetch trade history: ${res.status} - ${errorText}`);
   }
   const data = await res.json();
   console.log('[useTradeHistory] ✅ Fetched data:', {
     priceLongCount: data.priceLongData?.length,
     priceShortCount: data.priceShortData?.length,
     volumeCount: data.volumeData?.length,
+    stats: data.stats,
   });
 
   // Validate response with Zod schema
-  return TradeHistoryResponseSchema.parse(data);
+  try {
+    return TradeHistoryResponseSchema.parse(data);
+  } catch (validationError) {
+    console.error('[useTradeHistory] ❌ Schema validation failed:', validationError);
+    console.error('[useTradeHistory] ❌ Raw data:', JSON.stringify(data, null, 2));
+    throw validationError;
+  }
 };
 
 export function useTradeHistory(postId: string | undefined, timeRange: TimeRange = 'ALL') {
