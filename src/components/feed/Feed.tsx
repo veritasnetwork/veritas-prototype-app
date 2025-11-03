@@ -47,9 +47,22 @@ export function Feed() {
       const mode = params.get('mode');
       if (mode === 'trade' || mode === 'read') return mode;
     }
-    // Default: 'read' on mobile, 'trade' on desktop
-    return isMobile ? 'read' : 'trade';
+    // Default to 'read' initially - will be updated based on isMobile in useEffect
+    return 'read';
   });
+
+  // Set correct view mode based on device type after mount
+  useEffect(() => {
+    // Only set view mode if not explicitly set in URL params
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get('mode');
+      if (!mode) {
+        // Default: 'read' on mobile, 'trade' on desktop
+        setViewMode(isMobile ? 'read' : 'trade');
+      }
+    }
+  }, [isMobile]);
 
   const lastSelectedPostIdRef = useRef<string | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -64,6 +77,9 @@ export function Feed() {
     onRefresh: refetch,
     enabled: isMobile && !isCreateModalOpen,
   });
+
+  // Prevent clicks during pull-to-refresh gesture
+  const isInteractionBlocked = isPulling || isRefreshing;
 
   // Handle view mode changes
   const handleViewModeChange = (mode: 'read' | 'trade') => {
@@ -250,6 +266,12 @@ export function Feed() {
 
   const handlePostClick = (postId: string) => {
     console.log('[Feed] handlePostClick called with:', postId, 'viewMode:', viewMode);
+
+    // Block clicks during pull-to-refresh
+    if (isInteractionBlocked) {
+      console.log('[Feed] Click blocked during pull-to-refresh');
+      return;
+    }
 
     const post = posts.find(p => p.id === postId);
     if (!post) {
@@ -478,7 +500,7 @@ export function Feed() {
 
       {/* Main Content Area */}
       <div className={`min-h-screen bg-[#0f0f0f] pb-20 lg:pb-0 transition-[margin-left] duration-1000 ease-in-out ${viewMode === 'trade' && selectedPostId ? 'lg:ml-28' : 'lg:ml-64'}`}>
-        <div className={`mx-auto py-8 bg-[#0f0f0f] transition-[max-width,padding] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${viewMode === 'trade' && selectedPostId ? 'lg:max-w-[1400px] lg:px-4' : 'max-w-[750px] px-4 lg:px-6'}`}>
+        <div className={`mx-auto py-8 bg-[#0f0f0f] transition-[max-width,padding] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${viewMode === 'trade' && selectedPostId ? 'lg:max-w-[1400px] lg:px-4' : 'max-w-[750px] px-0 lg:px-6'}`}>
           <div className={`flex flex-col lg:flex-row bg-[#0f0f0f] ${viewMode === 'trade' && selectedPostId ? 'lg:gap-12' : ''} ${viewMode === 'trade' && selectedPostId ? 'lg:items-start lg:h-[calc(100vh-4rem)]' : ''}`}>
             {/* Posts Column */}
             <div className={`flex flex-col w-full lg:w-[680px] lg:flex-shrink-0 bg-[#0f0f0f] lg:gap-8 ${viewMode === 'trade' && selectedPostId ? 'lg:h-full lg:overflow-y-auto scrollbar-hide lg:pb-8' : ''}`}>
@@ -505,14 +527,17 @@ export function Feed() {
                     }
                   }}
                   className={`border-b border-[#2a2a2a] lg:border-0 py-4 lg:py-0 lg:mb-0 ${
-                    // Full width for media posts on mobile, padding for text posts
-                    post.post_type === 'image' || post.post_type === 'video' ? 'px-0 lg:px-0' : 'px-4 lg:px-0'
+                    // Full width for media posts and article posts with cover images on mobile
+                    post.post_type === 'image' || post.post_type === 'video' || (post.post_type === 'text' && post.cover_image_url)
+                      ? 'px-0 lg:px-0'
+                      : 'px-4 lg:px-0'
                   }`}
                 >
                   <PostCard
                     post={post}
                     onPostClick={handlePostClick}
                     isSelected={selectedPostId === post.id}
+                    disabled={isInteractionBlocked}
                   />
                   {/* Trigger loading when scrolling past 3rd-to-last post */}
                   {hasMore && !loading && index === posts.length - 3 && (

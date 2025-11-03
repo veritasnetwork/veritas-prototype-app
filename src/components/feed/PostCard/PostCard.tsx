@@ -22,9 +22,10 @@ interface PostCardProps {
   onPostClick?: (postId: string) => void;
   isSelected?: boolean;
   compact?: boolean; // For grid layouts (Explore page) - shorter text previews
+  disabled?: boolean; // Disable click interactions (e.g., during pull-to-refresh)
 }
 
-export function PostCard({ post, onPostClick, isSelected = false, compact = false }: PostCardProps) {
+export function PostCard({ post, onPostClick, isSelected = false, compact = false, disabled = false }: PostCardProps) {
   const router = useRouter();
   const articleRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -128,6 +129,10 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
   }, [isExpanded, post.post_type, post.article_title, post.cover_image_url]);
 
   const handleClick = (e?: React.MouseEvent) => {
+    if (disabled) {
+      console.log('[PostCard] Click ignored - card is disabled');
+      return;
+    }
     console.log('[PostCard] Click detected on post:', post.id, 'Type:', post.post_type);
     // Always just open the panel for trading, never expand
     if (onPostClick) {
@@ -140,6 +145,10 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
 
   const handleReadMore = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
+    if (disabled) {
+      console.log('[PostCard] Read More ignored - card is disabled');
+      return;
+    }
     // Store post data in sessionStorage for instant loading on the post page
     if (typeof window !== 'undefined') {
       sessionStorage.setItem(`post_${post.id}`, JSON.stringify(post));
