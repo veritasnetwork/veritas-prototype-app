@@ -105,7 +105,7 @@ export function PostDetailPanel() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         className={cn(
-          "fixed inset-0 z-50 bg-gray-950 shadow-2xl",
+          "fixed top-0 bottom-0 left-0 right-0 z-50 bg-gray-950 shadow-2xl",
           // Width: Fullscreen on mobile, fixed width + offset on desktop
           "lg:left-auto lg:w-[700px] xl:w-[800px]",
           // Enable internal scrolling and disable overscroll
@@ -121,6 +121,8 @@ export function PostDetailPanel() {
             : undefined,
           // Ensure panel stays within viewport bounds
           touchAction: 'pan-y', // Allow vertical scroll only
+          height: '100vh', // Explicit viewport height
+          height: '100dvh', // Dynamic viewport height for mobile browsers
         }}
       >
         {/* Back button - Mobile only, sticky at top */}
