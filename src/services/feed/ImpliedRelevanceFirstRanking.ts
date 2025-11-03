@@ -97,6 +97,11 @@ export class ImpliedRelevanceFirstRanking implements RankingStrategy {
 
     const result = [...postsWithRelevance, ...postsWithoutRelevance];
     console.log('[ImpliedRelevanceFirstRanking] Returning', result.length, 'posts');
+    console.log('[ImpliedRelevanceFirstRanking] Final order:', result.map(p => ({
+      id: p.id.substring(0, 8),
+      relevance: (p as any).marketImpliedRelevance,
+      timestamp: p.timestamp
+    })));
 
     // Return posts with relevance first, then posts without relevance
     return result;
