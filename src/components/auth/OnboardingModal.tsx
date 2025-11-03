@@ -24,6 +24,7 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [isCompletingOnboarding, setIsCompletingOnboarding] = useState(false);
 
   // Get Solana wallet address
   const solanaWallet = privyUser?.linkedAccounts?.find(
@@ -167,10 +168,8 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
         throw new Error(errorData.error || 'Failed to complete profile');
       }
 
-      // Refresh user to update auth state (so modal will auto-close after "How it works")
-      await refreshUser();
-
       // Move to "How it works" step
+      // Note: We don't refresh user state yet - that happens when user clicks "START EXPLORING"
       setStep('how-it-works');
     } catch (err) {
       console.error('Profile completion error:', err);
@@ -417,13 +416,16 @@ export function OnboardingModal({ isOpen }: OnboardingModalProps) {
               {/* Continue Button */}
               <button
                 onClick={async () => {
-                  // Ensure user state is refreshed (should already be done, but refresh again to be safe)
+                  setIsCompletingOnboarding(true);
+                  // Refresh user state to trigger modal close
                   await refreshUser();
                   // Modal will auto-close via needsOnboarding check after refresh
+                  // Keep loading state to prevent any UI flicker
                 }}
-                className="w-full bg-gradient-to-r from-[#B9D9EB] to-[#a8c8d8] hover:from-[#0C1D51] hover:to-[#162d5f] text-[#0C1D51] hover:text-white font-semibold py-4 px-6 rounded-xl font-mono transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] mt-2"
+                disabled={isCompletingOnboarding}
+                className="w-full bg-gradient-to-r from-[#B9D9EB] to-[#a8c8d8] hover:from-[#0C1D51] hover:to-[#162d5f] text-[#0C1D51] hover:text-white font-semibold py-4 px-6 rounded-xl font-mono disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] mt-2"
               >
-                START EXPLORING
+                {isCompletingOnboarding ? 'LOADING...' : 'START EXPLORING'}
               </button>
             </div>
           </>

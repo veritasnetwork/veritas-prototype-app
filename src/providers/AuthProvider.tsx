@@ -88,10 +88,10 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       const solanaAddress = solanaWallet?.address as string | undefined;
 
       if (!solanaAddress) {
-        // Wallet might still be creating, retry up to 3 times with 200ms delay
-        if (retryCount < 3) {
-          console.log(`Waiting for Solana wallet creation... (attempt ${retryCount + 1}/3)`);
-          setTimeout(() => checkUserStatus(retryCount + 1), 200);
+        // Wallet might still be creating, retry up to 10 times with 300ms delay (total 3 seconds)
+        if (retryCount < 10) {
+          console.log(`Waiting for Solana wallet creation... (attempt ${retryCount + 1}/10)`);
+          setTimeout(() => checkUserStatus(retryCount + 1), 300);
           return;
         }
         console.error('No Solana wallet found for user after retries');
