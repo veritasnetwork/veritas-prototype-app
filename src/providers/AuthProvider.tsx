@@ -58,6 +58,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
   // Automatically attempt to reconnect previously linked wallets
   useEagerWalletConnect();
@@ -86,10 +87,10 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       const solanaAddress = solanaWallet?.address as string | undefined;
 
       if (!solanaAddress) {
-        // Wallet might still be creating, retry up to 5 times with 500ms delay
-        if (retryCount < 5) {
-          console.log(`Waiting for Solana wallet creation... (attempt ${retryCount + 1}/5)`);
-          setTimeout(() => checkUserStatus(retryCount + 1), 500);
+        // Wallet might still be creating, retry up to 3 times with 200ms delay
+        if (retryCount < 3) {
+          console.log(`Waiting for Solana wallet creation... (attempt ${retryCount + 1}/3)`);
+          setTimeout(() => checkUserStatus(retryCount + 1), 200);
           return;
         }
         console.error('No Solana wallet found for user after retries');
@@ -155,6 +156,9 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       return; // Wait for Privy to be ready
     }
 
+    // Privy is ready, end initialization phase
+    setInitializing(false);
+
     if (authenticated) {
       // Check auth status whenever user becomes authenticated and Privy is ready
       checkUserStatus();
@@ -176,7 +180,16 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
   return (
     <AuthContext.Provider value={authValue}>
-      {children}
+      {initializing ? (
+        <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-3 border-[#B9D9EB] border-t-transparent rounded-full animate-spin"></div>
+            <div className="text-white/70 text-sm">Loading Veritas...</div>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }
@@ -228,12 +241,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
           embeddedWallets: {
             createOnLogin: 'all-users', // Always create embedded wallet
             requireUserPasswordOnCreate: false,
+            priceDisplay: {
+              primary: 'native-token',
+            },
           },
           fundingMethodConfig: {
             moonpay: {
               useSandbox: false,
             },
           },
+          // Optimize initialization speed
+          mfaNoPromptOnMfaRequired: false,
           // Use devnet as cluster name but with custom RPC for localnet
           // Privy only recognizes: mainnet-beta, devnet, testnet
           solanaClusters: [
