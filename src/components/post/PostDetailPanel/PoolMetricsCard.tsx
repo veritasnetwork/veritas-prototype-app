@@ -159,61 +159,68 @@ export function PoolMetricsCard({
         )}
       </div>
 
-      {/* Mobile: Horizontal scrollable layout */}
-      <div className="md:hidden flex items-center gap-3 overflow-x-auto">
-        {/* Side Indicator Dot */}
-        <div className="shrink-0">
-          <div className={`w-2 h-2 rounded-full ${side === 'LONG' ? 'bg-[#B9D9EB]' : 'bg-orange-400'}`} />
-        </div>
-
-        {/* Price */}
-        <div className="flex items-baseline gap-1 shrink-0">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide">Price</span>
-          <p className="text-sm font-semibold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
-        </div>
-
-        {/* 24h Change (only if available) */}
-        {priceChangePercent24h !== undefined && priceChangePercent24h !== 0 && (
-          <div className={`px-1.5 py-0.5 rounded text-xs font-medium tabular-nums shrink-0 ${
-            priceChangePercent24h > 0
-              ? 'bg-[#B9D9EB]/20 text-[#B9D9EB]'
-              : 'bg-orange-400/20 text-orange-400'
-          }`}>
-            {priceChangePercent24h >= 0 ? '+' : ''}{Math.round(priceChangePercent24h)}%
+      {/* Mobile: Two-line centered grid layout */}
+      <div className="md:hidden flex flex-col items-center gap-3">
+        {/* Top Row: Side indicator + Price + 24h Change */}
+        <div className="flex items-center gap-3">
+          {/* Side Indicator Dot */}
+          <div className="shrink-0">
+            <div className={`w-2 h-2 rounded-full ${side === 'LONG' ? 'bg-[#B9D9EB]' : 'bg-orange-400'}`} />
           </div>
-        )}
 
-        {/* Divider */}
-        <div className="h-6 w-px bg-[#2a2a2a] shrink-0" />
+          {/* Price */}
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Price</span>
+            <p className="text-base font-semibold text-white tabular-nums">${currentPrice.toFixed(2)}</p>
+          </div>
 
-        {/* Market Cap */}
-        <div className="flex items-baseline gap-1 shrink-0">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Mkt</span>
-          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(marketCap)}</p>
-        </div>
-
-        {/* Supply */}
-        <div className="flex items-baseline gap-1 shrink-0">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Supply</span>
-          <p className="text-sm font-semibold text-white tabular-nums">{formatCompactNumber(totalSupply)}</p>
-        </div>
-
-        {/* Reserve (ICBS virtual reserve in USDC) */}
-        <div className="flex items-baseline gap-1 shrink-0">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Reserve</span>
-          <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve)}</p>
-        </div>
-
-        {/* Volume (if available) */}
-        {totalVolume !== undefined && (
-          <>
-            <div className="h-6 w-px bg-[#2a2a2a] shrink-0" />
-            <div className="flex items-baseline gap-1 shrink-0">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wide whitespace-nowrap">Vol</span>
-              <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(totalVolume)}</p>
+          {/* 24h Change (only if available) */}
+          {priceChangePercent24h !== undefined && priceChangePercent24h !== 0 && (
+            <div className={`px-2 py-0.5 rounded text-xs font-medium tabular-nums ${
+              priceChangePercent24h > 0
+                ? 'bg-[#B9D9EB]/20 text-[#B9D9EB]'
+                : 'bg-orange-400/20 text-orange-400'
+            }`}>
+              {priceChangePercent24h >= 0 ? '+' : ''}{Math.round(priceChangePercent24h)}%
             </div>
-          </>
-        )}
+          )}
+        </div>
+
+        {/* Bottom Row: Metrics grid */}
+        <div className="flex items-center gap-4">
+          {/* Market Cap */}
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[9px] text-gray-500 uppercase tracking-wide">Mkt Cap</span>
+            <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(marketCap)}</p>
+          </div>
+
+          <div className="h-6 w-px bg-[#2a2a2a]" />
+
+          {/* Supply */}
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[9px] text-gray-500 uppercase tracking-wide">Supply</span>
+            <p className="text-sm font-semibold text-white tabular-nums">{formatCompactNumber(totalSupply)}</p>
+          </div>
+
+          <div className="h-6 w-px bg-[#2a2a2a]" />
+
+          {/* Reserve */}
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[9px] text-gray-500 uppercase tracking-wide">Reserve</span>
+            <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(sideReserve)}</p>
+          </div>
+
+          {/* Volume (if available) */}
+          {totalVolume !== undefined && (
+            <>
+              <div className="h-6 w-px bg-[#2a2a2a]" />
+              <div className="flex flex-col items-center gap-0.5">
+                <span className="text-[9px] text-gray-500 uppercase tracking-wide">Volume</span>
+                <p className="text-sm font-semibold text-white tabular-nums">${formatCompactNumber(totalVolume)}</p>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -98,6 +98,17 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Hide scrollbar on mobile */
+  @media (max-width: 768px) {
+    body::-webkit-scrollbar {
+      display: none;
+    }
+    body {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  }
+
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
