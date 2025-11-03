@@ -207,15 +207,28 @@ export function Feed() {
   // Swipe-to-close handlers for mobile panel
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!isMobile) return;
+
+    const target = e.target as HTMLElement;
+
+    // Don't start swipe if touching a button or interactive element
+    const isButton = target.closest('button') !== null;
+    const isLink = target.closest('a') !== null;
+    const isInteractive = target.closest('[role="button"]') !== null;
+
+    if (isButton || isLink || isInteractive) {
+      console.log('[Feed] Swipe ignored - touched interactive element');
+      return;
+    }
+
     startX.current = e.touches[0].clientX;
 
-    // Check if touch starts from left edge or on scrollable content
-    const target = e.target as HTMLElement;
+    // Check if on scrollable content
     const isScrollable = target.closest('.overflow-y-auto') !== null;
 
-    // Enable drag if starting from left edge or not on scrollable content
-    if (startX.current < 100 || !isScrollable) {
+    // Only enable drag from left edge (but not on buttons) or middle of screen if not scrollable
+    if (startX.current < 50 || (!isScrollable && startX.current > 100)) {
       setIsDragging(true);
+      console.log('[Feed] Swipe enabled from position:', startX.current);
     }
   };
 
@@ -716,7 +729,7 @@ export function Feed() {
         <div className={`mx-auto pt-0 pb-8 lg:py-8 bg-[#0f0f0f] transition-[max-width,padding] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${viewMode === 'trade' && selectedPostId ? 'lg:max-w-[1400px] lg:px-6' : 'max-w-[750px] px-0 lg:px-6'}`}>
           <div className={`flex flex-col lg:flex-row bg-[#0f0f0f] ${viewMode === 'trade' && selectedPostId ? 'lg:gap-12' : ''} ${viewMode === 'trade' && selectedPostId ? 'lg:items-start lg:h-[calc(100vh-4rem)]' : ''}`}>
             {/* Posts Column */}
-            <div className={`flex flex-col w-full lg:w-[600px] lg:flex-shrink-0 bg-[#0f0f0f] lg:gap-8 ${viewMode === 'trade' && selectedPostId ? 'lg:h-full lg:overflow-y-auto scrollbar-hide lg:pb-8' : ''}`}>
+            <div className={`flex flex-col w-full lg:w-[600px] lg:flex-shrink-0 bg-[#0f0f0f] lg:gap-8 lg:px-1 ${viewMode === 'trade' && selectedPostId ? 'lg:h-full lg:overflow-y-auto scrollbar-hide lg:pb-8' : ''}`}>
               {posts.length === 0 && !loading && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <p className="text-gray-400 mb-4">No posts yet</p>
@@ -852,23 +865,27 @@ export function Feed() {
               transition: isDragging ? 'none' : undefined,
             }}
           >
-            {/* Back button - sticky at top */}
+            {/* Back button - sticky at top with larger touch target */}
             <div className="sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a]">
               <button
+                onTouchStart={(e) => {
+                  // Prevent swipe detection on button
+                  e.stopPropagation();
+                }}
                 onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              // Prevent double-clicks and add delay for smooth transition
-              if (!isPanelClosing) {
-                setIsPanelClosing(true);
-                setTimeout(() => {
-                  setSelectedPostId(null);
-                  setShowMobilePanel(false);
-                  setIsPanelClosing(false);
-                }, 100);
-              }
-            }}
-                className="flex items-center gap-2 px-4 py-4 text-[#B9D9EB] font-medium active:opacity-70 transition-opacity"
+                  e.stopPropagation();
+                  e.preventDefault();
+                  // Prevent double-clicks and add delay for smooth transition
+                  if (!isPanelClosing) {
+                    setIsPanelClosing(true);
+                    setTimeout(() => {
+                      setSelectedPostId(null);
+                      setShowMobilePanel(false);
+                      setIsPanelClosing(false);
+                    }, 100);
+                  }
+                }}
+                className="flex items-center gap-2 px-6 py-5 text-[#B9D9EB] font-medium active:opacity-70 transition-opacity min-w-[120px]"
               >
                 <span className="text-xl">←</span>
                 <span>Back</span>
