@@ -36,7 +36,7 @@ function ExploreContent() {
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
 
   // Pull-to-refresh on mobile
-  const { isRefreshing, pullDistance } = usePullToRefresh({
+  const { isRefreshing, pullDistance, isSnappingBack } = usePullToRefresh({
     onRefresh: refetch,
     enabled: isMobile,
   });
@@ -169,7 +169,9 @@ function ExploreContent() {
       {/* Pull-to-refresh indicator (mobile only) */}
       {isMobile && pullDistance > 0 && (
         <div
-          className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center transition-all duration-200"
+          className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-center ${
+            isSnappingBack ? 'transition-all duration-300 ease-out' : ''
+          }`}
           style={{
             transform: `translateY(${Math.min(pullDistance, 80)}px)`,
             opacity: Math.min(pullDistance / 80, 1),
@@ -181,7 +183,7 @@ function ExploreContent() {
                 isRefreshing ? 'animate-spin' : ''
               }`}
               style={{
-                transform: `rotate(${pullDistance * 4}deg)`,
+                transform: isRefreshing ? undefined : `rotate(${pullDistance * 4}deg)`,
               }}
             />
           </div>

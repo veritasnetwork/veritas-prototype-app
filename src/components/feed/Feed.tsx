@@ -39,8 +39,18 @@ export function Feed() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedSide, setSelectedSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [isClosing, setIsClosing] = useState(false);
-  // Default to 'read' mode on mobile to show feed, 'trade' mode on desktop
-  const [viewMode, setViewMode] = useState<'read' | 'trade'>(isMobile ? 'read' : 'trade');
+
+  // Read view mode from URL params, default to 'read' on mobile, 'trade' on desktop
+  const [viewMode, setViewMode] = useState<'read' | 'trade'>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get('mode');
+      if (mode === 'trade' || mode === 'read') return mode;
+    }
+    // Default: 'read' on mobile, 'trade' on desktop
+    return isMobile ? 'read' : 'trade';
+  });
+
   const lastSelectedPostIdRef = useRef<string | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
@@ -50,7 +60,7 @@ export function Feed() {
   const poolSubscriptionsRef = useRef<Map<string, () => void>>(new Map());
 
   // Pull-to-refresh on mobile
-  const { isRefreshing, pullDistance } = usePullToRefresh({
+  const { isRefreshing, pullDistance, isSnappingBack } = usePullToRefresh({
     onRefresh: refetch,
     enabled: isMobile,
   });
@@ -440,7 +450,9 @@ export function Feed() {
       {/* Pull-to-refresh indicator (mobile only) */}
       {isMobile && pullDistance > 0 && (
         <div
-          className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center transition-all duration-200"
+          className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-center ${
+            isSnappingBack ? 'transition-all duration-300 ease-out' : ''
+          }`}
           style={{
             transform: `translateY(${Math.min(pullDistance, 80)}px)`,
             opacity: Math.min(pullDistance / 80, 1),
@@ -452,7 +464,7 @@ export function Feed() {
                 isRefreshing ? 'animate-spin' : ''
               }`}
               style={{
-                transform: `rotate(${pullDistance * 4}deg)`,
+                transform: isRefreshing ? undefined : `rotate(${pullDistance * 4}deg)`,
               }}
             />
           </div>

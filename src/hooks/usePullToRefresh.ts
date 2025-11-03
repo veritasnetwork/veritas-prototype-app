@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void> | void;
@@ -13,8 +13,17 @@ export function usePullToRefresh({
 }: UsePullToRefreshOptions) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
+  const [isSnappingBack, setIsSnappingBack] = useState(false);
   const touchStartY = useRef<number>(0);
   const isPulling = useRef(false);
+  const currentPullDistance = useRef<number>(0);
+  const animationFrameRef = useRef<number>();
+
+  // Memoize the refresh callback to prevent re-creating event listeners
+  const onRefreshRef = useRef(onRefresh);
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -24,6 +33,7 @@ export function usePullToRefresh({
       if (window.scrollY === 0) {
         touchStartY.current = e.touches[0].clientY;
         isPulling.current = true;
+        setIsSnappingBack(false);
       }
     };
 
@@ -40,9 +50,20 @@ export function usePullToRefresh({
           e.preventDefault();
         }
 
-        // Apply resistance curve (logarithmic) for better feel
-        const resistance = Math.log(distance + 1) * 15;
-        setPullDistance(Math.min(resistance, distanceToRefresh * 1.5));
+        // Apply a more subtle resistance curve for smoother feel
+        // Use a square root curve which feels more natural than logarithmic
+        const resistance = Math.sqrt(distance) * 8;
+        const limitedDistance = Math.min(resistance, distanceToRefresh * 1.5);
+
+        // Use requestAnimationFrame for smoother updates
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+
+        animationFrameRef.current = requestAnimationFrame(() => {
+          currentPullDistance.current = limitedDistance;
+          setPullDistance(limitedDistance);
+        });
       }
     };
 
@@ -50,19 +71,29 @@ export function usePullToRefresh({
       if (!isPulling.current) return;
 
       isPulling.current = false;
+      const finalDistance = currentPullDistance.current;
 
-      if (pullDistance >= distanceToRefresh) {
+      if (finalDistance >= distanceToRefresh) {
         setIsRefreshing(true);
         setPullDistance(distanceToRefresh); // Keep at threshold during refresh
 
         try {
-          await onRefresh();
+          await onRefreshRef.current();
         } finally {
-          setIsRefreshing(false);
-          setPullDistance(0);
+          // Smooth transition back to 0
+          setIsSnappingBack(true);
+          setTimeout(() => {
+            setIsRefreshing(false);
+            setPullDistance(0);
+            currentPullDistance.current = 0;
+            setIsSnappingBack(false);
+          }, 300); // Match CSS transition duration
         }
       } else {
+        // Animate snap back
+        setIsSnappingBack(true);
         setPullDistance(0);
+        currentPullDistance.current = 0;
       }
     };
 
@@ -71,14 +102,18 @@ export function usePullToRefresh({
     document.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [enabled, onRefresh, distanceToRefresh, pullDistance]);
+  }, [enabled, distanceToRefresh]); // Removed pullDistance from deps
 
   return {
     isRefreshing,
     pullDistance,
+    isSnappingBack,
   };
 }

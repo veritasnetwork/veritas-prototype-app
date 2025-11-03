@@ -114,14 +114,44 @@ export function MobileNav({ onCreatePost, isHidden = false, currentSort = 'recen
             }`}
           >
             <svg
-              className="w-7 h-7 transition-transform duration-200"
-              style={{ transform: isFilterExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+              className="w-7 h-7"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
               strokeWidth={2}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              {/* Top line - rotates and moves when expanded */}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 6h16"
+                className="transition-all duration-300 ease-in-out"
+                style={{
+                  transform: isFilterExpanded ? 'rotate(45deg) translateY(6px) translateX(6px)' : 'rotate(0)',
+                  transformOrigin: 'center',
+                }}
+              />
+              {/* Middle line - fades out when expanded */}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 12h16"
+                className="transition-all duration-300 ease-in-out"
+                style={{
+                  opacity: isFilterExpanded ? 0 : 1,
+                }}
+              />
+              {/* Bottom line - rotates and moves when expanded */}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 18h16"
+                className="transition-all duration-300 ease-in-out"
+                style={{
+                  transform: isFilterExpanded ? 'rotate(-45deg) translateY(-6px) translateX(6px)' : 'rotate(0)',
+                  transformOrigin: 'center',
+                }}
+              />
             </svg>
           </button>
         ) : (
