@@ -256,12 +256,13 @@ function ExploreContent() {
         </div>
       </div>
 
-      {/* Mobile Bottom Navigation (shown on <1024px) */}
+      {/* Mobile Bottom Navigation (shown on <1024px) - Hidden when panel is open */}
       <MobileNav
         onCreatePost={handleCreatePost}
         showFilters={true}
         currentSort={sortBy}
         onSortChange={setSortBy}
+        isHidden={isMobile && isOpen}
       />
 
       {/* Create Post Modal */}

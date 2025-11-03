@@ -617,8 +617,8 @@ export function Feed() {
         </>
       )}
 
-      {/* Mobile Bottom Navigation (shown on <1024px) - Hidden when create modal is open */}
-      <MobileNav onCreatePost={handleCreatePost} isHidden={isCreateModalOpen} />
+      {/* Mobile Bottom Navigation (shown on <1024px) - Hidden when create modal or panel is open */}
+      <MobileNav onCreatePost={handleCreatePost} isHidden={isCreateModalOpen || (isMobile && !!selectedPostId)} />
 
       {/* Create Post Modal */}
       <CreatePostModal
