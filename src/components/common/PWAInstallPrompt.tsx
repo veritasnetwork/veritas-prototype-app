@@ -12,25 +12,38 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    // Detect browser and OS
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
-    setIsIOS(isIOSDevice);
+    const detectBrowser = async () => {
+      // Detect browser and OS
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
+      setIsIOS(isIOSDevice);
 
-    // Check for Brave browser (must check before Chrome since Brave includes "chrome" in UA)
-    const isBrave = (navigator as any).brave !== undefined;
+      // Check for Brave browser (must check before Chrome since Brave includes "chrome" in UA)
+      // Brave detection: check both sync and async API
+      let isBrave = false;
+      if ((navigator as any).brave !== undefined) {
+        // Brave has navigator.brave.isBrave() method
+        try {
+          isBrave = await (navigator as any).brave.isBrave();
+        } catch {
+          isBrave = true; // If brave object exists but isBrave() fails, likely Brave
+        }
+      }
 
-    if (isBrave) {
-      setBrowser('brave');
-    } else if (userAgent.includes('safari') && !userAgent.includes('chrome') && !userAgent.includes('crios')) {
-      setBrowser('safari');
-    } else if (userAgent.includes('chrome') || userAgent.includes('crios')) {
-      setBrowser('chrome');
-    } else if (userAgent.includes('firefox')) {
-      setBrowser('firefox');
-    } else {
-      setBrowser('other');
-    }
+      if (isBrave) {
+        setBrowser('brave');
+      } else if (userAgent.includes('safari') && !userAgent.includes('chrome') && !userAgent.includes('crios')) {
+        setBrowser('safari');
+      } else if (userAgent.includes('chrome') || userAgent.includes('crios')) {
+        setBrowser('chrome');
+      } else if (userAgent.includes('firefox')) {
+        setBrowser('firefox');
+      } else {
+        setBrowser('other');
+      }
+    };
+
+    detectBrowser();
   }, []);
 
   const getInstructions = () => {
