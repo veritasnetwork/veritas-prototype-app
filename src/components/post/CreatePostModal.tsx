@@ -88,10 +88,16 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Handle mount/unmount animation
+  // Handle mount/unmount animation and body scroll lock
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true);
+      // Lock body scroll when modal opens (prevent background scroll on mobile)
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = `-${window.scrollY}px`;
+
       // Trigger animation after a brief delay to ensure DOM is ready
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -100,6 +106,14 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       });
     } else {
       setIsAnimating(false);
+      // Restore body scroll
+      const scrollY = document.body.style.top;
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+      window.scrollTo(0, parseInt(scrollY || '0') * -1);
+
       // Wait for animation to complete before unmounting
       const timer = setTimeout(() => {
         setShouldRender(false);
@@ -362,13 +376,13 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         }`}
       />
 
-      {/* Modal - Slides from bottom on mobile, centered on desktop */}
+      {/* Modal - Full-screen on mobile, centered on desktop */}
       <div
         ref={containerRef}
         className={`
           relative bg-[#1a1a1a] border border-gray-800 shadow-2xl w-full flex flex-col
           rounded-t-3xl md:rounded-xl
-          max-h-[95vh]
+          h-full md:max-h-[95vh]
           md:max-w-2xl md:mx-4
           ${isDragging ? '' : 'transition-transform duration-300 ease-out'}
           ${isAnimating ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
