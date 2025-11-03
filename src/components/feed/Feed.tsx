@@ -561,11 +561,11 @@ export function Feed() {
   // Fetch pool data from chain
   const { poolData } = usePoolData(currentPost?.poolAddress, selectedPostId ?? undefined);
 
-  // Trade history for price change - only fetch if pool exists
+  // Trade history for price change - fetch based on post ID (API will handle pool check)
   // Memoize to prevent unnecessary hook re-renders
   const shouldFetchTradeHistory = useMemo(
-    () => (currentPost?.poolAddress ? (selectedPostId ?? undefined) : undefined),
-    [currentPost?.poolAddress, selectedPostId]
+    () => selectedPostId ?? undefined,
+    [selectedPostId]
   );
   const { data: tradeHistory, refresh: refreshTradeHistory } = useTradeHistory(shouldFetchTradeHistory, '24H');
 

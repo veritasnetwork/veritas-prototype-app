@@ -91,6 +91,13 @@ export function PoolMetricsCard({
   const volumeLong = stats?.volumeLong;
   const volumeShort = stats?.volumeShort;
 
+  // Debug logging
+  if (typeof window !== 'undefined') {
+    console.log('[PoolMetricsCard] Stats received:', stats);
+    console.log('[PoolMetricsCard] volumeLong:', volumeLong, 'volumeShort:', volumeShort);
+    console.log('[PoolMetricsCard] Current side:', side);
+  }
+
   // Select metrics based on active side
   const currentPrice = side === 'LONG' ? priceLong : priceShort;
   const marketCap = side === 'LONG' ? marketCapLong : marketCapShort;

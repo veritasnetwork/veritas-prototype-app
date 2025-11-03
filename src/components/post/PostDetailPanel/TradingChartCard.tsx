@@ -263,7 +263,10 @@ export function TradingChartCard({
           ))}
         </div>
 
-        {/* Rebase Button */}
+        {/* Spacer to center rebase button on larger screens */}
+        <div className="flex-1 min-w-0 hidden sm:block" />
+
+        {/* Rebase Button - centered on desktop */}
         <button
           onClick={handleRebaseClick}
           disabled={isRebasing}
