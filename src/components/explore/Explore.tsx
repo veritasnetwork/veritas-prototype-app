@@ -92,9 +92,13 @@ function ExploreContent() {
     };
   }, [hasMore, loadingMore, loading, loadMore, posts.length]); // Re-run when posts length changes
 
-  // Handle post click - navigate to post detail page
+  // Handle post click - open panel if feature is on, otherwise navigate to post detail page
   const handlePostClick = (postId: string) => {
-    router.push(`/post/${postId}?mode=trade`);
+    if (FEATURES.POST_DETAIL_PANEL) {
+      openPost(postId);
+    } else {
+      router.push(`/post/${postId}?mode=trade`);
+    }
   };
 
   // Handle create post click - check auth first
@@ -199,7 +203,7 @@ function ExploreContent() {
         FEATURES.POST_DETAIL_PANEL && "panel-capable",
         FEATURES.POST_DETAIL_PANEL && isOpen && "panel-open"
       )}>
-        <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="max-w-7xl mx-auto px-0 lg:px-6 py-12">
           {posts.length === 0 ? (
             <div className="text-center py-20">
               <h2 className="text-2xl font-bold text-white mb-2">No posts yet</h2>
@@ -223,8 +227,8 @@ function ExploreContent() {
                   768: 2,   // md
                   640: 1    // sm
                 }}
-                className="flex -ml-6 w-auto"
-                columnClassName="pl-6 bg-clip-padding"
+                className="flex w-auto lg:-ml-6"
+                columnClassName="lg:pl-6 bg-clip-padding"
               >
                 {posts.map((post) => (
                   <div key={post.id} className="mb-6">

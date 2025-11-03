@@ -7,7 +7,18 @@ import { useEffect, useState } from 'react';
  * @returns {boolean} true if mobile device detected
  */
 export function useIsMobile(): boolean {
-  const [isMobile, setIsMobile] = useState(false);
+  // Initialize with a best guess based on window if available
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false; // SSR
+    }
+    // Check for touch capability
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    // Check screen width (Tailwind 'md' breakpoint is 768px)
+    const isSmallScreen = window.innerWidth < 768;
+    // Consider it mobile if it has touch AND small screen
+    return hasTouch && isSmallScreen;
+  });
 
   useEffect(() => {
     const checkIsMobile = () => {

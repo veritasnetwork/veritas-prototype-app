@@ -303,7 +303,7 @@ export function Feed() {
   }, [hasMore, loadingMore, loading, loadMore, posts.length]); // Re-run when posts length changes
 
   const handlePostClick = (postId: string) => {
-    console.log('[Feed] handlePostClick called with:', postId, 'viewMode:', viewMode);
+    console.log('[Feed] handlePostClick called with:', postId, 'viewMode:', viewMode, 'isMobile:', isMobile);
 
     // Block clicks during pull-to-refresh
     if (isInteractionBlocked) {
@@ -317,9 +317,10 @@ export function Feed() {
       return;
     }
 
-    // On mobile: Open slide-in panel (same as desktop)
+    // On mobile: Open slide-in panel
     if (isMobile) {
-      console.log('[Feed] Mobile - opening slide-in panel for:', postId);
+      console.log('[Feed] Mobile - opening slide-in panel for:', postId, 'current:', selectedPostId);
+      // Always set, even if same post (in case panel was closed)
       setSelectedPostId(postId);
       return;
     }
@@ -631,12 +632,14 @@ export function Feed() {
 
           {/* Panel - Slides from right, fullscreen - much faster animation */}
           <div
-            className="fixed bg-[#0f0f0f] shadow-2xl w-full animate-[slideInFromRight_150ms_cubic-bezier(0.16,1,0.3,1)] overflow-y-auto overscroll-contain"
+            className="fixed bg-[#0f0f0f] shadow-2xl animate-[slideInFromRight_150ms_cubic-bezier(0.16,1,0.3,1)] overflow-y-auto overscroll-contain"
             style={{
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
+              position: 'fixed',
+              top: '0px',
+              left: '0px',
+              right: '0px',
+              bottom: '0px',
+              width: '100vw',
               height: '100vh',
               maxHeight: '100dvh',
               zIndex: 1200,

@@ -31,11 +31,12 @@ export function FundWalletButton({ variant = 'full', className = '', currency = 
     const fundingCurrency = curr || currency;
     setIsFunding(true);
     try {
-      // MoonPay currency codes: 'sol' for SOL, 'usdc' for USDC on Solana
-      // The suffix '_sol' indicates the network, but MoonPay uses just 'usdc' for Solana USDC
+      // MoonPay currency codes for Solana:
+      // - 'usdc_sol' for USDC on Solana (SPL USDC)
+      // - undefined or omit 'token' for native SOL
       await fundWallet(address, {
         cluster: { name: 'mainnet-beta' },
-        token: fundingCurrency === 'USDC' ? 'usdc' : undefined, // Specify USDC token instead of SOL
+        token: fundingCurrency === 'USDC' ? 'usdc_sol' : undefined, // usdc_sol specifies USDC on Solana network
       } as any);
     } catch (error) {
       console.error('Funding flow error:', error);
