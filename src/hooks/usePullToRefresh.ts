@@ -71,13 +71,15 @@ export function usePullToRefresh({
 
         // Direct DOM manipulation - no state updates = no jitter
         updateIndicatorPosition(resistance);
-      } else if (distance < 0 || window.scrollY > 0) {
-        // User is scrolling up or page is scrolled - stop pulling and allow normal scroll
+      } else if (window.scrollY > 0) {
+        // Page has been scrolled down - cancel pull gesture and allow normal scroll
         isPullingRef.current = false;
         setIsPulling(false);
         currentPullDistance.current = 0;
         updateIndicatorPosition(0);
       }
+      // Note: We don't cancel on distance < 0 because that's just the user
+      // releasing the pull by moving finger back up, which is normal
     };
 
     const handleTouchEnd = async () => {

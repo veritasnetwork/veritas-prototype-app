@@ -552,14 +552,14 @@ export function Feed() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/60 z-40 transition-opacity duration-300"
+            className="fixed inset-0 bg-black/60 z-40 animate-[fadeIn_300ms_ease-out]"
             onClick={() => setSelectedPostId(null)}
           />
 
-          {/* Panel - Slides from right */}
-          <div className="fixed inset-y-0 right-0 z-50 bg-[#0f0f0f] shadow-2xl w-full transition-transform duration-300 ease-out translate-x-0 overflow-y-auto">
-            {/* Back button */}
-            <div className="sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a]">
+          {/* Panel - Slides from right, fullscreen */}
+          <div className="fixed top-0 bottom-0 right-0 z-50 bg-[#0f0f0f] shadow-2xl w-full animate-[slideInFromRight_300ms_cubic-bezier(0.16,1,0.3,1)] overflow-y-auto">
+            {/* Back button - absolute positioned to avoid creating gap */}
+            <div className="absolute top-0 left-0 right-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a]">
               <button
                 onClick={() => setSelectedPostId(null)}
                 className="flex items-center gap-2 px-4 py-4 text-[#B9D9EB] font-medium active:opacity-70 transition-opacity"
@@ -569,8 +569,8 @@ export function Feed() {
               </button>
             </div>
 
-            {/* Trading Panel Content */}
-            <div className="p-4">
+            {/* Trading Panel Content - with top padding to account for back button */}
+            <div className="pt-16 px-3 pb-4">
               <TradingPanel
                 postId={currentPost.id}
                 poolAddress={currentPost.poolAddress}
