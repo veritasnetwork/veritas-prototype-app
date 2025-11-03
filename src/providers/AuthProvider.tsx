@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { PrivyErrorBoundary } from '@/components/auth/PrivyErrorBoundary';
 import { getRpcEndpoint, getNetworkName } from '@/lib/solana/network-config';
+import { useEagerWalletConnect, clearWalletConnectionAttempt } from '@/hooks/useEagerWalletConnect';
 import {
   MockPrivyProvider,
   usePrivy as useMockPrivy,
@@ -59,6 +60,9 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const hasCheckedInitialAuth = useRef(false);
+
+  // Use eager wallet connection hook to auto-reconnect wallets after page reload
+  useEagerWalletConnect();
 
   const checkUserStatus = async (retryCount = 0) => {
     if (!ready || !authenticated) {
@@ -140,6 +144,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const logout = () => {
     setUser(null);
     setNeedsOnboarding(false);
+    clearWalletConnectionAttempt(); // Clear wallet reconnection flag on logout
     privyLogout();
   };
 
@@ -152,16 +157,9 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       return; // Wait for Privy to be ready
     }
 
-    // Force logout ONLY on initial page load, not on subsequent logins
+    // Mark that we've done initial auth check
     if (!hasCheckedInitialAuth.current) {
       hasCheckedInitialAuth.current = true;
-
-      if (authenticated) {
-        console.log('[AuthProvider] Logging out user on page reload to ensure fresh state');
-        privyLogout();
-        setInitializing(false);
-        return;
-      }
     }
 
     // Privy is ready, end initialization phase
@@ -227,7 +225,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Configure Solana wallet connectors
   const solanaConnectors = toSolanaWalletConnectors({
-    shouldAutoConnect: false, // Disabled - users must login each session
+    shouldAutoConnect: true, // Enable auto-reconnection for external wallets like Phantom
   });
 
   // Get Solana network configuration from environment

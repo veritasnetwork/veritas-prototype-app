@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { usePrivy, useConnectWallet, useSolanaWallets } from './usePrivyHooks';
+import { usePrivy, useConnectWallet, useSolanaWallets, useConnectOrCreateWallet } from './usePrivyHooks';
 
 const STORAGE_KEY = 'veritas_preferred_wallet_type';
 const CONNECT_ATTEMPTED_KEY = 'veritas_wallet_connect_attempted';
@@ -13,6 +13,7 @@ const CONNECT_ATTEMPTED_KEY = 'veritas_wallet_connect_attempted';
 export function useEagerWalletConnect() {
   const { ready, authenticated, user } = usePrivy();
   const { connectWallet } = useConnectWallet();
+  const { connectOrCreateWallet } = useConnectOrCreateWallet();
   const solanaWalletsData = useSolanaWallets();
   const { wallets: solanaWallets, ready: solanaWalletsReady } = 'ready' in solanaWalletsData ? solanaWalletsData : { wallets: solanaWalletsData.wallets, ready: true };
 
@@ -73,14 +74,26 @@ export function useEagerWalletConnect() {
     // Attempt to reconnect the wallet
     const attemptReconnect = async () => {
       try {
+        // Check what type of wallet the user has
+        const embeddedWallet = linkedSolanaWallets.find(
+          (w: any) => w.walletClientType === 'privy'
+        );
 
-        // This will show Privy modal with the linked wallet(s)
-        // If user previously connected Phantom and it's still available,
-        // it should auto-select or show Phantom as the primary option
-        await connectWallet();
+        if (embeddedWallet) {
+          // For embedded wallets, use connectOrCreateWallet to ensure it's properly unlocked
+          // This will reconnect the existing embedded wallet without showing any UI
+          console.log('[EagerWalletConnect] Reconnecting embedded wallet...');
+          await connectOrCreateWallet();
+        } else {
+          // For external wallets (like Phantom), use connectWallet
+          // This might show UI if the wallet needs user interaction
+          console.log('[EagerWalletConnect] Reconnecting external wallet...');
+          await connectWallet();
+        }
 
       } catch (error: any) {
         // User might have cancelled or wallet not available
+        console.log('[EagerWalletConnect] Failed to reconnect wallet:', error?.message || 'Unknown error');
 
         // Don't show error to user - this is expected if:
         // - User cancelled
