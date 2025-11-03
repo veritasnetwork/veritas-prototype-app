@@ -31,6 +31,24 @@ export function useSolanaWallet() {
   const solanaWalletsData = useSolanaWallets();
   const { wallets: solanaWallets, ready: solanaWalletsReady } = 'ready' in solanaWalletsData ? solanaWalletsData : { wallets: solanaWalletsData.wallets, ready: true };
   const [initializationAttempts, setInitializationAttempts] = useState(0);
+  const initStartTime = useRef<number>(Date.now());
+
+  // Log wallet initialization progress
+  useEffect(() => {
+    const elapsed = Date.now() - initStartTime.current;
+    console.log('[useSolanaWallet] State:', {
+      elapsed: `${elapsed}ms`,
+      ready,
+      authenticated,
+      walletsReady,
+      solanaWalletsReady,
+      hasAllWallets: !!allWallets && allWallets.length > 0,
+      hasSolanaWallets: !!solanaWallets && solanaWallets.length > 0,
+      hasLinkedAccount: !!privyUser?.linkedAccounts?.some(
+        (a: any) => a.type === 'wallet' && a.chainType === 'solana'
+      )
+    });
+  }, [ready, authenticated, walletsReady, solanaWalletsReady, allWallets, solanaWallets, privyUser]);
 
   // Retry initialization every 500ms for up to 10 seconds when we detect a linked wallet that isn't ready
   useEffect(() => {
@@ -88,12 +106,16 @@ export function useSolanaWallet() {
       if (expectedWalletAddress) {
         const matchingWallet = solanaWallets.find((w: any) => w.address === expectedWalletAddress);
         if (matchingWallet) {
+          const elapsed = Date.now() - initStartTime.current;
+          console.log(`[useSolanaWallet] ✅ Wallet found from solanaWallets in ${elapsed}ms`);
           return matchingWallet;
         }
       } else {
         // No linked wallet yet - return first available
         const wallet = solanaWallets[0];
         if (isSolanaAddress(wallet.address)) {
+          const elapsed = Date.now() - initStartTime.current;
+          console.log(`[useSolanaWallet] ✅ Wallet found from solanaWallets (first) in ${elapsed}ms`);
           return wallet;
         }
       }
