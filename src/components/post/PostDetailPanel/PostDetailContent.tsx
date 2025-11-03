@@ -149,12 +149,12 @@ export function PostDetailContent({ postId }: PostDetailContentProps) {
         </div>
       </div>
 
-      {/* Post Content - Full width on mobile (no padding), padded on desktop */}
-      <div className="prose prose-invert max-w-none md:px-6 px-0">
+      {/* Post Content - Minimal padding on mobile for more horizontal space */}
+      <div className="prose prose-invert max-w-none md:px-6 px-3">
         {post.content_json ? (
           <TiptapRenderer content={post.content_json} />
         ) : (
-          <p className="text-gray-300 whitespace-pre-wrap md:px-0 px-6">{post.content_text || (post as any).content}</p>
+          <p className="text-gray-300 whitespace-pre-wrap">{post.content_text || (post as any).content}</p>
         )}
       </div>
 

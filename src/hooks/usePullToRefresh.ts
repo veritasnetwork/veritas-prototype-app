@@ -59,12 +59,10 @@ export function usePullToRefresh({
       const touchY = e.touches[0].clientY;
       const distance = touchY - touchStartY.current;
 
-      // Only track downward pulls
-      if (distance > 0) {
-        // Prevent default scrolling when pulling down at the top
-        if (window.scrollY === 0) {
-          e.preventDefault();
-        }
+      // Only track downward pulls AND only if still at top
+      if (distance > 0 && window.scrollY === 0) {
+        // Prevent default scrolling ONLY when pulling down at the very top
+        e.preventDefault();
 
         // Apply a more subtle resistance curve for smoother feel
         // Use a square root curve which feels more natural than logarithmic
@@ -73,6 +71,12 @@ export function usePullToRefresh({
 
         // Direct DOM manipulation - no state updates = no jitter
         updateIndicatorPosition(resistance);
+      } else if (distance < 0 || window.scrollY > 0) {
+        // User is scrolling up or page is scrolled - stop pulling and allow normal scroll
+        isPullingRef.current = false;
+        setIsPulling(false);
+        currentPullDistance.current = 0;
+        updateIndicatorPosition(0);
       }
     };
 

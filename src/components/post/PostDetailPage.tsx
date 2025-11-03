@@ -289,8 +289,8 @@ export function PostDetailPageClient({ postId }: PostDetailPageClientProps) {
   };
 
   return (
-    <main className="min-h-screen bg-[#0f0f0f]">
-      <div className="w-full px-6 py-8">
+    <main className="min-h-screen bg-[#0f0f0f] touch-pan-y">
+      <div className="w-full px-6 py-8 touch-pan-y">
         {/* Back button */}
         <button
           onClick={() => router.back()}
