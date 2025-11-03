@@ -140,12 +140,10 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
     document.addEventListener('keydown', handleEscape);
     document.addEventListener('keydown', handleCmdEnter);
-    document.body.style.overflow = 'hidden';
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.removeEventListener('keydown', handleCmdEnter);
-      document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
 
