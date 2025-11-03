@@ -73,10 +73,18 @@ export function PostDetailPanel() {
   // Handle swipe-back gesture on mobile (swipe right to close)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.innerWidth >= 1024) return; // Desktop only uses click to close
+
+    // Check if the touch is on a scrollable element
+    const target = e.target as HTMLElement;
+    const isScrollable = target.scrollHeight > target.clientHeight ||
+                        target.closest('.overflow-y-auto') !== null;
+
+    // Store the starting position
     startX.current = e.touches[0].clientX;
 
-    // Only enable drag if starting from the left edge (first 50px)
-    if (startX.current < 50) {
+    // Enable drag for swipe-to-close from anywhere
+    // But be more restrictive if starting from a scrollable area
+    if (!isScrollable || startX.current < 100) {
       setIsDragging(true);
     }
   };
@@ -86,9 +94,11 @@ export function PostDetailPanel() {
     const currentX = e.touches[0].clientX;
     const diff = currentX - startX.current;
 
-    // Only allow dragging right (positive diff)
-    if (diff > 0) {
+    // Only allow dragging right (positive diff) and if it's significant enough
+    if (diff > 10) {
       setDragOffset(diff);
+      // Prevent default to stop any scrolling while swiping
+      e.preventDefault();
     }
   };
 
@@ -96,11 +106,12 @@ export function PostDetailPanel() {
     if (!isDragging || window.innerWidth >= 1024) return;
     setIsDragging(false);
 
-    // Close if dragged right more than 100px
-    if (dragOffset > 100) {
+    // Close if dragged right more than 80px or with enough velocity
+    if (dragOffset > 80) {
       closePanel();
     }
 
+    // Animate back to original position if not closing
     setDragOffset(0);
   };
 
@@ -122,6 +133,9 @@ export function PostDetailPanel() {
           right: '0px',
           bottom: '0px',
           zIndex: 9998,
+          opacity: isDragging && dragOffset > 0
+            ? Math.max(0.2, 1 - (dragOffset / 300))
+            : undefined,
         }}
         onClick={closePanel}
       />
@@ -138,8 +152,8 @@ export function PostDetailPanel() {
           "lg:left-auto lg:w-[700px] xl:w-[800px]",
           // Enable internal scrolling and disable overscroll
           "overflow-y-auto overscroll-contain",
-          // Animations - slide from right
-          "transition-transform duration-300 ease-out",
+          // Animations - slide from right, but not during drag
+          !isDragging && "transition-transform duration-300 ease-out",
           isOpen && !isDragging ? "translate-x-0" : "",
           !isOpen ? "translate-x-full" : ""
         )}
