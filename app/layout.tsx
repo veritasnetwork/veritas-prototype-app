@@ -21,7 +21,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'Veritas - Information Discovery Platform',
-  description: 'Create, discover, and trade relevant content',
+  description: 'Create, discover, and trade relevant information',
   metadataBase: new URL('https://app.veritas.computer'),
   manifest: '/manifest.json',
   icons: {
@@ -41,14 +41,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Veritas - Information Discovery Platform',
-    description: 'Create, discover, and trade relevant content',
+    description: 'Create, discover, and trade relevant information',
     url: 'https://app.veritas.computer',
     siteName: 'Veritas',
     images: [
       {
-        url: '/icons/logo.png',
-        width: 96,
-        height: 96,
+        url: '/Compass Logo.png',
+        width: 512,
+        height: 512,
         alt: 'Veritas Logo',
       },
     ],
@@ -58,8 +58,8 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary',
     title: 'Veritas - Information Discovery Platform',
-    description: 'Create, discover, and trade relevant content',
-    images: ['/icons/logo.png'],
+    description: 'Create, discover, and trade relevant information',
+    images: ['/Compass Logo.png'],
   },
   viewport: {
     width: 'device-width',
