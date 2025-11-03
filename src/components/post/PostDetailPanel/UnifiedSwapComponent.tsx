@@ -528,7 +528,7 @@ export function UnifiedSwapComponent({
   const canSwap = inputAmount && parseFloat(inputAmount) > 0 && !isLoading;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3 md:space-y-2">
       {/* Side Toggle - LONG/SHORT */}
       <div className="relative flex gap-2 p-1 bg-[#0f0f0f] rounded-lg border border-[#2a2a2a]">
         {/* Animated background slider */}
@@ -563,19 +563,19 @@ export function UnifiedSwapComponent({
       </div>
 
       {/* Input */}
-      <div className="bg-[#0f0f0f] rounded-lg p-4 md:p-3 border border-[#2a2a2a]">
-        <div className="flex items-center gap-2 mb-2 md:mb-1.5">
+      <div className="bg-[#0f0f0f] rounded-lg p-3 border border-[#2a2a2a]">
+        <div className="flex items-center gap-2 mb-1.5">
           <input
             type="number"
             value={inputAmount}
             onChange={(e) => handleInputChange(e.target.value)}
-            className="flex-1 bg-transparent text-xl md:text-xl font-medium outline-none text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none min-h-[44px] md:min-h-0"
+            className="flex-1 bg-transparent text-lg md:text-xl font-medium outline-none text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none min-h-[40px] md:min-h-0"
             placeholder="0"
             min="0"
             step={mode === 'buy' ? '0.01' : '1'}
           />
           <div className={cn(
-            "px-3 py-2 md:px-2 md:py-1 rounded text-sm md:text-xs font-medium",
+            "px-2.5 py-1.5 md:px-2 md:py-1 rounded text-xs font-medium",
             mode === 'buy'
               ? "bg-[#2a2a2a] text-white"
               : side === 'LONG'
@@ -588,12 +588,12 @@ export function UnifiedSwapComponent({
         <div className="flex items-center justify-between">
           <button
             onClick={handleMaxClick}
-            className="px-3 py-2 md:px-1.5 md:py-0.5 bg-[#2a2a2a] hover:bg-[#3a3a3a] rounded text-sm md:text-xs font-medium text-[#B9D9EB] hover:text-white transition-colors disabled:opacity-50 cursor-pointer min-h-[44px] md:min-h-0"
+            className="px-2.5 py-1.5 md:px-1.5 md:py-0.5 bg-[#2a2a2a] hover:bg-[#3a3a3a] rounded text-xs font-medium text-[#B9D9EB] hover:text-white transition-colors disabled:opacity-50 cursor-pointer min-h-[36px] md:min-h-0"
             disabled={balancesLoading || currentBalance === 0}
           >
             MAX
           </button>
-          <span className="text-sm md:text-xs text-gray-300">
+          <span className="text-xs text-gray-300">
             {balancesLoading ? '...' : currentBalance.toFixed(mode === 'buy' ? 2 : 0)} <span className="text-gray-400">{mode === 'buy' ? 'USDC' : side}</span>
           </span>
         </div>
@@ -603,25 +603,25 @@ export function UnifiedSwapComponent({
       <div className="flex justify-center -my-1 relative z-10">
         <button
           onClick={toggleMode}
-          className="p-3 md:p-2 bg-[#2a2a2a] hover:bg-[#3a3a3a] rounded-full transition-all hover:rotate-180 text-white min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center"
+          className="p-2.5 md:p-2 bg-[#2a2a2a] hover:bg-[#3a3a3a] rounded-full transition-all hover:rotate-180 text-white min-h-[40px] min-w-[40px] md:min-h-0 md:min-w-0 flex items-center justify-center"
           aria-label="Switch swap direction"
         >
-          <ArrowDownUp className="w-5 h-5 md:w-4 md:h-4" />
+          <ArrowDownUp className="w-4 h-4" />
         </button>
       </div>
 
       {/* Output */}
-      <div className="bg-[#0f0f0f] rounded-lg p-4 md:p-3 border border-[#2a2a2a]">
+      <div className="bg-[#0f0f0f] rounded-lg p-3 border border-[#2a2a2a]">
         <div className="flex items-center gap-2">
           <input
             type="number"
             value={outputAmount}
             readOnly
-            className="flex-1 bg-transparent text-xl md:text-xl font-medium outline-none text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none min-h-[44px] md:min-h-0 cursor-default"
+            className="flex-1 bg-transparent text-lg md:text-xl font-medium outline-none text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none min-h-[40px] md:min-h-0 cursor-default"
             placeholder="0"
           />
           <div className={cn(
-            "px-3 py-2 md:px-2 md:py-1 rounded text-sm md:text-xs font-medium",
+            "px-2.5 py-1.5 md:px-2 md:py-1 rounded text-xs font-medium",
             mode === 'buy'
               ? side === 'LONG'
                 ? "bg-[#B9D9EB]/20 text-[#B9D9EB]"
@@ -638,7 +638,7 @@ export function UnifiedSwapComponent({
         onClick={handleShowPreview}
         disabled={!canSwap}
         className={cn(
-          "w-full py-3 md:py-2.5 font-medium rounded-lg transition-all text-base md:text-sm min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-default",
+          "w-full py-3 md:py-2.5 font-medium rounded-lg transition-all text-sm min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-default",
           mode === 'buy'
             ? side === 'LONG'
               ? "bg-[#B9D9EB] hover:bg-[#a3cfe3] text-black"

@@ -59,10 +59,10 @@ export function Feed() {
   const visibilityObserverRef = useRef<IntersectionObserver | null>(null);
   const poolSubscriptionsRef = useRef<Map<string, () => void>>(new Map());
 
-  // Pull-to-refresh on mobile
+  // Pull-to-refresh on mobile (disabled when modal is open)
   const { isRefreshing, isPulling, indicatorRef } = usePullToRefresh({
     onRefresh: refetch,
-    enabled: isMobile,
+    enabled: isMobile && !isCreateModalOpen,
   });
 
   // Handle view mode changes
