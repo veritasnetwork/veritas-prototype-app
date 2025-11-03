@@ -43,7 +43,20 @@ export class ImpliedRelevanceFirstRanking implements RankingStrategy {
 
     for (const post of posts) {
       const marketImpliedRelevance = (post as any).marketImpliedRelevance;
+      console.log('[ImpliedRelevanceFirstRanking] Checking post:', {
+        id: post.id.substring(0, 8),
+        relevance: marketImpliedRelevance,
+        type: typeof marketImpliedRelevance,
+        isUndefined: marketImpliedRelevance === undefined,
+        isNull: marketImpliedRelevance === null,
+        willUseRelevance: marketImpliedRelevance !== undefined && marketImpliedRelevance !== null
+      });
       if (marketImpliedRelevance !== undefined && marketImpliedRelevance !== null) {
+        console.log('[ImpliedRelevanceFirstRanking] Post WITH relevance:', {
+          id: post.id.substring(0, 8),
+          relevance: marketImpliedRelevance,
+          timestamp: post.timestamp
+        });
         postsWithRelevance.push(post);
       } else {
         postsWithoutRelevance.push(post);
@@ -52,7 +65,9 @@ export class ImpliedRelevanceFirstRanking implements RankingStrategy {
 
     console.log('[ImpliedRelevanceFirstRanking] Split:', {
       withRelevance: postsWithRelevance.length,
-      withoutRelevance: postsWithoutRelevance.length
+      withoutRelevance: postsWithoutRelevance.length,
+      postsWithRelevanceIds: postsWithRelevance.map(p => ({ id: p.id.substring(0, 8), q: (p as any).marketImpliedRelevance })),
+      postsWithoutRelevanceIds: postsWithoutRelevance.map(p => p.id.substring(0, 8))
     });
 
     try {
