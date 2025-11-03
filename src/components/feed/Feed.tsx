@@ -85,6 +85,40 @@ export function Feed() {
   // Prevent clicks during pull-to-refresh gesture
   const isInteractionBlocked = isPulling || isRefreshing;
 
+  // Prevent body scroll when mobile panel is open
+  useEffect(() => {
+    if (isMobile && selectedPostId) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+
+      // Disable body scroll
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.overscrollBehavior = 'none';
+
+      return () => {
+        // Get saved scroll position
+        const scrollY = document.body.style.top;
+
+        // Re-enable body scroll
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.documentElement.style.overflow = '';
+        document.documentElement.style.overscrollBehavior = '';
+
+        // Restore scroll position
+        if (scrollY) {
+          window.scrollTo(0, parseInt(scrollY || '0') * -1);
+        }
+      };
+    }
+  }, [isMobile, selectedPostId]);
+
   // Handle view mode changes
   const handleViewModeChange = (mode: 'read' | 'trade') => {
     setViewMode(mode);
@@ -584,14 +618,30 @@ export function Feed() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/60 z-40 animate-[fadeIn_150ms_ease-out]"
+            className="fixed bg-black/60 z-40 animate-[fadeIn_150ms_ease-out]"
+            style={{
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
             onClick={() => setSelectedPostId(null)}
           />
 
           {/* Panel - Slides from right, fullscreen - much faster animation */}
-          <div className="fixed top-0 bottom-0 right-0 z-50 bg-[#0f0f0f] shadow-2xl w-full animate-[slideInFromRight_150ms_cubic-bezier(0.16,1,0.3,1)] overflow-y-auto">
-            {/* Back button - absolute positioned to avoid creating gap */}
-            <div className="absolute top-0 left-0 right-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a]">
+          <div
+            className="fixed z-50 bg-[#0f0f0f] shadow-2xl w-full animate-[slideInFromRight_150ms_cubic-bezier(0.16,1,0.3,1)] overflow-y-auto overscroll-contain"
+            style={{
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: '100vh',
+              maxHeight: '100dvh',
+            }}
+          >
+            {/* Back button - sticky at top */}
+            <div className="sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a]">
               <button
                 onClick={() => setSelectedPostId(null)}
                 className="flex items-center gap-2 px-4 py-4 text-[#B9D9EB] font-medium active:opacity-70 transition-opacity"
@@ -601,8 +651,8 @@ export function Feed() {
               </button>
             </div>
 
-            {/* Trading Panel Content - with top padding to account for back button */}
-            <div className="pt-16 px-3 pb-4">
+            {/* Trading Panel Content */}
+            <div className="px-3 pb-8">
               <TradingPanel
                 postId={currentPost.id}
                 poolAddress={currentPost.poolAddress}
