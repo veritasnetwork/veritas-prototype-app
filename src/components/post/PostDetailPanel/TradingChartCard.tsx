@@ -47,8 +47,8 @@ export function TradingChartCard({
   poolData,
   rebaseStatus,
 }: TradingChartCardProps) {
-  // Randomly choose initial chart type: 50% price, 50% relevance
-  const [chartType, setChartType] = useState<ChartType>(() => Math.random() < 0.5 ? 'price' : 'relevance');
+  // Always default to price chart
+  const [chartType, setChartType] = useState<ChartType>('price');
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
   const [relevanceTimeRange, setRelevanceTimeRange] = useState<TimeRange>('ALL');
   const { requireAuth } = useRequireAuth();

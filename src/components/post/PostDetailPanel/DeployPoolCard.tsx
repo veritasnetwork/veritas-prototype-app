@@ -15,6 +15,7 @@ import { useSwapBalances } from '@/hooks/useSwapBalances';
 import { Rocket, AlertCircle, Info } from 'lucide-react';
 import { FundWalletButton } from '@/components/wallet/FundWalletButton';
 import { FundingPromptModal } from '@/components/wallet/FundingPromptModal';
+import { MobileSlider } from '@/components/common/MobileSlider';
 import { getRpcEndpoint } from '@/lib/solana/network-config';
 
 interface DeployPoolCardProps {
@@ -149,25 +150,17 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
       <div className="flex flex-col gap-4">
         {/* Compact Form */}
         <div className="space-y-3">
-          {/* Initial Relevance - Compact */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-gray-400">Initial Relevance</label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-[#B9D9EB]">{longAllocationPercent}%</span>
-              </div>
-            </div>
-            <input
-              type="range"
-              min="10"
-              max="90"
-              step="1"
-              value={longAllocationPercent}
-              onChange={(e) => setLongAllocationPercent(Number(e.target.value))}
-              disabled={isDeploying}
-              className="w-full accent-[#B9D9EB] h-1"
-            />
-          </div>
+          {/* Initial Relevance - Compact with better mobile touch targets */}
+          <MobileSlider
+            min={10}
+            max={90}
+            value={longAllocationPercent}
+            onChange={setLongAllocationPercent}
+            step={1}
+            disabled={isDeploying}
+            label="Initial Relevance"
+            formatValue={(v) => `${v}%`}
+          />
         </div>
 
         {/* Deploy Button OR Connect Wallet Button */}

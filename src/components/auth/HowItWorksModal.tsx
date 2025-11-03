@@ -83,26 +83,29 @@ export function HowItWorksModal({ isOpen, onClose }: HowItWorksModalProps) {
             </div>
           </div>
 
-          {/* Learn More Button */}
-          <a
-            href="https://veritas.computer/knowledge-hub"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full bg-[#F5F5DC] hover:bg-[#E5E5CC] text-[#0C1D51] font-semibold py-3 px-6 rounded-xl transition-all duration-300 ease-in-out shadow-md hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98] mt-4 flex items-center justify-center gap-2"
-          >
-            Learn more
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
+          {/* Buttons Row */}
+          <div className="flex items-center gap-3 mt-4">
+            {/* Learn More Button */}
+            <a
+              href="https://veritas.computer/knowledge-hub"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 bg-[#F5F5DC] hover:bg-[#E5E5CC] text-[#0C1D51] font-semibold py-3 px-4 rounded-xl transition-all duration-300 ease-in-out shadow-md hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              Learn more
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
 
-          {/* Close Button */}
-          <button
-            onClick={onClose}
-            className="w-full bg-gradient-to-r from-[#B9D9EB] to-[#a8c8d8] hover:from-[#0C1D51] hover:to-[#162d5f] text-[#0C1D51] hover:text-white font-semibold py-4 px-6 rounded-xl font-mono transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] mt-2"
-          >
-            GOT IT
-          </button>
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="flex-1 bg-gradient-to-r from-[#B9D9EB] to-[#a8c8d8] hover:from-[#0C1D51] hover:to-[#162d5f] text-[#0C1D51] hover:text-white font-semibold py-3 px-4 rounded-xl font-mono transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              GOT IT
+            </button>
+          </div>
         </div>
       </div>
     </div>
