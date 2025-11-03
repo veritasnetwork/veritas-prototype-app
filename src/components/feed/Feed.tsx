@@ -529,9 +529,9 @@ export function Feed() {
               )}
             </div>
 
-            {/* Detail Cards Column - appears on right side on desktop, modal on mobile */}
-            {viewMode === 'trade' && (selectedPostId || isClosing) && currentPost && (
-              <div className={`hidden lg:block lg:min-w-[600px] lg:max-w-[600px] lg:h-full lg:overflow-y-auto scrollbar-hide bg-[#0f0f0f] ${isClosing ? 'animate-[slideOutRightFade_1000ms_cubic-bezier(0.16,1,0.3,1)]' : 'animate-[slideInRight_1000ms_cubic-bezier(0.16,1,0.3,1)]'}`}>
+            {/* Detail Cards Column - only render on desktop */}
+            {!isMobile && viewMode === 'trade' && (selectedPostId || isClosing) && currentPost && (
+              <div className={`lg:min-w-[600px] lg:max-w-[600px] lg:h-full lg:overflow-y-auto scrollbar-hide bg-[#0f0f0f] ${isClosing ? 'animate-[slideOutRightFade_1000ms_cubic-bezier(0.16,1,0.3,1)]' : 'animate-[slideInRight_1000ms_cubic-bezier(0.16,1,0.3,1)]'}`}>
                 <TradingPanel
                   postId={currentPost.id}
                   poolAddress={currentPost.poolAddress}
@@ -547,17 +547,17 @@ export function Feed() {
         </div>
       </div>
 
-      {/* Mobile Slide-in Panel */}
+      {/* Mobile Slide-in Panel - only render on mobile */}
       {isMobile && selectedPostId && currentPost && (
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/60 z-40 lg:hidden transition-opacity duration-300"
+            className="fixed inset-0 bg-black/60 z-40 transition-opacity duration-300"
             onClick={() => setSelectedPostId(null)}
           />
 
           {/* Panel - Slides from right */}
-          <div className="fixed inset-y-0 right-0 z-50 bg-[#0f0f0f] shadow-2xl w-full lg:hidden transition-transform duration-300 ease-out translate-x-0 overflow-y-auto">
+          <div className="fixed inset-y-0 right-0 z-50 bg-[#0f0f0f] shadow-2xl w-full transition-transform duration-300 ease-out translate-x-0 overflow-y-auto">
             {/* Back button */}
             <div className="sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur-sm border-b border-[#2a2a2a]">
               <button

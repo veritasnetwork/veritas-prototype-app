@@ -16,15 +16,11 @@ export type { ChartDataPoint, VolumeDataPoint, TradeStats };
 export type TradeHistoryData = TradeHistoryResponse;
 
 const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
-  console.log('[useTradeHistory] 🔄 Fetching from:', url);
   const res = await fetch(url);
   if (!res.ok) {
-    console.log('[useTradeHistory] ❌ Fetch failed with status:', res.status);
     const errorText = await res.text();
-    console.log('[useTradeHistory] ❌ Error response:', errorText);
     // Return empty data for 404s (pool not deployed yet) instead of throwing
     if (res.status === 404) {
-      console.log('[useTradeHistory] 📭 Returning empty data (404)');
       return {
         priceLongData: [],
         priceShortData: [],
@@ -50,19 +46,12 @@ const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
     throw new Error(`Failed to fetch trade history: ${res.status} - ${errorText}`);
   }
   const data = await res.json();
-  console.log('[useTradeHistory] ✅ Fetched data:', {
-    priceLongCount: data.priceLongData?.length,
-    priceShortCount: data.priceShortData?.length,
-    volumeCount: data.volumeData?.length,
-    stats: data.stats,
-  });
 
   // Validate response with Zod schema
   try {
     return TradeHistoryResponseSchema.parse(data);
   } catch (validationError) {
-    console.error('[useTradeHistory] ❌ Schema validation failed:', validationError);
-    console.error('[useTradeHistory] ❌ Raw data:', JSON.stringify(data, null, 2));
+    console.error('[useTradeHistory] Schema validation failed:', validationError);
     throw validationError;
   }
 };
@@ -70,28 +59,18 @@ const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
 export function useTradeHistory(postId: string | undefined, timeRange: TimeRange = 'ALL') {
   const swrKey = postId ? `/api/posts/${postId}/trades?range=${timeRange}` : null;
 
-  console.log('[useTradeHistory] 🎯 Hook called:', { postId, timeRange, swrKey });
-
   const { data, error, isLoading, mutate } = useSWR<TradeHistoryResponse>(
     swrKey,
     fetcher,
     {
-      refreshInterval: 60000, // Refresh every 60 seconds
-      revalidateOnFocus: false, // Disable focus revalidation to reduce unnecessary fetches
-      dedupingInterval: 5000, // Dedupe requests within 5 seconds to prevent duplicate calls
-      revalidateIfStale: true, // Always revalidate stale data
-      revalidateOnMount: true, // Always fetch on mount
-      keepPreviousData: true, // Keep showing previous data while fetching (prevents loading flicker)
+      refreshInterval: 120000, // Refresh every 2 minutes (reduced from 60s)
+      revalidateOnFocus: false,
+      dedupingInterval: 10000, // Dedupe requests within 10 seconds (increased from 5s)
+      revalidateIfStale: true,
+      revalidateOnMount: true,
+      keepPreviousData: true,
     }
   );
-
-  console.log('[useTradeHistory] 📦 Returning:', {
-    hasData: !!data,
-    isLoading,
-    hasError: !!error,
-    dataKeys: data ? Object.keys(data) : 'no data',
-    priceLongCount: data?.priceLongData?.length,
-  });
 
   return {
     data,
