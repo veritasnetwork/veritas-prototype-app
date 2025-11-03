@@ -757,12 +757,7 @@ export function Feed() {
                       visibilityObserverRef.current.observe(el);
                     }
                   }}
-                  className={`border-b border-[#2a2a2a] lg:border-0 py-4 lg:py-0 lg:mb-0 ${
-                    // Full width for media posts and article posts with cover images on mobile
-                    post.post_type === 'image' || post.post_type === 'video' || (post.post_type === 'text' && post.cover_image_url)
-                      ? 'px-0 lg:px-0'
-                      : 'px-4 lg:px-0'
-                  }`}
+                  className="border-b border-[#2a2a2a] lg:border-0 py-4 lg:py-0 lg:mb-0 px-0"
                 >
                   <PostCard
                     post={post}
