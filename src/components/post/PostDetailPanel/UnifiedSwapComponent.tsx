@@ -92,10 +92,17 @@ export function UnifiedSwapComponent({
   const [metaBelief, setMetaBelief] = useState<number>(0.5);
 
   // Hooks
-  const { usdcBalance, longBalance, shortBalance, loading: balancesLoading, refresh: refreshBalances } = useSwapBalances(poolAddress, postId);
-  const { fundWallet } = useFundWallet();
   const { address, wallet } = useSolanaWallet();
-  const { getAccessToken } = usePrivy();
+  const { user: privyUser, getAccessToken } = usePrivy();
+
+  // Get Solana address from Privy user (works even when wallet is still loading)
+  const linkedSolanaAccount = privyUser?.linkedAccounts?.find(
+    (account: any) => account.type === 'wallet' && account.chainType === 'solana'
+  ) as any;
+  const walletAddress = linkedSolanaAccount?.address || address;
+
+  const { usdcBalance, longBalance, shortBalance, loading: balancesLoading, refresh: refreshBalances } = useSwapBalances(poolAddress, postId, walletAddress);
+  const { fundWallet } = useFundWallet();
 
   // Debug logging for balances
   useEffect(() => {

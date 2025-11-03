@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import { useSolanaWallet } from './useSolanaWallet';
+import { usePrivy } from './usePrivyHooks';
 import { getRpcEndpoint, getUsdcMint } from '@/lib/solana/network-config';
 import { createClient } from '@supabase/supabase-js';
 
@@ -15,8 +16,10 @@ const balanceCache = new Map<string, {
 
 const CACHE_DURATION = 30 * 1000; // 30 seconds
 
-export function useSwapBalances(poolAddress: string, postId: string) {
-  const { address, isLoading: walletLoading, needsReconnection } = useSolanaWallet();
+export function useSwapBalances(poolAddress: string, postId: string, walletAddress?: string | null) {
+  // Fallback to useSolanaWallet if no address provided (backward compatibility)
+  const { address: fallbackAddress } = useSolanaWallet();
+  const address = walletAddress || fallbackAddress;
 
   // Initialize state from cache if available
   const getCachedBalances = () => {
@@ -65,18 +68,11 @@ export function useSwapBalances(poolAddress: string, postId: string) {
     const fetchBalances = async () => {
       console.log('[useSwapBalances] Fetch triggered:', {
         address,
-        walletLoading,
         poolAddress,
         postId,
         hasFetchedOnce: hasFetchedOnce.current,
         lastAddress: lastSuccessfulAddress.current
       });
-
-      // If wallet is still loading or needs reconnection, wait
-      if (walletLoading) {
-        console.log('[useSwapBalances] Wallet still loading, keeping cached balances');
-        return; // Keep showing cached balances
-      }
 
       if (!address) {
         console.log('[useSwapBalances] No address, checking cache');
@@ -222,7 +218,7 @@ export function useSwapBalances(poolAddress: string, postId: string) {
     };
 
     fetchBalances();
-  }, [address, poolAddress, postId, refreshTrigger, walletLoading]);
+  }, [address, poolAddress, postId, refreshTrigger]);
 
   return {
     usdcBalance,
