@@ -121,7 +121,6 @@ export function PostDetailPanel() {
             : undefined,
           // Ensure panel stays within viewport bounds
           touchAction: 'pan-y', // Allow vertical scroll only
-          height: '100dvh', // Dynamic viewport height for mobile browsers (fallback to 100vh in older browsers)
         }}
       >
         {/* Back button - Mobile only, sticky at top */}
