@@ -63,20 +63,34 @@ export function useSwapBalances(poolAddress: string, postId: string) {
 
   useEffect(() => {
     const fetchBalances = async () => {
+      console.log('[useSwapBalances] Fetch triggered:', {
+        address,
+        walletLoading,
+        poolAddress,
+        postId,
+        hasFetchedOnce: hasFetchedOnce.current,
+        lastAddress: lastSuccessfulAddress.current
+      });
+
       // If wallet is still loading or needs reconnection, wait
       if (walletLoading) {
+        console.log('[useSwapBalances] Wallet still loading, keeping cached balances');
         return; // Keep showing cached balances
       }
 
       if (!address) {
+        console.log('[useSwapBalances] No address, checking cache');
         // User logged out - only clear if we don't have cached balances
         const cached = getCachedBalances();
         if (cached.usdc === 0) {
+          console.log('[useSwapBalances] No address and no cache, clearing balances');
           setUsdcBalance(0);
           setShareBalance(0);
           setLongBalance(0);
           setShortBalance(0);
           setLoading(false);
+        } else {
+          console.log('[useSwapBalances] No address but have cache:', cached);
         }
         return;
       }
@@ -123,6 +137,7 @@ export function useSwapBalances(poolAddress: string, postId: string) {
           const accountInfo = await getAccount(connection, usdcTokenAccount);
           // Convert from micro-USDC (6 decimals) to USDC
           fetchedUsdcBalance = Number(accountInfo.amount) / 1_000_000;
+          console.log('[useSwapBalances] Fetched USDC balance:', fetchedUsdcBalance);
           setUsdcBalance(fetchedUsdcBalance);
         } catch (err) {
           console.error('[useSwapBalances] USDC account error:', err);

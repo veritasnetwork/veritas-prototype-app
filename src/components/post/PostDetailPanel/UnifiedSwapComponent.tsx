@@ -97,6 +97,22 @@ export function UnifiedSwapComponent({
   const { address, wallet } = useSolanaWallet();
   const { getAccessToken } = usePrivy();
 
+  // Debug logging for balances
+  useEffect(() => {
+    console.log('[UnifiedSwap] Balance state:', {
+      usdcBalance,
+      longBalance,
+      shortBalance,
+      balancesLoading,
+      address,
+      poolAddress,
+      postId,
+      mode,
+      side,
+      currentBalance: mode === 'buy' ? usdcBalance : (side === 'LONG' ? longBalance : shortBalance)
+    });
+  }, [usdcBalance, longBalance, shortBalance, balancesLoading, address, poolAddress, postId, mode, side]);
+
   // Create wrapped callback that refreshes balances after trade
   const handleTradeSuccess = () => {
     setTradeError(null); // Clear any previous errors
