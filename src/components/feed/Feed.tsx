@@ -567,7 +567,7 @@ export function Feed() {
     () => selectedPostId ?? undefined,
     [selectedPostId]
   );
-  const { data: tradeHistory, refresh: refreshTradeHistory } = useTradeHistory(shouldFetchTradeHistory, '24H');
+  const { data: tradeHistory, refresh: refreshTradeHistory } = useTradeHistory(shouldFetchTradeHistory, 'ALL');
 
   // Refresh handler for after successful trades
   // Note: SWR mutate in useBuyTokens handles most refreshing
