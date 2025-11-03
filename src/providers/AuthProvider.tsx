@@ -220,7 +220,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // App branding for wallet identification
             logo: 'https://app.veritas.computer/icons/logo.png',
             landingHeader: 'Welcome to Veritas',
-            loginMessage: 'Sign in to Veritas to start trading prediction markets',
+            loginMessage: 'Use your passkey for instant secure login, or choose another method',
           },
           // prettier-ignore
           // Note: passkey not supported in loginMethodsAndOrder yet, using loginMethods
