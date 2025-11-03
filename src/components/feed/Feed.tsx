@@ -34,7 +34,7 @@ export function Feed() {
 
   // Initialize wallet hook early to trigger Privy wallet loading
   const { wallet: solanaWallet, isLoading: walletLoading } = useSolanaWallet();
-  const { posts, loading, error, refetch, loadMore, hasMore, loadingMore, updatePost } = usePosts();
+  const { posts: rawPosts, loading, error, refetch, loadMore, hasMore, loadingMore, updatePost } = usePosts();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isHowItWorksModalOpen, setIsHowItWorksModalOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
@@ -42,6 +42,31 @@ export function Feed() {
   const [isClosing, setIsClosing] = useState(false);
   const [showMobilePanel, setShowMobilePanel] = useState(false);
   const [isPanelClosing, setIsPanelClosing] = useState(false);
+  const [sortBy, setSortBy] = useState<'recent' | 'volume' | 'relevant'>('relevant'); // Default to relevant
+
+  // Sort posts based on selected option (only applies sorting on mobile with hamburger menu)
+  const posts = useMemo(() => {
+    // Only apply client-side sorting if on mobile and user has selected a sort option
+    if (!isMobile) {
+      // On desktop, use server-side sorted posts
+      return rawPosts;
+    }
+
+    const sorted = [...rawPosts];
+    switch (sortBy) {
+      case 'volume':
+        return sorted.sort((a, b) => (b.totalVolumeUsdc || 0) - (a.totalVolumeUsdc || 0));
+      case 'relevant':
+        return sorted.sort((a, b) => {
+          const aRelevance = (a as any).marketImpliedRelevance ?? 0;
+          const bRelevance = (b as any).marketImpliedRelevance ?? 0;
+          return bRelevance - aRelevance;
+        });
+      case 'recent':
+      default:
+        return sorted.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    }
+  }, [rawPosts, sortBy, isMobile]);
 
   // Swipe-to-close state for mobile panel
   const [isDragging, setIsDragging] = useState(false);
@@ -918,7 +943,14 @@ export function Feed() {
       )}
 
       {/* Mobile Bottom Navigation (shown on <1024px) - Hidden when create modal or panel is open */}
-      <MobileNav onCreatePost={handleCreatePost} isHidden={isCreateModalOpen || showMobilePanel} />
+      <MobileNav
+        onCreatePost={handleCreatePost}
+        isHidden={isCreateModalOpen || showMobilePanel}
+        showFilters={isMobile}
+        currentSort={sortBy}
+        onSortChange={setSortBy}
+        onHowItWorks={() => setIsHowItWorksModalOpen(true)}
+      />
 
       {/* Create Post Modal */}
       <CreatePostModal
