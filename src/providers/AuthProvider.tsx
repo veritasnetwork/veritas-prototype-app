@@ -165,16 +165,19 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     // Privy is ready, end initialization phase
     setInitializing(false);
 
-    if (authenticated) {
-      // Check auth status whenever user becomes authenticated and Privy is ready
+    if (authenticated && privyUser) {
+      // Check auth status when user is authenticated and privyUser data is available
       checkUserStatus();
-    } else {
+    } else if (!authenticated) {
       // Not authenticated - clear state
       setIsLoading(false);
       setUser(null);
       setNeedsOnboarding(false);
+    } else if (authenticated && !privyUser) {
+      // Authenticated but privyUser not ready yet - keep loading
+      setIsLoading(true);
     }
-  }, [authenticated, ready]);
+  }, [authenticated, ready, privyUser]);
 
   const authValue: AuthContextValue = {
     user,
@@ -252,10 +255,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // App branding for wallet identification
             logo: 'https://app.veritas.computer/icons/logo.png',
             landingHeader: 'Welcome to Veritas',
-            loginMessage: 'Use your passkey for instant secure login, or choose another method',
+            loginMessage: 'Sign in to continue to Veritas',
           },
           // prettier-ignore
-          // Note: passkey not supported in loginMethodsAndOrder yet, using loginMethods
+          // Passkey for passwordless, email as fallback, wallet as alternative
           loginMethods: ['passkey', 'email', 'wallet'],
           embeddedWallets: {
             createOnLogin: 'all-users', // Always create embedded wallet
@@ -263,6 +266,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             priceDisplay: {
               primary: 'native-token',
             },
+            // Keep embedded wallet sessions persistent
+            noPromptOnSignature: true,
           },
           fundingMethodConfig: {
             moonpay: {
