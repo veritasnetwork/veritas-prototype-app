@@ -239,7 +239,7 @@ export function TradingChartCard({
   return (
     <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-2xl overflow-hidden">
       {/* Header with Chart Type Toggle, Rebase Button, and Time Range Selector */}
-      <div className="flex justify-between items-center p-4 pb-0 gap-2">
+      <div className="flex items-center p-4 pb-0 gap-2 flex-wrap sm:flex-nowrap">
         {/* Chart Type Toggle */}
         <div className="relative flex bg-black/50 rounded-md p-0.5 gap-0.5 shrink-0">
           {/* Animated background slider */}
@@ -252,7 +252,7 @@ export function TradingChartCard({
               key={type}
               ref={(el) => { chartTypeRefs.current[type] = el; }}
               onClick={() => setChartType(type)}
-              className={`flex-1 px-3 py-1 rounded text-xs font-medium transition-colors duration-300 capitalize relative z-10 ${
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors duration-300 capitalize relative z-10 whitespace-nowrap ${
                 chartType === type
                   ? 'text-black'
                   : 'text-gray-500 hover:text-gray-300'
@@ -263,7 +263,7 @@ export function TradingChartCard({
           ))}
         </div>
 
-        {/* Rebase Button - always in middle */}
+        {/* Rebase Button */}
         <button
           onClick={handleRebaseClick}
           disabled={isRebasing}
@@ -273,6 +273,9 @@ export function TradingChartCard({
           <RefreshCw className={`w-3 h-3 ${isRebasing ? 'animate-spin' : ''}`} />
           {isRebasing ? 'Rebasing...' : 'Rebase'}
         </button>
+
+        {/* Spacer to push time range to the right on larger screens */}
+        <div className="flex-1 min-w-0 hidden sm:block" />
 
         {/* Time Range Selector - for both price and relevance */}
         {chartType === 'price' ? (
@@ -287,7 +290,7 @@ export function TradingChartCard({
                 key={range}
                 ref={(el) => { timeRangeRefs.current[range] = el; }}
                 onClick={() => setTimeRange(range)}
-                className={`flex-1 px-2 py-0.5 rounded text-xs font-medium transition-colors duration-300 relative z-10 ${
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors duration-300 relative z-10 whitespace-nowrap ${
                   timeRange === range
                     ? 'text-black'
                     : 'text-gray-500 hover:text-gray-300'
@@ -309,7 +312,7 @@ export function TradingChartCard({
                 key={range}
                 ref={(el) => { relevanceTimeRangeRefs.current[range] = el; }}
                 onClick={() => setRelevanceTimeRange(range)}
-                className={`flex-1 px-2 py-0.5 rounded text-xs font-medium transition-colors duration-300 relative z-10 ${
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors duration-300 relative z-10 whitespace-nowrap ${
                   relevanceTimeRange === range
                     ? 'text-black'
                     : 'text-gray-500 hover:text-gray-300'

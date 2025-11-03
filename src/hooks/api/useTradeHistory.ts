@@ -16,7 +16,12 @@ export type { ChartDataPoint, VolumeDataPoint, TradeStats };
 export type TradeHistoryData = TradeHistoryResponse;
 
 const fetcher = async (url: string): Promise<TradeHistoryResponse> => {
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    cache: 'no-store', // Disable browser caching for trade data
+    headers: {
+      'Cache-Control': 'no-cache',
+    },
+  });
   if (!res.ok) {
     const errorText = await res.text();
     // Return empty data for 404s (pool not deployed yet) instead of throwing
@@ -63,22 +68,12 @@ export function useTradeHistory(postId: string | undefined, timeRange: TimeRange
     swrKey,
     fetcher,
     {
-      refreshInterval: 120000, // Refresh every 2 minutes (reduced from 60s)
+      refreshInterval: 120000, // Refresh every 2 minutes
       revalidateOnFocus: false,
-      dedupingInterval: 5000, // Dedupe requests within 5 seconds
+      dedupingInterval: 2000, // Short dedupe window to allow quick time range switches
       revalidateIfStale: true,
       revalidateOnMount: true,
       keepPreviousData: false, // Don't keep stale data when switching time ranges
-      onSuccess: (data) => {
-        // Diagnostic logging for volume debugging
-        console.log('[useTradeHistory] Data received for post:', postId);
-        console.log('[useTradeHistory] Stats:', {
-          totalVolume: data.stats.totalVolume,
-          volumeLong: data.stats.volumeLong,
-          volumeShort: data.stats.volumeShort,
-          totalTrades: data.stats.totalTrades,
-        });
-      },
     }
   );
 
