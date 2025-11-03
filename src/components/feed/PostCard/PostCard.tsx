@@ -37,6 +37,22 @@ export function PostCard({ post, onPostClick, isSelected = false, compact = fals
   const [isMuted, setIsMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
 
+  // Sync mute state with video element (for auto-unmute feature)
+  useEffect(() => {
+    if (!videoRef.current) return;
+
+    const handleVolumeChange = () => {
+      if (videoRef.current) {
+        setIsMuted(videoRef.current.muted);
+      }
+    };
+
+    videoRef.current.addEventListener('volumechange', handleVolumeChange);
+    return () => {
+      videoRef.current?.removeEventListener('volumechange', handleVolumeChange);
+    };
+  }, [post.post_type]);
+
   // State for fetched full content
   const [fullContentJson, setFullContentJson] = useState(post.content_json || null);
   const [loadingContent, setLoadingContent] = useState(false);

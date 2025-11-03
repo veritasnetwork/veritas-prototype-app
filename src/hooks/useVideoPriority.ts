@@ -21,6 +21,8 @@ class VideoPriorityManager {
   private videos: Map<string, VideoEntry> = new Map();
   private playingVideos: Set<string> = new Set();
   private rafId: number | null = null;
+  private hasUserInteracted: boolean = false;
+  private currentUnmutedVideo: string | null = null;
 
   register(id: string, videoElement: HTMLVideoElement, container: HTMLElement) {
     this.videos.set(id, {
@@ -31,6 +33,20 @@ class VideoPriorityManager {
       userPaused: false,
       isHovered: false,
     });
+
+    // Set up event listener to detect user interaction
+    if (!this.hasUserInteracted) {
+      const interactionHandler = () => {
+        this.hasUserInteracted = true;
+        this.scheduleUpdate(); // Re-evaluate audio after interaction
+      };
+
+      // Listen for various user interactions
+      ['click', 'touchstart', 'keydown'].forEach(event => {
+        document.addEventListener(event, interactionHandler, { once: true, passive: true });
+      });
+    }
+
     this.scheduleUpdate();
   }
 
@@ -102,7 +118,12 @@ class VideoPriorityManager {
       ...nonHoveredEntries.slice(0, MAX_PLAYING_VIDEOS).map((e) => e.id)
     ]);
 
-    // Update playing state
+    // Determine which video should have audio (closest to center from all sorted entries)
+    // Sort all entries by distance to find the absolute closest
+    const sortedEntries = [...entries].sort((a, b) => a.distanceFromCenter - b.distanceFromCenter);
+    const closestVideoId = sortedEntries.length > 0 ? sortedEntries[0].id : null;
+
+    // Update playing state and audio
     this.videos.forEach((entry) => {
       // Skip if user manually paused this video
       if (entry.userPaused) return;
@@ -120,6 +141,29 @@ class VideoPriorityManager {
         // Stop playing
         entry.element.pause();
         this.playingVideos.delete(entry.id);
+      }
+
+      // Handle audio: unmute the closest video if user has interacted
+      if (this.hasUserInteracted && shouldBePlaying) {
+        const shouldBeUnmuted = entry.id === closestVideoId;
+
+        if (shouldBeUnmuted && this.currentUnmutedVideo !== entry.id) {
+          // Mute the previously unmuted video
+          if (this.currentUnmutedVideo) {
+            const prevEntry = this.videos.get(this.currentUnmutedVideo);
+            if (prevEntry) {
+              prevEntry.element.muted = true;
+            }
+          }
+
+          // Unmute this video
+          entry.element.muted = false;
+          this.currentUnmutedVideo = entry.id;
+        } else if (!shouldBeUnmuted && this.currentUnmutedVideo === entry.id) {
+          // This video is no longer the closest, mute it
+          entry.element.muted = true;
+          this.currentUnmutedVideo = null;
+        }
       }
     });
   }
