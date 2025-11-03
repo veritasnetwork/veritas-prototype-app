@@ -82,14 +82,33 @@ export function Feed() {
   const visibilityObserverRef = useRef<IntersectionObserver | null>(null);
   const poolSubscriptionsRef = useRef<Map<string, () => void>>(new Map());
 
+  // Add a small delay before enabling pull-to-refresh to prevent initial false triggers
+  const [pullToRefreshEnabled, setPullToRefreshEnabled] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPullToRefreshEnabled(true);
+      console.log('[Feed] Pull-to-refresh enabled after delay');
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Pull-to-refresh on mobile (disabled when modal or panel is open)
   const { isRefreshing, isPulling, indicatorRef } = usePullToRefresh({
     onRefresh: refetch,
-    enabled: isMobile && !isCreateModalOpen && !selectedPostId,
+    enabled: pullToRefreshEnabled && isMobile && !isCreateModalOpen && !selectedPostId,
   });
 
   // Prevent clicks during pull-to-refresh gesture
   const isInteractionBlocked = isPulling || isRefreshing;
+
+  // Log interaction blocking state
+  useEffect(() => {
+    if (isInteractionBlocked) {
+      console.log('[Feed] ⚠️ Interactions BLOCKED:', { isPulling, isRefreshing });
+    } else {
+      console.log('[Feed] ✅ Interactions ENABLED');
+    }
+  }, [isInteractionBlocked, isPulling, isRefreshing]);
 
   // Prevent body scroll when mobile panel is open
   useEffect(() => {
@@ -149,14 +168,21 @@ export function Feed() {
     }
   }, [isMobile, selectedPostId]);
 
-  // Debug selectedPostId changes
+  // Debug state changes
   useEffect(() => {
+    console.log('========== STATE CHANGE ==========');
     console.log('[Feed] selectedPostId changed to:', selectedPostId);
+    console.log('[Feed] showMobilePanel:', showMobilePanel);
+    console.log('[Feed] isMobile:', isMobile);
     if (selectedPostId) {
-      console.log('[Feed] Panel should be rendering now for:', selectedPostId);
-      console.log('[Feed] isMobile:', isMobile);
+      console.log('[Feed] Panel SHOULD render if:', {
+        'showMobilePanel': showMobilePanel,
+        'selectedPostId': !!selectedPostId,
+        'condition met': showMobilePanel && selectedPostId
+      });
     }
-  }, [selectedPostId, isMobile]);
+    console.log('========== END STATE CHANGE ==========');
+  }, [selectedPostId, showMobilePanel, isMobile]);
 
   // Swipe-to-close handlers for mobile panel
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -384,31 +410,63 @@ export function Feed() {
   }, [hasMore, loadingMore, loading, loadMore, posts.length]); // Re-run when posts length changes
 
   const handlePostClick = (postId: string) => {
-    console.log('[Feed] handlePostClick called with:', postId, 'viewMode:', viewMode, 'isMobile:', isMobile);
-    console.log('[Feed] Current selectedPostId:', selectedPostId);
+    console.log('========== CLICK EVENT START ==========');
+    console.log('[Feed] handlePostClick called');
+    console.log('[Feed] PostId:', postId);
+    console.log('[Feed] Current state:', {
+      isMobile,
+      viewMode,
+      selectedPostId,
+      showMobilePanel,
+      isCreateModalOpen,
+      isInteractionBlocked,
+      windowWidth: typeof window !== 'undefined' ? window.innerWidth : 'SSR',
+      hasTouch: typeof window !== 'undefined' ? ('ontouchstart' in window || navigator.maxTouchPoints > 0) : 'SSR'
+    });
     console.log('[Feed] Posts loaded:', posts.length);
 
     // Block clicks during pull-to-refresh
     if (isInteractionBlocked) {
-      console.log('[Feed] Click blocked during pull-to-refresh');
+      console.log('[Feed] ❌ Click BLOCKED - pull-to-refresh active');
+      console.log('========== CLICK EVENT END (BLOCKED) ==========');
       return;
     }
 
     const post = posts.find(p => p.id === postId);
     if (!post) {
-      console.warn('[Feed] Post not found:', postId);
+      console.warn('[Feed] ❌ Post NOT FOUND in posts array:', postId);
+      console.log('========== CLICK EVENT END (NO POST) ==========');
       return;
     }
 
+    console.log('[Feed] ✅ Post found:', {
+      id: post.id,
+      type: post.post_type,
+      hasPool: !!post.poolAddress,
+      poolAddress: post.poolAddress
+    });
+
     // On mobile: Open slide-in panel
-    if (isMobile || window.innerWidth < 768) {
-      console.log('[Feed] Mobile - opening slide-in panel for:', postId, 'current:', selectedPostId);
-      console.log('[Feed] Post data:', post);
-      console.log('[Feed] Has pool:', !!post.poolAddress);
+    const isMobileDevice = isMobile || window.innerWidth < 768;
+    console.log('[Feed] Mobile check:', {
+      isMobile,
+      windowWidth: window.innerWidth,
+      isMobileDevice,
+      willOpenPanel: isMobileDevice
+    });
+
+    if (isMobileDevice) {
+      console.log('[Feed] 📱 MOBILE PATH - Setting states...');
+      console.log('[Feed] Before state update:', { selectedPostId, showMobilePanel });
+
       // Force immediate state updates
       setSelectedPostId(postId);
       setShowMobilePanel(true);
-      console.log('[Feed] Set both selectedPostId and showMobilePanel');
+
+      console.log('[Feed] Called setSelectedPostId(' + postId + ')');
+      console.log('[Feed] Called setShowMobilePanel(true)');
+      console.log('[Feed] States should update on next render');
+      console.log('========== CLICK EVENT END (MOBILE) ==========');
       return;
     }
 
@@ -708,6 +766,14 @@ export function Feed() {
 
       {/* Mobile Slide-in Panel - only render on mobile */}
       {/* Use explicit showMobilePanel state for immediate rendering */}
+      {console.log('========== RENDER CHECK ==========', {
+        showMobilePanel,
+        selectedPostId,
+        willRenderPanel: showMobilePanel && selectedPostId,
+        currentPost: !!currentPost,
+        isMobile,
+        timestamp: Date.now()
+      })}
       {showMobilePanel && selectedPostId && (
         <>
           {/* Backdrop */}
