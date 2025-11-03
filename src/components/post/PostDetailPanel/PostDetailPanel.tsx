@@ -23,30 +23,50 @@ export function PostDetailPanel() {
   // Prevent body scroll and pull-to-refresh when panel is open
   useEffect(() => {
     if (isOpen) {
-      // Disable body scroll
+      // Save current scroll position
+      const scrollY = window.scrollY;
+
+      // Disable body scroll completely
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
       document.body.style.height = '100%';
 
       // Disable pull-to-refresh
       document.body.style.overscrollBehavior = 'none';
+      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.overscrollBehavior = 'none';
     } else {
+      // Get the saved scroll position
+      const scrollY = document.body.style.top;
+
       // Re-enable body scroll
       document.body.style.overflow = '';
       document.body.style.position = '';
+      document.body.style.top = '';
       document.body.style.width = '';
       document.body.style.height = '';
       document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overscrollBehavior = '';
+
+      // Restore scroll position
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1);
+      }
     }
 
     return () => {
       // Cleanup on unmount
       document.body.style.overflow = '';
       document.body.style.position = '';
+      document.body.style.top = '';
       document.body.style.width = '';
       document.body.style.height = '';
       document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overscrollBehavior = '';
     };
   }, [isOpen]);
 
@@ -91,10 +111,18 @@ export function PostDetailPanel() {
       {/* Backdrop */}
       <div
         className={cn(
-          "fixed inset-0 bg-black/60 z-40",
+          "fixed bg-black/60",
           "transition-opacity duration-300 ease-out",
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
+        style={{
+          position: 'fixed',
+          top: '0px',
+          left: '0px',
+          right: '0px',
+          bottom: '0px',
+          zIndex: 9998,
+        }}
         onClick={closePanel}
       />
 
@@ -105,22 +133,31 @@ export function PostDetailPanel() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         className={cn(
-          "fixed top-0 bottom-0 left-0 right-0 z-50 bg-gray-950 shadow-2xl",
+          "fixed z-50 bg-gray-950 shadow-2xl",
           // Width: Fullscreen on mobile, fixed width + offset on desktop
           "lg:left-auto lg:w-[700px] xl:w-[800px]",
           // Enable internal scrolling and disable overscroll
-          "overflow-y-auto overscroll-none",
+          "overflow-y-auto overscroll-contain",
           // Animations - slide from right
           "transition-transform duration-300 ease-out",
           isOpen && !isDragging ? "translate-x-0" : "",
           !isOpen ? "translate-x-full" : ""
         )}
         style={{
+          position: 'fixed',
+          top: '0px',
+          bottom: '0px',
+          left: '0px',
+          right: '0px',
+          height: '100dvh',
+          maxHeight: '100dvh',
           transform: isDragging && dragOffset > 0
             ? `translateX(${dragOffset}px)`
             : undefined,
-          // Ensure panel stays within viewport bounds
+          // Prevent scroll leaking to background
           touchAction: 'pan-y', // Allow vertical scroll only
+          WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+          zIndex: 9999, // Ensure it's above everything
         }}
       >
         {/* Back button - Mobile only, sticky at top */}

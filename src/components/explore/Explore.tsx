@@ -35,10 +35,10 @@ function ExploreContent() {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
 
-  // Pull-to-refresh on mobile (disabled when modal is open)
+  // Pull-to-refresh on mobile (disabled when modal or panel is open)
   const { isRefreshing, isPulling, indicatorRef } = usePullToRefresh({
     onRefresh: refetch,
-    enabled: isMobile && !isCreateModalOpen,
+    enabled: isMobile && !isCreateModalOpen && !isOpen,
   });
 
   // Sort posts based on selected option
