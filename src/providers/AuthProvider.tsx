@@ -224,8 +224,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           },
           // Use loginMethodsAndOrder instead of loginMethods for better control
           loginMethodsAndOrder: {
-            primary: ['detected_solana_wallets', 'email'],
-            overflow: ['apple'],
+            primary: ['passkey', 'email', 'detected_solana_wallets'],
           },
           embeddedWallets: {
             createOnLogin: 'all-users', // Always create embedded wallet
