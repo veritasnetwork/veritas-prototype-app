@@ -263,36 +263,21 @@ export class PostsService {
         }
       }
 
-      // Fetch total volume for all posts from trades table
-      const { data: volumeData } = await supabase
-        .from('trades')
-        .select('post_id, usdc_amount')
-        .in('post_id', postIds);
-
-      // Create a map of post_id -> total volume (sum trades, convert from micro-USDC to USDC)
-      const volumeMap = new Map<string, number>();
-      if (volumeData) {
-        for (const trade of volumeData) {
-          const currentVolume = volumeMap.get(trade.post_id) || 0;
-          // usdc_amount is in micro-USDC, divide by 1M to get USDC
-          volumeMap.set(trade.post_id, currentVolume + (Number(trade.usdc_amount) / 1_000_000));
-        }
-      }
-
-      // Transform database posts to frontend posts with implied relevance and volume
+      // Transform database posts to frontend posts with implied relevance
+      // Skip volume calculation on initial load for faster performance
       const transformedPosts = posts.map(dbPost => {
         const post = this.transformDbPost(dbPost);
         const impliedRelevance = impliedRelevanceMap.get(post.id);
-        const totalVolume = volumeMap.get(post.id);
 
         // Attach implied relevance as marketImpliedRelevance
         if (impliedRelevance !== undefined) {
           (post as any).marketImpliedRelevance = impliedRelevance;
         }
 
-        // Override totalVolumeUsdc with calculated value from trades
-        if (totalVolume !== undefined) {
-          post.totalVolumeUsdc = totalVolume;
+        // Use total_volume_usdc from posts table (updated by indexer)
+        // This avoids expensive trades aggregation on every feed load
+        if (dbPost.total_volume_usdc) {
+          post.totalVolumeUsdc = Number(dbPost.total_volume_usdc);
         }
 
         return post;

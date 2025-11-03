@@ -19,7 +19,7 @@ interface UsePostsResult {
   updatePost: (postId: string, updates: Partial<Post>) => void;
 }
 
-const INITIAL_POSTS = 10; // Initial load for faster perceived performance (just fill screen)
+const INITIAL_POSTS = 5; // Initial load for faster perceived performance on mobile (just fill screen)
 const POSTS_PER_PAGE = 10; // Chunked loading for smooth scrolling
 const CACHE_KEY = 'veritas_feed_cache';
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
