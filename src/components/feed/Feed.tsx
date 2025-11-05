@@ -17,6 +17,7 @@ import { CreatePostModal } from '@/components/post/CreatePostModal';
 import { TradingPanel } from '@/components/post/TradingPanel';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { HowItWorksModal } from '@/components/auth/HowItWorksModal';
+import { GetInvolvedModal } from '@/components/auth/GetInvolvedModal';
 import { PWAInstallPrompt, usePWAInstallPrompt } from '@/components/common/PWAInstallPrompt';
 import { usePoolData } from '@/hooks/usePoolData';
 import { useTradeHistory } from '@/hooks/api/useTradeHistory';
@@ -37,6 +38,7 @@ export function Feed() {
   const { posts: rawPosts, loading, error, refetch, loadMore, hasMore, loadingMore, updatePost } = usePosts();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isHowItWorksModalOpen, setIsHowItWorksModalOpen] = useState(false);
+  const [isGetInvolvedModalOpen, setIsGetInvolvedModalOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedSide, setSelectedSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [isClosing, setIsClosing] = useState(false);
@@ -950,6 +952,7 @@ export function Feed() {
         currentSort={sortBy}
         onSortChange={setSortBy}
         onHowItWorks={() => setIsHowItWorksModalOpen(true)}
+        onGetInvolved={() => setIsGetInvolvedModalOpen(true)}
       />
 
       {/* Create Post Modal */}
@@ -963,6 +966,12 @@ export function Feed() {
       <HowItWorksModal
         isOpen={isHowItWorksModalOpen}
         onClose={() => setIsHowItWorksModalOpen(false)}
+      />
+
+      {/* Get Involved Modal */}
+      <GetInvolvedModal
+        isOpen={isGetInvolvedModalOpen}
+        onClose={() => setIsGetInvolvedModalOpen(false)}
       />
 
       {/* PWA Install Prompt (mobile only, not in PWA) */}
