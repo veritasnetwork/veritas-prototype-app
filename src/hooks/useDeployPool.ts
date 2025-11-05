@@ -331,7 +331,8 @@ export function useDeployPool() {
             code: signError?.code,
             stack: signError?.stack,
           });
-          throw new Error(`Failed to sign/send transaction: ${signError?.message || 'Unknown error'}. Make sure Phantom is unlocked and try again.`);
+
+          throw new Error(`Failed to sign/send transaction: ${signError?.message || 'Unknown error'}`);
         }
 
 

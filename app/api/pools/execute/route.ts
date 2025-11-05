@@ -1,14 +1,13 @@
 /**
  * Pool Deployment Execution API
  *
- * Receives user-signed pool deployment transactions, adds protocol authority signature,
- * and submits to Solana blockchain.
+ * Receives user-signed pool deployment transactions and submits to Solana blockchain.
+ * Unlike trades, pool deployment (create_pool + deploy_market) doesn't require protocol authority signature.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, Transaction } from '@solana/web3.js';
 import { verifyAuthHeader } from '@/lib/auth/privy-server';
-import { loadProtocolAuthority } from '@/lib/solana/load-authority';
 import { getRpcEndpoint } from '@/lib/solana/network-config';
 
 interface ExecutePoolRequest {
@@ -67,35 +66,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Step 5: Load protocol authority keypair
-    let protocolAuthority;
-    try {
-      protocolAuthority = loadProtocolAuthority();
-    } catch (loadError) {
-      console.error('[EXECUTE POOL] Failed to load protocol authority:', loadError);
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
-    }
-
-    // Step 6: Add protocol authority signature (user already signed)
-    try {
-      transaction.partialSign(protocolAuthority);
-      console.log('[EXECUTE POOL] Protocol authority signed transaction');
-    } catch (signError) {
-      console.error('[EXECUTE POOL] Failed to sign with protocol authority:', signError);
-      return NextResponse.json(
-        { error: 'Failed to add protocol signature' },
-        { status: 500 }
-      );
-    }
-
-    // Step 7: Connect to Solana
+    // Step 5: Connect to Solana (no protocol authority signature needed for pool deployment)
+    // Unlike trades, create_pool and deploy_market don't require protocol authority as signer
     const rpcEndpoint = getRpcEndpoint();
     const connection = new Connection(rpcEndpoint, 'confirmed');
 
-    // Step 8: Submit transaction to Solana
+    // Step 6: Submit transaction to Solana
     let signature: string;
     try {
       const serializedTransaction = transaction.serialize();
@@ -122,7 +98,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Step 9: Wait for confirmation
+    // Step 7: Wait for confirmation
     let confirmed = false;
     let slot: number | undefined;
     try {
@@ -151,7 +127,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Step 10: Return success response
+    // Step 8: Return success response
     const response: ExecutePoolResponse = {
       signature,
       confirmed,
