@@ -263,7 +263,7 @@ function ExploreContent() {
       {/* Mobile Bottom Navigation (shown on <1024px) - Hidden when panel is open */}
       <MobileNav
         onCreatePost={handleCreatePost}
-        showFilters={true}
+        showFilters={false}
         currentSort={sortBy}
         onSortChange={setSortBy}
         isHidden={isMobile && isOpen}

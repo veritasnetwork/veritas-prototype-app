@@ -946,7 +946,7 @@ export function Feed() {
       <MobileNav
         onCreatePost={handleCreatePost}
         isHidden={isCreateModalOpen || showMobilePanel}
-        showFilters={isMobile}
+        showFilters={true}
         currentSort={sortBy}
         onSortChange={setSortBy}
         onHowItWorks={() => setIsHowItWorksModalOpen(true)}

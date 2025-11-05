@@ -39,7 +39,7 @@ export function MobileNav({ onCreatePost, isHidden = false, currentSort = 'recen
   };
 
   const handleFilterToggle = () => {
-    if (showFilters && isActive('/explore')) {
+    if (showFilters && isActive('/feed')) {
       setIsFilterExpanded(!isFilterExpanded);
     }
   };
@@ -127,8 +127,8 @@ export function MobileNav({ onCreatePost, isHidden = false, currentSort = 'recen
           </svg>
         </Link>
 
-        {/* Explore - becomes filter menu button when on explore page */}
-        {showFilters && isActive('/explore') ? (
+        {/* Explore - becomes filter menu button when on feed page */}
+        {showFilters && isActive('/feed') ? (
           <button
             onClick={handleFilterToggle}
             className={`flex items-center justify-center w-full h-full transition-all touch-feedback ${
