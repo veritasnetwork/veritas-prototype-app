@@ -24,17 +24,21 @@ export function HowItWorksModal({ isOpen, onClose }: HowItWorksModalProps) {
         }}
       />
 
-      {/* Modal container */}
-      <div className="fixed top-0 left-0 right-0 bottom-0 z-50 flex items-start sm:items-center justify-center pt-16 sm:pt-0">
-        <div className="bg-[#0a0a0a]/95 border border-white/10 rounded-2xl p-10 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-xl">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <img
-              src="/icons/logo.png"
-              alt="Veritas Logo"
-              className="w-12 h-12"
-            />
-            <h2 className="text-white text-3xl font-bold font-mono tracking-wide">How Veritas Works</h2>
+      {/* Modal container - shifted up more on mobile with pt-8 and pb-24 for nav clearance */}
+      <div className="fixed top-0 left-0 right-0 bottom-0 z-50 flex items-start sm:items-center justify-center pt-8 sm:pt-0 pb-24 sm:pb-0 overflow-y-auto">
+        <div className="bg-[#0a0a0a]/95 border border-white/10 rounded-2xl p-6 sm:p-10 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-xl">
+        {/* Title with logo aligned to numbered list */}
+        <div className="mb-6">
+          <div className="flex items-start gap-4">
+            {/* Logo container matching numbered circle size and alignment */}
+            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center mt-1">
+              <img
+                src="/icons/logo.png"
+                alt="Veritas Logo"
+                className="w-8 h-8"
+              />
+            </div>
+            <h2 className="text-white text-2xl sm:text-3xl font-bold font-mono tracking-wide">How Veritas Works</h2>
           </div>
         </div>
 
@@ -99,17 +103,17 @@ export function HowItWorksModal({ isOpen, onClose }: HowItWorksModalProps) {
             </div>
           </div>
 
-          {/* Buttons Row */}
-          <div className="flex items-center gap-3 mt-4">
+          {/* Buttons Row - Equal width buttons */}
+          <div className="grid grid-cols-2 gap-3 mt-4">
             {/* Learn More Button */}
             <a
               href="https://veritas.computer/knowledge-hub"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 bg-[#F5F5DC] hover:bg-[#E5E5CC] text-[#0C1D51] font-semibold py-3 px-4 rounded-xl transition-all duration-300 ease-in-out shadow-md hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+              className="bg-[#F5F5DC] hover:bg-[#E5E5CC] text-[#0C1D51] font-semibold py-3 px-4 rounded-xl transition-all duration-300 ease-in-out shadow-md hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              Learn more
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span>Learn more</span>
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>
@@ -117,7 +121,7 @@ export function HowItWorksModal({ isOpen, onClose }: HowItWorksModalProps) {
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="flex-1 bg-gradient-to-r from-[#B9D9EB] to-[#a8c8d8] hover:from-[#0C1D51] hover:to-[#162d5f] text-[#0C1D51] hover:text-white font-semibold py-3 px-4 rounded-xl font-mono transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
+              className="bg-gradient-to-r from-[#B9D9EB] to-[#a8c8d8] hover:from-[#0C1D51] hover:to-[#162d5f] text-[#0C1D51] hover:text-white font-semibold py-3 px-4 rounded-xl font-mono transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center"
             >
               GOT IT
             </button>
