@@ -45,8 +45,24 @@ export function GetInvolvedModal({ isOpen, onClose }: GetInvolvedModalProps) {
   ];
 
   return (
-    <div className="fixed top-0 left-0 right-0 bottom-0 z-50 flex items-start sm:items-center justify-center backdrop-blur-md pt-16 sm:pt-0" style={{ minHeight: '100vh', minHeight: '100dvh' }}>
-      <div className="bg-[#0a0a0a]/95 border border-white/10 rounded-2xl p-10 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-xl">
+    <>
+      {/* Backdrop overlay that extends beyond safe area */}
+      <div
+        className="fixed z-40 bg-black/50 backdrop-blur-md"
+        style={{
+          top: '-100px',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          paddingTop: '100px',
+          minHeight: 'calc(100vh + 100px)',
+          minHeight: 'calc(100dvh + 100px)'
+        }}
+      />
+
+      {/* Modal container */}
+      <div className="fixed top-0 left-0 right-0 bottom-0 z-50 flex items-start sm:items-center justify-center pt-16 sm:pt-0">
+        <div className="bg-[#0a0a0a]/95 border border-white/10 rounded-2xl p-10 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-xl">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-3">
             <img
@@ -87,6 +103,7 @@ export function GetInvolvedModal({ isOpen, onClose }: GetInvolvedModalProps) {
           CLOSE
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
