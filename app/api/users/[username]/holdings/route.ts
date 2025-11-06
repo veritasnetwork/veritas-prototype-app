@@ -15,37 +15,69 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ username: string }> } | { params: { username: string } }
 ) {
+  // Create a debug info object to track where we fail
+  const debugInfo: any = {
+    step: 'init',
+    username: null,
+    userId: null,
+    error: null,
+    trace: []
+  };
+
   try {
+    debugInfo.trace.push('Starting request');
+
     // Handle both Promise and non-Promise params (Next.js version differences)
-    const params = 'then' in context.params ? await context.params : context.params;
+    let params: { username: string };
+    try {
+      params = 'then' in context.params ? await context.params : context.params;
+      debugInfo.trace.push('Params extracted');
+    } catch (paramError) {
+      debugInfo.error = `Param extraction failed: ${paramError}`;
+      debugInfo.step = 'params';
+      return NextResponse.json(debugInfo, { status: 500 });
+    }
+
     const { username } = params;
+    debugInfo.username = username;
+    debugInfo.trace.push(`Username: ${username}`);
 
     console.log('[Holdings API] Request received for username:', username);
 
     if (!username || username === 'undefined') {
-      return NextResponse.json(
-        { error: 'Username is required' },
-        { status: 400 }
-      );
+      debugInfo.error = 'Username is required';
+      debugInfo.step = 'validation';
+      return NextResponse.json(debugInfo, { status: 400 });
     }
 
     // Verify environment setup
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('[Holdings API] Missing Supabase configuration');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
+      debugInfo.error = 'Missing Supabase configuration';
+      debugInfo.step = 'config';
+      debugInfo.hasUrl = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+      debugInfo.hasKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+      return NextResponse.json(debugInfo, { status: 500 });
     }
+
+    debugInfo.trace.push('Config verified');
 
     // Parse pagination parameters
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50); // Max 50
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const supabase = getSupabaseServiceRole();
+    debugInfo.step = 'supabase_init';
+    let supabase;
+    try {
+      supabase = getSupabaseServiceRole();
+      debugInfo.trace.push('Supabase client created');
+    } catch (supabaseError) {
+      debugInfo.error = `Supabase init failed: ${supabaseError}`;
+      return NextResponse.json(debugInfo, { status: 500 });
+    }
 
     // First, get the user ID from username
+    debugInfo.step = 'user_lookup';
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('id')
@@ -53,11 +85,13 @@ export async function GET(
       .single();
 
     if (userError || !user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      debugInfo.error = userError?.message || 'User not found';
+      debugInfo.userError = userError;
+      return NextResponse.json(debugInfo, { status: 404 });
     }
+
+    debugInfo.userId = user.id;
+    debugInfo.trace.push(`Found user: ${user.id}`);
 
     // Try to fetch holdings using RPC function first, with fallback to direct query
     console.log('[Holdings API] Fetching holdings for user:', { username, userId: user.id });
@@ -403,7 +437,13 @@ export async function GET(
     );
 
   } catch (error) {
+    debugInfo.step = debugInfo.step || 'unexpected';
+    debugInfo.error = error instanceof Error ? error.message : String(error);
+    debugInfo.errorType = error?.constructor?.name;
+    debugInfo.errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 3) : undefined;
+
     console.error('[Holdings API] Unexpected error:', {
+      debugInfo,
       error,
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
@@ -411,12 +451,6 @@ export async function GET(
       url: request.url
     });
 
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error occurred'
-      },
-      { status: 500 }
-    );
+    return NextResponse.json(debugInfo, { status: 500 });
   }
 }

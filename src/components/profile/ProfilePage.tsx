@@ -88,8 +88,19 @@ export function ProfilePage({ username }: ProfilePageProps) {
         console.log('[ProfilePage] Holdings data:', data);
         setHoldings(data.holdings || []);
       } else {
-        const errorText = await response.text();
-        console.error('[ProfilePage] Holdings fetch failed:', response.status, errorText);
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = await response.text();
+        }
+        console.error('[ProfilePage] Holdings fetch failed:', response.status);
+        console.error('[ProfilePage] Error details:', errorData);
+
+        // Show the detailed error in console as a table for better readability
+        if (typeof errorData === 'object' && errorData.trace) {
+          console.table(errorData.trace);
+        }
       }
     } catch (err) {
       console.error('[ProfilePage] Failed to fetch holdings:', err);
