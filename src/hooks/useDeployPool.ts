@@ -292,6 +292,12 @@ export function useDeployPool() {
         let txSignature: string;
 
         try {
+          // Refresh blockhash immediately before signing to prevent stale blockhash errors
+          console.log('🔐 [SIGNING] Refreshing blockhash...');
+          blockhashData = await connection.getLatestBlockhash('confirmed');
+          combinedTx.recentBlockhash = blockhashData.blockhash;
+          combinedTx.lastValidBlockHeight = blockhashData.lastValidBlockHeight;
+
           console.log('🔐 [SIGNING] Calling wallet.signTransaction()...');
           const signedTx = await wallet.signTransaction(combinedTx);
           console.log('✅ [SIGNING] Transaction signed successfully!');
