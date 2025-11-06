@@ -102,6 +102,11 @@ export function useSellTokens() {
       const txBuffer = Buffer.from(serializedTx, 'base64');
       const transaction = Transaction.from(txBuffer);
 
+      // Refresh blockhash before signing to prevent stale blockhash errors
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+      transaction.recentBlockhash = blockhash;
+      transaction.lastValidBlockHeight = lastValidBlockHeight;
+
       // Step 3: Sign the transaction (user signs FIRST)
       // @ts-ignore - Privy wallet has signTransaction method
       const signedTx = await wallet.signTransaction(transaction);
