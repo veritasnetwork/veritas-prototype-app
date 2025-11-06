@@ -13,15 +13,28 @@ import { estimateUsdcOut, TokenSide } from '@/lib/solana/icbs-pricing';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ username: string }> }
+  context: { params: Promise<{ username: string }> } | { params: { username: string } }
 ) {
   try {
-    const { username } = await params;
+    // Handle both Promise and non-Promise params (Next.js version differences)
+    const params = 'then' in context.params ? await context.params : context.params;
+    const { username } = params;
+
+    console.log('[Holdings API] Request received for username:', username);
 
     if (!username || username === 'undefined') {
       return NextResponse.json(
         { error: 'Username is required' },
         { status: 400 }
+      );
+    }
+
+    // Verify environment setup
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('[Holdings API] Missing Supabase configuration');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
       );
     }
 
