@@ -122,23 +122,27 @@ export async function GET(
     const poolsMap = new Map((pools || []).map(p => [p.pool_address, p]));
 
     // Helper function to calculate price from sqrt_price_x96
+    // Based on the correct formula from sqrt-price-helpers.ts
     const calculatePriceFromSqrt = (sqrtPriceX96String: string | null): number => {
       if (!sqrtPriceX96String) return 0;
 
       try {
-        // Convert string to BigInt
-        const sqrtPriceX96 = BigInt(sqrtPriceX96String);
-
-        // Q96 = 2^96
+        const sqrtPrice = BigInt(sqrtPriceX96String);
         const Q96 = BigInt(2) ** BigInt(96);
 
-        // price = (sqrtPrice / Q96)^2
-        // To avoid precision loss, we do: price = (sqrtPrice^2) / (Q96^2)
-        const priceQ192 = sqrtPriceX96 * sqrtPriceX96;
-        const Q192 = Q96 * Q96;
+        // price = (sqrt_price_x96)² / 2^192
+        // On-chain stores sqrt(price) * 2^96 where price is in lamports (micro-USDC units)
 
-        // Convert to number with 6 decimal places precision
-        const price = Number(priceQ192 * BigInt(1000000) / Q192) / 1000000;
+        // Square the sqrt price to get price * 2^192
+        const priceX192 = sqrtPrice * sqrtPrice;
+
+        // Divide by 2^192 to get price in lamports (do in two steps to avoid precision loss)
+        const priceX96 = priceX192 / Q96;
+        const priceLamports = priceX96 / Q96;
+
+        // Convert from lamports (micro-USDC, 6 decimals) to USDC
+        const USDC_PRECISION = 1000000; // 10^6
+        const price = Number(priceLamports) / USDC_PRECISION;
 
         return price;
       } catch (e) {
