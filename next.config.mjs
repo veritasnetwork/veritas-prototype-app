@@ -23,6 +23,47 @@ const nextConfig = {
         path: false,
         crypto: false,
       };
+
+      // Optimize chunk splitting to prevent loading issues
+      config.optimization = {
+        ...config.optimization,
+        runtimeChunk: 'single',
+        splitChunks: {
+          chunks: 'all',
+          cacheGroups: {
+            default: false,
+            vendors: false,
+            framework: {
+              chunks: 'all',
+              name: 'framework',
+              test: /(?<!node_modules.*)[\\/]node_modules[\\/](react|react-dom|scheduler|prop-types|use-subscription)[\\/]/,
+              priority: 40,
+              enforce: true,
+            },
+            privy: {
+              test: /[\\/]node_modules[\\/](@privy-io)[\\/]/,
+              name: 'privy',
+              chunks: 'all',
+              priority: 30,
+            },
+            commons: {
+              name: 'commons',
+              chunks: 'initial',
+              minChunks: 2,
+              priority: 20,
+            },
+            shared: {
+              name(module, chunks) {
+                return `shared-${chunks.map(chunk => chunk.name).join('-')}`;
+              },
+              chunks: 'async',
+              reuseExistingChunk: true,
+              priority: 10,
+              minChunks: 2,
+            },
+          },
+        },
+      };
     }
     return config;
   },
