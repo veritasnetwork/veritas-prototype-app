@@ -88,11 +88,18 @@ export function ProfilePage({ username }: ProfilePageProps) {
         console.log('[ProfilePage] Holdings data:', data);
         setHoldings(data.holdings || []);
       } else {
+        // Clone the response so we can try to read it as JSON
+        const responseClone = response.clone();
         let errorData;
         try {
           errorData = await response.json();
         } catch {
-          errorData = await response.text();
+          // If JSON parsing fails, try reading as text from the clone
+          try {
+            errorData = await responseClone.text();
+          } catch {
+            errorData = 'Unable to parse error response';
+          }
         }
         console.error('[ProfilePage] Holdings fetch failed:', response.status);
         console.error('[ProfilePage] Error details:', errorData);
@@ -100,6 +107,10 @@ export function ProfilePage({ username }: ProfilePageProps) {
         // Show the detailed error in console as a table for better readability
         if (typeof errorData === 'object' && errorData.trace) {
           console.table(errorData.trace);
+        }
+        if (typeof errorData === 'object' && errorData.step) {
+          console.error('[ProfilePage] Failed at step:', errorData.step);
+          console.error('[ProfilePage] Error message:', errorData.error);
         }
       }
     } catch (err) {
