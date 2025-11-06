@@ -33,7 +33,7 @@ VALUES
     ('epoch_rollover_balance', '0', 'Accumulated penalty pot from epochs with no winning pools'),
 
     -- Rebase & Settlement
-    ('min_new_submissions_for_rebase', '5', 'Minimum number of new unique belief submissions required since last settlement to allow rebase'),
+    ('min_new_submissions_for_rebase', '2', 'Minimum number of new unique belief submissions required since last settlement to allow rebase'),
     ('settlement_cooldown_seconds', '14400', 'Minimum time (in seconds) between settlements - 4 hours by default'),
 
     -- Trading & Slippage

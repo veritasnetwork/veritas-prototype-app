@@ -63,7 +63,7 @@ export async function GET(
         code: rpcResult.error.code
       });
 
-      // Fallback to direct query if RPC fails
+      // Fallback to direct query if RPC fails - simplified version
       const { data: directPositions, error: directError } = await supabase
         .from('user_pool_balances')
         .select(`
@@ -76,65 +76,78 @@ export async function GET(
           post_id,
           token_type,
           belief_lock,
-          last_trade_at,
-          posts!inner (
-            id,
-            post_type,
-            content_text,
-            caption,
-            media_urls,
-            cover_image_url,
-            article_title,
-            created_at,
-            user_id,
-            users!inner (
-              username,
-              display_name,
-              avatar_url
-            )
-          ),
-          pool_deployments!inner (
-            pool_address,
-            cached_price_long,
-            cached_price_short,
-            s_long_supply,
-            s_short_supply,
-            prices_last_updated_at
-          )
+          last_trade_at
         `)
         .eq('user_id', user.id)
         .gt('token_balance', 0);
 
-      if (directError) {
+      if (!directError && directPositions) {
+        if (directPositions.length === 0) {
+          // No holdings found, but that's OK
+          allPositions = [];
+          holdingsError = null;
+          console.log('[Holdings API] No holdings found for user');
+        } else {
+        // Fetch posts separately for each position
+        const postIds = [...new Set(directPositions.map(p => p.post_id))].filter(Boolean);
+        const poolAddresses = [...new Set(directPositions.map(p => p.pool_address))].filter(Boolean);
+
+        // Fetch posts (only if we have IDs)
+        const { data: posts } = postIds.length > 0
+          ? await supabase
+              .from('posts')
+              .select(`
+                id,
+                post_type,
+                content_text,
+                caption,
+                media_urls,
+                cover_image_url,
+                article_title,
+                created_at,
+                user_id,
+                users (
+                  username,
+                  display_name,
+                  avatar_url
+                )
+              `)
+              .in('id', postIds)
+          : { data: [] };
+
+        // Fetch pool deployments (only if we have addresses)
+        const { data: pools } = poolAddresses.length > 0
+          ? await supabase
+              .from('pool_deployments')
+              .select(`
+                pool_address,
+                cached_price_long,
+                cached_price_short,
+                s_long_supply,
+                s_short_supply,
+                prices_last_updated_at
+              `)
+              .in('pool_address', poolAddresses)
+          : { data: [] };
+
+        // Map posts and pools by ID for quick lookup
+        const postsMap = new Map((posts || []).map(p => [p.id, p]));
+        const poolsMap = new Map((pools || []).map(p => [p.pool_address, p]));
+
+        // Transform positions with related data
+        allPositions = directPositions.map(pos => ({
+          ...pos,
+          posts: postsMap.get(pos.post_id) || null,
+          pool_deployments: poolsMap.get(pos.pool_address) || null,
+          entry_price: 0
+        }));
+
+        holdingsError = null;
+        console.log('[Holdings API] Direct query succeeded, found positions:', allPositions.length);
+        }
+      } else {
         holdingsError = directError;
         console.error('[Holdings API] Direct query also failed:', directError);
-      } else {
-        // Transform direct query results to match expected format
-        allPositions = (directPositions || []).map((pos: any) => ({
-          ...pos,
-          posts: pos.posts ? {
-            id: pos.posts.id,
-            post_type: pos.posts.post_type,
-            content_text: pos.posts.content_text,
-            caption: pos.posts.caption,
-            media_urls: pos.posts.media_urls,
-            cover_image_url: pos.posts.cover_image_url,
-            article_title: pos.posts.article_title,
-            created_at: pos.posts.created_at,
-            user_id: pos.posts.user_id,
-            users: pos.posts.users
-          } : null,
-          pool_deployments: pos.pool_deployments ? {
-            pool_address: pos.pool_deployments.pool_address,
-            cached_price_long: pos.pool_deployments.cached_price_long,
-            cached_price_short: pos.pool_deployments.cached_price_short,
-            s_long_supply: pos.pool_deployments.s_long_supply,
-            s_short_supply: pos.pool_deployments.s_short_supply,
-            prices_last_updated_at: pos.pool_deployments.prices_last_updated_at
-          } : null,
-          entry_price: 0 // Will calculate manually if needed
-        }));
-        console.log('[Holdings API] Direct query succeeded, found positions:', allPositions.length);
       }
     } else {
       allPositions = rpcResult.data || [];
@@ -377,9 +390,19 @@ export async function GET(
     );
 
   } catch (error) {
-    console.error('Holdings API error:', error);
+    console.error('[Holdings API] Unexpected error:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      username,
+      url: request.url
+    });
+
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error occurred'
+      },
       { status: 500 }
     );
   }
