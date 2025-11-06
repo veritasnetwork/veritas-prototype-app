@@ -99,7 +99,9 @@ export async function GET(
 
     // Get pool deployments for these holdings
     const poolAddresses = [...new Set(balances.map(b => b.pool_address).filter(Boolean))];
-    const { data: pools } = poolAddresses.length > 0
+    console.log('[Holdings API] Fetching pools for addresses:', poolAddresses);
+
+    const { data: pools, error: poolsError } = poolAddresses.length > 0
       ? await supabase
           .from('pool_deployments')
           .select(`
@@ -115,11 +117,28 @@ export async function GET(
             implied_relevance
           `)
           .in('pool_address', poolAddresses)
-      : { data: [] };
+      : { data: [], error: null };
+
+    if (poolsError) {
+      console.error('[Holdings API] Error fetching pools:', poolsError);
+    }
 
     // Map posts and pools for quick lookup
     const postsMap = new Map((posts || []).map(p => [p.id, p]));
     const poolsMap = new Map((pools || []).map(p => [p.pool_address, p]));
+
+    // Debug logging
+    console.log('[Holdings API] Pool addresses needed:', poolAddresses);
+    console.log('[Holdings API] Pools fetched:', pools?.length || 0);
+    console.log('[Holdings API] Pool map keys:', Array.from(poolsMap.keys()));
+
+    if (pools && pools.length > 0) {
+      console.log('[Holdings API] First pool data:', {
+        address: pools[0].pool_address,
+        sqrt_long: pools[0].sqrt_price_long_x96?.slice(0, 20) + '...',
+        sqrt_short: pools[0].sqrt_price_short_x96?.slice(0, 20) + '...'
+      });
+    }
 
     // Helper function to calculate price from sqrt_price_x96
     // Based on the correct formula from sqrt-price-helpers.ts
@@ -155,6 +174,11 @@ export async function GET(
     const holdings = balances.map(balance => {
       const post = postsMap.get(balance.post_id);
       const pool = poolsMap.get(balance.pool_address);
+
+      // Debug: Log if pool not found
+      if (!pool) {
+        console.log('[Holdings API] Pool not found for address:', balance.pool_address);
+      }
 
       // Calculate prices from sqrt values if cached prices are null
       let priceLong = 0;
