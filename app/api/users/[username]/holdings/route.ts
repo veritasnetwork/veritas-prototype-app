@@ -123,9 +123,44 @@ export async function GET(
       console.error('[Holdings API] Error fetching pools:', poolsError);
     }
 
+    // If no pools were fetched from database, fetch from Solana directly
+    let finalPools = pools || [];
+    if ((!pools || pools.length === 0) && poolAddresses.length > 0) {
+      console.log('[Holdings API] No pools in database, fetching from Solana...');
+      try {
+        const { batchFetchPoolsData } = await import('@/lib/solana/fetch-pool-data');
+        const rpcEndpoint = process.env.SOLANA_RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com';
+        const poolDataMap = await batchFetchPoolsData(poolAddresses, rpcEndpoint);
+
+        // Convert fetched pool data to our format
+        finalPools = Array.from(poolDataMap.entries())
+          .filter(([_, data]) => data !== null)
+          .map(([address, data]) => ({
+            pool_address: address,
+            cached_price_long: null,
+            cached_price_short: null,
+            s_long_supply: data!.supplyLong * 1_000_000, // Convert back to atomic
+            s_short_supply: data!.supplyShort * 1_000_000,
+            sqrt_price_long_x96: null, // We'll use prices directly
+            sqrt_price_short_x96: null,
+            r_long: data!.rLong,
+            r_short: data!.rShort,
+            implied_relevance: null,
+            _live_prices: { // Store live prices separately
+              priceLong: data!.priceLong,
+              priceShort: data!.priceShort
+            }
+          }));
+
+        console.log('[Holdings API] Fetched', finalPools.length, 'pools from Solana');
+      } catch (fetchError) {
+        console.error('[Holdings API] Failed to fetch from Solana:', fetchError);
+      }
+    }
+
     // Map posts and pools for quick lookup
     const postsMap = new Map((posts || []).map(p => [p.id, p]));
-    const poolsMap = new Map((pools || []).map(p => [p.pool_address, p]));
+    const poolsMap = new Map(finalPools.map(p => [p.pool_address, p]));
 
     // Debug logging
     console.log('[Holdings API] Pool addresses needed:', poolAddresses);
@@ -185,14 +220,17 @@ export async function GET(
       let priceShort = 0;
 
       if (pool) {
-        // Use cached prices if available, otherwise calculate from sqrt
-        priceLong = pool.cached_price_long
-          ? Number(pool.cached_price_long)
-          : calculatePriceFromSqrt(pool.sqrt_price_long_x96);
-
-        priceShort = pool.cached_price_short
-          ? Number(pool.cached_price_short)
-          : calculatePriceFromSqrt(pool.sqrt_price_short_x96);
+        // Priority: live prices > cached prices > calculated from sqrt
+        if ((pool as any)._live_prices) {
+          priceLong = (pool as any)._live_prices.priceLong;
+          priceShort = (pool as any)._live_prices.priceShort;
+        } else if (pool.cached_price_long && pool.cached_price_short) {
+          priceLong = Number(pool.cached_price_long);
+          priceShort = Number(pool.cached_price_short);
+        } else {
+          priceLong = calculatePriceFromSqrt(pool.sqrt_price_long_x96);
+          priceShort = calculatePriceFromSqrt(pool.sqrt_price_short_x96);
+        }
       }
 
       const currentPrice = balance.token_type === 'LONG' ? priceLong : priceShort;
