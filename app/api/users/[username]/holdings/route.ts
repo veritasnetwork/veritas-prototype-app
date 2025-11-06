@@ -107,7 +107,12 @@ export async function GET(
             cached_price_long,
             cached_price_short,
             s_long_supply,
-            s_short_supply
+            s_short_supply,
+            sqrt_price_long_x96,
+            sqrt_price_short_x96,
+            r_long,
+            r_short,
+            implied_relevance
           `)
           .in('pool_address', poolAddresses)
       : { data: [] };
@@ -116,15 +121,53 @@ export async function GET(
     const postsMap = new Map((posts || []).map(p => [p.id, p]));
     const poolsMap = new Map((pools || []).map(p => [p.pool_address, p]));
 
+    // Helper function to calculate price from sqrt_price_x96
+    const calculatePriceFromSqrt = (sqrtPriceX96String: string | null): number => {
+      if (!sqrtPriceX96String) return 0;
+
+      try {
+        // Convert string to BigInt
+        const sqrtPriceX96 = BigInt(sqrtPriceX96String);
+
+        // Q96 = 2^96
+        const Q96 = BigInt(2) ** BigInt(96);
+
+        // price = (sqrtPrice / Q96)^2
+        // To avoid precision loss, we do: price = (sqrtPrice^2) / (Q96^2)
+        const priceQ192 = sqrtPriceX96 * sqrtPriceX96;
+        const Q192 = Q96 * Q96;
+
+        // Convert to number with 6 decimal places precision
+        const price = Number(priceQ192 * BigInt(1000000) / Q192) / 1000000;
+
+        return price;
+      } catch (e) {
+        console.error('Error calculating price from sqrt:', e);
+        return 0;
+      }
+    };
+
     // Transform holdings with related data
     const holdings = balances.map(balance => {
       const post = postsMap.get(balance.post_id);
       const pool = poolsMap.get(balance.pool_address);
 
-      const currentPrice = balance.token_type === 'LONG'
-        ? (pool?.cached_price_long || 0)
-        : (pool?.cached_price_short || 0);
+      // Calculate prices from sqrt values if cached prices are null
+      let priceLong = 0;
+      let priceShort = 0;
 
+      if (pool) {
+        // Use cached prices if available, otherwise calculate from sqrt
+        priceLong = pool.cached_price_long
+          ? Number(pool.cached_price_long)
+          : calculatePriceFromSqrt(pool.sqrt_price_long_x96);
+
+        priceShort = pool.cached_price_short
+          ? Number(pool.cached_price_short)
+          : calculatePriceFromSqrt(pool.sqrt_price_short_x96);
+      }
+
+      const currentPrice = balance.token_type === 'LONG' ? priceLong : priceShort;
       const currentValue = balance.token_balance * currentPrice;
 
       return {
@@ -148,8 +191,8 @@ export async function GET(
           pool_address: pool.pool_address,
           supply_long: Number(pool.s_long_supply || 0) / 1_000_000,
           supply_short: Number(pool.s_short_supply || 0) / 1_000_000,
-          price_long: Number(pool.cached_price_long || 0),
-          price_short: Number(pool.cached_price_short || 0)
+          price_long: priceLong,
+          price_short: priceShort
         } : null,
         holdings: {
           token_balance: balance.token_balance,
