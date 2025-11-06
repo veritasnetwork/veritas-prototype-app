@@ -79,13 +79,20 @@ export function ProfilePage({ username }: ProfilePageProps) {
   const fetchHoldings = async () => {
     setHoldingsLoading(true);
     try {
+      console.log('[ProfilePage] Fetching holdings for:', username);
       const response = await fetch(`/api/users/${username}/holdings`);
+      console.log('[ProfilePage] Holdings response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('[ProfilePage] Holdings data:', data);
         setHoldings(data.holdings || []);
+      } else {
+        const errorText = await response.text();
+        console.error('[ProfilePage] Holdings fetch failed:', response.status, errorText);
       }
     } catch (err) {
-      console.error('Failed to fetch holdings:', err);
+      console.error('[ProfilePage] Failed to fetch holdings:', err);
     } finally {
       setHoldingsLoading(false);
     }
