@@ -46,19 +46,118 @@ export async function GET(
       );
     }
 
-    // Fetch user's holdings with post and pool data, including entry price calculation
-    // NOTE: We don't fetch content_json to improve performance - it's not needed for holdings list
-    // Use a raw query to add LIMIT and OFFSET to the RPC call result
-    const { data: allPositions, error: holdingsError } = await supabase
+    // Try to fetch holdings using RPC function first, with fallback to direct query
+    console.log('[Holdings API] Fetching holdings for user:', { username, userId: user.id });
+
+    let allPositions: any[] = [];
+    let holdingsError: any = null;
+
+    // Try RPC function first
+    const rpcResult = await supabase
       .rpc('get_user_holdings_with_entry_price', { p_user_id: user.id });
 
+    if (rpcResult.error) {
+      console.error('[Holdings API] RPC function failed, trying direct query:', {
+        error: rpcResult.error.message,
+        hint: rpcResult.error.hint,
+        code: rpcResult.error.code
+      });
+
+      // Fallback to direct query if RPC fails
+      const { data: directPositions, error: directError } = await supabase
+        .from('user_pool_balances')
+        .select(`
+          token_balance,
+          total_usdc_spent,
+          total_bought,
+          total_sold,
+          total_usdc_received,
+          pool_address,
+          post_id,
+          token_type,
+          belief_lock,
+          last_trade_at,
+          posts!inner (
+            id,
+            post_type,
+            content_text,
+            caption,
+            media_urls,
+            cover_image_url,
+            article_title,
+            created_at,
+            user_id,
+            users!inner (
+              username,
+              display_name,
+              avatar_url
+            )
+          ),
+          pool_deployments!inner (
+            pool_address,
+            cached_price_long,
+            cached_price_short,
+            s_long_supply,
+            s_short_supply,
+            prices_last_updated_at
+          )
+        `)
+        .eq('user_id', user.id)
+        .gt('token_balance', 0);
+
+      if (directError) {
+        holdingsError = directError;
+        console.error('[Holdings API] Direct query also failed:', directError);
+      } else {
+        // Transform direct query results to match expected format
+        allPositions = (directPositions || []).map((pos: any) => ({
+          ...pos,
+          posts: pos.posts ? {
+            id: pos.posts.id,
+            post_type: pos.posts.post_type,
+            content_text: pos.posts.content_text,
+            caption: pos.posts.caption,
+            media_urls: pos.posts.media_urls,
+            cover_image_url: pos.posts.cover_image_url,
+            article_title: pos.posts.article_title,
+            created_at: pos.posts.created_at,
+            user_id: pos.posts.user_id,
+            users: pos.posts.users
+          } : null,
+          pool_deployments: pos.pool_deployments ? {
+            pool_address: pos.pool_deployments.pool_address,
+            cached_price_long: pos.pool_deployments.cached_price_long,
+            cached_price_short: pos.pool_deployments.cached_price_short,
+            s_long_supply: pos.pool_deployments.s_long_supply,
+            s_short_supply: pos.pool_deployments.s_short_supply,
+            prices_last_updated_at: pos.pool_deployments.prices_last_updated_at
+          } : null,
+          entry_price: 0 // Will calculate manually if needed
+        }));
+        console.log('[Holdings API] Direct query succeeded, found positions:', allPositions.length);
+      }
+    } else {
+      allPositions = rpcResult.data || [];
+      console.log('[Holdings API] RPC function succeeded, found positions:', allPositions.length);
+    }
+
     if (holdingsError) {
-      console.error('Holdings fetch error:', holdingsError);
+      console.error('[Holdings API] Final error:', {
+        error: holdingsError,
+        message: holdingsError.message,
+        userId: user.id,
+        username
+      });
       return NextResponse.json(
-        { error: 'Failed to fetch holdings' },
+        {
+          error: 'Failed to fetch holdings',
+          details: holdingsError.message
+        },
         { status: 500 }
       );
     }
+
+    console.log('[Holdings API] Fetched positions count:', allPositions?.length || 0);
 
     // Apply pagination in-memory (since RPC doesn't support .range())
     // Sort by value first (would need pool data for perfect sort, so we'll do basic sort)
