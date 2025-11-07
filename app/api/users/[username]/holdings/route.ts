@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { sqrtPriceX96ToPrice } from '@/lib/solana/sqrt-price-helpers';
 
 export async function GET(
   request: NextRequest,
@@ -123,44 +124,9 @@ export async function GET(
       console.error('[Holdings API] Error fetching pools:', poolsError);
     }
 
-    // If no pools were fetched from database, fetch from Solana directly
-    let finalPools = pools || [];
-    if ((!pools || pools.length === 0) && poolAddresses.length > 0) {
-      console.log('[Holdings API] No pools in database, fetching from Solana...');
-      try {
-        const { batchFetchPoolsData } = await import('@/lib/solana/fetch-pool-data');
-        const rpcEndpoint = process.env.SOLANA_RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com';
-        const poolDataMap = await batchFetchPoolsData(poolAddresses, rpcEndpoint);
-
-        // Convert fetched pool data to our format
-        finalPools = Array.from(poolDataMap.entries())
-          .filter(([_, data]) => data !== null)
-          .map(([address, data]) => ({
-            pool_address: address,
-            cached_price_long: null,
-            cached_price_short: null,
-            s_long_supply: data!.supplyLong * 1_000_000, // Convert back to atomic
-            s_short_supply: data!.supplyShort * 1_000_000,
-            sqrt_price_long_x96: null, // We'll use prices directly
-            sqrt_price_short_x96: null,
-            r_long: data!.rLong,
-            r_short: data!.rShort,
-            implied_relevance: null,
-            _live_prices: { // Store live prices separately
-              priceLong: data!.priceLong,
-              priceShort: data!.priceShort
-            }
-          }));
-
-        console.log('[Holdings API] Fetched', finalPools.length, 'pools from Solana');
-      } catch (fetchError) {
-        console.error('[Holdings API] Failed to fetch from Solana:', fetchError);
-      }
-    }
-
     // Map posts and pools for quick lookup
     const postsMap = new Map((posts || []).map(p => [p.id, p]));
-    const poolsMap = new Map(finalPools.map(p => [p.pool_address, p]));
+    const poolsMap = new Map((pools || []).map(p => [p.pool_address, p]));
 
     // Debug logging
     console.log('[Holdings API] Pool addresses needed:', poolAddresses);
@@ -175,35 +141,6 @@ export async function GET(
       });
     }
 
-    // Helper function to calculate price from sqrt_price_x96
-    // Based on the correct formula from sqrt-price-helpers.ts
-    const calculatePriceFromSqrt = (sqrtPriceX96String: string | null): number => {
-      if (!sqrtPriceX96String) return 0;
-
-      try {
-        const sqrtPrice = BigInt(sqrtPriceX96String);
-        const Q96 = BigInt(2) ** BigInt(96);
-
-        // price = (sqrt_price_x96)² / 2^192
-        // On-chain stores sqrt(price) * 2^96 where price is in lamports (micro-USDC units)
-
-        // Square the sqrt price to get price * 2^192
-        const priceX192 = sqrtPrice * sqrtPrice;
-
-        // Divide by 2^192 to get price in lamports (do in two steps to avoid precision loss)
-        const priceX96 = priceX192 / Q96;
-        const priceLamports = priceX96 / Q96;
-
-        // Convert from lamports (micro-USDC, 6 decimals) to USDC
-        const USDC_PRECISION = 1000000; // 10^6
-        const price = Number(priceLamports) / USDC_PRECISION;
-
-        return price;
-      } catch (e) {
-        console.error('Error calculating price from sqrt:', e);
-        return 0;
-      }
-    };
 
     // Transform holdings with related data
     const holdings = balances.map(balance => {
@@ -220,16 +157,23 @@ export async function GET(
       let priceShort = 0;
 
       if (pool) {
-        // Priority: live prices > cached prices > calculated from sqrt
-        if ((pool as any)._live_prices) {
-          priceLong = (pool as any)._live_prices.priceLong;
-          priceShort = (pool as any)._live_prices.priceShort;
-        } else if (pool.cached_price_long && pool.cached_price_short) {
-          priceLong = Number(pool.cached_price_long);
-          priceShort = Number(pool.cached_price_short);
-        } else {
-          priceLong = calculatePriceFromSqrt(pool.sqrt_price_long_x96);
-          priceShort = calculatePriceFromSqrt(pool.sqrt_price_short_x96);
+        // Calculate prices using the EXACT same method as /api/posts/[id]
+        if (pool.sqrt_price_long_x96) {
+          try {
+            priceLong = sqrtPriceX96ToPrice(pool.sqrt_price_long_x96);
+          } catch (e) {
+            console.error('[Holdings API] Error calculating price_long:', e);
+            priceLong = 0;
+          }
+        }
+
+        if (pool.sqrt_price_short_x96) {
+          try {
+            priceShort = sqrtPriceX96ToPrice(pool.sqrt_price_short_x96);
+          } catch (e) {
+            console.error('[Holdings API] Error calculating price_short:', e);
+            priceShort = 0;
+          }
         }
       }
 
@@ -258,7 +202,9 @@ export async function GET(
           supply_long: Number(pool.s_long_supply || 0) / 1_000_000,
           supply_short: Number(pool.s_short_supply || 0) / 1_000_000,
           price_long: priceLong,
-          price_short: priceShort
+          price_short: priceShort,
+          r_long: Number(pool.r_long || 0),
+          r_short: Number(pool.r_short || 0)
         } : null,
         holdings: {
           token_balance: balance.token_balance,
