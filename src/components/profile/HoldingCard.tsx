@@ -64,10 +64,12 @@ export function HoldingCard({ post, tokenType, holdings, pool }: HoldingCardProp
   const profitLoss = balanceValue - costBasis;
   const profitLossPercent = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
 
-  // Calculate market-implied relevance from price ratio
-  // Market prediction = LONG price / (LONG price + SHORT price)
-  const totalPrice = pool.price_long + pool.price_short;
-  const marketPrediction = totalPrice > 0 ? (pool.price_long / totalPrice) * 100 : 50;
+  // Calculate implied relevance from reserves (same as PoolMetricsCard)
+  // Use actual ICBS virtual reserves (r_long, r_short)
+  const reserveLongUSDC = pool.r_long || 0;
+  const reserveShortUSDC = pool.r_short || 0;
+  const totalReserve = reserveLongUSDC + reserveShortUSDC;
+  const marketPrediction = totalReserve > 0 ? (reserveLongUSDC / totalReserve) * 100 : 50;
 
   // Calculate total market cap (supply * price)
   const totalMarketCap = (pool.supply_long * pool.price_long) + (pool.supply_short * pool.price_short);
