@@ -36,7 +36,7 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
   const [solBalance, setSolBalance] = useState<number>(0);
 
   // Form state
-  const initialDeposit = 50; // Hardcoded to $50
+  const initialDeposit = 10; // Hardcoded to $10
   const [longAllocationPercent, setLongAllocationPercent] = useState<number>(50);
 
   const handleConnectWallet = async (e: React.MouseEvent) => {
@@ -78,8 +78,8 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
       return;
     }
 
-    if (initialDeposit < 50) {
-      setError('Minimum deposit is 50 USDC');
+    if (initialDeposit < 10) {
+      setError('Minimum deposit is 10 USDC');
       return;
     }
 
@@ -203,7 +203,7 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
             ) : (
               <>
                 <Rocket className="w-4 h-4" />
-                <span>Deploy Market ($50)</span>
+                <span>Deploy Market ($10)</span>
               </>
             )}
           </button>
@@ -216,7 +216,7 @@ export function DeployPoolCard({ postId, onDeploySuccess }: DeployPoolCardProps)
             <span className="text-gray-400 whitespace-nowrap">Liquidity is redeemable</span>
           </div>
           <div className="opacity-0 group-hover:opacity-100 transition-all absolute inset-0 flex items-center justify-center px-4 text-gray-300 pointer-events-none leading-relaxed text-center border border-[#B9D9EB]/30 rounded-lg shadow-[0_0_20px_rgba(185,217,235,0.15)] bg-[#1a1a1a]">
-            You'll receive tradeable LONG/SHORT tokens worth $50 that can be sold back anytime.
+            You'll receive tradeable LONG/SHORT tokens worth $10 that can be sold back anytime.
           </div>
         </div>
 
