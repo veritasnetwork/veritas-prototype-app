@@ -131,14 +131,20 @@ export async function GET(
     // Debug logging
     console.log('[Holdings API] Pool addresses needed:', poolAddresses);
     console.log('[Holdings API] Pools fetched:', pools?.length || 0);
-    console.log('[Holdings API] Pool map keys:', Array.from(poolsMap.keys()));
 
     if (pools && pools.length > 0) {
-      console.log('[Holdings API] First pool data:', {
+      console.log('[Holdings API] First pool full data:', {
         address: pools[0].pool_address,
-        sqrt_long: pools[0].sqrt_price_long_x96?.slice(0, 20) + '...',
-        sqrt_short: pools[0].sqrt_price_short_x96?.slice(0, 20) + '...'
+        sqrt_long: pools[0].sqrt_price_long_x96,
+        sqrt_short: pools[0].sqrt_price_short_x96,
+        r_long: pools[0].r_long,
+        r_short: pools[0].r_short,
+        s_long: pools[0].s_long_supply,
+        s_short: pools[0].s_short_supply
       });
+    } else {
+      console.error('[Holdings API] NO POOLS RETURNED FROM DATABASE!');
+      console.log('[Holdings API] Attempted query with addresses:', poolAddresses);
     }
 
 
