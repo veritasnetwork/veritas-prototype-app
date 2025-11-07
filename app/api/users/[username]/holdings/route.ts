@@ -101,27 +101,69 @@ export async function GET(
     // Get pool deployments for these holdings
     const poolAddresses = [...new Set(balances.map(b => b.pool_address).filter(Boolean))];
     console.log('[Holdings API] Fetching pools for addresses:', poolAddresses);
+    console.log('[Holdings API] First pool address type:', typeof poolAddresses[0], 'value:', poolAddresses[0]);
 
-    const { data: pools, error: poolsError } = poolAddresses.length > 0
-      ? await supabase
+    // Try fetching pools one at a time to debug
+    let pools: any[] = [];
+    let poolsError: any = null;
+
+    if (poolAddresses.length > 0) {
+      // First, try fetching ALL pools to see if any exist
+      const { data: allPools, error: allError } = await supabase
+        .from('pool_deployments')
+        .select('pool_address')
+        .limit(5);
+
+      console.log('[Holdings API] ALL pools in database (sample):', allPools?.map(p => p.pool_address));
+
+      // Now try the actual query
+      const { data: queriedPools, error: queryError } = await supabase
+        .from('pool_deployments')
+        .select(`
+          pool_address,
+          cached_price_long,
+          cached_price_short,
+          s_long_supply,
+          s_short_supply,
+          sqrt_price_long_x96,
+          sqrt_price_short_x96,
+          r_long,
+          r_short,
+          implied_relevance
+        `)
+        .in('pool_address', poolAddresses);
+
+      pools = queriedPools || [];
+      poolsError = queryError;
+
+      console.log('[Holdings API] Query with .in() returned:', pools.length, 'pools');
+
+      if (queryError) {
+        console.error('[Holdings API] Error fetching pools:', queryError);
+      }
+
+      // If query returned nothing, try fetching each address individually
+      if (pools.length === 0 && poolAddresses.length > 0) {
+        console.log('[Holdings API] .in() returned 0 results, trying individual queries...');
+        const testAddress = poolAddresses[0];
+        const { data: singlePool, error: singleError } = await supabase
           .from('pool_deployments')
-          .select(`
-            pool_address,
-            cached_price_long,
-            cached_price_short,
-            s_long_supply,
-            s_short_supply,
-            sqrt_price_long_x96,
-            sqrt_price_short_x96,
-            r_long,
-            r_short,
-            implied_relevance
-          `)
-          .in('pool_address', poolAddresses)
-      : { data: [], error: null };
+          .select('*')
+          .eq('pool_address', testAddress)
+          .single();
 
-    if (poolsError) {
-      console.error('[Holdings API] Error fetching pools:', poolsError);
+        console.log('[Holdings API] Single pool query result:', singlePool ? 'FOUND' : 'NOT FOUND');
+        if (singleError) {
+          console.error('[Holdings API] Single query error:', singleError);
+        }
+        if (singlePool) {
+          console.log('[Holdings API] Single pool data:', {
+            address: singlePool.pool_address,
+            has_sqrt_long: !!singlePool.sqrt_price_long_x96,
+            has_sqrt_short: !!singlePool.sqrt_price_short_x96
+          });
+        }
+      }
     }
 
     // Map posts and pools for quick lookup
