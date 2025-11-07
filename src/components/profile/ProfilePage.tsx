@@ -424,6 +424,7 @@ export function ProfilePage({ username }: ProfilePageProps) {
                             media_urls: holding.post?.media_urls,
                             cover_image_url: (holding.post as any)?.cover_image || holding.post?.cover_image_url,
                             article_title: (holding.post as any)?.title,
+                            token_volume_usdc: holding.post?.token_volume_usdc,
                             author: {
                               username: holding.post?.author?.username || 'unknown',
                               display_name: holding.post?.author?.display_name,
@@ -447,6 +448,8 @@ export function ProfilePage({ username }: ProfilePageProps) {
                             supply_short: holding.pool?.supply_short ?? 0,
                             price_long: holding.pool?.price_long ?? 0,
                             price_short: holding.pool?.price_short ?? 0,
+                            r_long: holding.pool?.r_long,
+                            r_short: holding.pool?.r_short,
                           }}
                         />
                       ))}
