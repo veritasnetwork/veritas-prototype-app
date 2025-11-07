@@ -1,7 +1,11 @@
 /**
  * Simplified Holdings API Route
  * GET /api/users/[username]/holdings
- * Returns token holdings for a user with post and pool data
+ *
+ * Uses the same methodology as pool metrics:
+ * - Fetch posts with pool_deployments joined
+ * - Calculate prices using sqrtPriceX96ToPrice
+ * - Filter for user's positions
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,20 +17,16 @@ export async function GET(
   context: { params: { username: string } } | { params: Promise<{ username: string }> }
 ) {
   try {
-    // Handle both sync and async params
-    const params = context.params;
-    const username = 'then' in params ? (await params).username : params.username;
+    const params = 'then' in context.params ? await context.params : context.params;
+    const { username } = params;
 
     if (!username || username === 'undefined') {
-      return NextResponse.json(
-        { error: 'Username is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Username is required' }, { status: 400 });
     }
 
     const supabase = getSupabaseServiceRole();
 
-    // Get user ID from username
+    // Get user ID
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('id')
@@ -34,25 +34,13 @@ export async function GET(
       .single();
 
     if (userError || !user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get user's holdings
+    // Get user's holdings (balances)
     const { data: balances, error: balancesError } = await supabase
       .from('user_pool_balances')
-      .select(`
-        token_type,
-        token_balance,
-        pool_address,
-        post_id,
-        belief_lock,
-        total_usdc_spent,
-        total_usdc_received,
-        last_trade_at
-      `)
+      .select('*')
       .eq('user_id', user.id)
       .gt('token_balance', 0);
 
@@ -66,171 +54,102 @@ export async function GET(
     if (!balances || balances.length === 0) {
       return NextResponse.json({
         holdings: [],
-        pagination: {
-          total: 0,
-          limit: 10,
-          offset: 0,
-          hasMore: false
-        }
+        pagination: { total: 0, limit: 10, offset: 0, hasMore: false }
       });
     }
 
-    // Get posts for these holdings
+    // Get unique post IDs
     const postIds = [...new Set(balances.map(b => b.post_id).filter(Boolean))];
-    const { data: posts } = postIds.length > 0
-      ? await supabase
-          .from('posts')
-          .select(`
-            id,
-            post_type,
-            content_text,
-            caption,
-            media_urls,
-            cover_image_url,
-            article_title,
-            created_at,
-            users (
-              username,
-              display_name,
-              avatar_url
-            )
-          `)
-          .in('id', postIds)
-      : { data: [] };
 
-    // Get pool deployments for these holdings
-    const poolAddresses = [...new Set(balances.map(b => b.pool_address).filter(Boolean))];
-    console.log('[Holdings API] Fetching pools for addresses:', poolAddresses);
-    console.log('[Holdings API] First pool address type:', typeof poolAddresses[0], 'value:', poolAddresses[0]);
-
-    // Try fetching pools one at a time to debug
-    let pools: any[] = [];
-    let poolsError: any = null;
-
-    if (poolAddresses.length > 0) {
-      // First, try fetching ALL pools to see if any exist
-      const { data: allPools, error: allError } = await supabase
-        .from('pool_deployments')
-        .select('pool_address')
-        .limit(5);
-
-      console.log('[Holdings API] ALL pools in database (sample):', allPools?.map(p => p.pool_address));
-
-      // Now try the actual query
-      const { data: queriedPools, error: queryError } = await supabase
-        .from('pool_deployments')
-        .select(`
+    // Fetch posts with pool data - EXACT same query as /api/posts/[id]
+    const { data: posts, error: postsError } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        total_volume_usdc,
+        user:users!posts_user_id_fkey (
+          id,
+          username,
+          display_name,
+          avatar_url
+        ),
+        pool_deployments (
           pool_address,
-          cached_price_long,
-          cached_price_short,
           s_long_supply,
           s_short_supply,
           sqrt_price_long_x96,
           sqrt_price_short_x96,
           r_long,
-          r_short,
-          implied_relevance
-        `)
-        .in('pool_address', poolAddresses);
+          r_short
+        )
+      `)
+      .in('id', postIds);
 
-      pools = queriedPools || [];
-      poolsError = queryError;
-
-      console.log('[Holdings API] Query with .in() returned:', pools.length, 'pools');
-
-      if (queryError) {
-        console.error('[Holdings API] Error fetching pools:', queryError);
-      }
-
-      // If query returned nothing, try fetching each address individually
-      if (pools.length === 0 && poolAddresses.length > 0) {
-        console.log('[Holdings API] .in() returned 0 results, trying individual queries...');
-        const testAddress = poolAddresses[0];
-        const { data: singlePool, error: singleError } = await supabase
-          .from('pool_deployments')
-          .select('*')
-          .eq('pool_address', testAddress)
-          .single();
-
-        console.log('[Holdings API] Single pool query result:', singlePool ? 'FOUND' : 'NOT FOUND');
-        if (singleError) {
-          console.error('[Holdings API] Single query error:', singleError);
-        }
-        if (singlePool) {
-          console.log('[Holdings API] Single pool data:', {
-            address: singlePool.pool_address,
-            has_sqrt_long: !!singlePool.sqrt_price_long_x96,
-            has_sqrt_short: !!singlePool.sqrt_price_short_x96
-          });
-        }
-      }
+    if (postsError) {
+      console.error('[Holdings API] Error fetching posts:', postsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch post data', details: postsError.message },
+        { status: 500 }
+      );
     }
 
-    // Map posts and pools for quick lookup
-    const postsMap = new Map((posts || []).map(p => [p.id, p]));
-    const poolsMap = new Map((pools || []).map(p => [p.pool_address, p]));
+    // Create post lookup map
+    const postsMap = new Map(posts?.map(p => [p.id, p]) || []);
 
-    // Debug logging
-    console.log('[Holdings API] Pool addresses needed:', poolAddresses);
-    console.log('[Holdings API] Pools fetched:', pools?.length || 0);
+    // Fetch volume data per token side
+    const { data: volumeData } = await supabase
+      .from('trades')
+      .select('post_id, side, usdc_amount')
+      .in('post_id', postIds);
 
-    if (pools && pools.length > 0) {
-      console.log('[Holdings API] First pool full data:', {
-        address: pools[0].pool_address,
-        sqrt_long: pools[0].sqrt_price_long_x96,
-        sqrt_short: pools[0].sqrt_price_short_x96,
-        r_long: pools[0].r_long,
-        r_short: pools[0].r_short,
-        s_long: pools[0].s_long_supply,
-        s_short: pools[0].s_short_supply
-      });
-    } else {
-      console.error('[Holdings API] NO POOLS RETURNED FROM DATABASE!');
-      console.log('[Holdings API] Attempted query with addresses:', poolAddresses);
-    }
+    // Aggregate volume by post + side
+    const volumeMap = new Map<string, number>();
+    (volumeData || []).forEach(trade => {
+      const key = `${trade.post_id}-${trade.side}`;
+      const current = volumeMap.get(key) || 0;
+      volumeMap.set(key, current + (Number(trade.usdc_amount) / 1_000_000));
+    });
 
-
-    // Transform holdings with related data
+    // Transform holdings
     const holdings = balances.map(balance => {
       const post = postsMap.get(balance.post_id);
-      const pool = poolsMap.get(balance.pool_address);
-
-      // Debug: Log if pool not found
-      if (!pool) {
-        console.log('[Holdings API] Pool not found for address:', balance.pool_address);
+      if (!post) {
+        return null; // Skip if post not found
       }
 
-      // Calculate prices from sqrt values if cached prices are null
+      const poolData = post.pool_deployments?.[0];
+      const userData = Array.isArray(post.user) ? post.user[0] : post.user;
+
+      // Calculate prices - EXACT same method as /api/posts/[id]
       let priceLong = 0;
       let priceShort = 0;
 
-      if (pool) {
-        // Calculate prices using the EXACT same method as /api/posts/[id]
-        if (pool.sqrt_price_long_x96) {
-          try {
-            priceLong = sqrtPriceX96ToPrice(pool.sqrt_price_long_x96);
-          } catch (e) {
-            console.error('[Holdings API] Error calculating price_long:', e);
-            priceLong = 0;
-          }
+      if (poolData?.sqrt_price_long_x96) {
+        try {
+          priceLong = sqrtPriceX96ToPrice(poolData.sqrt_price_long_x96);
+        } catch (e) {
+          console.error('[Holdings API] Error calculating price_long:', e);
         }
+      }
 
-        if (pool.sqrt_price_short_x96) {
-          try {
-            priceShort = sqrtPriceX96ToPrice(pool.sqrt_price_short_x96);
-          } catch (e) {
-            console.error('[Holdings API] Error calculating price_short:', e);
-            priceShort = 0;
-          }
+      if (poolData?.sqrt_price_short_x96) {
+        try {
+          priceShort = sqrtPriceX96ToPrice(poolData.sqrt_price_short_x96);
+        } catch (e) {
+          console.error('[Holdings API] Error calculating price_short:', e);
         }
       }
 
       const currentPrice = balance.token_type === 'LONG' ? priceLong : priceShort;
       const currentValue = balance.token_balance * currentPrice;
 
+      // Get volume for this token side
+      const volumeKey = `${balance.post_id}-${balance.token_type}`;
+      const tokenVolume = volumeMap.get(volumeKey) || 0;
+
       return {
         token_type: balance.token_type,
-        post: post ? {
+        post: {
           id: post.id,
           post_type: post.post_type || 'text',
           content_text: post.content_text,
@@ -239,20 +158,21 @@ export async function GET(
           cover_image_url: post.cover_image_url,
           article_title: post.article_title,
           created_at: post.created_at,
+          token_volume_usdc: tokenVolume,
           author: {
-            username: post.users?.username || 'Unknown',
-            display_name: post.users?.display_name,
-            avatar_url: post.users?.avatar_url
+            username: userData?.username || 'Unknown',
+            display_name: userData?.display_name,
+            avatar_url: userData?.avatar_url
           }
-        } : null,
-        pool: pool ? {
-          pool_address: pool.pool_address,
-          supply_long: Number(pool.s_long_supply || 0) / 1_000_000,
-          supply_short: Number(pool.s_short_supply || 0) / 1_000_000,
+        },
+        pool: poolData ? {
+          pool_address: poolData.pool_address,
+          supply_long: Number(poolData.s_long_supply || 0) / 1_000_000,
+          supply_short: Number(poolData.s_short_supply || 0) / 1_000_000,
           price_long: priceLong,
           price_short: priceShort,
-          r_long: Number(pool.r_long || 0),
-          r_short: Number(pool.r_short || 0)
+          r_long: Number(poolData.r_long || 0),
+          r_short: Number(poolData.r_short || 0)
         } : null,
         holdings: {
           token_balance: balance.token_balance,
@@ -261,12 +181,12 @@ export async function GET(
           total_usdc_received: Number(balance.total_usdc_received || 0) / 1_000_000,
           belief_lock: Number(balance.belief_lock || 0) / 1_000_000,
           current_price: currentPrice,
-          entry_price: 0 // Simplified - not calculating this for now
+          entry_price: 0
         }
       };
-    });
+    }).filter(Boolean); // Remove nulls
 
-    // Sort by current value
+    // Sort by value
     holdings.sort((a, b) => b.holdings.current_value_usdc - a.holdings.current_value_usdc);
 
     return NextResponse.json({
@@ -280,7 +200,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('[Holdings API] Error:', error);
+    console.error('[Holdings API] Unexpected error:', error);
     return NextResponse.json(
       {
         error: 'Internal server error',
