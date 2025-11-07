@@ -73,6 +73,19 @@ export function HoldingCard({ post, tokenType, holdings, pool }: HoldingCardProp
   const totalReserve = reserveLongUSDC + reserveShortUSDC;
   const marketPrediction = totalReserve > 0 ? (reserveLongUSDC / totalReserve) * 100 : 50;
 
+  // Debug logging
+  console.log('[HoldingCard] Relevance calculation:', {
+    post_id: post.id,
+    token_type: tokenType,
+    r_long: pool.r_long,
+    r_short: pool.r_short,
+    reserveLongUSDC,
+    reserveShortUSDC,
+    totalReserve,
+    marketPrediction,
+    token_volume_usdc: post.token_volume_usdc
+  });
+
   // Calculate total market cap (supply * price)
   const totalMarketCap = (pool.supply_long * pool.price_long) + (pool.supply_short * pool.price_short);
 
