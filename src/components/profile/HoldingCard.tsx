@@ -36,6 +36,8 @@ export interface HoldingCardProps {
     supply_short: number;         // Total SHORT supply
     price_long: number;           // Current LONG price
     price_short: number;          // Current SHORT price
+    r_long?: number;              // LONG reserve (USDC)
+    r_short?: number;             // SHORT reserve (USDC)
     is_settled?: boolean;         // Whether pool has settled
     settled_relevance?: number;   // Final relevance score if settled
   };
