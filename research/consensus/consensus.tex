@@ -1,0 +1,258 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage[margin=1in]{geometry}
+
+\newcommand{\E}{\mathbb{E}}
+
+\title{Veritas Consensus Protocol}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+A consensus mechanism where voice equals risk. Participants stake capital to gain influence. Belief Decomposition aggregates opinions, Bayesian Truth Serum scores accuracy, and stake redistribution rewards truth-tellers.
+\end{abstract}
+
+\section{Stake System}
+
+Influence in consensus is proportional to capital at stake.
+
+\subsection{Stake and Lock Definitions}
+
+Each participant maintains:
+\begin{itemize}
+\item \textbf{Global stake} $S_i$ = total at-risk capital across all markets
+\item \textbf{Per-market lock} $L_{i,m}$ = locked capital in market $m$
+\end{itemize}
+
+Lock amount = 2\% of last buy amount in that market.
+
+\subsection{Solvency Invariant}
+
+Total stake must cover all lock requirements:
+\begin{equation}
+S_i \geq \sum_{\text{all markets}} L_{i,m}
+\end{equation}
+
+\subsection{Automatic Collateralization}
+
+On trade execution:
+\begin{equation}
+\text{Skim} = \max\left(0, \sum_{m} L_{i,m}^{\text{new}} - S_i\right)
+\end{equation}
+
+Skim is collected atomically with the trade only when total lock requirement exceeds current stake.
+
+\subsection{Epistemic Weight}
+
+Voting weight in each market equals locked capital:
+\begin{equation}
+w_i = L_{i,m}
+\end{equation}
+
+\section{Belief Decomposition}
+
+Extracts shared knowledge from diverse opinions.
+
+\subsection{Input Requirements}
+
+Each participant provides:
+\begin{itemize}
+\item Belief $p_i$ (e.g., 0.7 for 70\% confidence)
+\item Meta-prediction $m_i$ (prediction of population average)
+\end{itemize}
+
+\subsection{Local Expectations Matrix}
+
+Calculate belief-prediction correlations:
+\begin{align}
+w_{11} &= \text{weighted avg}(p_i \times m_i \mid p_i = 1) \\
+w_{21} &= \text{weighted avg}(p_i \times m_i \mid p_i = 0)
+\end{align}
+
+\subsection{Common Prior}
+
+Extract shared baseline before evidence:
+\begin{equation}
+\pi = \frac{w_{21}}{w_{21} + (1 - w_{11})}
+\end{equation}
+
+\subsection{Aggregate Belief}
+
+Combine beliefs with prior correction:
+\begin{equation}
+A = \frac{\prod_i p_i^{\hat{w}_i} / \pi^{\sum \hat{w}_i}}{\prod_i p_i^{\hat{w}_i} / \pi^{\sum \hat{w}_i} + \prod_i (1-p_i)^{\hat{w}_i} / (1-\pi)^{\sum \hat{w}_i}}
+\end{equation}
+
+\subsection{Certainty Measure}
+
+Agreement level from Jensen-Shannon divergence:
+\begin{equation}
+c = 1 - [H(A) - \sum_i \hat{w}_i H(p_i)]
+\end{equation}
+
+where $H(p) = -p\log_2 p - (1-p)\log_2(1-p)$. High certainty amplifies redistribution.
+
+\section{Bayesian Truth Serum}
+
+Measures information contribution of each participant.
+
+\subsection{Score Formula}
+
+\begin{equation}
+s_i = D_{\text{KL}}(p_i \| \bar{m}_{-i}) - D_{\text{KL}}(p_i \| \bar{p}_{-i}) - D_{\text{KL}}(\bar{p}_{-i} \| m_i)
+\end{equation}
+
+where $\bar{p}_{-i}$ and $\bar{m}_{-i}$ are leave-one-out aggregates excluding agent $i$.
+
+Positive scores indicate informative, accurate contributions. Negative scores indicate noise.
+
+\subsection{Zero-Sum Property}
+
+Weighted scores sum to zero:
+\begin{equation}
+\sum_i w_i \times s_i = 0
+\end{equation}
+
+Creates natural winner and loser sets for redistribution.
+
+\section{Stake Redistribution}
+
+\subsection{P90 Normalization}
+
+Compute 90th percentile scale factor:
+\begin{equation}
+k = \max(\text{P90}(|s_1|, |s_2|, \ldots, |s_n|), 0.1)
+\end{equation}
+
+Normalize scores to $[-1, 1]$:
+\begin{equation}
+\hat{s}_i = \text{clamp}\left(\frac{s_i}{k}, -1, +1\right)
+\end{equation}
+
+Prevents outliers from dominating redistribution.
+
+\subsection{Slashes and Rewards}
+
+For losers (negative scores):
+\begin{equation}
+\text{Slash}_i = c \times |\hat{s}_i| \times w_i
+\end{equation}
+
+For winners (positive scores):
+\begin{equation}
+\text{Reward}_i = \frac{\text{your signal strength}}{\text{total signal strength}} \times \text{total slashed}
+\end{equation}
+
+\subsection{Bounded Risk}
+
+You can never lose more than your lock in any single market:
+\begin{equation}
+\text{Slash}_i \leq L_{i,m}
+\end{equation}
+
+\section{ICBS Prediction Markets}
+
+\subsection{Market Structure}
+
+Each belief market has LONG and SHORT tokens. Traders buy LONG to express confidence, SHORT to express skepticism.
+
+\subsection{Inverse Coupling}
+
+When you buy LONG, SHORT gets cheaper.
+
+When you buy SHORT, LONG gets cheaper.
+
+This prevents pure hype spirals.
+
+\subsection{Market Prediction}
+
+The market's consensus forecast:
+\begin{equation}
+q = \frac{\text{LONG reserves}}{\text{LONG reserves} + \text{SHORT reserves}}
+\end{equation}
+
+\subsection{Settlement}
+
+At epoch end, compare market prediction $q$ to BD score $x$:
+
+\textbf{If LONG was right} ($x > q$):
+\begin{itemize}
+\item LONG reserves grow by factor $x/q$
+\item SHORT reserves shrink by factor $(1-x)/(1-q)$
+\end{itemize}
+
+\textbf{If SHORT was right} ($x < q$):
+\begin{itemize}
+\item SHORT reserves grow
+\item LONG reserves shrink
+\end{itemize}
+
+Total value locked stays constant. No tokens minted or burned.
+
+\section{Game Theory}
+
+\subsection{Nash Equilibrium}
+
+Rational traders buy LONG when they believe:
+\begin{equation}
+\E[\text{BD score}] > q
+\end{equation}
+
+At equilibrium, the market prediction equals expected truth:
+\begin{equation}
+q = \E[x]
+\end{equation}
+
+\subsection{Optimal Strategy}
+
+Rational participants trade based on expected BD score relative to market prediction:
+\begin{align}
+\E[x] > q &\implies \text{buy LONG} \\
+\E[x] < q &\implies \text{buy SHORT} \\
+\E[x] = q &\implies \text{hold}
+\end{align}
+
+\subsection{Sybil Resistance}
+
+Identity fragmentation provides no advantage. Total epistemic weight and expected rewards remain invariant under capital splitting:
+\begin{equation}
+\sum_{j \in \text{sybils}} w_j = w_{\text{original}}, \quad \sum_{j \in \text{sybils}} \E[\Delta S_j] = \E[\Delta S_{\text{original}}]
+\end{equation}
+
+\section{Protocol Lifecycle}
+
+\subsection{Trade Execution}
+
+Agent buys tokens, triggering lock calculation ($L = 0.02 \times \text{amount}$). If total lock requirement exceeds current stake, skim is collected atomically. Lock replaces previous lock for that position.
+
+\subsection{Epoch Processing}
+
+Participants submit beliefs $p_i$ and meta-predictions $m_i$. BD computes aggregate $A$ and certainty $c$. BTS scores $s_i$ are calculated. P90 normalization applied. Stakes redistributed via certainty-weighted slashes and proportional rewards.
+
+\subsection{Position Closure}
+
+Agent sells tokens to zero balance. Lock $L_{i,m}$ is released. Excess stake becomes withdrawable:
+\begin{equation}
+\text{Withdrawable} = S_i - \sum_{m \in \text{active}} L_{i,m}
+\end{equation}
+
+\section{Key Properties}
+
+The protocol exhibits the following properties:
+
+\begin{itemize}
+\item \textbf{Proportional influence}: Epistemic weight directly proportional to capital at risk
+\item \textbf{Automatic collateralization}: Seamless stake management via conditional skimming
+\item \textbf{Bounded risk}: Maximum loss per market bounded by lock amount
+\item \textbf{Zero-sum dynamics}: Total stake preserved across redistribution
+\item \textbf{Incentive compatibility}: Nash equilibrium at truthful reporting
+\item \textbf{Sybil resistance}: No advantage from identity fragmentation
+\end{itemize}
+
+\end{document}
