@@ -4,7 +4,32 @@
 
 This document outlines the complete ICBS lifecycle and explores the mechanics of settlement, redemption, and liquidity provision in the Euclidean norm Inversely Coupled Bonding Surface.
 
-## Core ICBS Mechanics (Current Implementation)
+## Single-Bucket vs Two-Bucket Architecture
+
+### Single-Bucket (Current Implementation)
+
+In the single-bucket design, all funds (trader deposits and LP deposits) go into one vault:
+- `vault_balance` contains both trader and LP funds
+- `λ = vault_balance / ||s_virtual||`
+- LPs receive directional tokens (LONG/SHORT)
+- LPs take on q-risk (exposure to market prediction changes)
+- Fully solvent but not risk-neutral for LPs
+
+### Two-Bucket (Proposed for Risk-Neutral LPs)
+
+In the two-bucket design, trader and LP funds are separated:
+- `trader_vault`: Backs LONG/SHORT token claims, drives pricing
+- `lp_vault`: LP principal only, separate accounting
+- `λ = trader_vault / ||s_virtual||` (excludes LP funds)
+- `effective_liquidity = trader_vault + lp_vault` (for pricing depth only)
+- LPs receive LP share tokens (not directional)
+- LPs are fully risk-neutral (no q-risk)
+
+**Key tradeoff**: Two-bucket provides virtual depth (better pricing) but not increased payout capacity (still bounded by `trader_vault`).
+
+The rest of this document describes single-bucket mechanics first, then proposes the two-bucket enhancement for risk-neutral LPs.
+
+## Core ICBS Mechanics (Single-Bucket)
 
 ### The Cost Function
 
@@ -44,9 +69,16 @@ This ensures solvency: total claimable value always matches what the vault holds
 
 ### Lambda is Derived, Not Stored
 
-In our implementation, lambda is computed dynamically:
+In our implementation, lambda is computed dynamically.
+
+**Single-bucket**:
 ```rust
 λ = vault_balance / ||s_virtual||
+```
+
+**Two-bucket** (for risk-neutral LPs):
+```rust
+λ = trader_vault / ||s_virtual||  // Excludes lp_vault
 ```
 
 Where:
@@ -58,9 +90,14 @@ s_virtual_SHORT = s_display_SHORT / σ_SHORT
 
 ### Why Lambda Changes
 
-Lambda changes when:
+**Single-bucket**:
 1. **Trading occurs**: Vault balance changes, virtual norm changes
-2. **LP deposits**: Vault balance increases, supplies increase
+2. **LP deposits at market ratio**: Vault balance increases, supplies increase proportionally
+3. **Settlement**: Sigma parameters change, affecting virtual supplies
+
+**Two-bucket**:
+1. **Trading occurs**: `trader_vault` changes, virtual norm changes
+2. **LP deposits**: Go to `lp_vault`, do NOT affect λ (key difference!)
 3. **Settlement**: Sigma parameters change, affecting virtual supplies
 
 ### Lambda and Market State
@@ -68,6 +105,7 @@ Lambda changes when:
 - **Balanced markets** (50/50): Lambda scales with √TVL
 - **Imbalanced markets**: Lambda can increase as market rebalances (norm decreases)
 - **After settlement**: Lambda adjusts automatically to maintain TVL = C
+- **Two-bucket**: Lambda only reflects trader capital, not LP capital
 
 ## Settlement Mechanism (Sigma Virtualization)
 
@@ -100,12 +138,15 @@ r_LONG_new = r_LONG_old × f_LONG
 r_SHORT_new = r_SHORT_old × f_SHORT
 
 // Recouple to maintain solvency
+// Note: vault_balance is trader_vault in two-bucket design
 if r_LONG_new + r_SHORT_new ≠ vault_balance:
     // Proportionally adjust to match vault
     scale = vault_balance / (r_LONG_new + r_SHORT_new)
     r_LONG_final = r_LONG_new × scale
     r_SHORT_final = r_SHORT_new × scale
 ```
+
+**Important**: In single-bucket, `vault_balance` includes all funds. In two-bucket, settlement only uses `trader_vault` and ignores `lp_vault`.
 
 ### What Settlement Does
 
@@ -232,7 +273,7 @@ Notice:
 
 ## Liquidity Provider Mechanisms
 
-### Current System: Directional LP
+### Single-Vault Directional LPs (baseline)
 
 When LPs add liquidity at market ratio q:
 ```
@@ -255,7 +296,7 @@ Even depositing at market ratio q:
 - Settlement changes token value
 - LP return ≠ principal (unless market perfectly predicted outcome)
 
-### LP Withdrawal and Solvency
+### LP Withdrawal and Solvency (single vault)
 
 #### The Key Insight: Proportional Withdrawal Preserves Market State
 
@@ -339,86 +380,124 @@ Settlement and redemption work normally!
 
 The pool doesn't need LP liquidity to remain solvent—it needs it for better price discovery and lower slippage.
 
-### Proposed: LP Share Tokens for True Risk Neutrality
+### Why Risk-Neutral LPs Need Separation
 
-To achieve perfect risk neutrality, create separate LP share tokens:
+In a single bucket, every dollar in the vault backs LONG/SHORT claims. Adding LP cash at q and minting tokens is solvent, but LP value still moves with q. To make LPs flat while keeping depth, their principal must be excluded from the pricing invariant.
+
+### Two-Bucket Architecture: Neutral LPs, Virtual Depth
+
+We separate trader collateral from LP principal but still use LP size to soften slippage:
 
 ```rust
-pub struct LPPosition {
-    shares: u64,           // LP share tokens
-    entry_tvl: u64,        // TVL when LP entered
-    entry_timestamp: i64,
+pub struct ICBSPool {
+    trader_vault: u64,   // backs LONG/SHORT claims and drives λ
+    lp_vault: u64,       // LP principal, not backing tokens
+    s_long: u64,
+    s_short: u64,
+    total_lp_shares: u64,
 }
 
-pub fn add_liquidity_neutral(ctx: Context<AddLiquidity>, amount: u64) -> Result<()> {
-    let pool = &mut ctx.accounts.pool;
-    let current_q = pool.r_long / (pool.r_long + pool.r_short);
+// Pricing invariant ignores LP principal
+lambda = trader_vault / ||s_virtual||
 
-    // Allocate at market ratio
-    let long_allocation = amount × current_q;
-    let short_allocation = amount × (1 - current_q);
+// Depth for price impact includes LP bucket
+effective_liquidity = trader_vault + lp_vault
+```
 
-    // Mint LP shares (not LONG/SHORT tokens)
-    let shares = amount × SHARE_PRECISION / pool.tvl;
-    mint_lp_shares(shares)?;
+#### Trade Flow with Virtual Depth
+1. Quote tokens using `effective_liquidity` to reduce slippage (treat pool as deeper).
+2. Trader pays into `trader_vault` only; `lp_vault` is untouched.
+3. Update `λ` from `trader_vault / ||s||`, mint/burn tokens from the trade as usual.
+4. LP bucket never absorbs directional PnL; it only sizes the curve for pricing.
 
-    // Add to vault
-    pool.vault_balance += amount;
-
-    Ok(())
+#### LP Shares (solvent and neutral)
+```rust
+fn mint_lp_shares(amount: u64) {
+    if total_lp_shares == 0 {
+        // Bootstrap: 1:1 with deposit
+        minted = amount;
+    } else {
+        minted = amount * total_lp_shares / lp_vault;
+    }
+    lp_vault += amount;
+    total_lp_shares += minted;
 }
 
-pub fn redeem_lp_shares(ctx: Context<RedeemLP>, shares: u64) -> Result<()> {
-    let pool = &ctx.accounts.pool;
-
-    // LP gets pro-rata share of current TVL
-    let payout = shares × pool.tvl / total_lp_shares;
-
-    // Transfer USDC, burn shares
-    transfer_from_vault(payout)?;
-    burn_lp_shares(shares)?;
-
-    Ok(())
+fn redeem_lp_shares(shares: u64) -> u64 {
+    let payout = shares * lp_vault / total_lp_shares;
+    total_lp_shares -= shares;
+    lp_vault -= payout;
+    return payout; // paid 1:1 (plus any accumulated fees if routed here)
 }
 ```
 
-**Key property**: LP shares represent pool ownership, not directional positions. At settlement, LPs get their pro-rata share of the vault regardless of outcome.
+#### Settlement and Redemption
+- Settlement adjusts sigma and reprices LONG/SHORT using `trader_vault` only.
+- Trader redemptions draw down `trader_vault`.
+- LP share redemptions draw from `lp_vault` only (no directional exposure).
 
-### LP Shares and Lambda Scaling
+#### What LPs Provide
+- **Virtual depth**: Lower slippage and larger quote capacity because pricing uses `trader_vault + lp_vault`.
+- **Neutrality**: LP value is invariant to q and settlement; only fee flows change it.
+- **Solvency**: No double-counting—token claims never include `lp_vault`.
 
-When LPs add liquidity:
-1. Vault balance increases
-2. Supplies increase (proportionally to current state)
-3. Lambda scales up: λ_new = (TVL_old + deposit) / ||s_virtual_new||
-4. Higher lambda → higher price ceiling
+#### Understanding Virtual Depth vs Actual Depth
 
-LP deposits dynamically expand the market's expressive range!
+**Virtual depth** means better pricing, not increased payout capacity:
+
+```
+Example:
+- trader_vault: $100
+- lp_vault: $900
+- effective_liquidity: $1,000 (for pricing calculations)
+
+Trader buys $50 of LONG:
+✓ Price calculated as if pool has $1,000 (low slippage)
+✓ Trader pays $50 into trader_vault → becomes $150
+✗ If LONG wins settlement, max payout is still $150 (not $1,000)
+
+The depth is "virtual" because:
+- LP funds improve price discovery during trading
+- But LP funds don't back token payouts at settlement
+- Winners can only claim from trader_vault
+```
+
+**Key insight**: Virtual depth provides better UX (smoother trading) without increasing capital efficiency for extreme outcomes. LPs earn fees for providing pricing service, not for taking settlement risk.
+
+**Caveat**: Ultimate payout capacity remains bounded by `trader_vault`. Additional mechanisms (trading fees routed to `lp_vault`, insurance pools, or hybrid collateralization) could bridge this gap but would reintroduce some risk for LPs.
 
 ## Complete ICBS Lifecycle
+
+The lifecycle is similar for both architectures, with key differences noted:
 
 ### 1. Deployment
 - Initial deposit creates pool
 - Calculate initial λ from deposit and initial supplies
 - Set σ_LONG = σ_SHORT = 1.0 (no virtualization)
+- **Two-bucket**: Initialize both `trader_vault` and `lp_vault` as separate
 
 ### 2. Trading Phase
 - Users buy/sell LONG and SHORT tokens
-- Lambda adjusts with every trade (derived from vault/norm)
+- **Single-bucket**: λ adjusts from `vault_balance / norm`
+- **Two-bucket**: λ adjusts from `trader_vault / norm` (excludes LP funds)
 - Prices change based on supply ratios
 - TVL = C maintained throughout
+- **Two-bucket**: Effective liquidity includes both vaults for pricing
 
 ### 3. Settlement
 - Protocol calculates BD score (0 to 1)
 - Adjust σ_LONG and σ_SHORT by √f
 - Reserves rebalance to reflect outcome
 - Prices update to reflect new sigma
-- Vault unchanged, tokens unchanged
+- **Single-bucket**: Vault unchanged, tokens unchanged
+- **Two-bucket**: Only `trader_vault` used for settlement, `lp_vault` untouched
 
 ### 4. Redemption
 - Enable redemption at settled rates
-- Users burn tokens, receive pro-rata USDC
-- All redemptions happen at same rate
-- Vault depletes as users exit
+- Traders burn tokens, receive pro-rata USDC from trader vault
+- **Two-bucket**: LPs redeem shares from `lp_vault` separately
+- All redemptions happen at same rate (per token class)
+- Vaults deplete as users exit
 - Pool closes when fully redeemed
 
 ## Open Questions and Future Work
@@ -499,7 +578,34 @@ The ICBS mechanism with sigma virtualization enables:
 4. **Natural return multiples** from entry price vs settlement outcome
 5. **Dynamic lambda** scaling with market depth
 
-The key insight: Settlement doesn't redistribute money directly - it reprices tokens via sigma adjustment. Redemption then converts this new pricing into actual USDC distribution.
+### Key Insights
+
+**Settlement mechanism**: Settlement doesn't redistribute money directly - it reprices tokens via sigma adjustment. Redemption then converts this new pricing into actual USDC distribution.
+
+**Single-bucket architecture** (current):
+- All funds in one vault
+- LPs receive directional tokens
+- Fully solvent but LPs take q-risk
+- Solvency maintained through proportional LP withdrawal
+
+**Two-bucket architecture** (proposed):
+- Separate `trader_vault` and `lp_vault`
+- Lambda excludes LP funds: `λ = trader_vault / ||s_virtual||`
+- LPs receive non-directional shares, fully risk-neutral
+- Provides **virtual depth**: Better pricing but not increased payout capacity
+- No double-counting, fully solvent
+
+### Architecture Tradeoffs
+
+| Feature | Single-Bucket | Two-Bucket |
+|---------|--------------|------------|
+| LP Risk | Directional (q-risk) | Neutral |
+| Depth Type | Real (backs payouts) | Virtual (pricing only) |
+| Payout Capacity | Full vault | trader_vault only |
+| LP Exit | Proportional at q | Anytime 1:1 |
+| Complexity | Lower | Higher |
+
+The choice depends on whether the priority is maximum capital efficiency (single-bucket) or risk-neutral LPs with better trading UX (two-bucket).
 
 This completes the ICBS lifecycle and enables true prediction market semantics while maintaining continuous market properties during the trading phase.
 
