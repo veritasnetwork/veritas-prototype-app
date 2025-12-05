@@ -88,24 +88,33 @@ s_virtual_SHORT = s_display_SHORT / σ_SHORT
 ||s_virtual|| = √(s²_virtual_LONG + s²_virtual_SHORT)
 ```
 
-### Why Lambda Changes
+### Lambda Constancy in On-Manifold ICBS
 
-**Single-bucket**:
-1. **Trading occurs**: Vault balance changes, virtual norm changes
-2. **LP deposits at market ratio**: Vault balance increases, supplies increase proportionally
-3. **Settlement**: Sigma parameters change, affecting virtual supplies
+**Key Insight**: λ = vault / ||ŝ|| is ALWAYS derived, never stored.
 
-**Two-bucket**:
-1. **Trading occurs**: `trader_vault` changes, virtual norm changes
-2. **LP deposits**: Go to `lp_vault`, do NOT affect λ (key difference!)
-3. **Settlement**: Sigma parameters change, affecting virtual supplies
+**During On-Manifold Trading:**
+- Vault and virtual norm scale proportionally: `norm₂ = norm₁ × (V₂/V₁)`
+- λ = vault / norm **stays constant** through all trades
+- All trade prices bounded by this constant λ
+- Both buys and sells preserve λ (if on-manifold)
 
-### Lambda and Market State
+**During Binary Settlement (f_winner = 1, f_loser = 0):**
+- Sigma adjustment transforms winning virtual supply to equal pre-settlement norm
+- s_v_winner' = √(s_L² + s_S²) = norm_before
+- norm_after = s_v_winner' = norm_before
+- λ = vault / norm **stays constant** through settlement
+- Redemption rate = λ (exactly!)
 
-- **Balanced markets** (50/50): Lambda scales with √TVL
-- **Imbalanced markets**: Lambda can increase as market rebalances (norm decreases)
-- **After settlement**: Lambda adjusts automatically to maintain TVL = C
-- **Two-bucket**: Lambda only reflects trader capital, not LP capital
+**Lambda ONLY changes when:**
+1. **Off-manifold trades** (bug in current code - needs fixing)
+2. **Fees extracted from vault** without proportional norm adjustment
+3. **Fractional settlement** (f_winner < 1, f_loser > 0) - norm reweights non-proportionally
+4. **Two-bucket architecture**: λ = trader_vault / norm (excludes LP vault)
+
+**Profit Guarantee**: With on-manifold trading + binary settlement + no fees:
+- Trade prices < λ (always)
+- Redemption = λ (exactly)
+- **Directionally correct traders CANNOT lose** (guaranteed profit)
 
 ## Settlement Mechanism (Sigma Virtualization)
 
@@ -284,17 +293,17 @@ LP deposits D dollars:
 ```
 
 **Problem**: LPs hold directional tokens, exposed to:
-1. Market movement between entry and settlement
-2. Lambda changes from trading/other LPs
-3. Path-dependent gains/losses
+1. **Directional risk (q-risk)**: Which side wins at settlement
+2. **Path-dependent returns**: Entry q vs settlement outcome determines profit/loss
+3. **Settlement impact**: Token values change when σ adjusts (even though λ stays constant in binary settlement)
 
-### Why LPs Aren't Risk-Neutral
+### Why LPs Aren't Risk-Neutral (Single-Bucket)
 
 Even depositing at market ratio q:
-- LPs receive fungible tokens at current prices
-- Lambda changes affect token value
-- Settlement changes token value
-- LP return ≠ principal (unless market perfectly predicted outcome)
+- LPs receive fungible directional tokens (LONG/SHORT)
+- These tokens gain/lose value based on settlement outcome
+- LP return ≠ principal unless market perfectly predicted outcome at their entry
+- **Note**: In on-manifold + binary settlement, λ stays constant, but directional token holdings still create risk
 
 ### LP Withdrawal and Solvency (single vault)
 
@@ -465,6 +474,32 @@ The depth is "virtual" because:
 **Key insight**: Virtual depth provides better UX (smoother trading) without increasing capital efficiency for extreme outcomes. LPs earn fees for providing pricing service, not for taking settlement risk.
 
 **Caveat**: Ultimate payout capacity remains bounded by `trader_vault`. Additional mechanisms (trading fees routed to `lp_vault`, insurance pools, or hybrid collateralization) could bridge this gap but would reintroduce some risk for LPs.
+
+## On-Manifold Trading Fix (Bug Note)
+
+We uncovered a BUY-path pricing bug: the vault was credited, λ was set to `vault_after / ||s_before||`, and Δs was solved with that λ while still using the old norm. That mints too few tokens (avg buy price can exceed both start and end marginals) because the post-trade state is off-manifold; the correct λ should be `vault_after / ||s_after||`.
+
+**Fix (one-sided buy, σ=1 for clarity):**
+```
+V2 = V1 + A
+norm2 = norm1 * (V2 / V1)
+s2 = sqrt(norm2^2 - s_other^2)
+Δs = s2 - s1
+λ_after = V2 / norm2
+```
+Recompute prices/reserves from `(s2, s_other, λ_after)` (apply in virtual space when σ ≠ 1). In code: add an on-manifold buy solver and in `trade.rs` derive `norm2 = norm1 * V2/V1`, then Δs and λ_after from that state. This keeps trades on the invariant (`r_long + r_short = vault`) and guarantees average buy price lies between the starting and ending marginal prices.
+
+## Binary Settlement Profit Guarantee (No Fees)
+
+Assumptions: on-manifold buys/sells (λ = vault/‖ŝ‖ each trade), σ applied only at settlement, binary outcome (f_winner=1, f_loser=0), and no fees/other vault drains.
+
+Proof sketch:
+- For any trade with the other side fixed, on-manifold update gives `norm_after = norm_before * (V_after/V_before)` ⇒ λ_after = λ_before (constant during trading). Prices are always < λ.
+- Binary settlement sends virtual norm to the winning side only; with f=1 the norm equals the winning virtual supply, so λ_settle = vault/‖ŝ_win‖ = λ (unchanged).
+- Redemption per winning virtual token = λ; display redemption is the same after applying σ.
+- Since all trade prices < λ and redemption = λ, any holder of the winning side strictly profits (no-loss guarantee) under these assumptions.
+
+Breakers of the guarantee: fees that leave the vault, fractional BD scores (f_winner<1), or reverting to off-manifold pricing.
 
 ## Complete ICBS Lifecycle
 
